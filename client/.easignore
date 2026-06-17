@@ -1,0 +1,25 @@
+# Dependency and Expo dirs
+node_modules/
+.expo/
+dist/
+web-build/
+
+# Native folders
+android/
+ios/
+
+# Built binaries
+*.apk
+*.aab
+builds/
+client/*.apk
+client/*.aab
+
+# Admin web app (completely unneeded for mobile build)
+admin/
+
+# Large assets (only keep assets/images/ since it's needed for icons)
+assets/fake data/
+assets/fake profile/
+assets/cities/
+assets/countries/
