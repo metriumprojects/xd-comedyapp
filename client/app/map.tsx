@@ -28,7 +28,7 @@ type Region = {
   longitudeDelta: number;
 };
 
-import { PostMarker, LiveStreamMarker } from '@/src/_components/map/MapMarkers';
+import { PostMarker } from '@/src/_components/map/MapMarkers';
 
 const IMAGE_PLACEHOLDER = 'L5H2EC=PM+yV0g-mq.wG9c010J}I';
 
@@ -51,20 +51,6 @@ interface PostType {
   isLive?: boolean;
 }
 
-interface LiveStream {
-  id: string;
-  userId: string;
-  userName: string;
-  userAvatar: string;
-  channelName?: string;
-  viewerCount: number;
-  isLive: boolean;
-  startedAt: any;
-  location?: {
-    latitude: number;
-    longitude: number;
-  };
-}
 
 const DEFAULT_REGION: Region = {
   latitude: 33.6844,
@@ -136,8 +122,7 @@ export default function MapScreen() {
 
   const [query, setQuery] = useState(initialQuery);
   const [viewerCoords, setViewerCoords] = useState<{ lat: number; lon: number } | null>(null);
-  const [liveStreams, setLiveStreams] = useState<LiveStream[]>([]);
-  const safeLiveStreams = Array.isArray(liveStreams) ? liveStreams : [];
+
 
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [suggestions, setSuggestions] = useState<LocationSuggestion[]>([]);
@@ -154,10 +139,7 @@ export default function MapScreen() {
   const debounceTimerRef = useRef<any>(null);
   const lastSuggestReqRef = useRef<number>(0);
 
-  const livePollTimerRef = useRef<any>(null);
-  const isFetchingLiveRef = useRef<boolean>(false);
-  const lastLiveFetchRef = useRef<number>(0);
-  const isMountedRef = useRef<boolean>(true);
+
 
   const [mapRegion, setMapRegion] = useState<Region | null>(DEFAULT_REGION);
   const [locationPermission, setLocationPermission] = useState<'granted'|'denied'|'unknown'>('unknown');
@@ -430,28 +412,10 @@ export default function MapScreen() {
     }
   }, [isValidLatLon, latParam, lonParam]);
 
-  const fetchLiveStreams = useCallback(async () => {
-    try {
-      const res: any = await apiService.get('/live-streams');
-      const data = res?.data;
-      const streams = Array.isArray(data?.streams)
-        ? data.streams
-        : (Array.isArray(data) ? data : []);
-
-      streams.sort((a: any, b: any) => (b.viewerCount || 0) - (a.viewerCount || 0));
-      setLiveStreams(streams);
-    } catch (err) {
-      setLiveStreams([]);
-    }
-  }, []);
-
   useFocusEffect(
     useCallback(() => {
-      fetchLiveStreams();
       centerOnUserLocation();
-      const t = setInterval(fetchLiveStreams, 5000);
-      return () => clearInterval(t);
-    }, [centerOnUserLocation, fetchLiveStreams])
+    }, [centerOnUserLocation])
   );
 
   const filteredPosts = safePosts.filter((p) => {

@@ -5,19 +5,16 @@
  */
 
 // Import implementations
-import ZeegocloudStreamingService from './implementations/ZeegocloudStreamingService';
 import { FirebaseStorageService } from './implementations/FirebaseStorageService';
 import { GoogleMapsService } from './implementations/GoogleMapsService';
 
 // Import interfaces
 import { IMapService } from './interfaces/IMapService';
-import { IStreamingService } from './interfaces/IStreamingService';
 
 // ==================== SERVICE INSTANCES ====================
 
 // Lazy initialization to avoid blocking app startup
 let _mapService: IMapService | null = null;
-let _streamingService: IStreamingService | null = null;
 let _storageService: FirebaseStorageService | null = null;
 
 /**
@@ -77,12 +74,7 @@ export const mapService: IMapService = {
  * Current: Zeegocloud
  * To swap: Replace with new TwilioService(), AWSIVSService(), etc.
  */
-export const getStreamingService = (): IStreamingService => {
-  if (!_streamingService) {
-    _streamingService = ZeegocloudStreamingService.getInstance();
-  }
-  return _streamingService as IStreamingService;
-};
+
 
 /**
  * Storage Service
@@ -97,22 +89,7 @@ export const getStorageService = () => {
 };
 
 // For backwards compatibility
-export const streamingService = {
-  initialize: async () => getStreamingService().initialize(),
-  destroy: async () => getStreamingService().destroy(),
-  isInitialized: () => _streamingService?.isInitialized() || false,
-  joinChannel: async (channelName: string, userId: string, isHost: boolean = false) => getStreamingService().joinChannel(channelName, userId, isHost),
-  leaveChannel: async () => getStreamingService().leaveChannel(),
-  muteAudio: async () => getStreamingService().muteAudio(),
-  unmuteAudio: async () => getStreamingService().unmuteAudio(),
-  enableVideo: async () => getStreamingService().enableVideo(),
-  disableVideo: async () => getStreamingService().disableVideo(),
-  switchCamera: async () => getStreamingService().switchCamera(),
-  onUserJoined: (callback: (userId: string) => void) => getStreamingService().onUserJoined(callback),
-  onUserLeft: (callback: (userId: string) => void) => getStreamingService().onUserLeft(callback),
-  onConnectionStateChanged: (callback: (state: string) => void) => getStreamingService().onConnectionStateChanged(callback),
-  onError: (callback: (error: Error) => void) => getStreamingService().onError(callback),
-};
+
 
 export const storageService = {
   uploadImage: async (uri: string, path: string) => getStorageService().uploadImage(uri, path),
@@ -147,14 +124,8 @@ export async function cleanupServices(): Promise<void> {
   try {
     console.log('Cleaning up services...');
     
-    // Cleanup streaming service if initialized
-    if (_streamingService?.isInitialized()) {
-      await _streamingService.destroy();
-    }
-    
     // Reset instances
     _mapService = null;
-    _streamingService = null;
     _storageService = null;
     
     console.log('All services cleaned up successfully');
@@ -166,4 +137,4 @@ export async function cleanupServices(): Promise<void> {
 
 // ==================== EXPORTS ====================
 
-export { IMapService, IStreamingService };
+export { IMapService };

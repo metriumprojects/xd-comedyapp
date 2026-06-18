@@ -121,7 +121,7 @@ export const ReelItem: React.FC<ReelItemProps> = ({
   useEffect(() => {
     if (!post) return;
     const myId = String(currentUser?._id || currentUser?.id || currentUser?.uid || currentUser?.firebaseUid || '');
-    
+
     // Sync isSaved
     if (post.isSaved !== undefined) {
       setIsSaved(post.isSaved);
@@ -338,11 +338,11 @@ export const ReelItem: React.FC<ReelItemProps> = ({
 
   // Handle Laugh (😂) Rating Press
   const handleLaughPress = useCallback(async () => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => { });
     const newLaughed = !hasLaughed;
     setHasLaughed(newLaughed);
     setLaughCount((prev: number) => newLaughed ? prev + 1 : prev - 1);
-    
+
     // Toggle off tomato if user had rated it bad
     if (newLaughed && hasTomatoed) {
       setHasTomatoed(false);
@@ -358,11 +358,11 @@ export const ReelItem: React.FC<ReelItemProps> = ({
 
   // Handle Tomato (🍅) Rating Press
   const handleTomatoPress = useCallback(async () => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => { });
     const newTomatoed = !hasTomatoed;
     setHasTomatoed(newTomatoed);
     setTomatoCount((prev: number) => newTomatoed ? prev + 1 : prev - 1);
-    
+
     // Toggle off laugh if user had rated it funny
     if (newTomatoed && hasLaughed) {
       setHasLaughed(false);
@@ -965,12 +965,12 @@ export const ReelItem: React.FC<ReelItemProps> = ({
             <Text style={styles.lockedDesc}>
               Subscribe to @{postUserName} to unlock this post and support their work.
             </Text>
-            
-            <TouchableOpacity 
+
+            <TouchableOpacity
               activeOpacity={0.8}
               style={styles.lockedSubscribeBtn}
               onPress={() => {
-                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => { });
                 setSubModalVisible(true);
               }}
             >
@@ -1043,7 +1043,7 @@ const styles = StyleSheet.create({
   },
   rightOverlay: {
     position: 'absolute',
-    right: 12,
+    right: 8,
     bottom: 98,
     alignItems: 'center',
     zIndex: 15,
@@ -1099,7 +1099,8 @@ const styles = StyleSheet.create({
   },
   captionContainer: {
     alignItems: 'flex-start',
-    gap: 4
+    gap: 4,
+    paddingRight: 60
   },
   usernameText: {
     color: '#ffffff',

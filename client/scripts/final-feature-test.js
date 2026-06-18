@@ -10,7 +10,6 @@ console.log('✅ Navigation: Expo Router v6');
 console.log('✅ Authentication: Firebase + JWT tokens');
 console.log('✅ Database: Backend API (Node.js/MongoDB)');
 console.log('✅ Real-time: Socket.IO for messaging');
-console.log('✅ Live Streaming: ZegoCloud');
 console.log('✅ Media: Cloudinary for images/videos');
 
 console.log('\n🔧 API SERVICE ANALYSIS:');
@@ -33,7 +32,6 @@ console.log('✅ Post Creation (Text, Images, Videos, Location)');
 console.log('✅ Feed System (Pagination, Privacy Filter, Categories)');
 console.log('✅ Social Features (Like, Comment, Follow, Save)');
 console.log('✅ Stories & Highlights');
-console.log('✅ Live Streaming (Host & Watch)');
 console.log('✅ Direct Messaging (Real-time)');
 console.log('✅ Location Features (Maps, Passport Stamps)');
 console.log('✅ Media Upload & Optimization');

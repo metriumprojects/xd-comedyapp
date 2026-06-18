@@ -32,20 +32,7 @@ interface PostType {
   isLive?: boolean;
 }
 
-interface LiveStream {
-  id: string;
-  userId: string;
-  userName: string;
-  userAvatar: string;
-  channelName?: string;
-  viewerCount: number;
-  isLive: boolean;
-  startedAt: any;
-  location?: {
-    latitude: number;
-    longitude: number;
-  };
-}
+
 
 export const PostMarker = React.memo(({ post, postsAtLocation, onSelect }: { 
   post: PostType; 
@@ -110,46 +97,6 @@ export const PostMarker = React.memo(({ post, postsAtLocation, onSelect }: {
   );
 });
 
-export const LiveStreamMarker = React.memo(({ stream }: { stream: LiveStream }) => {
-  const router = useRouter();
-  if (!Marker || !stream.location) return null;
-
-  return (
-    <Marker
-      coordinate={{ latitude: stream.location.latitude, longitude: stream.location.longitude }}
-      anchor={{ x: 0.5, y: 0.5 }}
-      onPress={() => {
-        router.push({
-          pathname: '/watch-live' as any,
-          params: {
-            streamId: (stream as any)?.id || (stream as any)?._id,
-            roomId: (stream as any)?.roomId || stream.channelName || (stream as any)?.id,
-            channelName: stream.channelName || (stream as any)?.id,
-            title: (stream as any)?.title,
-            hostName: (stream as any)?.userName,
-            hostAvatar: (stream as any)?.userAvatar,
-          }
-        });
-      }}
-    >
-      <View style={styles.liveMarkerContainer}>
-        <View style={styles.liveBadgeNew}>
-          <Text style={styles.liveText}>LIVE</Text>
-        </View>
-        <View style={styles.liveAvatarOutside}>
-          <ExpoImage
-            source={{ uri: stream.userAvatar || DEFAULT_AVATAR_URL }}
-            style={styles.liveAvatarNew}
-            contentFit="cover"
-            cachePolicy="memory-disk"
-            placeholder={IMAGE_PLACEHOLDER}
-            transition={120}
-          />
-        </View>
-      </View>
-    </Marker>
-  );
-});
 
 const styles = StyleSheet.create({
   markerContainer: {
@@ -196,45 +143,5 @@ const styles = StyleSheet.create({
   postAvatarImgFixed: {
     width: '100%',
     height: '100%',
-  },
-  liveMarkerContainer: {
-    width: 56,
-    height: 56,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  liveAvatarOutside: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    borderWidth: 2.5,
-    borderColor: '#FF3B30',
-    backgroundColor: '#fff',
-    overflow: 'hidden',
-    shadowColor: '#FF3B30',
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.5,
-    shadowRadius: 6,
-    elevation: 6,
-  },
-  liveAvatarNew: {
-    width: '100%',
-    height: '100%',
-  },
-  liveBadgeNew: {
-    position: 'absolute',
-    top: -4,
-    zIndex: 10,
-    backgroundColor: '#FF3B30',
-    paddingHorizontal: 6,
-    paddingVertical: 1,
-    borderRadius: 4,
-    borderWidth: 1.5,
-    borderColor: '#fff',
-  },
-  liveText: {
-    color: '#fff',
-    fontSize: 9,
-    fontWeight: '900',
   },
 });

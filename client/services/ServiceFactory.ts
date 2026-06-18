@@ -7,17 +7,14 @@
  * 3. That's it! No need to change code anywhere else
  */
 
-import { AgoraLiveStreamService } from './implementations/AgoraLiveStreamService';
 import { FirebaseAuthService } from './implementations/FirebaseAuthService';
 import { FirebaseDatabaseService } from './implementations/FirebaseDatabaseService';
 import { IAuthService } from './interfaces/IAuthService';
 import { IDatabaseService } from './interfaces/IDatabaseService';
-import { ILiveStreamService } from './interfaces/ILiveStreamService';
 
 class ServiceFactory {
   private static authService: IAuthService | null = null;
   private static databaseService: IDatabaseService | null = null;
-  private static liveStreamService: ILiveStreamService | null = null;
 
   /**
    * Get Authentication Service
@@ -45,18 +42,7 @@ class ServiceFactory {
     return this.databaseService;
   }
 
-  /**
-   * Get Live Stream Service
-   * 
-   * To switch from Agora to Twilio:
-   * return new TwilioLiveStreamService();
-   */
-  static getLiveStreamService(): ILiveStreamService {
-    if (!this.liveStreamService) {
-      this.liveStreamService = new AgoraLiveStreamService();
-    }
-    return this.liveStreamService;
-  }
+
 
   /**
    * Reset all services (useful for testing or logout)
@@ -64,7 +50,6 @@ class ServiceFactory {
   static reset(): void {
     this.authService = null;
     this.databaseService = null;
-    this.liveStreamService = null;
   }
 }
 

@@ -5,7 +5,6 @@ export * from './conversation';
 export { deleteStory } from './deleteStory';
 export * from './follow';
 export * from './highlights';
-export * from './live';
 export * from './messages';
 export * from './notification';
 export * from './passport';

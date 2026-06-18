@@ -722,8 +722,7 @@ function TopMenu({ setMenuVisible, setGroupsDrawerVisible }: { setMenuVisible: (
     }
     if (type === 'message' || type === 'dm') return `/dm?otherUserId=${item?.senderId}`;
     if (type === 'live') {
-      if (item?.streamId) return `/watch-live?roomId=${encodeURIComponent(String(item.streamId))}`;
-      return '/(tabs)/map';
+      return '/(tabs)/home';
     }
     if (type === 'story' || type === 'story-mention' || type === 'story-reply') {
       if (item?.storyId) return `/(tabs)/home?storyId=${encodeURIComponent(String(item.storyId))}`;
