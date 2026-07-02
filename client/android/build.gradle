@@ -40,3 +40,12 @@ allprojects {
         maven { url 'https://www.jitpack.io' }
     }
 }
+
+subprojects { project ->
+    project.tasks.configureEach { task ->
+        if (task.name == 'generateCodegenArtifactsFromSchema') {
+            task.dependsOn(':sentry-react-native:generateCodegenSchemaFromJavaScript')
+        }
+    }
+}
+
