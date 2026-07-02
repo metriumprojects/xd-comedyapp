@@ -28,7 +28,7 @@ export default function CreatePostScreen() {
   const {
     step, setStep, loading, caption, setCaption, hashtags, setHashtags,
     hashtagInput, setHashtagInput, visibility, setVisibility,
-    selectedGroupId, setSelectedGroupId, userGroups,
+    selectedGroupId, setSelectedGroupId, subscriptionTierId, setSubscriptionTierId, userGroups,
     selectedImages, setSelectedImages, location, setLocation,
     verifiedLocation, setVerifiedLocation, taggedUsers, setTaggedUsers,
     selectedCategories, setSelectedCategories, categories,
@@ -138,6 +138,7 @@ export default function CreatePostScreen() {
                 onOpenTagPeople={() => setShowTagModal(true)}
                 onRemoveTaggedUser={(uid) => setTaggedUsers(taggedUsers.filter(u => u.uid !== uid))}
                 visibility={visibility}
+                subscriptionTierId={subscriptionTierId}
                 onOpenVisibility={() => setShowVisibilityModal(true)}
               />
             </ScrollView>
@@ -224,6 +225,8 @@ export default function CreatePostScreen() {
         setVisibility={setVisibility}
         selectedGroupId={selectedGroupId}
         setSelectedGroupId={setSelectedGroupId}
+        subscriptionTierId={subscriptionTierId}
+        setSubscriptionTierId={setSubscriptionTierId}
         userGroups={userGroups}
         panHandlers={dummyPanHandlers as any}
       />

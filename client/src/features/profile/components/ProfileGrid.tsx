@@ -39,10 +39,10 @@ const ProfileGrid: React.FC<ProfileGridProps> = ({
   currentUserId = null,
   creatorPosts = []
 }) => {
-  const numCols = segmentTab === 'grid' || segmentTab === 'tagged' ? 2 : 1;
+  const numCols = segmentTab === 'grid' || segmentTab === 'tagged' || segmentTab === 'heart' ? 2 : 1;
   return (
     <FlashList
-      key={`profile-list-${segmentTab}-${numCols}`}
+      key={`profile-list-${numCols}`}
       data={posts}
       keyExtractor={(item, index) => item.id || item._id || `post-${index}`}
       renderItem={({ item, index }) => (
@@ -66,10 +66,10 @@ const ProfileGrid: React.FC<ProfileGridProps> = ({
         if (segmentTab === 'heart') {
           return (
             <View style={{ padding: 40, alignItems: 'center' }}>
-              <Ionicons name="star" size={48} color="#FFD60A" />
-              <Text style={{ marginTop: 10, color: '#999', fontWeight: '600' }}>No exclusive posts yet</Text>
+              <Ionicons name="heart-outline" size={48} color="#ccc" />
+              <Text style={{ marginTop: 10, color: '#999', fontWeight: '600' }}>No liked reels yet</Text>
               <Text style={{ marginTop: 4, color: '#bbb', fontSize: 12, textAlign: 'center' }}>
-                Exclusive content for subscribers will appear here.
+                Reels liked by this user will appear here.
               </Text>
             </View>
           );

@@ -9,7 +9,8 @@ export type FeedEventType =
   | 'HIGHLIGHT_DELETED'
   | 'USER_PRIVACY_CHANGED'
   | 'USER_BLOCKED'
-  | 'USER_UNBLOCKED';
+  | 'USER_UNBLOCKED'
+  | 'USER_SUBSCRIBED';
 
 export interface FeedEvent {
   type: FeedEventType;
@@ -94,6 +95,10 @@ class FeedEventEmitter extends EventEmitter {
 
   emitUserUnblocked(userId: string) {
     this.emitFeedUpdate({ type: 'USER_UNBLOCKED', userId });
+  }
+
+  emitUserSubscribed(creatorId: string, data?: any) {
+    this.emitFeedUpdate({ type: 'USER_SUBSCRIBED', userId: creatorId, data });
   }
 }
 

@@ -40,6 +40,9 @@ require('./models/Report');
 require('./models/Block');
 require('./models/AdminLog');
 require('./models/Region');
+require('./models/Subscription');
+require('./models/SubscriptionTier');
+require('./models/Withdrawal');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -100,6 +103,8 @@ app.use((req, res, next) => {
 app.use(helmet({ contentSecurityPolicy: false })); // Disable CSP for easier dev testing
 app.use(mongoSanitize());
 app.use(hpp());
+// Stripe webhook needs raw body for signature verification — must come BEFORE json parser
+app.use('/api/subscriptions/webhook', express.raw({ type: 'application/json' }));
 // Reduced from 50mb to 5mb to prevent DDoS payload attacks
 app.use(express.json({ limit: '5mb' }));
 app.use(express.urlencoded({ extended: true, limit: '5mb' }));
@@ -119,7 +124,21 @@ mongoose.connect(mongoUri, {
   serverSelectionTimeoutMS: 10000, // Fail fast if DB unreachable
   socketTimeoutMS: 45000,
 })
-  .then(() => console.log('✅ MongoDB connected'))
+  .then(async () => {
+    console.log('✅ MongoDB connected');
+    try {
+      await mongoose.connection.db.collection('subscriptiontiers').dropIndex('creatorId_1');
+      console.log('✅ Dropped unique index creatorId_1 on subscriptiontiers');
+    } catch (e) {
+      // Index might not exist or is already dropped
+    }
+    try {
+      await mongoose.connection.db.collection('subscriptions').dropIndex('subscriberId_1_creatorId_1');
+      console.log('✅ Dropped unique index subscriberId_1_creatorId_1 on subscriptions');
+    } catch (e) {
+      // Index might not exist or is already dropped
+    }
+  })
   .catch(err => {
     console.error('🔴 FATAL: MongoDB connection failed:', err.message);
     process.exit(1); // Do NOT start serving requests with no DB
@@ -139,7 +158,7 @@ const errorAlertMiddleware = require('./middleware/errorAlertMiddleware');
 app.use(errorAlertMiddleware);
 
 app.get('/', (req, res) => {
-  res.json({ message: 'Trips API is running', version: '1.2.0' });
+  res.json({ message: 'Comedy App API is running', version: '1.2.0' });
 });
 
 // ============= 404 HANDLER =============

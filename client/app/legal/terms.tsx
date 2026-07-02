@@ -23,12 +23,12 @@ export default function TermsOfServiceScreen() {
 
         <Text style={styles.sectionTitle}>1. Eligibility</Text>
         <Text style={styles.paragraph}>
-          You must comply with all applicable laws when using Trips. Users under the age required by local law must have permission from a parent or guardian where applicable.
+          You must comply with all applicable laws when using Comedy App. Users under the age required by local law must have permission from a parent or guardian where applicable.
         </Text>
 
         <Text style={styles.sectionTitle}>2. User Content</Text>
         <Text style={styles.paragraph}>
-          Trips allows users to create, upload, stream, share, and interact with user-generated content, including videos, images, messages, and profile information.
+          Comedy App allows users to create, upload, stream, share, and interact with user-generated content, including videos, images, messages, and profile information.
           You are solely responsible for the content you post and the interactions you engage in through the platform.
         </Text>
 
@@ -48,16 +48,16 @@ export default function TermsOfServiceScreen() {
 
         <Text style={styles.sectionTitle}>4. Moderation and Enforcement</Text>
         <Text style={styles.paragraph}>
-          Trips reserves the right to monitor, review, remove, restrict, or disable any content or account at our discretion where necessary to maintain platform safety, enforce these Terms, or comply with legal obligations.
+          Comedy App reserves the right to monitor, review, remove, restrict, or disable any content or account at our discretion where necessary to maintain platform safety, enforce these Terms, or comply with legal obligations.
           Violations may result in content removal, temporary suspension, permanent account termination, or reporting to relevant authorities.
         </Text>
 
         <Text style={styles.sectionTitle}>5. Reporting and Blocking</Text>
         <Text style={[styles.paragraph, { fontWeight: '600', color: '#e0245e' }]}>
-          Trips has a zero-tolerance policy for objectionable content or abusive users.
+          Comedy App has a zero-tolerance policy for objectionable content or abusive users.
         </Text>
         <Text style={styles.paragraph}>
-          Trips provides mechanisms for users to:{'\n'}
+          Comedy App provides mechanisms for users to:{'\n'}
           • Report objectionable or abusive content{'\n'}
           • Report users who violate these Terms{'\n'}
           • Block users to prevent further interaction{'\n\n'}
@@ -66,7 +66,7 @@ export default function TermsOfServiceScreen() {
 
         <Text style={styles.sectionTitle}>6. Safety Filtering</Text>
         <Text style={styles.paragraph}>
-          Trips uses moderation tools, automated systems, user reporting, and manual review processes to help detect and reduce objectionable content and abusive behavior.
+          Comedy App uses moderation tools, automated systems, user reporting, and manual review processes to help detect and reduce objectionable content and abusive behavior.
           However, we cannot guarantee that all harmful content will be identified or removed immediately.
         </Text>
 
@@ -77,19 +77,19 @@ export default function TermsOfServiceScreen() {
 
         <Text style={styles.sectionTitle}>8. Intellectual Property</Text>
         <Text style={styles.paragraph}>
-          All platform content, branding, software, and materials provided by Trips are owned by Trips or its licensors and may not be copied, modified, distributed, or exploited without permission.
-          Users retain ownership of content they create but grant Trips a worldwide, non-exclusive license to host, display, reproduce, and distribute such content solely for operating and improving the Services.
+          All platform content, branding, software, and materials provided by Comedy App are owned by Comedy App or its licensors and may not be copied, modified, distributed, or exploited without permission.
+          Users retain ownership of content they create but grant Comedy App a worldwide, non-exclusive license to host, display, reproduce, and distribute such content solely for operating and improving the Services.
         </Text>
 
         <Text style={styles.sectionTitle}>9. Disclaimer</Text>
         <Text style={styles.paragraph}>
-          Trips is provided on an “as is” and “as available” basis without warranties of any kind.
+          Comedy App is provided on an “as is” and “as available” basis without warranties of any kind.
           We do not guarantee uninterrupted availability, security, or error-free operation of the Services.
         </Text>
 
         <Text style={styles.sectionTitle}>10. Limitation of Liability</Text>
         <Text style={styles.paragraph}>
-          To the maximum extent permitted by law, Trips shall not be liable for indirect, incidental, consequential, or punitive damages arising from use of the platform, user content, or interactions between users.
+          To the maximum extent permitted by law, Comedy App shall not be liable for indirect, incidental, consequential, or punitive damages arising from use of the platform, user content, or interactions between users.
         </Text>
 
         <Text style={styles.sectionTitle}>11. Changes to These Terms</Text>
@@ -99,11 +99,11 @@ export default function TermsOfServiceScreen() {
 
         <Text style={styles.sectionTitle}>12. Contact</Text>
         <Text style={styles.paragraph}>
-          For questions regarding these Terms, contact: support@trips.app
+          For questions regarding these Terms, contact: support@comedyapp.com
         </Text>
 
         <Text style={styles.paragraph}>
-          By using Trips, you agree to these Terms of Service.
+          By using Comedy App, you agree to these Terms of Service.
         </Text>
 
         <TouchableOpacity 

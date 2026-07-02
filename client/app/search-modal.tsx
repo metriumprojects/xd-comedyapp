@@ -23,6 +23,7 @@ import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context"
 import { searchUsers } from "../lib/firebaseHelpers/index";
 import { safeRouterBack } from '@/lib/safeRouterBack';
 import { getVideoThumbnailUrl } from '../lib/imageHelpers';
+import { useLazyLoad } from '../hooks/usePerformance';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const RECENT_SEARCHES_KEY = 'recent_searches_comedy_reels';
@@ -30,6 +31,7 @@ const RECENT_SEARCHES_KEY = 'recent_searches_comedy_reels';
 type TabType = 'posts' | 'videos' | 'image' | 'users' | 'location' | 'laugh' | 'tomato';
 
 export default function SearchModal() {
+  const isReady = useLazyLoad();
   const [q, setQ] = useState<string>('');
   const [searchActive, setSearchActive] = useState<boolean>(false);
   const [recentSearches, setRecentSearches] = useState<string[]>([]);
@@ -109,6 +111,40 @@ export default function SearchModal() {
       executeSearch(q, activeTab);
     }
   }, [activeTab, searchActive]);
+
+  if (!isReady) {
+    return (
+      <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
+        <View style={styles.headerSearchRow}>
+          <TouchableOpacity
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+              safeRouterBack();
+            }}
+            style={styles.backBtn}
+          >
+            <Feather name="arrow-left" size={24} color="#111" />
+          </TouchableOpacity>
+
+          <View style={styles.searchBarContainer}>
+            <Feather name="search" size={18} color="#666" style={styles.searchIcon} />
+            <TextInput
+              style={styles.searchInput}
+              placeholder="Search funny posts..."
+              placeholderTextColor="#999"
+              editable={false}
+            />
+          </View>
+          <View style={styles.searchButton}>
+            <Text style={styles.searchButtonText}>Search</Text>
+          </View>
+        </View>
+        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+          <ActivityIndicator size="small" color="#007aff" />
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   // Handle submit/execute search action
   const handleSearchSubmit = async (queryText: string) => {

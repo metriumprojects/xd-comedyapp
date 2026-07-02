@@ -22,6 +22,20 @@ try {
   console.warn('expo-image-picker not available');
 }
 
+// Preset app categories for creator profile tags
+const PRESET_CATEGORIES = [
+  'Stand Up',
+  'Pranks',
+  'Comics',
+  'Podium',
+  'Memes',
+  'Vlogs',
+  'Improv',
+  'Parody',
+  'Sketches',
+  'Roasts'
+];
+
 export default function EditProfile() {
     // Default avatar from Firebase Storage
     
@@ -60,6 +74,30 @@ export default function EditProfile() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isPrivate, setIsPrivate] = useState(false);
+
+  // Parse comma-separated interests string into an array
+  const selectedInterests = React.useMemo(() => {
+    if (typeof interests === 'string' && interests.trim()) {
+      return interests.split(/[\s,]+/).map(s => s.trim()).filter(Boolean);
+    }
+    return [];
+  }, [interests]);
+
+  // Toggle category selection
+  const handleToggleInterest = (category: string) => {
+    hapticLight();
+    let current = [...selectedInterests];
+    if (current.includes(category)) {
+      current = current.filter(c => c !== category);
+    } else {
+      if (current.length >= 3) {
+        Alert.alert('Limit Reached', 'You can select a maximum of 3 categories.');
+        return;
+      }
+      current.push(category);
+    }
+    setInterests(current.join(', '));
+  };
 
   // Load profile whenever userId changes
   useEffect(() => {
@@ -384,16 +422,32 @@ export default function EditProfile() {
           </View>
 
           <View style={styles.formGroup}>
-            <Text style={styles.fieldLabel}>Interests</Text>
-            <TextInput
-              value={interests}
-              onChangeText={setInterests}
-              style={[styles.input, { height: 80 }]}
-              placeholder="e.g., Photography, Travel, Food"
-              placeholderTextColor="#999"
-              multiline
-              numberOfLines={4}
-            />
+            <Text style={styles.fieldLabel}>Interests (Choose up to 3)</Text>
+            <View style={styles.chipsContainer}>
+              {PRESET_CATEGORIES.map((category) => {
+                const isSelected = selectedInterests.includes(category);
+                return (
+                  <TouchableOpacity
+                    key={category}
+                    style={[
+                      styles.categoryChip,
+                      isSelected && styles.categoryChipSelected
+                    ]}
+                    onPress={() => handleToggleInterest(category)}
+                    activeOpacity={0.8}
+                  >
+                    <Text
+                      style={[
+                        styles.categoryChipText,
+                        isSelected && styles.categoryChipTextSelected
+                      ]}
+                    >
+                      {category}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
           </View>
 
           {/* Privacy Toggle (temporarily disabled)
@@ -644,6 +698,35 @@ const styles = StyleSheet.create({
     color: '#fff', 
     fontWeight: '600', 
     fontSize: 15 
+  },
+  // Preset Category Chip Styles
+  chipsContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginTop: 6,
+    width: '100%',
+  },
+  categoryChip: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
+    backgroundColor: '#f5f5f7',
+    borderWidth: 1,
+    borderColor: '#e5e5ea',
+  },
+  categoryChipSelected: {
+    backgroundColor: '#00a2ff',
+    borderColor: '#00a2ff',
+  },
+  categoryChipText: {
+    fontSize: 13,
+    color: '#666',
+    fontWeight: '500',
+  },
+  categoryChipTextSelected: {
+    color: '#fff',
+    fontWeight: '600',
   },
 });
 

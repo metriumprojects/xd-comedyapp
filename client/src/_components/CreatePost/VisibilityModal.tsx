@@ -12,6 +12,8 @@ interface VisibilityModalProps {
   setVisibility: (v: string) => void;
   selectedGroupId: string | null;
   setSelectedGroupId: (id: string | null) => void;
+  subscriptionTierId: string | null;
+  setSubscriptionTierId: (id: string | null) => void;
   userGroups: any[];
   panHandlers: any;
 }
@@ -23,10 +25,13 @@ const VisibilityModal: React.FC<VisibilityModalProps> = ({
   setVisibility,
   selectedGroupId,
   setSelectedGroupId,
+  subscriptionTierId,
+  setSubscriptionTierId,
   userGroups: propGroups,
   panHandlers,
 }) => {
   const [liveGroups, setLiveGroups] = useState<any[]>(propGroups || []);
+  const [tiers, setTiers] = useState<any[]>([]);
 
   useEffect(() => {
     if (propGroups) {
@@ -36,23 +41,29 @@ const VisibilityModal: React.FC<VisibilityModalProps> = ({
 
   useEffect(() => {
     if (visible) {
-      const fetchGroups = async () => {
+      const fetchGroupsAndTiers = async () => {
         try {
           const uid = await AsyncStorage.getItem('userId');
           if (uid) {
+            // Fetch groups
             const res = await apiService.get(`/groups?userId=${uid}&_t=${Date.now()}`, { bypassDedupe: true });
             if (res?.success && Array.isArray(res.data)) {
               setLiveGroups(res.data);
             } else if (Array.isArray(res)) {
               setLiveGroups(res);
             }
+
+            // Fetch active subscription tiers
+            const tiersRes = await apiService.get(`/subscriptions/tiers/${uid}`);
+            if (tiersRes?.success && Array.isArray(tiersRes.data)) {
+              setTiers(tiersRes.data);
+            }
           }
         } catch (err: any) {
-          console.warn('[VisibilityModal] failed to fetch groups:', err);
-          // Alert.alert('Error', err.message); // Uncomment if we need to see it on screen
+          console.warn('[VisibilityModal] failed to fetch groups/tiers:', err);
         }
       };
-      fetchGroups();
+      fetchGroupsAndTiers();
     }
   }, [visible]);
 
@@ -88,41 +99,52 @@ const VisibilityModal: React.FC<VisibilityModalProps> = ({
 
           <ScrollView style={{ maxHeight: 380 }} showsVerticalScrollIndicator={false}>
             {[
-              { label: 'Everyone', type: 'everyone', groupId: null },
-              { label: 'Subscribers Only', type: 'subscribers', groupId: null },
+              { label: 'Everyone', type: 'everyone', groupId: null, tierId: null },
+              ...tiers.map(t => ({
+                label: `Subscribers: ${t.title}`,
+                type: 'subscribers',
+                groupId: null,
+                tierId: t._id,
+              })),
               ...liveGroups.map(g => ({
                 label: g.name,
                 type: g.type,
                 groupId: g._id || g.id,
+                tierId: null,
               })),
             ].map((option, idx) => {
 
               const isSelected = option.type === 'subscribers'
-                ? visibility === 'Subscribers'
+                ? (visibility === 'Subscribers' && (option.tierId ? subscriptionTierId === option.tierId : !subscriptionTierId))
                 : option.groupId
                   ? selectedGroupId === option.groupId
                   : visibility === 'Everyone' && !selectedGroupId;
+
               const iconName =
                 option.type === 'everyone' ? 'globe'
                   : option.type === 'subscribers' ? 'star'
                     : option.type === 'friends' ? 'users'
                       : option.type === 'family' ? 'home'
                         : 'layers';
+
               return (
                 <TouchableOpacity
-                  key={option.type === 'subscribers' ? 'subscribers' : (option.groupId || `everyone-${idx}`)}
+                  key={option.type === 'subscribers' ? (option.tierId ? `tier-${option.tierId}` : 'subscribers-generic') : (option.groupId || `everyone-${idx}`)}
                   style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 12, paddingHorizontal: 8, backgroundColor: isSelected ? '#f2f2f2' : 'transparent', borderRadius: 12, marginBottom: 4 }}
                   onPress={() => {
                     hapticLight();
                     if (option.type === 'subscribers') {
                       setVisibility('Subscribers');
                       setSelectedGroupId(null);
+                      setSubscriptionTierId(option.tierId);
                     } else if (option.groupId) {
                       setVisibility(option.label);
                       setSelectedGroupId(option.groupId);
+                      setSubscriptionTierId(null);
                     } else {
                       setVisibility('Everyone');
                       setSelectedGroupId(null);
+                      setSubscriptionTierId(null);
                     }
                     onClose();
                   }}

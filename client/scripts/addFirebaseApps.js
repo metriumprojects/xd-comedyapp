@@ -24,9 +24,9 @@ function log(message, color = 'reset') {
 
 // Firebase project details from app.json
 const projectId = 'travel-app-3da72';
-const androidPackage = 'com.tauhee56.travesocial';
-const iosBundleId = 'com.tauhee56.travesocial';
-const appName = 'trave-social';
+const androidPackage = 'com.hussain2125.comedyapp';
+const iosBundleId = 'com.hussain2125.comedyapp';
+const appName = 'comedy-app';
 
 async function downloadFile(url, destination) {
   return new Promise((resolve, reject) => {

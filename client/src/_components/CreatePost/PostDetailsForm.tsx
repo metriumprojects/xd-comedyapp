@@ -20,6 +20,7 @@ interface PostDetailsFormProps {
   onOpenTagPeople: () => void;
   onRemoveTaggedUser: (uid: string) => void;
   visibility: string;
+  subscriptionTierId?: string | null;
   onOpenVisibility: () => void;
 }
 
@@ -27,7 +28,7 @@ const PostDetailsForm: React.FC<PostDetailsFormProps> = ({
   caption, setCaption, hashtags, hashtagInput, onHashtagInputChange, onHashtagCommit, onRemoveTag,
   selectedCategories, onOpenCategories, onRemoveCategory, locationName, onOpenLocation,
   taggedUsers, onOpenTagPeople, onRemoveTaggedUser,
-  visibility, onOpenVisibility
+  visibility, subscriptionTierId, onOpenVisibility
 }) => {
   return (
     <View style={{ flex: 1, backgroundColor: '#fff' }}>
@@ -135,7 +136,7 @@ const PostDetailsForm: React.FC<PostDetailsFormProps> = ({
                   fontSize: 14, 
                   fontWeight: visibility === 'Everyone' ? '500' : '600' 
                 }}>
-                  Post visibility: {visibility}
+                  Post visibility: {visibility === 'Subscribers' ? (subscriptionTierId ? 'Subscribers (Tier-Locked)' : 'Subscribers Only') : visibility}
                 </Text>
               </View>
             </View>

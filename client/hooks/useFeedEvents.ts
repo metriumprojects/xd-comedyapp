@@ -82,6 +82,12 @@ export function useFeedEvents(
           loadInitialFeed(0, { silent: true, _t: Date.now() }).catch(() => {});
         }
       }
+      if (event.type === 'USER_SUBSCRIBED' && event.userId) {
+        // Refresh feed to unlock posts from the subscribed user
+        if (isOnline) {
+          loadInitialFeed(0, { silent: true, _t: Date.now() }).catch(() => {});
+        }
+      }
     });
     return unsub;
   }, [isOnline, loadInitialFeed, setPosts, setAllLoadedPosts]);

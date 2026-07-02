@@ -146,6 +146,25 @@ const UserSchema = new mongoose.Schema({
     place: String,
     timestamp: Number
   },
+  stripeCustomerId: {
+    type: String,
+    default: null,
+    sparse: true,
+  },
+  // Stripe Connect — for creator payouts/withdrawals
+  stripeConnectAccountId: {
+    type: String,
+    default: null,
+    sparse: true,
+  },
+  stripeConnectOnboarded: {
+    type: Boolean,
+    default: false,
+  },
+  stripeConnectPayoutsEnabled: {
+    type: Boolean,
+    default: false,
+  },
   resetCode: {
     type: String,
     default: null,

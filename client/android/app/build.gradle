@@ -80,18 +80,20 @@ def enableProguardInReleaseBuilds = (findProperty('android.enableProguardInRelea
  */
 def jscFlavor = 'org.webkit:android-jsc:+'
 
+apply from: new File(["node", "--print", "require('path').dirname(require.resolve('@sentry/react-native/package.json'))"].execute().text.trim(), "sentry.gradle")
+
 android {
     ndkVersion rootProject.ext.ndkVersion
 
     buildToolsVersion rootProject.ext.buildToolsVersion
     compileSdk rootProject.ext.compileSdkVersion
 
-    namespace 'com.tauhee56.travesocial'
+    namespace 'com.hussain2125.comedyapp'
     defaultConfig {
-        applicationId 'com.tauhee56.travesocial'
+        applicationId 'com.hussain2125.comedyapp'
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 122
+        versionCode 123
         versionName "1.1.0"
     }
     signingConfigs {

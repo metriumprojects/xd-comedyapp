@@ -18,12 +18,11 @@ interface HighlightCarouselProps {
 
 const HighlightCarousel: React.FC<HighlightCarouselProps> = ({ highlights, onPressHighlight, isOwnProfile, onAddHighlight }) => {
   const renderAddButton = () => {
-    const hasHighlights = Array.isArray(highlights) && highlights.length > 0;
-    if (!isOwnProfile || hasHighlights || typeof onAddHighlight !== 'function') return null;
+    if (!isOwnProfile || typeof onAddHighlight !== 'function') return null;
     return (
       <TouchableOpacity style={styles.highlightBubble} onPress={onAddHighlight}>
         <View style={styles.addButton}>
-          <Ionicons name="add" size={24} color="#FF8D00" />
+          <Ionicons name="add" size={24} color="#555" />
         </View>
         <Text style={styles.title} numberOfLines={1}>New</Text>
       </TouchableOpacity>
@@ -63,14 +62,14 @@ const styles = StyleSheet.create({
   coverImage: {
     width: 64,
     height: 64,
-    borderRadius: 14,
+    borderRadius: 32,
     marginBottom: 5,
     backgroundColor: '#f5f5f5',
   },
   addButton: {
     width: 64,
     height: 64,
-    borderRadius: 14,
+    borderRadius: 32,
     borderWidth: 1.5,
     borderColor: '#ddd',
     borderStyle: 'dashed',

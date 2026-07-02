@@ -93,7 +93,7 @@ router.post('/register-firebase', validate(registerFirebaseSchema), async (req, 
     if (!user) {
       user = new User({
         firebaseUid,
-        email: email ? email.toLowerCase() : `${firebaseUid}@trips.app`,
+        email: email ? email.toLowerCase() : `${firebaseUid}@comedyapp.com`,
         displayName: displayName || (email ? email.split('@')[0] : 'User'),
         avatar: avatar || null,
         followersCount: 0,
@@ -178,7 +178,7 @@ router.post('/login-firebase', validate(loginFirebaseSchema), async (req, res) =
     if (!user) {
       user = new User({
         firebaseUid,
-        email: email ? email.toLowerCase() : `${firebaseUid}@trips.app`,
+        email: email ? email.toLowerCase() : `${firebaseUid}@comedyapp.com`,
         displayName: displayName || (email ? email.split('@')[0] : 'User'),
         avatar: avatar || null
       });
@@ -379,7 +379,7 @@ router.post('/username/signup', validate(usernameSignupSchema), async (req, res)
     const hashedPassword = await bcrypt.hash(password, 10);
 
     // Generate internal email for backward compatibility
-    const internalEmail = `${cleanUsername}@trips-social.internal`;
+    const internalEmail = `${cleanUsername}@comedy-social.internal`;
 
     const user = new User({
       username: cleanUsername,
@@ -495,7 +495,7 @@ router.post('/forgot-password', validate(require('../validations/authValidation'
         html: `
           <div style="font-family: sans-serif; padding: 20px; color: #333;">
             <h2>Password Reset</h2>
-            <p>You requested a password reset for your Trips account.</p>
+            <p>You requested a password reset for your Comedy App account.</p>
             <p>Your verification code is:</p>
             <h1 style="color: #0A3D62; letter-spacing: 5px;">${resetCode}</h1>
             <p>This code will expire in 10 minutes.</p>

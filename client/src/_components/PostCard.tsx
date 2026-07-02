@@ -19,6 +19,8 @@ import { BACKEND_URL } from "../../lib/api";
 import AsyncStorage from '@/lib/storage';
 import { LinearGradient } from 'expo-linear-gradient';
 import { SubscriptionModal } from './profile/SubscriptionModal';
+import { subscriptionService } from '@/src/_services/subscriptionService';
+import { resolveCanonicalUserId } from '@/lib/currentUser';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -48,6 +50,21 @@ const PostCard: React.FC<PostCardProps> = ({
 
   const router = useRouter();
   const user = useUser();
+  const [resolvedUserId, setResolvedUserId] = useState<string>('');
+
+  useEffect(() => {
+    const fetchCanonicalId = async () => {
+      try {
+        const canonicalId = await resolveCanonicalUserId();
+        if (canonicalId) {
+          setResolvedUserId(canonicalId);
+        }
+      } catch (e) {
+        console.warn('[PostCard] Failed to resolve canonical user ID:', e);
+      }
+    };
+    fetchCanonicalId();
+  }, []);
   const [isLiked, setIsLiked] = useState(() => {
     // 1. Trust backend flag FIRST
     if (post?.isLiked !== undefined) return post.isLiked;
@@ -274,11 +291,12 @@ const PostCard: React.FC<PostCardProps> = ({
   }, [post, currentUser]);
 
   const activeUserId = useMemo(() => {
+    if (resolvedUserId) return resolvedUserId;
     return (
       (typeof currentUser === 'string' ? currentUser : (currentUser?._id || currentUser?.id || currentUser?.uid || currentUser?.firebaseUid)) ||
       user?._id || user?.id || user?.uid || ''
     );
-  }, [currentUser, user]);
+  }, [resolvedUserId, currentUser, user]);
 
   const creatorId = useMemo(() => {
     return String(post?.userId?._id || post?.userId || '');
@@ -293,28 +311,67 @@ const PostCard: React.FC<PostCardProps> = ({
       setIsSubscribed(false);
       return;
     }
-    const subscribedKey = `sub_subscribed_${activeUserId}_to_${creatorId}`;
-    const priceKey = `sub_tier_${creatorId}`;
     try {
-      const [subVal, priceVal] = await Promise.all([
-        AsyncStorage.getItem(subscribedKey),
-        AsyncStorage.getItem(priceKey)
-      ]);
-      setIsSubscribed(subVal === 'true');
-      if (priceVal) {
-        const parsed = JSON.parse(priceVal);
-        if (parsed && parsed.price) {
-          setCreatorPrice(parsed.price);
+      const tierId = post?.subscriptionTierId;
+      const key = tierId 
+        ? `sub_subscribed_${activeUserId}_to_tier_${tierId}` 
+        : `sub_subscribed_${activeUserId}_to_${creatorId}`;
+
+      const cachedVal = await AsyncStorage.getItem(key);
+      if (cachedVal !== null) {
+        setIsSubscribed(cachedVal === 'true');
+      }
+
+      const response = await subscriptionService.checkSubscriptionStatus(creatorId);
+      if (response.success) {
+        const activeTiers = response.data.activeTierIds || [];
+        const isCurrentlySubbed = tierId 
+          ? activeTiers.includes(String(tierId))
+          : response.data.isSubscribed;
+
+        // Don't downgrade from cached 'true' to API 'false' — 
+        // the payment just happened and the webhook may not have fired yet
+        if (isCurrentlySubbed || cachedVal !== 'true') {
+          setIsSubscribed(isCurrentlySubbed);
+          await AsyncStorage.setItem(key, isCurrentlySubbed ? 'true' : 'false');
+        }
+        
+        // Always sync general creator-level cache
+        if (response.data.isSubscribed) {
+          await AsyncStorage.setItem(
+            `sub_subscribed_${activeUserId}_to_${creatorId}`,
+            'true'
+          );
+        }
+      }
+      
+      const tiersResponse = await subscriptionService.getTiers(creatorId);
+      if (tiersResponse.success && Array.isArray(tiersResponse.data) && tiersResponse.data.length > 0) {
+        const matchedTier = tierId 
+          ? tiersResponse.data.find(t => String(t._id) === String(tierId)) 
+          : tiersResponse.data[0];
+        if (matchedTier?.price) {
+          setCreatorPrice(matchedTier.price);
         }
       }
     } catch (e) {
       console.warn('[PostCard] Error checking subscription status:', e);
     }
-  }, [activeUserId, creatorId, isOwner]);
+  }, [activeUserId, creatorId, isOwner, post?.subscriptionTierId]);
 
   useEffect(() => {
     checkSubscriptionStatus();
   }, [checkSubscriptionStatus]);
+
+  useEffect(() => {
+    if (!creatorId || isOwner) return;
+    const unsub = feedEventEmitter.onFeedUpdate((event) => {
+      if (event.type === 'USER_SUBSCRIBED' && String(event.userId).toLowerCase() === String(creatorId).toLowerCase()) {
+        setIsSubscribed(true);
+      }
+    });
+    return () => unsub();
+  }, [creatorId, isOwner]);
 
   const submitPostReport = async (reason: string) => {
     try {
@@ -681,6 +738,7 @@ const PostCard: React.FC<PostCardProps> = ({
           }}
           isOwnProfile={isOwner}
           creatorId={creatorId}
+          onSubscriptionChange={(subscribed) => setIsSubscribed(subscribed)}
         />
       )}
     </View>

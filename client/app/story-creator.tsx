@@ -165,7 +165,7 @@ export default function StoryCreatorScreen() {
     const navigateWithMedia = useCallback(
         (uri: string, type: 'photo' | 'video') => {
             router.push({
-                pathname: '/story-upload',
+                pathname: '/profile',
                 params: {
                     storyMediaUri: uri,
                     storyMediaType: type,

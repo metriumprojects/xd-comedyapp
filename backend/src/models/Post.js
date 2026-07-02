@@ -43,6 +43,7 @@ const PostSchema = new mongoose.Schema({
   isPrivate: { type: Boolean, default: false }, // Privacy flag: true = private account post
   visibility: { type: String, default: 'Everyone' }, // Visibility setting: 'Everyone', 'Friends', 'Family', etc.
   allowedFollowers: { type: [String], default: [] }, // Array of follower IDs who can see this private post
+  subscriptionTierId: { type: mongoose.Schema.Types.ObjectId, ref: 'SubscriptionTier', default: null }, // Tier lock ID
   createdAt: { type: Date, default: Date.now },
   updatedAt: { type: Date, default: Date.now }
 });

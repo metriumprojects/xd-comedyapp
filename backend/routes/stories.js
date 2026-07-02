@@ -208,6 +208,52 @@ router.post('/', verifyToken, async (req, res) => {
 });
 
 /**
+ * GET /api/stories/user/:userId
+ * Get active stories for a specific user
+ */
+router.get('/user/:userId', async (req, res) => {
+  try {
+    const { userId } = req.params;
+    if (!userId) {
+      return res.status(400).json({ success: false, error: 'userId required' });
+    }
+
+    const now = new Date();
+    const stories = await Story.find({
+      userId: userId,
+      expiresAt: { $gt: now }
+    }).sort({ createdAt: 1 }).lean();
+
+    // Fetch user data from database to enrich stories
+    const db = mongoose.connection.db;
+    const usersCollection = db.collection('users');
+    const user = await usersCollection.findOne({
+      $or: [
+        { firebaseUid: userId },
+        { uid: userId },
+        { _id: mongoose.Types.ObjectId.isValid(userId) ? new mongoose.Types.ObjectId(userId) : null }
+      ]
+    });
+
+    const enrichedStories = stories.map(story => ({
+      ...story,
+      id: String(story._id),
+      imageUrl: story.image || null,
+      videoUrl: story.video || null,
+      mediaUrl: story.image || story.video || null,
+      mediaType: story.video ? 'video' : 'image',
+      userName: user?.displayName || user?.name || story.userName || 'Anonymous',
+      userAvatar: user?.avatar || user?.photoURL || story.userAvatar || null,
+    }));
+
+    res.json({ success: true, data: enrichedStories });
+  } catch (err) {
+    console.error('[GET /api/stories/user/:userId] Error:', err.message);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+/**
  * GET /api/stories/:storyId
  * Get a single story by ID
  * Returns story data enriched with user info, or expired flag if unavailable

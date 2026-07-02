@@ -11,10 +11,12 @@ import {
   Alert,
   Animated,
   PanResponder,
-  ActivityIndicator,
-  FlatList
+  FlatList,
+  ScrollView
 } from 'react-native';
 import { Video, ResizeMode } from 'expo-av';
+import { useVideoPlayer, VideoView } from 'expo-video';
+import { useReelsStore } from '@/store/useReelsStore';
 import { Ionicons, Feather, MaterialCommunityIcons } from '@expo/vector-icons';
 import { Image as ExpoImage } from 'expo-image';
 import * as Haptics from 'expo-haptics';
@@ -22,44 +24,73 @@ import { useRouter } from 'expo-router';
 import { CommentSection } from './CommentSection';
 import ShareModal from './ShareModal';
 import SaveToCollectionModal from './SaveToCollectionModal';
+import StoriesViewer from './StoriesViewer';
 import { likePost, unlikePost, sendPostMessage, followUser, unfollowUser } from '../../lib/firebaseHelpers';
 import { apiService } from '@/src/_services/apiService';
 import { normalizeAvatarUrl, getOptimizedMediaUrl, isVideoUrl } from '../../lib/utils/media';
 import { getVideoThumbnailUrl } from '../../lib/imageHelpers';
+import { ReelBufferSkeleton } from './HomeReelSkeleton';
 import { feedEventEmitter } from '../../lib/feedEventEmitter';
 import { useUser } from './UserContext';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import AsyncStorage from '@/lib/storage';
 import { SubscriptionModal } from './profile/SubscriptionModal';
+import { subscriptionService } from '@/src/_services/subscriptionService';
+import { resolveCanonicalUserId } from '@/lib/currentUser';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 interface ReelItemProps {
   post: any;
   currentUser: any;
-  isActive: boolean;
+  index: number;
+  isScreenFocused: boolean;
   isMuted: boolean;
   toggleMute: () => void;
   containerHeight: number;
   isFullscreenMode: boolean;
   onToggleFullscreen: () => void;
+  followedStories?: any[];
 }
 
-export const ReelItem: React.FC<ReelItemProps> = ({
+export const ReelItem = React.memo<ReelItemProps>(({
   post,
   currentUser,
-  isActive,
+  index,
+  isScreenFocused,
   isMuted,
   toggleMute,
   containerHeight,
   isFullscreenMode,
-  onToggleFullscreen
+  onToggleFullscreen,
+  followedStories = []
 }) => {
   const router = useRouter();
   const user = useUser();
+  const [resolvedUserId, setResolvedUserId] = useState<string>('');
+
+  const isActive = useReelsStore((state) => state.activeIndex === index) && isScreenFocused;
+  const shouldLoad = useReelsStore((state) => Math.abs(index - state.activeIndex) <= 1);
+
+  useEffect(() => {
+    const fetchCanonicalId = async () => {
+      try {
+        const canonicalId = await resolveCanonicalUserId();
+        if (canonicalId) {
+          setResolvedUserId(canonicalId);
+        }
+      } catch (e) {
+        console.warn('[ReelItem] Failed to resolve canonical user ID:', e);
+      }
+    };
+    fetchCanonicalId();
+  }, []);
+
+
+
+
   const insets = useSafeAreaInsets();
-  const videoRef = useRef<Video>(null);
 
   const [isLoaded, setIsLoaded] = useState(false);
   const [isBuffering, setIsBuffering] = useState(false);
@@ -104,12 +135,62 @@ export const ReelItem: React.FC<ReelItemProps> = ({
   const [showCollectionModal, setShowCollectionModal] = useState(false);
   const toastTimerRef = useRef<NodeJS.Timeout | null>(null);
 
+  // Stories States & Fetching
+  const [creatorStories, setCreatorStories] = useState<any[]>([]);
+  const [storiesViewerVisible, setStoriesViewerVisible] = useState(false);
+  const [activeViewerStories, setActiveViewerStories] = useState<any[]>([]);
+  const [viewerVisible, setViewerVisible] = useState(false);
+  const [seenStoryIds, setSeenStoryIds] = useState<string[]>([]);
+
+  useEffect(() => {
+    const fetchStories = async () => {
+      const creatorUserId = post?.userId?._id || post?.userId;
+      if (!creatorUserId) return;
+      try {
+        const res = await apiService.get(`/stories/user/${creatorUserId}`);
+        if (res?.success && Array.isArray(res.data)) {
+          setCreatorStories(res.data);
+        } else {
+          setCreatorStories([]);
+        }
+      } catch (err) {
+        console.warn('[ReelItem] Failed to fetch creator stories:', err);
+        setCreatorStories([]);
+      }
+    };
+    fetchStories();
+  }, [post?.userId]);
+
+  const loadSeenStoryIds = useCallback(async () => {
+    try {
+      const raw = await AsyncStorage.getItem('seenStoryIds');
+      const arr = raw ? JSON.parse(raw) : [];
+      if (Array.isArray(arr)) {
+        setSeenStoryIds(arr.map((x: any) => String(x)));
+      } else {
+        setSeenStoryIds([]);
+      }
+    } catch {
+      setSeenStoryIds([]);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadSeenStoryIds();
+  }, [loadSeenStoryIds, isActive, isScreenFocused, creatorStories]);
+
+  const creatorStoriesSeen = useMemo(() => {
+    if (creatorStories.length === 0) return false;
+    return creatorStories.every((s: any) => seenStoryIds.includes(String(s._id || s.id || '')));
+  }, [creatorStories, seenStoryIds]);
+
   const activeUserId = useMemo(() => {
+    if (resolvedUserId) return resolvedUserId;
     return (
       (typeof currentUser === 'string' ? currentUser : (currentUser?._id || currentUser?.id || currentUser?.uid || currentUser?.firebaseUid)) ||
       user?._id || user?.id || user?.uid || ''
     );
-  }, [currentUser, user]);
+  }, [resolvedUserId, currentUser, user]);
 
   useEffect(() => {
     return () => {
@@ -195,6 +276,34 @@ export const ReelItem: React.FC<ReelItemProps> = ({
     };
   }, [post?._id]);
 
+  // Subscribe to comment count updates for this post
+  useEffect(() => {
+    if (!post?._id) return;
+    // @ts-ignore - custom event from CommentSection
+    const subCount = feedEventEmitter.addListener('commentCountUpdated', (data: any) => {
+      if (data?.postId === post._id && data?.count !== undefined) {
+        setCommentCount(data.count);
+      }
+    });
+    // @ts-ignore - custom event from CommentSection
+    const subAdded = feedEventEmitter.addListener('commentAdded', (data: any) => {
+      if (data?.postId === post._id) {
+        setCommentCount((prev: number) => prev + 1);
+      }
+    });
+    // @ts-ignore - custom event from CommentSection
+    const subDeleted = feedEventEmitter.addListener('commentDeleted', (data: any) => {
+      if (data?.postId === post._id) {
+        setCommentCount((prev: number) => Math.max(0, prev - 1));
+      }
+    });
+    return () => {
+      subCount.remove();
+      subAdded.remove();
+      subDeleted.remove();
+    };
+  }, [post?._id]);
+
   const translateY = useRef(new Animated.Value(0)).current;
 
   // Pan Responder for dragging down comments modal
@@ -230,14 +339,8 @@ export const ReelItem: React.FC<ReelItemProps> = ({
   useEffect(() => {
     if (isActive) {
       setIsPlaying(true);
-      if (videoRef.current) {
-        videoRef.current.playAsync().catch(() => { });
-      }
     } else {
       setIsPlaying(false);
-      if (videoRef.current) {
-        videoRef.current.pauseAsync().catch(() => { });
-      }
     }
   }, [isActive]);
 
@@ -334,7 +437,14 @@ export const ReelItem: React.FC<ReelItemProps> = ({
       setIsFollowing(!newFollowing);
       Alert.alert("Error", err.message || "Failed to perform follow action");
     }
-  }, [isFollowing, post?.userId, activeUserId]);
+
+    // Emit feed event so other ReelItems from the same creator update their follow state
+    feedEventEmitter.emitFeedUpdate({
+      type: 'POST_UPDATED',
+      postId: post._id,
+      data: { isFollowing: newFollowing }
+    });
+  }, [isFollowing, post?.userId, activeUserId, post._id]);
 
   // Handle Laugh (😂) Rating Press
   const handleLaughPress = useCallback(async () => {
@@ -470,28 +580,67 @@ export const ReelItem: React.FC<ReelItemProps> = ({
       setIsSubscribed(false);
       return;
     }
-    const subscribedKey = `sub_subscribed_${activeUserId}_to_${creatorId}`;
-    const priceKey = `sub_tier_${creatorId}`;
     try {
-      const [subVal, priceVal] = await Promise.all([
-        AsyncStorage.getItem(subscribedKey),
-        AsyncStorage.getItem(priceKey)
-      ]);
-      setIsSubscribed(subVal === 'true');
-      if (priceVal) {
-        const parsed = JSON.parse(priceVal);
-        if (parsed && parsed.price) {
-          setCreatorPrice(parsed.price);
+      const tierId = post?.subscriptionTierId;
+      const key = tierId 
+        ? `sub_subscribed_${activeUserId}_to_tier_${tierId}` 
+        : `sub_subscribed_${activeUserId}_to_${creatorId}`;
+
+      const cachedVal = await AsyncStorage.getItem(key);
+      if (cachedVal !== null) {
+        setIsSubscribed(cachedVal === 'true');
+      }
+
+      const response = await subscriptionService.checkSubscriptionStatus(creatorId);
+      if (response.success) {
+        const activeTiers = response.data.activeTierIds || [];
+        const isCurrentlySubbed = tierId 
+          ? activeTiers.includes(String(tierId))
+          : response.data.isSubscribed;
+
+        // Don't downgrade from cached 'true' to API 'false' — 
+        // the payment just happened and the webhook may not have fired yet
+        if (isCurrentlySubbed || cachedVal !== 'true') {
+          setIsSubscribed(isCurrentlySubbed);
+          await AsyncStorage.setItem(key, isCurrentlySubbed ? 'true' : 'false');
+        }
+        
+        // Always sync general creator-level cache
+        if (response.data.isSubscribed) {
+          await AsyncStorage.setItem(
+            `sub_subscribed_${activeUserId}_to_${creatorId}`,
+            'true'
+          );
+        }
+      }
+      
+      const tiersResponse = await subscriptionService.getTiers(creatorId);
+      if (tiersResponse.success && Array.isArray(tiersResponse.data) && tiersResponse.data.length > 0) {
+        const matchedTier = tierId 
+          ? tiersResponse.data.find(t => String(t._id) === String(tierId)) 
+          : tiersResponse.data[0];
+        if (matchedTier?.price) {
+          setCreatorPrice(matchedTier.price);
         }
       }
     } catch (e) {
       console.warn('[ReelItem] Error checking subscription status:', e);
     }
-  }, [activeUserId, creatorId, isOwner]);
+  }, [activeUserId, creatorId, isOwner, post?.subscriptionTierId]);
 
   useEffect(() => {
     checkSubscriptionStatus();
   }, [checkSubscriptionStatus, isActive]);
+
+  useEffect(() => {
+    if (!creatorId || isOwner) return;
+    const unsub = feedEventEmitter.onFeedUpdate((event) => {
+      if (event.type === 'USER_SUBSCRIBED' && String(event.userId).toLowerCase() === String(creatorId).toLowerCase()) {
+        setIsSubscribed(true);
+      }
+    });
+    return () => unsub();
+  }, [creatorId, isOwner]);
 
   return (
     <View style={{ width: SCREEN_WIDTH, height: containerHeight, backgroundColor: '#000' }}>
@@ -523,40 +672,24 @@ export const ReelItem: React.FC<ReelItemProps> = ({
           </View>
         )
       ) : videoUrl ? (
-        <Video
-          ref={videoRef}
-          source={{ uri: videoUrl }}
-          style={StyleSheet.absoluteFill}
-          resizeMode={ResizeMode.COVER}
-          isLooping
-          shouldPlay={isActive && isPlaying && !isLocked}
-          isMuted={isMuted}
-          useNativeControls={false}
-          usePoster={!!thumbUrl}
-          posterSource={thumbUrl ? { uri: thumbUrl } : undefined}
-          posterStyle={{ resizeMode: 'cover' }}
-          onLoadStart={() => console.log('📡 [Reels] Start loading video:', videoUrl)}
-          onLoad={() => {
-            console.log('✅ [Reels] Video loaded successfully:', videoUrl);
-            setIsLoaded(true);
-            setIsBuffering(false);
-          }}
-          onError={(error) => {
-            console.warn('🔴 [Reels] Video load error:', error, 'for URL:', videoUrl);
-            setIsLoaded(true); // Prevent infinite spinner if video fails to load
-            setIsBuffering(false);
-          }}
-          onPlaybackStatusUpdate={(status: any) => {
-            if (!status.isLoaded) {
-              setIsBuffering(true);
-            } else {
-              setIsBuffering(status.isBuffering);
-              if (status.isLoaded && !isLoaded) {
-                setIsLoaded(true);
-              }
-            }
-          }}
-        />
+        shouldLoad ? (
+          <ReelVideoPlayer
+            videoUrl={videoUrl}
+            isActive={isActive}
+            isPlaying={isPlaying}
+            isMuted={isMuted}
+            isLocked={isLocked}
+            storiesViewerVisible={storiesViewerVisible}
+            setIsLoaded={setIsLoaded}
+            setIsBuffering={setIsBuffering}
+          />
+        ) : (
+          <ExpoImage
+            source={thumbUrl ? { uri: thumbUrl } : undefined}
+            style={StyleSheet.absoluteFill}
+            contentFit="cover"
+          />
+        )
       ) : (
         <View style={[StyleSheet.absoluteFill, { justifyContent: 'center', alignItems: 'center', backgroundColor: '#000' }]}>
           <Text style={{ color: '#fff' }}>No Video Available</Text>
@@ -565,9 +698,7 @@ export const ReelItem: React.FC<ReelItemProps> = ({
 
       {/* Centered Buffering Spinner (Overlay) */}
       {(isBuffering || !isLoaded) && (
-        <View style={styles.loadingContainer} pointerEvents="none">
-          <ActivityIndicator size="large" color="#ffffff" />
-        </View>
+        <ReelBufferSkeleton />
       )}
 
       {/* Tap overlay to play/pause or exit fullscreen */}
@@ -659,74 +790,143 @@ export const ReelItem: React.FC<ReelItemProps> = ({
 
       {/* Side Actions Overlay (Hidden in Fullscreen Mode) */}
       {!isFullscreenMode && (
-        <View style={styles.rightOverlay}>
-          {/* Creator Profile Avatar */}
-          <View style={styles.avatarContainer}>
-            <TouchableOpacity
-              onPress={() => {
-                const uid = post?.userId?._id || post?.userId;
-                if (uid) router.push(`/user-profile?uid=${uid}`);
-              }}
-            >
-              <ExpoImage
-                source={{ uri: postUserAvatar || 'https://via.placeholder.com/150' }}
-                style={styles.avatar}
-              />
-            </TouchableOpacity>
-            {/* Follow Plus overlay */}
-            {!isOwner && !isFollowing && (
-              <TouchableOpacity style={styles.followBtn} onPress={handleFollow}>
-                <Ionicons name="add" size={12} color="#fff" />
+        <View style={[
+          styles.rightOverlay,
+          { top: (insets.top || 0) + 140 }
+        ]}>
+          <ScrollView
+            style={{ width: '100%' }}
+            contentContainerStyle={{ flexGrow: 1, justifyContent: 'flex-end', alignItems: 'center', gap: 16, paddingBottom: 10 }}
+            showsVerticalScrollIndicator={false}
+            nestedScrollEnabled={true}
+          >
+            {/* Creator Profile Avatar */}
+            <View style={[styles.avatarContainer, creatorStories.length > 0 && { borderWidth: 0 }]}>
+              {creatorStories.length > 0 ? (
+              <LinearGradient
+                  colors={creatorStoriesSeen ? ['#D1D5DB', '#D1D5DB'] : ['#F58529', '#DD2A7B', '#8134AF']}
+                  style={styles.storyRing}
+                >
+                  <TouchableOpacity
+                    activeOpacity={0.9}
+                    style={styles.avatarTouch}
+                    onPress={() => {
+                      setStoriesViewerVisible(true);
+                    }}
+                  >
+                    <ExpoImage
+                      source={{ uri: postUserAvatar || 'https://via.placeholder.com/150' }}
+                      style={styles.avatarInRing}
+                    />
+                  </TouchableOpacity>
+                </LinearGradient>
+              ) : (
+                <TouchableOpacity
+                  onPress={() => {
+                    const uid = post?.userId?._id || post?.userId;
+                    if (uid) router.push(`/user-profile?uid=${uid}`);
+                  }}
+                >
+                  <ExpoImage
+                    source={{ uri: postUserAvatar || 'https://via.placeholder.com/150' }}
+                    style={styles.avatar}
+                  />
+                </TouchableOpacity>
+              )}
+            </View>
+
+            {/* Follow Button */}
+            {!isOwner && (
+              <TouchableOpacity style={styles.actionBtn} onPress={handleFollow}>
+                <MaterialCommunityIcons
+                  name="account-multiple-plus"
+                  size={30}
+                  color={isFollowing ? "#4cd964" : "#ffffff"}
+                />
+                <Text style={[styles.actionText, isFollowing && { color: "#4cd964" }]}>
+                  {isFollowing ? "Following" : "Follow"}
+                </Text>
               </TouchableOpacity>
             )}
-          </View>
 
-          {/* Like Button */}
-          <TouchableOpacity style={styles.actionBtn} onPress={handleLike}>
-            <Ionicons
-              name={isLiked ? "heart" : "heart-outline"}
-              size={32}
-              color={isLiked ? "#ff3b30" : "#ffffff"}
-            />
-            <Text style={styles.actionText}>{likeCount}</Text>
-          </TouchableOpacity>
+            {/* Comment Button */}
+            <TouchableOpacity style={styles.actionBtn} onPress={() => setShowComments(true)}>
+              <Ionicons name="chatbubbles" size={28} color="#ffffff" />
+              <Text style={styles.actionText}>{commentCount}</Text>
+            </TouchableOpacity>
 
-          {/* Comment Button */}
-          <TouchableOpacity style={styles.actionBtn} onPress={() => setShowComments(true)}>
-            <Ionicons name="chatbubble" size={28} color="#ffffff" />
-            <Text style={styles.actionText}>{commentCount}</Text>
-          </TouchableOpacity>
+            {/* Like Button */}
+            <TouchableOpacity style={styles.actionBtn} onPress={handleLike}>
+              <Ionicons
+                name={isLiked ? "heart" : "heart-outline"}
+                size={28}
+                color={isLiked ? "#ff3b30" : "#ffffff"}
+              />
+              <Text style={styles.actionText}>{likeCount}</Text>
+            </TouchableOpacity>
 
-          {/* Save Button */}
-          <TouchableOpacity style={styles.actionBtn} onPress={handleSave}>
-            <Ionicons
-              name={isSaved ? "bookmark" : "bookmark-outline"}
-              size={28}
-              color={isSaved ? "#f1c40f" : "#ffffff"}
-            />
-            <Text style={styles.actionText}>Save</Text>
-          </TouchableOpacity>
+            {/* Save Button */}
+            <TouchableOpacity style={styles.actionBtn} onPress={handleSave}>
+              <Ionicons
+                name={isSaved ? "bookmark" : "bookmark-outline"}
+                size={26}
+                color={isSaved ? "#f1c40f" : "#ffffff"}
+              />
+              <Text style={styles.actionText}>{post?.savedCount ?? (isSaved ? 1 : 0)}</Text>
+            </TouchableOpacity>
 
-          {/* Share Button */}
-          <TouchableOpacity style={styles.actionBtn} onPress={() => setShowShare(true)}>
-            <Feather name="share-2" size={28} color="#ffffff" />
-            <Text style={styles.actionText}>Share</Text>
-          </TouchableOpacity>
+            {/* Share Button */}
+            <TouchableOpacity style={styles.actionBtn} onPress={() => setShowShare(true)}>
+              <Ionicons name="arrow-redo" size={28} color="#ffffff" />
+              <Text style={styles.actionText}>{post?.shareCount ?? 0}</Text>
+            </TouchableOpacity>
 
-          {/* Fullscreen Focus Toggle Button */}
-          <TouchableOpacity style={styles.actionBtn} onPress={onToggleFullscreen}>
-            <Ionicons
-              name="expand"
-              size={26}
-              color="#ffffff"
-            />
-            <Text style={styles.actionText}>Full</Text>
-          </TouchableOpacity>
+            {/* Fullscreen Focus Toggle Button (Scan Icon) */}
+            <TouchableOpacity style={styles.actionBtn} onPress={onToggleFullscreen}>
+              <Ionicons
+                name="scan"
+                size={26}
+                color="#ffffff"
+              />
+            </TouchableOpacity>
 
-          {/* Options button (3 dots) at the bottom */}
-          <TouchableOpacity style={styles.actionBtn} onPress={() => setShowMenu(true)}>
-            <Ionicons name="ellipsis-horizontal" size={26} color="#ffffff" />
-          </TouchableOpacity>
+            {/* Options button (3 dots) at the bottom */}
+            <TouchableOpacity style={styles.actionBtn} onPress={() => setShowMenu(true)}>
+              <Ionicons name="ellipsis-horizontal" size={26} color="#ffffff" />
+            </TouchableOpacity>
+
+            {/* Followed Users Vertical Stories */}
+            {followedStories && followedStories.length > 0 && (
+              <View style={styles.followedStoriesContainer}>
+                {followedStories.map((item: any) => {
+                  const isFollowedStorySeen = item.stories && item.stories.length > 0
+                    ? item.stories.every((s: any) => seenStoryIds.includes(String(s.id || s._id || '')))
+                    : false;
+
+                  return (
+                    <TouchableOpacity
+                      key={item.userId}
+                      style={styles.followedStoryBubble}
+                      onPress={() => {
+                        setActiveViewerStories(item.stories);
+                        setViewerVisible(true);
+                      }}
+                    >
+                      <LinearGradient
+                        colors={isFollowedStorySeen ? ['#D1D5DB', '#D1D5DB'] : ['#F58529', '#DD2A7B', '#8134AF']}
+                        style={styles.followedStoryRing}
+                      >
+                        <ExpoImage
+                          source={{ uri: item.userAvatar || 'https://via.placeholder.com/150' }}
+                          style={styles.followedStoryAvatar}
+                        />
+                      </LinearGradient>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+            )}
+          </ScrollView>
         </View>
       )}
 
@@ -991,24 +1191,134 @@ export const ReelItem: React.FC<ReelItemProps> = ({
           }}
           isOwnProfile={isOwner}
           creatorId={creatorId}
+          onSubscriptionChange={(subscribed) => setIsSubscribed(subscribed)}
         />
       )}
+
+      {(viewerVisible || storiesViewerVisible) && (
+        <Modal
+          visible={viewerVisible || storiesViewerVisible}
+          animationType="fade"
+          transparent={false}
+          onRequestClose={() => {
+            setViewerVisible(false);
+            setStoriesViewerVisible(false);
+          }}
+        >
+          <StoriesViewer
+            stories={storiesViewerVisible ? creatorStories : activeViewerStories}
+            onClose={async () => {
+              const isCreatorStories = storiesViewerVisible;
+              setViewerVisible(false);
+              setStoriesViewerVisible(false);
+              // Mark stories as seen and update gradient
+              const storiesToMark = isCreatorStories ? creatorStories : activeViewerStories;
+              if (storiesToMark.length > 0) {
+                try {
+                  const ids = storiesToMark.map((s: any) => String(s._id || s.id || '')).filter(Boolean);
+                  const raw = await AsyncStorage.getItem('seenStoryIds');
+                  const arr = raw ? JSON.parse(raw) : [];
+                  const set = new Set<string>(Array.isArray(arr) ? arr.map((x: any) => String(x)) : []);
+                  ids.forEach(id => set.add(id));
+                  await AsyncStorage.setItem('seenStoryIds', JSON.stringify(Array.from(set)));
+                  // Check if all creator stories are now seen
+                  await loadSeenStoryIds();
+                } catch {}
+              }
+            }}
+          />
+        </Modal>
+      )}
     </View>
+  );
+});
+
+interface ReelVideoPlayerProps {
+  videoUrl: string;
+  isActive: boolean;
+  isPlaying: boolean;
+  isMuted: boolean;
+  isLocked: boolean;
+  storiesViewerVisible: boolean;
+  setIsLoaded: (val: boolean) => void;
+  setIsBuffering: (val: boolean) => void;
+}
+
+const ReelVideoPlayer: React.FC<ReelVideoPlayerProps> = ({
+  videoUrl,
+  isActive,
+  isPlaying,
+  isMuted,
+  isLocked,
+  storiesViewerVisible,
+  setIsLoaded,
+  setIsBuffering,
+}) => {
+  const shouldPlay = isActive && isPlaying && !isLocked && !storiesViewerVisible;
+
+  const player = useVideoPlayer(videoUrl, (p) => {
+    p.loop = true;
+    p.muted = isMuted;
+    if (shouldPlay) {
+      p.play();
+    }
+  });
+
+  // Sync mute state
+  useEffect(() => {
+    player.muted = isMuted;
+  }, [player, isMuted]);
+
+  // Sync play/pause state
+  useEffect(() => {
+    if (shouldPlay) {
+      player.play();
+    } else {
+      player.pause();
+    }
+  }, [player, shouldPlay]);
+
+  // Listen to statusChange to toggle loading/buffering states
+  useEffect(() => {
+    if (player.status === 'readyToPlay') {
+      setIsLoaded(true);
+      setIsBuffering(false);
+    } else if (player.status === 'loading') {
+      setIsBuffering(true);
+    }
+
+    const subscription = player.addListener('statusChange', (statusChange) => {
+      const status = (typeof statusChange === 'object' && statusChange !== null && 'status' in statusChange)
+        ? (statusChange as any).status
+        : statusChange;
+      
+      if (status === 'readyToPlay') {
+        setIsLoaded(true);
+        setIsBuffering(false);
+      } else if (status === 'loading') {
+        setIsBuffering(true);
+      } else if (status === 'error') {
+        setIsLoaded(true);
+        setIsBuffering(false);
+      }
+    });
+
+    return () => {
+      subscription.remove();
+    };
+  }, [player, setIsLoaded, setIsBuffering]);
+
+  return (
+    <VideoView
+      player={player}
+      style={StyleSheet.absoluteFill}
+      contentFit="cover"
+      nativeControls={false}
+    />
   );
 };
 
 const styles = StyleSheet.create({
-  loadingContainer: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: 'transparent',
-    zIndex: 10,
-  },
   playPauseContainer: {
     position: 'absolute',
     top: 0, left: 0, right: 0, bottom: 0,
@@ -1043,11 +1353,11 @@ const styles = StyleSheet.create({
   },
   rightOverlay: {
     position: 'absolute',
-    right: 8,
-    bottom: 98,
+    right: 5,
+    bottom: 80,
+    width: 60,
     alignItems: 'center',
     zIndex: 15,
-    gap: 16
   },
   avatarContainer: {
     width: 50,
@@ -1057,12 +1367,33 @@ const styles = StyleSheet.create({
     borderColor: '#ffffff',
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 8
+    marginBottom: 8,
+
   },
   avatar: {
     width: 47,
     height: 47,
     borderRadius: 23.5
+  },
+  storyRing: {
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  avatarTouch: {
+    width: 46,
+    height: 46,
+    borderRadius: 23,
+    backgroundColor: '#000',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  avatarInRing: {
+    width: 42,
+    height: 42,
+    borderRadius: 21,
   },
   followBtn: {
     position: 'absolute',
@@ -1093,7 +1424,7 @@ const styles = StyleSheet.create({
     position: 'absolute',
     left: 16,
     right: 16,
-    bottom: 12,
+    bottom: 0,
     zIndex: 15,
     gap: 12
   },
@@ -1405,6 +1736,36 @@ const styles = StyleSheet.create({
     color: '#000',
     fontSize: 15,
     fontWeight: '700',
+  },
+  followedStoriesContainer: {
+    width: '100%',
+    marginTop: 8,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(255, 255, 255, 0.15)',
+    paddingTop: 16,
+    alignItems: 'center',
+    gap: 12,
+  },
+  followedStoryBubble: {
+    width: 42,
+    height: 42,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  followedStoryRing: {
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    padding: 2,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  followedStoryAvatar: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    borderWidth: 1.5,
+    borderColor: '#000',
   },
 });
 

@@ -2,6 +2,7 @@ import { apiService } from '@/src/_services/apiService';
 import { addStoryToHighlight as addStoryToHighlightApi, createHighlight as createHighlightApi, deleteHighlight as deleteHighlightApi, removeStoryFromHighlight as removeStoryFromHighlightApi, updateHighlight as updateHighlightApi } from './firebaseHelpers/highlights';
 import { cacheHighlightStory, getCachedHighlightStories, getStableStoryKey, removeCachedHighlightStory, storyForStoriesViewer } from './storyViewer';
 import { feedEventEmitter } from './feedEventEmitter';
+import { getVideoThumbnailUrl } from './imageHelpers';
 
 export type HighlightSummary = {
   id: string;
@@ -30,7 +31,10 @@ export const highlightManager = {
       const storyId = String(normalizedStory?.id || normalizedStory?._id || normalizedStory?.storyId || '').trim();
       if (!storyId) return { success: false, error: 'Story id missing' };
 
-      const coverImage = normalizedStory.imageUrl || normalizedStory.videoUrl || '';
+      let coverImage = normalizedStory.imageUrl || '';
+      if (normalizedStory.mediaType === 'video' || !coverImage) {
+        coverImage = getVideoThumbnailUrl(normalizedStory.videoUrl || '', normalizedStory.imageUrl || '');
+      }
 
       const created = await createHighlightApi(params.userId, params.title.trim(), coverImage, [storyId], 'Public');
       const highlightId = resolveHighlightId(created?.highlight) || String(created?.highlightId || '').trim();
@@ -76,7 +80,7 @@ export const highlightManager = {
     let lastErr: any = null;
     for (let attempt = 1; attempt <= 3; attempt++) {
       try {
-        const r: any = await addStoryToHighlightApi(highlightId, storyId);
+        const r: any = await addStoryToHighlightApi(highlightId, storyId, normalizedStory);
         ok = r?.success !== false;
         if (ok) break;
         lastErr = r?.error || r;
@@ -156,6 +160,24 @@ export const highlightManager = {
       return { success: true };
     } catch (e: any) {
       return { success: false, error: e?.message || 'Rename failed' };
+    }
+  },
+
+  async deleteHighlight(params: { highlightId: string; userId: string }): Promise<{ success: boolean; error?: string }> {
+    try {
+      // Optimistic UI emission
+      try { feedEventEmitter.emitHighlightDeleted(params.highlightId); } catch {}
+      
+      const mod = await import('@react-native-async-storage/async-storage');
+      const AsyncStorage = (mod as any).default ?? mod;
+      
+      // Clean up cache
+      await AsyncStorage.removeItem(`highlight_archive_${params.highlightId}`);
+      
+      await deleteHighlightApi(params.highlightId, params.userId);
+      return { success: true };
+    } catch (e: any) {
+      return { success: false, error: e?.message || 'Delete failed' };
     }
   },
 

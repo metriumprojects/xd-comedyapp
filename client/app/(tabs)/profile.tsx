@@ -6,7 +6,6 @@ import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-  ActivityIndicator,
   Alert,
   Dimensions,
   Image,
@@ -25,7 +24,6 @@ import { safeRouterBack } from '@/lib/safeRouterBack';
 import { useAppDialog } from '@/src/_components/AppDialogProvider';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { API_BASE_URL, BACKEND_URL } from '../../lib/api';
-import { useCurrentLocation } from '../../hooks/useCurrentLocation';
 import { createStory, getUserHighlights, getUserSectionsSorted, getUserStories } from '../../lib/firebaseHelpers';
 import { followUser, sendFollowRequest, unfollowUser } from '../../lib/firebaseHelpers/follow';
 import { likePost, unlikePost } from '../../lib/firebaseHelpers/post';
@@ -67,6 +65,8 @@ import ProfileGrid from '@/src/features/profile/components/ProfileGrid';
 import { useProfileActions } from '@/hooks/useProfileActions';
 import { useProfileData } from '@/src/features/profile/hooks/useProfileData';
 import { SubscriptionModal } from '@/src/_components/profile/SubscriptionModal';
+import { subscriptionService } from '@/src/_services/subscriptionService';
+import { ProfileSkeleton } from '@/src/_components/profile/ProfileSkeleton';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 const isSmallDevice = SCREEN_HEIGHT < 700;
@@ -227,10 +227,13 @@ export default function Profile({ userIdProp }: any) {
   const [userMenuVisible, setUserMenuVisible] = useState(false);
   const [highlightViewerVisible, setHighlightViewerVisible] = useState(false);
   const [selectedHighlightId, setSelectedHighlightId] = useState<string | null>(null);
+  const [createHighlightVisible, setCreateHighlightVisible] = useState(false);
+  const [creatorTiers, setCreatorTiers] = useState<any[]>([]);
+  const [activeSubscribedTierIds, setActiveSubscribedTierIds] = useState<string[]>([]);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [currentUserUidAlias, setCurrentUserUidAlias] = useState<string | null>(null);
   const [currentUserFirebaseAlias, setCurrentUserFirebaseAlias] = useState<string | null>(null);
-  const [authLoading, setAuthLoading] = useState(false);
+  const [authResolved, setAuthResolved] = useState(false);
   const router = useRouter();
   const { showSuccess } = useAppDialog();
   const params = useLocalSearchParams();
@@ -248,6 +251,9 @@ export default function Profile({ userIdProp }: any) {
         if (uid) setCurrentUserUidAlias(uid);
         if (firebaseUid) setCurrentUserFirebaseAlias(firebaseUid);
       } catch (error) {}
+      finally {
+        setAuthResolved(true);
+      }
     };
     getUserId();
   }, []);
@@ -292,6 +298,7 @@ export default function Profile({ userIdProp }: any) {
     taggedPosts,
     highlights,
     isLoading: profileLoading,
+    isError: profileIsError,
     refetchAll
   } = useProfileData({
     viewedUserId: viewedUserId as string,
@@ -307,12 +314,14 @@ export default function Profile({ userIdProp }: any) {
   ].filter(Boolean));
 
   const loading = profileLoading;
+  const awaitingOwnUserId = authResolved && isOwnProfile && !viewedUserId && !userIdProp && !params.user && !params.uid && !params.id;
+  const showProfileSkeleton = !profile && (!authResolved || awaitingOwnUserId || profileLoading);
+  const showProfileError = authResolved && !!viewedUserId && !profileLoading && !profile && profileIsError;
   const passportLocationsCount = Number(profile?.passportCount ?? profile?.locationsCount ?? 0);
   const [selectedSection, setSelectedSection] = useState<string | null>(null);
   const [postViewerVisible, setPostViewerVisible] = useState<boolean>(false);
   const [selectedPostIndex, setSelectedPostIndex] = useState<number>(0);
   const [segmentTab, setSegmentTab] = useState<'grid' | 'tagged' | 'heart' | 'star' | 'stats'>('grid');
-  const { location: currentLocation } = useCurrentLocation();
   const [editSectionsModal, setEditSectionsModal] = useState<boolean>(false);
   const [viewCollectionsModal, setViewCollectionsModal] = useState<boolean>(false);
   const [followLoading, setFollowLoading] = useState(false);
@@ -332,36 +341,76 @@ export default function Profile({ userIdProp }: any) {
   const [refreshing, setRefreshing] = useState(false);
   const [isSubscribed, setIsSubscribed] = useState(false);
   const [creatorHasTier, setCreatorHasTier] = useState(false);
+  const [subscriptionTitle, setSubscriptionTitle] = useState<string>('Subscription');
 
+  // Combined effect to load creator's tiers and user's subscription status
   useEffect(() => {
-    const checkSubscribedStatus = async () => {
-      if (!currentUserId || !viewedUserId) return;
-      const key = `sub_subscribed_${currentUserId}_to_${viewedUserId}`;
-      try {
-        const val = await AsyncStorage.getItem(key);
-        setIsSubscribed(val === 'true');
-      } catch (e) {}
-    };
-    checkSubscribedStatus();
-  }, [currentUserId, viewedUserId, subModalVisible]);
+    const loadSubscriptionData = async () => {
+      const creatorId = profile?._id || profile?.id || viewedUserId;
+      if (!creatorId) return;
 
-  useEffect(() => {
-    const checkTier = async () => {
-      if (!viewedUserId) return;
-      const key = `sub_tier_${viewedUserId}`;
       try {
-        const data = await AsyncStorage.getItem(key);
-        setCreatorHasTier(!!data);
+        // 1. Load active subscription tiers of the creator
+        const tiersResponse = await subscriptionService.getTiers(creatorId);
+        if (tiersResponse.success && Array.isArray(tiersResponse.data)) {
+          setCreatorTiers(tiersResponse.data);
+          setCreatorHasTier(tiersResponse.data.length > 0);
+          if (tiersResponse.data.length > 0) {
+            setSubscriptionTitle(tiersResponse.data[0].title || 'Subscription');
+          }
+          await AsyncStorage.setItem(`sub_tiers_${creatorId}`, JSON.stringify(tiersResponse.data));
+        }
+
+        // 2. Load active subscribed tier IDs for the current user
+        if (currentUserId && currentUserId !== creatorId) {
+          const statusResponse = await subscriptionService.checkSubscriptionStatus(creatorId);
+          if (statusResponse.success && statusResponse.data) {
+            const freshSubscribed = statusResponse.data.isSubscribed;
+            setIsSubscribed(freshSubscribed);
+            
+            const activeTiers = statusResponse.data.activeTierIds || [];
+            setActiveSubscribedTierIds(activeTiers);
+
+            // Sync cache
+            await AsyncStorage.setItem(`sub_subscribed_${currentUserId}_to_${creatorId}`, freshSubscribed ? 'true' : 'false');
+            for (const tierId of activeTiers) {
+              await AsyncStorage.setItem(`sub_subscribed_${currentUserId}_to_tier_${tierId}`, 'true');
+            }
+          }
+        }
       } catch (e) {
-        setCreatorHasTier(false);
+        console.warn('[Profile] Error loading subscription data:', e);
       }
     };
-    checkTier();
-  }, [viewedUserId, subModalVisible]);
+
+    loadSubscriptionData();
+  }, [currentUserId, viewedUserId, profile?._id, profile?.id, subModalVisible]);
+
+  // Listen for real-time subscription changes on profile page
+  useEffect(() => {
+    const creatorId = profile?._id || profile?.id || viewedUserId;
+    if (!creatorId || isOwnProfile) return;
+    const unsub = feedEventEmitter.onFeedUpdate(async (event) => {
+      if (event.type === 'USER_SUBSCRIBED' && String(event.userId).toLowerCase() === String(creatorId).toLowerCase()) {
+        try {
+          const statusResponse = await subscriptionService.checkSubscriptionStatus(creatorId);
+          if (statusResponse.success) {
+            setIsSubscribed(statusResponse.data.isSubscribed);
+            setActiveSubscribedTierIds(statusResponse.data.activeTierIds || []);
+          } else {
+            setIsSubscribed(true);
+          }
+        } catch (e) {
+          setIsSubscribed(true);
+        }
+      }
+    });
+    return () => unsub();
+  }, [viewedUserId, profile?._id, profile?.id, isOwnProfile]);
 
   // Reset tab to grid if viewing another user's profile and currently on a private/creator tab
   useEffect(() => {
-    if (!isOwnProfile && (segmentTab === 'star' || segmentTab === 'stats')) {
+    if (!isOwnProfile && (segmentTab === 'star' || segmentTab === 'stats' || segmentTab === 'heart')) {
       setSegmentTab('grid');
     }
   }, [isOwnProfile, segmentTab]);
@@ -441,19 +490,61 @@ export default function Profile({ userIdProp }: any) {
   };
 
   const sectionSourcePosts = useMemo(() => {
-    const merged = [...posts, ...savedSectionPosts];
-    const byId = new Map<string, any>();
-    for (const p of merged) {
-      const id = getPostId(p);
-      if (!id) continue;
-      if (!byId.has(id)) byId.set(id, p);
-    }
-    return Array.from(byId.values());
-  }, [posts, savedSectionPosts]);
+    return posts;
+  }, [posts]);
 
-  const visiblePosts = selectedSection
-    ? sectionSourcePosts.filter((p: any) => (sections.find((s: any) => s.name === selectedSection)?.postIds || []).includes(getPostId(p)))
-    : posts;
+  const subscriptionPosts = useMemo(() => {
+    return posts.filter((p: any) => p.visibility === 'Subscribers');
+  }, [posts]);
+
+  const isSubscriptionSectionSelected = selectedSection === subscriptionTitle;
+
+  const mergedSections = useMemo(() => {
+    const ownPostIds = new Set(posts.map((p: any) => getPostId(p)));
+    
+    // Only show sections on the profile that contain at least one of the viewed user's own posts
+    const filtered = (sections || []).filter((s: any) => {
+      const ids = s.postIds || [];
+      return ids.some((id: string) => ownPostIds.has(id));
+    });
+
+    const list = [...filtered];
+    const showSubFolder = subscriptionPosts.length > 0 || creatorHasTier;
+    if (showSubFolder) {
+      const subSec = {
+        _id: 'subscription-folder',
+        name: subscriptionTitle,
+        postIds: subscriptionPosts.map((p: any) => getPostId(p)),
+        coverImage: subscriptionPosts[0]?.imageUrl || subscriptionPosts[0]?.mediaUrl || subscriptionPosts[0]?.media?.[0]?.url || subscriptionPosts[0]?.mediaUrls?.[0] || DEFAULT_IMAGE_URL,
+        visibility: 'public',
+        isSubscriptionFolder: true,
+      };
+      list.unshift(subSec);
+    }
+    return list;
+  }, [sections, posts, subscriptionPosts, creatorHasTier, subscriptionTitle]);
+
+  const defaultGridPosts = useMemo(() => {
+    if (isOwnProfile) {
+      return posts.filter((p: any) => p.visibility !== 'Subscribers');
+    }
+    return posts.filter((p: any) => {
+      if (p.visibility !== 'Subscribers') return true;
+      if (p.subscriptionTierId && activeSubscribedTierIds.includes(String(p.subscriptionTierId))) {
+        return true;
+      }
+      return false;
+    });
+  }, [posts, isOwnProfile, activeSubscribedTierIds]);
+
+  const visiblePosts = useMemo(() => {
+    if (!selectedSection) return defaultGridPosts;
+    if (isSubscriptionSectionSelected) return subscriptionPosts;
+    const section = mergedSections.find((s: any) => s.name === selectedSection);
+    const postIds = section?.postIds || [];
+    // Only show the viewed user's own posts in the selected section
+    return posts.filter((p: any) => postIds.includes(getPostId(p)));
+  }, [selectedSection, isSubscriptionSectionSelected, defaultGridPosts, subscriptionPosts, mergedSections, posts]);
 
   const PROFILE_MAP_ENABLED = false;
 
@@ -636,7 +727,7 @@ export default function Profile({ userIdProp }: any) {
               if (userStories.length > 0) {
                 setStoriesViewerVisible(true);
               } else if (isOwnProfile) {
-                handleAvatarPick();
+                handleAddStory();
               }
             }}
             onAddStory={handleAddStory}
@@ -676,7 +767,7 @@ export default function Profile({ userIdProp }: any) {
         </View>
 
         {/* Highlights Carousel */}
-        {(!profile?.isPrivate || isOwnProfile || !!profile?.isApprovedFollower) && highlights && highlights.length > 0 && (
+        {(!profile?.isPrivate || isOwnProfile || !!profile?.isApprovedFollower) && highlights && (highlights.length > 0 || isOwnProfile) && (
           <View style={{ marginTop: 14, marginBottom: 10 }}>
             <View style={{ paddingHorizontal: 16, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
               <Text style={{ fontSize: 13, fontWeight: '500', color: '#888', letterSpacing: 0.5 }}>HIGHLIGHTS</Text>
@@ -694,27 +785,7 @@ export default function Profile({ userIdProp }: any) {
               highlights={highlights} 
               onPressHighlight={handlePressHighlight} 
               isOwnProfile={isOwnProfile} 
-            />
-          </View>
-        )}
-
-        {/* Collections Highlights */}
-        {(!profile?.isPrivate || isOwnProfile || !!profile?.isApprovedFollower) && sections && (sections.length > 0 || isOwnProfile) && (
-          <View style={{ marginTop: 8, marginBottom: 4 }}>
-            <ProfileSections
-              sections={sections}
-              selectedSection={selectedSection}
-              onSelectSection={(secName) => {
-                setSelectedSection(secName);
-                if (secName) {
-                  setSegmentTab('grid');
-                }
-              }}
-              sectionSourcePosts={sectionSourcePosts}
-              getPostId={getPostId}
-              isOwnProfile={isOwnProfile}
-              currentUserId={currentUserId}
-              onEditSections={() => setEditSectionsModal(true)}
+              onAddHighlight={() => setCreateHighlightVisible(true)}
             />
           </View>
         )}
@@ -734,12 +805,14 @@ export default function Profile({ userIdProp }: any) {
             >
               <Feather name="user" size={20} color={segmentTab === 'tagged' ? '#007aff' : '#8e8e93'} />
             </TouchableOpacity>
-            <TouchableOpacity 
-              style={[styles.customProfileTabItem, segmentTab === 'heart' && styles.customProfileTabItemActive]}
-              onPress={() => { hapticLight(); setSegmentTab('heart'); setSelectedSection(null); }}
-            >
-              <Feather name="heart" size={20} color={segmentTab === 'heart' ? '#007aff' : '#8e8e93'} />
-            </TouchableOpacity>
+            {isOwnProfile && (
+              <TouchableOpacity 
+                style={[styles.customProfileTabItem, segmentTab === 'heart' && styles.customProfileTabItemActive]}
+                onPress={() => { hapticLight(); setSegmentTab('heart'); setSelectedSection(null); }}
+              >
+                <Feather name="heart" size={20} color={segmentTab === 'heart' ? '#007aff' : '#8e8e93'} />
+              </TouchableOpacity>
+            )}
             {isOwnProfile && (
               <TouchableOpacity 
                 style={[styles.customProfileTabItem, segmentTab === 'star' && styles.customProfileTabItemActive]}
@@ -758,39 +831,59 @@ export default function Profile({ userIdProp }: any) {
             )}
           </View>
         )}
+
+        {/* Collections Highlights (Moved inside 1st menu / Grid tab) */}
+        {segmentTab === 'grid' && (!profile?.isPrivate || isOwnProfile || !!profile?.isApprovedFollower) && mergedSections && (mergedSections.length > 0 || isOwnProfile) && (
+          <View style={{ marginTop: 8, marginBottom: 4 }}>
+            <ProfileSections
+              sections={mergedSections}
+              selectedSection={selectedSection}
+              onSelectSection={(secName) => {
+                const isSelectingSubFolder = secName === subscriptionTitle;
+                if (isSelectingSubFolder && !isOwnProfile && !isSubscribed) {
+                  setSubModalVisible(true);
+                }
+                setSelectedSection(secName);
+                if (secName) {
+                  setSegmentTab('grid');
+                }
+              }}
+              subscriptionSectionName={subscriptionTitle}
+              isSubscribed={isSubscribed}
+              sectionSourcePosts={sectionSourcePosts}
+              getPostId={getPostId}
+              isOwnProfile={isOwnProfile}
+              currentUserId={currentUserId}
+              onEditSections={() => setEditSectionsModal(true)}
+            />
+          </View>
+        )}
       </View>
     );
-  }, [profile, userStories, isOwnProfile, profileLoading, passportLocationsCount, posts.length, highlights, highlightViewerVisible, selectedHighlightId, segmentTab, sections, selectedSection, followLoading, viewedUserId, currentUserId, sectionSourcePosts, isSubscribed]);
+  }, [profile, userStories, isOwnProfile, profileLoading, passportLocationsCount, posts.length, highlights, highlightViewerVisible, selectedHighlightId, segmentTab, mergedSections, selectedSection, followLoading, viewedUserId, currentUserId, sectionSourcePosts, isSubscribed]);
 
   const currentPostsArray = useMemo(() => {
     if (segmentTab === 'grid') {
-      return selectedSection 
-        ? visiblePosts 
-        : posts.filter((p: any) => p.visibility !== 'Subscribers');
+      return visiblePosts;
     }
     if (segmentTab === 'tagged') return taggedPosts;
     if (segmentTab === 'heart') {
-      return posts.filter((p: any) => p.visibility === 'Subscribers');
+      return posts.filter((p: any) => {
+        const pid = getPostId(p);
+        const hasLikedState = likedPosts[pid];
+        if (hasLikedState !== undefined) {
+          return hasLikedState;
+        }
+        return p.isLiked || (Array.isArray(p.likes) && p.likes.includes(currentUserId));
+      });
     }
     return [];
-  }, [segmentTab, selectedSection, visiblePosts, posts, taggedPosts]);
+  }, [segmentTab, visiblePosts, taggedPosts, likedPosts, posts, currentUserId]);
 
 
   // UI
-  // Show loading while auth is initializing
-  if (authLoading) {
-    return (
-      <SafeAreaView style={styles.container} edges={['top']}>
-        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-          <ActivityIndicator size="large" color="#007aff" />
-          <Text style={{ marginTop: 10, color: '#999' }}>Loading auth...</Text>
-        </View>
-      </SafeAreaView>
-    );
-  }
-
   // Show error if not logged in on own profile tab
-  if (!currentUserId && isOwnProfile) {
+  if (authResolved && !currentUserId && isOwnProfile) {
     return (
       <SafeAreaView style={styles.container} edges={['top']}>
         <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
@@ -805,6 +898,14 @@ export default function Profile({ userIdProp }: any) {
             <Text style={{ color: '#fff', fontSize: 16, fontWeight: 'bold' }}>Go to Login</Text>
           </TouchableOpacity>
         </View>
+      </SafeAreaView>
+    );
+  }
+
+  if (showProfileSkeleton) {
+    return (
+      <SafeAreaView style={styles.container} edges={[]}>
+        <ProfileSkeleton />
       </SafeAreaView>
     );
   }
@@ -859,11 +960,17 @@ export default function Profile({ userIdProp }: any) {
         </View>
       )}
 
-      {loading && (
-        <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, zIndex: 99, backgroundColor: 'rgba(255,255,255,0.7)', justifyContent: 'center', alignItems: 'center' }}>
-          <ActivityIndicator size="large" color="#007aff" />
+      {showProfileError && (
+        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', padding: 20 }}>
+          <Text style={{ fontSize: 16, color: '#666', marginBottom: 12 }}>Failed to load profile.</Text>
+          <TouchableOpacity onPress={refetchAll} style={{ backgroundColor: '#007aff', paddingHorizontal: 20, paddingVertical: 10, borderRadius: 8 }}>
+            <Text style={{ color: '#fff', fontWeight: 'bold' }}>Retry</Text>
+          </TouchableOpacity>
         </View>
       )}
+
+      {profile && !showProfileError && (
+        <>
 
       {(!profile?.isPrivate || isOwnProfile || !!profile?.isApprovedFollower) ? (
         <ProfileGrid
@@ -873,6 +980,23 @@ export default function Profile({ userIdProp }: any) {
           onRefresh={onRefresh}
           renderHeader={renderProfileHeader}
           onPressPost={(item, idx) => {
+            const postCreatorId = String(item.userId?._id || item.userId || profile?._id || profile?.id || '');
+            const postIsOwner = [currentUserId, currentUserFirebaseAlias, currentUserUidAlias]
+              .filter(Boolean)
+              .map(id => String(id).toLowerCase())
+              .includes(postCreatorId.toLowerCase());
+
+            if (item.visibility === 'Subscribers' && !postIsOwner) {
+              const tierSubscribed = item.subscriptionTierId
+                ? activeSubscribedTierIds.includes(String(item.subscriptionTierId))
+                : isSubscribed;
+
+              if (!tierSubscribed) {
+                setSubModalVisible(true);
+                return;
+              }
+            }
+
             const modalIndex = currentPostsArray.findIndex((p: any) => (p.id || p._id) === (item.id || item._id));
             setSelectedPostIndex(modalIndex >= 0 ? modalIndex : idx);
             setPostViewerVisible(true);
@@ -907,7 +1031,9 @@ export default function Profile({ userIdProp }: any) {
           userMenuVisible, setUserMenuVisible, handleBlockUser, handleReportUser, shareProfile,
           showUploadModal, setShowUploadModal, selectedMedia, setSelectedMedia, locationQuery, setLocationQuery, locationSuggestions, setLocationSuggestions,
           uploading, setUploading, uploadProgress, setUploadProgress, showSuccess,
-          highlightViewerVisible, setHighlightViewerVisible, selectedHighlightId
+          highlightViewerVisible, setHighlightViewerVisible, selectedHighlightId,
+          storiesViewerVisible, setStoriesViewerVisible, userStories,
+          createHighlightVisible, setCreateHighlightVisible
         }}
       />
 
@@ -915,8 +1041,22 @@ export default function Profile({ userIdProp }: any) {
         visible={subModalVisible}
         onClose={() => setSubModalVisible(false)}
         isOwnProfile={isOwnProfile}
-        creatorId={viewedUserId || 'unknown'}
+        creatorId={profile?._id || profile?.id || viewedUserId || 'unknown'}
+        onSubscriptionChange={(subscribed) => {
+          setIsSubscribed(subscribed);
+          if (subscribed) {
+            subscriptionService.checkSubscriptionStatus(profile?._id || profile?.id || viewedUserId || '')
+              .then((res) => {
+                if (res.success && res.data) {
+                  setActiveSubscribedTierIds(res.data.activeTierIds || []);
+                }
+              })
+              .catch(() => {});
+          }
+        }}
       />
+      </>
+      )}
     </SafeAreaView>
   );
 }

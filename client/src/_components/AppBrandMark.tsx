@@ -107,7 +107,7 @@ export function AppBrandMark({
             } : null,
           ]}
         >
-          Trips
+          Comedy
         </Text>
       ) : null}
     </View>

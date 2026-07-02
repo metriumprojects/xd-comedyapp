@@ -112,22 +112,22 @@ const ProfileHeader: React.FC<ProfileHeaderProps> = ({
                 )}
               </TouchableOpacity>
 
-              {isOwnProfile && onEditProfile && (
+              {isOwnProfile && onAddStory && (
                 <TouchableOpacity
                   style={styles.editBadge}
                   activeOpacity={0.9}
                   onPress={() => {
                     hapticLight();
-                    onEditProfile();
+                    onAddStory();
                   }}
                 >
                   <LinearGradient
-                    colors={['#FBBC04', '#FF8D00']}
+                    colors={['#007aff', '#0055ff']}
                     start={{ x: 0, y: 0 }}
                     end={{ x: 1, y: 0 }}
                     style={StyleSheet.absoluteFill}
                   />
-                  <Feather name="edit-2" size={10} color="#fff" style={{ zIndex: 1 }} />
+                  <Feather name="plus" size={12} color="#fff" style={{ zIndex: 1 }} />
                 </TouchableOpacity>
               )}
             </View>
@@ -176,7 +176,7 @@ const ProfileHeader: React.FC<ProfileHeaderProps> = ({
         </View>
       </View>
 
-      {/* Row 2: Action Button + Horizontal Categories Scrolling pills */}
+      {/* Row 2: Action Buttons */}
       <View style={styles.actionsAndTagsRow}>
         {isOwnProfile ? (
           <View style={{ flexDirection: 'row', gap: 6, alignItems: 'center' }}>
@@ -216,33 +216,39 @@ const ProfileHeader: React.FC<ProfileHeaderProps> = ({
 
             {hasSubscriptionTier && (
               <TouchableOpacity
-                style={[styles.actionBtnBlack, { backgroundColor: '#FFD60A' }, isSubscribed && { backgroundColor: '#34c759' }]}
+                style={[
+                  styles.actionBtnBlack, 
+                  isSubscribed 
+                    ? { backgroundColor: '#ff3b30' }
+                    : { backgroundColor: '#FFD60A' }
+                ]}
                 onPress={onSubscribe}
               >
-                <Feather name={isSubscribed ? "check" : "star"} size={14} color={isSubscribed ? "#fff" : "#000"} style={{ marginRight: 6 }} />
+                <Feather 
+                  name={isSubscribed ? "x-circle" : "star"} 
+                  size={14} 
+                  color={isSubscribed ? "#fff" : "#000"} 
+                  style={{ marginRight: 6 }} 
+                />
                 <Text style={[styles.actionBtnText, { color: isSubscribed ? "#fff" : "#000" }]}>
-                  {isSubscribed ? 'Subscribed' : 'Subscribe'}
+                  {isSubscribed ? 'Cancel Subscription' : 'Subscribe'}
                 </Text>
               </TouchableOpacity>
             )}
           </View>
         )}
-
-        {/* Categories Carousel */}
-        <View style={{ flex: 1, marginLeft: 8 }}>
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={{ gap: 6 }}
-          >
-            {interestsList.map((tag, idx) => (
-              <View key={idx} style={styles.tagChip}>
-                <Text style={styles.tagChipText}>{tag}</Text>
-              </View>
-            ))}
-          </ScrollView>
-        </View>
       </View>
+
+      {/* Row 2.5: Wrapped Tag Chips */}
+      {interestsList.length > 0 && (
+        <View style={styles.tagsContainer}>
+          {interestsList.map((tag, idx) => (
+            <View key={idx} style={styles.tagChip}>
+              <Text style={styles.tagChipText}>{tag}</Text>
+            </View>
+          ))}
+        </View>
+      )}
 
       {/* Row 3: Bio & Links */}
       <View style={styles.bioContainer}>
@@ -404,6 +410,13 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 11,
     fontWeight: '600',
+  },
+  tagsContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
+    marginTop: 10,
+    width: '100%',
   },
   bioContainer: {
     marginTop: 10,

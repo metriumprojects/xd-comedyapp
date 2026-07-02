@@ -1,4 +1,4 @@
-package com.tauhee56.travesocial
+package com.hussain2125.comedyapp
 
 import android.app.Application
 import android.content.res.Configuration

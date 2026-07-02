@@ -39,6 +39,7 @@ export {
   likeComment,
   unlikeComment,
   getActiveStories,
+  getUserStories,
   createStory,
   addLikedStatusToPosts,
   getRegions,

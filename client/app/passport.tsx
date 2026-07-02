@@ -628,7 +628,7 @@ export default function PassportScreen() {
             <Feather name="navigation" size={14} color="#FF8D00" style={{ marginRight: 8, marginTop: 2 }} />
             <View style={{ flex: 1 }}>
               <Text style={styles.travelHintText}>
-                Turn on location access while using Trips and optional notifications to unlock automatic travel stamps whenever you arrive in a new country while the app is open. After signing in, just open the Home screen once so we can refresh your location and keep your journey up to date.
+                Turn on location access while using Comedy App and optional notifications to unlock automatic travel stamps whenever you arrive in a new country while the app is open. After signing in, just open the Home screen once so we can refresh your location and keep your journey up to date.
               </Text>
               <TouchableOpacity 
                 style={styles.enableLocBtn}

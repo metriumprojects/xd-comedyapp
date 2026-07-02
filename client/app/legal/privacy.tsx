@@ -23,7 +23,7 @@ export default function PrivacyPolicyScreen() {
 
         <Text style={styles.sectionTitle}>1. Introduction</Text>
         <Text style={styles.paragraph}>
-          Welcome to Trips. We respect your privacy and are committed to protecting your personal data. 
+          Welcome to Comedy App. We respect your privacy and are committed to protecting your personal data. 
           This privacy policy explains how we collect, use, and safeguard your information.
         </Text>
 
@@ -87,12 +87,12 @@ export default function PrivacyPolicyScreen() {
 
         <Text style={styles.sectionTitle}>8. Contact Us</Text>
         <Text style={styles.paragraph}>
-          Email: support@trave-social.app{'\n'}
+          Email: support@comedyapp.com{'\n'}
           Address: [Your Company Address]
         </Text>
 
         <Text style={styles.paragraph}>
-          By using Trips, you agree to this Privacy Policy.
+          By using Comedy App, you agree to this Privacy Policy.
         </Text>
 
         <TouchableOpacity 

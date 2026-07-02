@@ -9,6 +9,8 @@ import { CollectionsModal, UserMenuModal } from '@/src/_components/profile/Profi
 import PostViewerModal from '@/src/_components/PostViewerModal';
 import EditSectionsModal from '@/src/_components/EditSectionsModal';
 import { UploadStoryModal } from '@/src/_components/profile/UploadStoryModal';
+import StoriesViewer from '@/src/_components/StoriesViewer';
+import CreateHighlightModal from '@/src/_components/CreateHighlightModal';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
@@ -81,6 +83,15 @@ interface ProfileModalsProps {
   highlightViewerVisible: boolean;
   setHighlightViewerVisible: (val: boolean) => void;
   selectedHighlightId: string | null;
+
+  // Stories
+  storiesViewerVisible?: boolean;
+  setStoriesViewerVisible?: (val: boolean) => void;
+  userStories?: any[];
+
+  // Create Highlight Modal
+  createHighlightVisible: boolean;
+  setCreateHighlightVisible: (val: boolean) => void;
 }
 
 const ProfileModals: React.FC<ProfileModalsProps> = (props) => {
@@ -95,7 +106,9 @@ const ProfileModals: React.FC<ProfileModalsProps> = (props) => {
     userMenuVisible, setUserMenuVisible, handleBlockUser, handleReportUser, shareProfile,
     showUploadModal, setShowUploadModal, selectedMedia, setSelectedMedia, locationQuery, setLocationQuery, locationSuggestions, setLocationSuggestions,
     uploading, setUploading, uploadProgress, setUploadProgress, showSuccess,
-    highlightViewerVisible, setHighlightViewerVisible, selectedHighlightId
+    highlightViewerVisible, setHighlightViewerVisible, selectedHighlightId,
+    storiesViewerVisible = false, setStoriesViewerVisible = () => {}, userStories = [],
+    createHighlightVisible, setCreateHighlightVisible
   } = props;
 
   return (
@@ -267,6 +280,37 @@ const ProfileModals: React.FC<ProfileModalsProps> = (props) => {
         userName={profile?.displayName || profile?.name}
         userAvatar={profile?.avatar || profile?.photoURL || undefined}
       />
+
+      {storiesViewerVisible && (
+        <Modal
+          visible={storiesViewerVisible}
+          animationType="fade"
+          transparent={false}
+          onRequestClose={() => {
+            setStoriesViewerVisible(false);
+            refetchAll?.();
+          }}
+        >
+          <StoriesViewer
+            stories={userStories}
+            onClose={() => {
+              setStoriesViewerVisible(false);
+              refetchAll?.();
+            }}
+          />
+        </Modal>
+      )}
+
+      {currentUserId && (
+        <CreateHighlightModal
+          visible={createHighlightVisible}
+          onClose={() => setCreateHighlightVisible(false)}
+          userId={currentUserId}
+          onSuccess={async () => {
+            await refetchAll();
+          }}
+        />
+      )}
     </>
   );
 };

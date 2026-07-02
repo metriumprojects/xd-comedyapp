@@ -37,7 +37,7 @@ export default function EULAScreen() {
             <Ionicons name="shield-checkmark" size={40} color="#FF8D00" />
           </View>
           <Text style={styles.title}>Community Guidelines & Terms</Text>
-          <Text style={styles.subtitle}>Please review our terms of use to continue to Trips.</Text>
+          <Text style={styles.subtitle}>Please review our terms of use to continue to Comedy App.</Text>
         </View>
 
         {/* Full Screen Scrollable Content */}
@@ -47,25 +47,25 @@ export default function EULAScreen() {
           showsVerticalScrollIndicator={true}
         >
           <View style={styles.legalHeader}>
-            <Text style={styles.legalTitle}>Trips – Terms of Use</Text>
+            <Text style={styles.legalTitle}>Comedy App – Terms of Use</Text>
             <Text style={styles.date}>Effective date: April 30, 2026</Text>
           </View>
 
           <Text style={styles.introText}>
-            Welcome to Trips. By creating an account or using the Trips application and related services (“Services”), you agree to these Terms of Use.
+            Welcome to Comedy App. By creating an account or using the Comedy App application and related services (“Services”), you agree to these Terms of Use.
           </Text>
 
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>1. Eligibility</Text>
             <Text style={styles.sectionText}>
-              You must comply with all applicable laws when using Trips. Users under the age required by local law must have permission from a parent or guardian where applicable.
+              You must comply with all applicable laws when using Comedy App. Users under the age required by local law must have permission from a parent or guardian where applicable.
             </Text>
           </View>
 
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>2. User Content</Text>
             <Text style={styles.sectionText}>
-              Trips allows users to create, upload, stream, share, and interact with user-generated content, including videos, images, messages, and profile information.
+              Comedy App allows users to create, upload, stream, share, and interact with user-generated content, including videos, images, messages, and profile information.
               {'\n\n'}You are solely responsible for the content you post and the interactions you engage in through the platform.
             </Text>
           </View>
@@ -94,14 +94,14 @@ export default function EULAScreen() {
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>4. Moderation and Enforcement</Text>
             <Text style={styles.sectionText}>
-              Trips reserves the right to monitor, review, remove, restrict, or disable any content or account at our discretion where necessary to maintain platform safety, enforce these Terms, or comply with legal obligations.
+              Comedy App reserves the right to monitor, review, remove, restrict, or disable any content or account at our discretion where necessary to maintain platform safety, enforce these Terms, or comply with legal obligations.
               {'\n\n'}Violations may result in content removal, temporary suspension, permanent account termination, or reporting to relevant authorities.
             </Text>
           </View>
 
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>5. Reporting and Blocking</Text>
-            <Text style={styles.sectionText}>Trips provides mechanisms for users to:</Text>
+            <Text style={styles.sectionText}>Comedy App provides mechanisms for users to:</Text>
             {[
               'Report objectionable or abusive content',
               'Report users who violate these Terms',
@@ -117,7 +117,7 @@ export default function EULAScreen() {
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>6. Safety Filtering</Text>
             <Text style={styles.sectionText}>
-              Trips uses moderation tools, automated systems, user reporting, and manual review processes to help detect and reduce objectionable content and abusive behavior.
+              Comedy App uses moderation tools, automated systems, user reporting, and manual review processes to help detect and reduce objectionable content and abusive behavior.
             </Text>
           </View>
 
@@ -132,7 +132,7 @@ export default function EULAScreen() {
             <Text style={styles.sectionTitle}>Zero Tolerance Policy</Text>
             <View style={styles.safetyBox}>
               <Text style={styles.safetyText}>
-                Trips has a zero-tolerance policy for objectionable content or abusive users. By continuing, you agree to uphold these community standards.
+                Comedy App has a zero-tolerance policy for objectionable content or abusive users. By continuing, you agree to uphold these community standards.
               </Text>
             </View>
           </View>

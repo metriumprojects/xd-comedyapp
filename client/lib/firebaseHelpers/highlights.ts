@@ -35,9 +35,12 @@ export async function createHighlight(
 /**
  * Add a story to an existing highlight
  */
-export async function addStoryToHighlight(highlightId: string, storyId: string) {
+export async function addStoryToHighlight(highlightId: string, storyId: string, storySnapshot?: any) {
   try {
-    const res = await apiService.post(`/highlights/${highlightId}/stories`, { storyId });
+    const res = await apiService.post(`/highlights/${highlightId}/stories`, { 
+      storyId, 
+      storySnapshot: storySnapshot || storyId 
+    });
     return res;
   } catch (error: any) {
     console.error('❌ addStoryToHighlight error:', error);

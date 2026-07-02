@@ -1,23 +1,25 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
-  ActivityIndicator,
   Dimensions,
   FlatList,
+  InteractionManager,
   StyleSheet,
   Text,
   TouchableOpacity,
   View,
-  Platform,
-  TextInput
+  TextInput,
+  Platform
 } from "react-native";
 import { Feather, Ionicons } from "@expo/vector-icons";
 import * as Haptics from 'expo-haptics';
 import { useFocusEffect, useLocalSearchParams, useRouter, useNavigation } from "expo-router";
+import { useReelsStore } from "@/store/useReelsStore";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import AsyncStorage from '@/lib/storage';
 import { useIsFocused } from '@react-navigation/native';
 
 import ReelItem from "../../src/_components/ReelItem";
+import { HomeReelSkeleton } from "../../src/_components/HomeReelSkeleton";
 import NotificationsModal from "../../src/_components/NotificationsModal";
 import GroupsDrawer from "../../src/_components/GroupsDrawer";
 
@@ -29,11 +31,14 @@ import { resolveCanonicalUserId } from '../../lib/currentUser';
 import { apiService } from '@/src/_services/apiService';
 import { useNotifications } from '../../hooks/useNotifications';
 import { useUIStore } from '../../store/useUIStore';
+import { useQueryClient } from '@tanstack/react-query';
+import { prefetchOwnProfile } from '@/src/features/profile/hooks/useProfileData';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get("window");
 
 export default function Home() {
   const router = useRouter();
+  const queryClient = useQueryClient();
   const navigation = useNavigation();
   const insets = useSafeAreaInsets();
   const params = useLocalSearchParams();
@@ -58,13 +63,60 @@ export default function Home() {
 
   // 2. State for overlays & controls
   const isScreenFocused = useIsFocused();
-  const [activeIndex, setActiveIndex] = useState(0);
+  const activeIndex = useReelsStore((state) => state.activeIndex);
+  const setActiveIndex = useReelsStore((state) => state.setActiveIndex);
   const [isMuted, setIsMuted] = useState(true);
   const [containerHeight, setContainerHeight] = useState(SCREEN_HEIGHT);
   const [searchQuery, setSearchQuery] = useState("");
   const [notificationsVisible, setNotificationsVisible] = useState(false);
   const [groupsDrawerVisible, setGroupsDrawerVisible] = useState(false);
   const [unreadMsg, setUnreadMsg] = useState(0);
+
+  const [followedStories, setFollowedStories] = useState<any[]>([]);
+
+  const fetchFollowedStories = useCallback(async () => {
+    if (!currentUserId) return;
+    try {
+      const { getAllStoriesForFeed } = await import('../../lib/firebaseHelpers/index');
+      const res = await getAllStoriesForFeed();
+      if (res.success && Array.isArray(res.data)) {
+        const grouped = new Map<string, any>();
+        for (const story of res.data) {
+          const userId = String(story.userId?._id || story.userId || '');
+          if (!userId) continue;
+
+          // Format story for StoriesViewer compatibility
+          const transformed = {
+            ...story,
+            id: story._id || story.id,
+            imageUrl: story.image || story.imageUrl || story.mediaUrl || '',
+            videoUrl: story.video || story.videoUrl || '',
+            mediaType: (story.video || story.videoUrl || story.mediaType === 'video') ? 'video' : 'image',
+            thumbnailUrl: story.thumbnail || story.thumbnailUrl || ''
+          };
+
+          if (!grouped.has(userId)) {
+            grouped.set(userId, {
+              userId,
+              userName: story.userName || 'User',
+              userAvatar: story.userAvatar || '',
+              stories: [],
+            });
+          }
+          grouped.get(userId).stories.push(transformed);
+        }
+        setFollowedStories(Array.from(grouped.values()));
+      }
+    } catch (err) {
+      console.warn('[Home] Failed to load followed stories:', err);
+    }
+  }, [currentUserId]);
+
+  useEffect(() => {
+    if (currentUserId) {
+      fetchFollowedStories();
+    }
+  }, [currentUserId, fetchFollowedStories]);
 
   const [isFullscreenMode, setIsFullscreenMode] = useState(false);
   const { setTabBarVisible } = useUIStore();
@@ -100,29 +152,38 @@ export default function Home() {
               setCurrentUserData(response.data);
             }
           } catch (error) { }
+          prefetchOwnProfile(queryClient, userId);
         }
       } catch (error) { }
     };
     getUserId();
-  }, []);
+  }, [queryClient]);
 
-  // Sync feed updates and categories on focus
+  // Defer non-critical focus work so tab switches stay instant
   useFocusEffect(
     useCallback(() => {
-      loadCategories();
-      if (currentUserId) {
-        fetchNotifications();
-        // Fetch unread messages count dynamically
-        import('../../lib/firebaseHelpers/conversation').then(({ getUserConversations }) => {
-          getUserConversations(currentUserId).then((msgRes) => {
-            if (Array.isArray(msgRes)) {
+      let cancelled = false;
+      const task = InteractionManager.runAfterInteractions(() => {
+        if (cancelled) return;
+        loadCategories();
+        if (currentUserId) {
+          fetchNotifications();
+          fetchFollowedStories();
+          import('../../lib/firebaseHelpers/conversation').then(({ getUserConversations }) => {
+            if (cancelled) return;
+            getUserConversations(currentUserId).then((msgRes) => {
+              if (cancelled || !Array.isArray(msgRes)) return;
               const unreadMsgs = msgRes.reduce((sum: number, convo: any) => sum + (convo.unread || 0), 0);
               setUnreadMsg(unreadMsgs);
-            }
+            }).catch(() => { });
           }).catch(() => { });
-        }).catch(() => { });
-      }
-    }, [loadCategories, currentUserId])
+        }
+      });
+      return () => {
+        cancelled = true;
+        task.cancel?.();
+      };
+    }, [loadCategories, currentUserId, fetchFollowedStories, fetchNotifications])
   );
 
   useFeedEvents(setPosts, setAllLoadedPosts, !!isOnline, loadInitialFeed);
@@ -203,20 +264,25 @@ export default function Home() {
     // Trigger local filtering or reload initial feed with query params if supported
   };
 
+  const toggleMute = useCallback(() => setIsMuted(prev => !prev), []);
+  const toggleFullscreen = useCallback(() => setIsFullscreenMode(prev => !prev), []);
+
   const renderReelItem = useCallback(({ item, index }: { item: any; index: number }) => {
     return (
       <ReelItem
         post={item}
         currentUser={currentUserData || currentUserId}
-        isActive={isScreenFocused && index === activeIndex}
+        index={index}
+        isScreenFocused={isScreenFocused}
         isMuted={isMuted}
-        toggleMute={() => setIsMuted(!isMuted)}
+        toggleMute={toggleMute}
         containerHeight={containerHeight}
         isFullscreenMode={isFullscreenMode}
-        onToggleFullscreen={() => setIsFullscreenMode(!isFullscreenMode)}
+        onToggleFullscreen={toggleFullscreen}
+        followedStories={followedStories}
       />
     );
-  }, [currentUserData, currentUserId, activeIndex, isMuted, containerHeight, isFullscreenMode, isScreenFocused]);
+  }, [currentUserData, currentUserId, isMuted, containerHeight, isFullscreenMode, isScreenFocused, followedStories, toggleMute, toggleFullscreen]);
 
   const keyExtractor = useCallback((item: any, index: number) => {
     const id = item?.id || item?._id;
@@ -241,6 +307,10 @@ export default function Home() {
           decelerationRate="fast"
           snapToInterval={containerHeight}
           snapToAlignment="start"
+          windowSize={3}
+          initialNumToRender={2}
+          maxToRenderPerBatch={1}
+          removeClippedSubviews={Platform.OS === 'android'}
           getItemLayout={(data, index) => ({
             length: containerHeight,
             offset: containerHeight * index,
@@ -248,10 +318,7 @@ export default function Home() {
           })}
         />
       ) : loading ? (
-        <View style={styles.loaderContainer}>
-          <ActivityIndicator size="large" color="#ffffff" />
-          <Text style={styles.loaderText}>Loading reels...</Text>
-        </View>
+        <HomeReelSkeleton height={containerHeight} />
       ) : (
         <View style={styles.emptyContainer}>
           <Ionicons name="videocam-off-outline" size={48} color="#888" />
@@ -398,17 +465,6 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: "#000000",
-  },
-  loaderContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: '#000000',
-  },
-  loaderText: {
-    color: '#ffffff',
-    marginTop: 12,
-    fontSize: 14,
   },
   emptyContainer: {
     flex: 1,

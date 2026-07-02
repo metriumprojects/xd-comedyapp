@@ -250,16 +250,29 @@ function StoriesRowComponent({ onStoryPress, onStoryViewerClose, refreshTrigger,
     } catch { }
   }, []);
 
+  const refreshSeenStoriesFromStorage = useCallback(async () => {
+    try {
+      const raw = await AsyncStorage.getItem('seenStoryIds');
+      const arr = raw ? JSON.parse(raw) : [];
+      const seenSet = new Set<string>(Array.isArray(arr) ? arr.map((x: any) => String(x)) : []);
+      
+      setStoryUsers(prev => prev.map(u => {
+        const hasUnseen = u.stories.some((s: any) => !seenSet.has(String(s.id || s._id || '')));
+        return { ...u, hasUnseen };
+      }));
+    } catch (e) {
+      console.warn('[StoriesRow] Failed to refresh seen stories from storage:', e);
+    }
+  }, []);
+
   // Reset state when StoriesViewer closes
   useEffect(() => {
     const resetViewerState = () => {
-      console.log('[StoriesRow] ðŸ”„ Resetting viewer state from parent signal');
+      console.log('[StoriesRow] 🔄 Resetting viewer state from parent signal');
       setIsViewingStories(false);
       pickerBlockedRef.current = false;
     };
 
-    // If callback is provided, we can use it to know when viewer closes
-    // For now, we reset based on state changes
     return () => {
       resetViewerState();
     };
@@ -268,11 +281,12 @@ function StoriesRowComponent({ onStoryPress, onStoryViewerClose, refreshTrigger,
   // Listen for reset trigger from parent (when StoriesViewer closes)
   useEffect(() => {
     if (resetTrigger && resetTrigger > 0) {
-      console.log('[StoriesRow] ðŸ”„ Reset trigger received:', resetTrigger);
+      console.log('[StoriesRow] 🔄 Reset trigger received:', resetTrigger);
       setIsViewingStories(false);
       pickerBlockedRef.current = false;
+      refreshSeenStoriesFromStorage();
     }
-  }, [resetTrigger]);
+  }, [resetTrigger, refreshSeenStoriesFromStorage]);
 
   // Fetch location suggestions from Google Places API
   useEffect(() => {
@@ -997,7 +1011,11 @@ function StoriesRowComponent({ onStoryPress, onStoryViewerClose, refreshTrigger,
 }
 
 export default React.memo(StoriesRowComponent, (prevProps, nextProps) => {
-  return prevProps.refreshTrigger === nextProps.refreshTrigger;
+  return (
+    prevProps.refreshTrigger === nextProps.refreshTrigger &&
+    prevProps.resetTrigger === nextProps.resetTrigger &&
+    prevProps.incomingMedia?.uri === nextProps.incomingMedia?.uri
+  );
 });
 
 const styles = StyleSheet.create({

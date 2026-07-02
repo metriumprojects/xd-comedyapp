@@ -615,7 +615,8 @@ router.post('/', verifyToken, validate(createPostSchema), async (req, res) => {
     const allowed = [
       'content', 'caption', 'imageUrl', 'mediaUrls', 'mediaType', 'thumbnailUrl',
       'aspectRatio', 'location', 'locationData', 'locationKeys', 'category',
-      'hashtags', 'mentions', 'taggedUserIds', 'isPrivate', 'visibility', 'allowedFollowers'
+      'hashtags', 'mentions', 'taggedUserIds', 'isPrivate', 'visibility', 'allowedFollowers',
+      'subscriptionTierId'
     ];
     const postData = {};
     allowed.forEach(f => { if (req.body[f] !== undefined) postData[f] = req.body[f]; });
@@ -1063,7 +1064,7 @@ router.patch('/:postId', verifyToken, validate(updatePostSchema), async (req, re
     // Whitelist editable fields
     const editable = ['content', 'caption', 'mediaUrls', 'mediaType', 'location', 'locationData', 'locationKeys',
       'category', 'hashtags', 'mentions', 'taggedUserIds', 'isPrivate', 'visibility',
-      'allowedFollowers', 'thumbnailUrl', 'aspectRatio'];
+      'allowedFollowers', 'thumbnailUrl', 'aspectRatio', 'subscriptionTierId'];
     const updateData = { updatedAt: new Date() };
     editable.forEach(f => { if (req.body[f] !== undefined) updateData[f] = req.body[f]; });
 

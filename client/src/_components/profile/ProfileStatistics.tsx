@@ -1,5 +1,5 @@
-import React, { useState, useEffect, useMemo } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Alert, ActivityIndicator } from 'react-native';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Alert, ActivityIndicator, Linking } from 'react-native';
 import { Feather, Ionicons } from '@expo/vector-icons';
 import { Image as ExpoImage } from 'expo-image';
 import { useRouter } from 'expo-router';
@@ -7,6 +7,8 @@ import * as Haptics from 'expo-haptics';
 import AsyncStorage from '@/lib/storage';
 import { apiService } from '@/src/_services/apiService';
 import { DEFAULT_AVATAR_URL } from '@/lib/api';
+import { subscriptionService } from '@/src/_services/subscriptionService';
+import { withdrawalService, type ConnectStatus, type BalanceData, type WithdrawalRecord } from '@/src/_services/withdrawalService';
 
 interface ProfileStatisticsProps {
   creatorPosts?: any[];
@@ -14,16 +16,15 @@ interface ProfileStatisticsProps {
 }
 
 interface SubscriberItem {
-  creatorId: string;
+  id: string;
+  status: string;
+  createdAt: string;
+  subscriberId: string;
+  subscriberName: string;
+  subscriberAvatar: string;
+  subscriberUsername: string;
   title: string;
   price: string;
-  subscribedAt: number;
-  status: 'active' | 'canceled';
-  canceledAt?: number;
-  subscriberId: string;
-  subscriberName?: string;
-  subscriberAvatar?: string;
-  subscriberUsername?: string;
 }
 
 export const ProfileStatistics: React.FC<ProfileStatisticsProps> = ({
@@ -34,167 +35,210 @@ export const ProfileStatistics: React.FC<ProfileStatisticsProps> = ({
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<'recent' | 'all' | 'oldest' | 'canceled'>('recent');
   const [subscribers, setSubscribers] = useState<SubscriberItem[]>([]);
+  const [tierPrice, setTierPrice] = useState<string>('0');
 
-  // Seed interactive initial local data if none exists
-  const checkAndSeed = async (uid: string) => {
-    // Ensure creator tier definitions exist for seeds first
-    try {
-      const hasDavisTier = await AsyncStorage.getItem('sub_tier_davis_press_id');
-      if (!hasDavisTier) {
-        await Promise.all([
-          AsyncStorage.setItem('sub_tier_davis_press_id', JSON.stringify({
-            title: 'One Creator',
-            description: 'Exclusive subscriber-only videos and feed content',
-            price: '10',
-            createGroupChat: true,
-            included: ['Access videos 48H before everyone else', 'Behind the scenes footage']
-          })),
-          AsyncStorage.setItem('sub_tier_paul_zuak_id', JSON.stringify({
-            title: 'Entry level',
-            description: 'Support my comedy and unlock reels',
-            price: '5',
-            createGroupChat: false,
-            included: ['Access videos 48H before everyone else']
-          })),
-          AsyncStorage.setItem('sub_tier_nolan22_id', JSON.stringify({
-            title: 'Premium Pack',
-            description: 'Unlock everything + direct DM access',
-            price: '15',
-            createGroupChat: true,
-            included: ['Access videos 48H before everyone else', 'Direct message access', 'Monthly subscriber chat']
-          }))
-        ]);
-      }
-    } catch (e) {
-      console.warn('[ProfileStatistics] Tier seeding error:', e);
-    }
+  // Withdrawal state
+  const [connectStatus, setConnectStatus] = useState<ConnectStatus | null>(null);
+  const [balance, setBalance] = useState<BalanceData | null>(null);
+  const [withdrawLoading, setWithdrawLoading] = useState(false);
+  const [setupLoading, setSetupLoading] = useState(false);
+  const [payoutHistory, setPayoutHistory] = useState<WithdrawalRecord[]>([]);
 
-    const SEED_KEY = `sub_seeded_for_${uid}`;
-    try {
-      const isSeeded = await AsyncStorage.getItem(SEED_KEY);
-      if (isSeeded === 'true') return;
-
-      const davisSubKey = `sub_subscribed_${uid}_to_davis_press_id`;
-      const davisMetaKey = `sub_meta_${uid}_to_davis_press_id`;
-      const paulSubKey = `sub_subscribed_${uid}_to_paul_zuak_id`;
-      const paulMetaKey = `sub_meta_${uid}_to_paul_zuak_id`;
-
-      const davisToMeSubKey = `sub_subscribed_davis_press_id_to_${uid}`;
-      const davisToMeMetaKey = `sub_meta_davis_press_id_to_${uid}`;
-      const nolanToMeSubKey = `sub_subscribed_nolan22_id_to_${uid}`;
-      const nolanToMeMetaKey = `sub_meta_nolan22_id_to_${uid}`;
-
-      await Promise.all([
-        AsyncStorage.setItem(davisSubKey, 'true'),
-        AsyncStorage.setItem(davisMetaKey, JSON.stringify({
-          creatorId: 'davis_press_id',
-          title: 'One Creator',
-          price: '10',
-          subscribedAt: Date.now() - 1000 * 60 * 60 * 24 * 3, // 3 days ago
-          status: 'active'
-        })),
-        AsyncStorage.setItem(paulSubKey, 'true'),
-        AsyncStorage.setItem(paulMetaKey, JSON.stringify({
-          creatorId: 'paul_zuak_id',
-          title: 'Entry level',
-          price: '5',
-          subscribedAt: Date.now() - 1000 * 60 * 60 * 24 * 10, // 10 days ago
-          status: 'active'
-        })),
-        AsyncStorage.setItem(davisToMeSubKey, 'true'),
-        AsyncStorage.setItem(davisToMeMetaKey, JSON.stringify({
-          creatorId: uid,
-          title: 'One Creator',
-          price: '10',
-          subscribedAt: Date.now() - 1000 * 60 * 60 * 24 * 3,
-          status: 'active',
-          subscriberId: 'davis_press_id',
-          subscriberName: 'Davis Press',
-          subscriberAvatar: 'https://i.pravatar.cc/150?img=33'
-        })),
-        AsyncStorage.setItem(nolanToMeSubKey, 'true'),
-        AsyncStorage.setItem(nolanToMeMetaKey, JSON.stringify({
-          creatorId: uid,
-          title: 'One Creator',
-          price: '10',
-          subscribedAt: Date.now() - 1000 * 60 * 60 * 24 * 1,
-          status: 'active',
-          subscriberId: 'nolan22_id',
-          subscriberName: 'Nolan22',
-          subscriberAvatar: 'https://i.pravatar.cc/150?img=60'
-        })),
-        AsyncStorage.setItem(SEED_KEY, 'true')
-      ]);
-    } catch (e) {
-      console.warn('[ProfileStatistics] Seeding error:', e);
-    }
-  };
-
-  const loadSubscribers = async () => {
+  const loadSubscribers = useCallback(async () => {
     if (!currentUserId) return;
     setLoading(true);
     try {
-      await checkAndSeed(currentUserId);
-      const keys = await AsyncStorage.getAllKeys();
-      
-      // Find keys where another user is subscribed to currentUserId
-      const suffix = `_to_${currentUserId}`;
-      const matchedKeys = keys.filter(k => k.startsWith('sub_meta_') && k.endsWith(suffix));
-
-      if (matchedKeys.length === 0) {
+      // Load real subscribers from backend API
+      const response = await subscriptionService.getMySubscribers();
+      if (response.success && Array.isArray(response.data)) {
+        const items: SubscriberItem[] = response.data.map((sub: any) => ({
+          id: sub.id,
+          status: sub.status || 'active',
+          createdAt: sub.createdAt || new Date().toISOString(),
+          subscriberId: sub.subscriber?.id || '',
+          subscriberName: sub.subscriber?.displayName || 'Subscriber',
+          subscriberAvatar: sub.subscriber?.avatar || DEFAULT_AVATAR_URL,
+          subscriberUsername: sub.subscriber?.username || 'user',
+          title: sub.tier?.title || 'Subscription',
+          price: sub.tier?.price || '0',
+        }));
+        setSubscribers(items);
+      } else {
         setSubscribers([]);
-        setLoading(false);
-        return;
       }
 
-      const values = await AsyncStorage.multiGet(matchedKeys);
-      const items: SubscriberItem[] = [];
-
-      for (const [key, val] of values) {
-        if (!val) continue;
-        try {
-          const item = JSON.parse(val) as SubscriberItem;
-          // Load subscriber details from API or mock fallbacks
-          if (item.subscriberId === 'davis_press_id') {
-            item.subscriberName = 'Davis Press';
-            item.subscriberAvatar = 'https://i.pravatar.cc/150?img=33';
-            item.subscriberUsername = 'davis_press';
-          } else if (item.subscriberId === 'nolan22_id') {
-            item.subscriberName = 'Nolan22';
-            item.subscriberAvatar = 'https://i.pravatar.cc/150?img=60';
-            item.subscriberUsername = 'nolan22';
-          } else {
-            // Fetch real user info from backend
-            try {
-              const res = await apiService.getUser(item.subscriberId);
-              if (res?.success && res?.data) {
-                item.subscriberName = res.data.displayName || res.data.name || 'User';
-                item.subscriberAvatar = res.data.avatar || res.data.photoURL || '';
-                item.subscriberUsername = res.data.username || 'user';
-              }
-            } catch (err) {
-              item.subscriberName = 'Subscriber';
-            }
-          }
-          items.push(item);
-        } catch (e) {}
+      // Load own tier price for earnings calculation
+      const tierResponse = await subscriptionService.getTier(currentUserId);
+      if (tierResponse.success && tierResponse.data?.price) {
+        setTierPrice(tierResponse.data.price);
       }
-
-      setSubscribers(items);
     } catch (e) {
       console.warn('[ProfileStatistics] Error loading subscribers:', e);
+      setSubscribers([]);
     } finally {
       setLoading(false);
     }
-  };
+  }, [currentUserId]);
 
   useEffect(() => {
     loadSubscribers();
-  }, [currentUserId]);
+  }, [loadSubscribers]);
 
+  // Load withdrawal-related data (Connect status + balance + history)
+  const loadWithdrawalData = useCallback(async () => {
+    try {
+      // Check Connect account status
+      const statusRes = await withdrawalService.getConnectStatus();
+      if (statusRes.success) {
+        setConnectStatus(statusRes.data);
+
+        // Fetch balance whenever a connect account exists (not just when onboarded)
+        // This ensures we show real Stripe balance even if verification is pending/failed
+        if (statusRes.data.hasAccount) {
+          const balanceRes = await withdrawalService.getBalance();
+          if (balanceRes.success) {
+            setBalance(balanceRes.data);
+          }
+
+          // Fetch payout history if there's any account
+          const historyRes = await withdrawalService.getPayoutHistory(1, 5);
+          if (historyRes.success) {
+            setPayoutHistory(historyRes.data);
+          }
+        }
+      }
+    } catch (e) {
+      console.warn('[ProfileStatistics] Error loading withdrawal data:', e);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadWithdrawalData();
+  }, [loadWithdrawalData]);
+
+  // Calculate total earnings from active subscribers (always available regardless of Stripe status)
+  const totalEarnings = useMemo(() => {
+    const activeCount = subscribers.filter(s => s.status === 'active').length;
+    const priceNum = parseFloat(tierPrice) || 0;
+    return (activeCount * priceNum).toFixed(2);
+  }, [subscribers, tierPrice]);
+
+  // The display balance — prefer real Stripe balance if available and > 0, else show estimated earnings
+  const displayBalance = useMemo(() => {
+    // If we have a real Stripe balance (even with verification issues), show it
+    if (balance && (balance.available > 0 || balance.pending > 0)) {
+      return balance.availableFormatted;
+    }
+    // Always fall back to estimated earnings from subscriber count
+    return `$${totalEarnings}`;
+  }, [balance, totalEarnings]);
+
+  // Label for the balance display
+  const displayBalanceLabel = useMemo(() => {
+    if (connectStatus?.isOnboarded && connectStatus?.payoutsEnabled) {
+      return 'Available balance';
+    }
+    if (balance && (balance.available > 0 || balance.pending > 0)) {
+      return 'Balance (setup required to withdraw)';
+    }
+    return 'Estimated earnings';
+  }, [connectStatus, balance]);
+
+  const pendingBalance = useMemo(() => {
+    if (balance && balance.pending > 0) {
+      return balance.pendingFormatted;
+    }
+    return '$0.00';
+  }, [balance]);
+
+  // Determine if the user is in a "stuck" state — has account but verification failed
+  const isVerificationIssue = useMemo(() => {
+    return connectStatus?.hasAccount && (
+      connectStatus?.verificationFailed ||
+      connectStatus?.needsRetry
+    ) && !connectStatus?.payoutsEnabled;
+  }, [connectStatus]);
+
+  // Handle "Set up payouts" button
+  const handleSetupPayouts = async () => {
+    setSetupLoading(true);
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
+    try {
+      const res = await withdrawalService.startOnboarding();
+      if (res.success && res.data.url) {
+        await Linking.openURL(res.data.url);
+        // After returning from browser, refresh status
+        setTimeout(() => loadWithdrawalData(), 2000);
+      } else {
+        Alert.alert('Error', 'Failed to start payout setup. Please try again.');
+      }
+    } catch (e: any) {
+      console.error('[ProfileStatistics] Setup payouts error:', e);
+      Alert.alert('Error', 'Failed to start payout setup. Please try again.');
+    } finally {
+      setSetupLoading(false);
+    }
+  };
+
+  // Handle real withdrawal
   const handleWithdraw = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
-    Alert.alert('Withdrawal Request', 'Your withdrawal request of $1215 has been successfully initiated.');
+
+    if (!connectStatus?.isOnboarded) {
+      Alert.alert(
+        'Setup Required',
+        'You need to set up your payout account first before withdrawing.',
+        [
+          { text: 'Cancel', style: 'cancel' },
+          { text: 'Set Up Now', onPress: handleSetupPayouts },
+        ]
+      );
+      return;
+    }
+
+    if (!balance || !balance.canWithdraw) {
+      Alert.alert(
+        'Insufficient Balance',
+        `You need at least ${balance?.minimumWithdrawalFormatted || '$5.00'} to withdraw. Your available balance is ${balance?.availableFormatted || '$0.00'}.`
+      );
+      return;
+    }
+
+    // Show confirmation dialog with full available balance
+    const withdrawAmount = (balance.available / 100).toFixed(2);
+    Alert.alert(
+      'Confirm Withdrawal',
+      `Withdraw ${balance.availableFormatted} to your bank account?\n\nThis typically takes 2-3 business days to arrive.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Withdraw',
+          style: 'default',
+          onPress: async () => {
+            setWithdrawLoading(true);
+            try {
+              const res = await withdrawalService.requestPayout(withdrawAmount);
+              if (res.success) {
+                Alert.alert(
+                  'Withdrawal Initiated! 🎉',
+                  `${res.data.amountFormatted} is being sent to your bank account. You'll receive it within 2-3 business days.`
+                );
+                // Refresh balance and history
+                loadWithdrawalData();
+              } else {
+                Alert.alert('Withdrawal Failed', 'Something went wrong. Please try again.');
+              }
+            } catch (e: any) {
+              console.error('[ProfileStatistics] Withdraw error:', e);
+              const message = e?.response?.data?.error || e?.message || 'Failed to process withdrawal';
+              Alert.alert('Withdrawal Failed', message);
+            } finally {
+              setWithdrawLoading(false);
+            }
+          },
+        },
+      ]
+    );
   };
 
   const handleMessageSubscriber = (item: SubscriberItem) => {
@@ -214,15 +258,15 @@ export const ProfileStatistics: React.FC<ProfileStatisticsProps> = ({
     
     if (filter === 'recent') {
       result = result.filter(item => item.status === 'active');
-      result.sort((a, b) => b.subscribedAt - a.subscribedAt);
+      result.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
     } else if (filter === 'oldest') {
       result = result.filter(item => item.status === 'active');
-      result.sort((a, b) => a.subscribedAt - b.subscribedAt);
+      result.sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
     } else if (filter === 'all') {
       result = result.filter(item => item.status === 'active');
     } else if (filter === 'canceled') {
       result = result.filter(item => item.status === 'canceled');
-      result.sort((a, b) => (b.canceledAt || 0) - (a.canceledAt || 0));
+      result.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
     }
     return result;
   };
@@ -254,13 +298,19 @@ export const ProfileStatistics: React.FC<ProfileStatisticsProps> = ({
 
   const filteredSubscribers = getFilteredData();
 
+  const currentPeriodText = useMemo(() => {
+    const date = new Date();
+    const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+    return `${monthNames[date.getMonth()]} ${date.getFullYear()}`;
+  }, []);
+
   return (
     <View style={styles.container}>
       {/* Views Card */}
       <View style={styles.card}>
         <View style={styles.cardHeader}>
           <Text style={styles.cardTitle}>Views</Text>
-          <Text style={styles.cardDate}>Mar - Jan 2022</Text>
+          <Text style={styles.cardDate}>{currentPeriodText}</Text>
         </View>
         <View style={styles.statsGrid}>
           <View style={styles.statCol}>
@@ -282,23 +332,125 @@ export const ProfileStatistics: React.FC<ProfileStatisticsProps> = ({
       <View style={styles.card}>
         <View style={styles.cardHeader}>
           <Text style={styles.cardTitle}>Money</Text>
-          <Text style={styles.cardDate}>Mar - Jan 2022</Text>
+          <Text style={styles.cardDate}>{currentPeriodText}</Text>
         </View>
         <View style={styles.moneyRow}>
           <View style={styles.moneyContainer}>
-            <Text style={styles.moneyValue}>$1215</Text>
-            <Text style={styles.moneyLabel}>Balance available</Text>
+            <Text style={styles.moneyValue}>{displayBalance}</Text>
+            <Text style={styles.moneyLabel}>{displayBalanceLabel}</Text>
+            {balance && balance.pending > 0 && (
+              <Text style={styles.pendingText}>{pendingBalance} pending</Text>
+            )}
           </View>
-          <TouchableOpacity 
-            style={styles.withdrawBtn} 
-            onPress={handleWithdraw}
-            activeOpacity={0.8}
-          >
-            <Text style={styles.withdrawText}>Withdraw</Text>
-            <Feather name="arrow-down" size={16} color="#000" style={styles.withdrawIcon} />
-          </TouchableOpacity>
+          {/* No account at all — show setup button */}
+          {!connectStatus?.hasAccount ? (
+            <TouchableOpacity 
+              style={[styles.withdrawBtn, styles.setupBtn]} 
+              onPress={handleSetupPayouts}
+              activeOpacity={0.8}
+              disabled={setupLoading}
+            >
+              {setupLoading ? (
+                <ActivityIndicator size="small" color="#000" />
+              ) : (
+                <>
+                  <Feather name="settings" size={16} color="#000" style={{ marginRight: 6 }} />
+                  <Text style={styles.withdrawText}>Set up payouts</Text>
+                </>
+              )}
+            </TouchableOpacity>
+          ) : connectStatus?.payoutsEnabled ? (
+            /* Fully set up — show withdraw button */
+            <TouchableOpacity 
+              style={[
+                styles.withdrawBtn,
+                (!balance?.canWithdraw || withdrawLoading) && styles.withdrawBtnDisabled,
+              ]} 
+              onPress={handleWithdraw}
+              activeOpacity={0.8}
+              disabled={withdrawLoading || !balance?.canWithdraw}
+            >
+              {withdrawLoading ? (
+                <ActivityIndicator size="small" color="#000" />
+              ) : (
+                <>
+                  <Text style={styles.withdrawText}>Withdraw</Text>
+                  <Feather name="arrow-down" size={16} color="#000" style={styles.withdrawIcon} />
+                </>
+              )}
+            </TouchableOpacity>
+          ) : (
+            /* Has account but not verified / needs retry */
+            <TouchableOpacity 
+              style={[styles.withdrawBtn, styles.retryBtn]} 
+              onPress={handleSetupPayouts}
+              activeOpacity={0.8}
+              disabled={setupLoading}
+            >
+              {setupLoading ? (
+                <ActivityIndicator size="small" color="#fff" />
+              ) : (
+                <>
+                  <Feather name="refresh-cw" size={14} color="#fff" style={{ marginRight: 6 }} />
+                  <Text style={[styles.withdrawText, { color: '#fff' }]}>Fix payout info</Text>
+                </>
+              )}
+            </TouchableOpacity>
+          )}
         </View>
+
+        {/* Verification issue banner */}
+        {isVerificationIssue && (
+          <View style={styles.verificationBanner}>
+            <Feather name="alert-triangle" size={14} color="#e65100" style={{ marginRight: 8 }} />
+            <View style={{ flex: 1 }}>
+              <Text style={styles.verificationBannerText}>
+                {connectStatus?.verificationFailed
+                  ? 'Your payout info could not be verified. Please update your details to enable withdrawals.'
+                  : 'Your payout setup is incomplete. Please complete the verification to withdraw.'}
+              </Text>
+            </View>
+          </View>
+        )}
       </View>
+
+      {/* Payout History (show whenever there's history data) */}
+      {payoutHistory.length > 0 && (
+        <View style={styles.card}>
+          <View style={styles.cardHeader}>
+            <Text style={styles.cardTitle}>Recent Payouts</Text>
+          </View>
+          {payoutHistory.map((payout) => (
+            <View key={payout.id} style={styles.payoutRow}>
+              <View style={styles.payoutInfo}>
+                <Text style={styles.payoutAmount}>{payout.amountFormatted}</Text>
+                <Text style={styles.payoutDate}>
+                  {new Date(payout.createdAt).toLocaleDateString('en-US', {
+                    month: 'short',
+                    day: 'numeric',
+                    year: 'numeric',
+                  })}
+                </Text>
+              </View>
+              <View style={[
+                styles.payoutStatusBadge,
+                payout.status === 'paid' && styles.payoutStatusPaid,
+                payout.status === 'processing' && styles.payoutStatusProcessing,
+                payout.status === 'failed' && styles.payoutStatusFailed,
+              ]}>
+                <Text style={[
+                  styles.payoutStatusText,
+                  payout.status === 'paid' && styles.payoutStatusTextPaid,
+                  payout.status === 'processing' && styles.payoutStatusTextProcessing,
+                  payout.status === 'failed' && styles.payoutStatusTextFailed,
+                ]}>
+                  {payout.status.charAt(0).toUpperCase() + payout.status.slice(1)}
+                </Text>
+              </View>
+            </View>
+          ))}
+        </View>
+      )}
 
       {/* Subscribers Header & Filters */}
       <View style={styles.subscribersSection}>
@@ -464,6 +616,16 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 1.5,
     elevation: 2,
+    minWidth: 120,
+  },
+  withdrawBtnDisabled: {
+    backgroundColor: '#e5e5ea',
+    shadowOpacity: 0,
+    elevation: 0,
+  },
+  setupBtn: {
+    backgroundColor: '#FFD60A',
+    minWidth: 140,
   },
   withdrawText: {
     fontSize: 14,
@@ -473,6 +635,84 @@ const styles = StyleSheet.create({
   withdrawIcon: {
     marginLeft: 6,
     fontWeight: '800',
+  },
+  pendingText: {
+    fontSize: 12,
+    color: '#ff9500',
+    marginTop: 4,
+    fontWeight: '600',
+  },
+  retryBtn: {
+    backgroundColor: '#e65100',
+    minWidth: 140,
+  },
+  verificationBanner: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    backgroundColor: '#fff3e0',
+    borderRadius: 10,
+    padding: 12,
+    marginTop: 14,
+    borderWidth: 1,
+    borderColor: '#ffe0b2',
+  },
+  verificationBannerText: {
+    fontSize: 12,
+    color: '#e65100',
+    fontWeight: '600',
+    lineHeight: 17,
+  },
+  // Payout history styles
+  payoutRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: '#e5e5ea',
+  },
+  payoutInfo: {
+    flex: 1,
+  },
+  payoutAmount: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#000',
+  },
+  payoutDate: {
+    fontSize: 12,
+    color: '#8e8e93',
+    marginTop: 2,
+    fontWeight: '500',
+  },
+  payoutStatusBadge: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
+    backgroundColor: '#f0f0f0',
+  },
+  payoutStatusPaid: {
+    backgroundColor: '#e8f5e9',
+  },
+  payoutStatusProcessing: {
+    backgroundColor: '#fff3e0',
+  },
+  payoutStatusFailed: {
+    backgroundColor: '#fce4ec',
+  },
+  payoutStatusText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#666',
+  },
+  payoutStatusTextPaid: {
+    color: '#2e7d32',
+  },
+  payoutStatusTextProcessing: {
+    color: '#e65100',
+  },
+  payoutStatusTextFailed: {
+    color: '#c62828',
   },
   subscribersSection: {
     marginTop: 10,

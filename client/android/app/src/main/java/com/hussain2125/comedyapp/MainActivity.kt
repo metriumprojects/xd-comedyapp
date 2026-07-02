@@ -1,4 +1,4 @@
-package com.tauhee56.travesocial
+package com.hussain2125.comedyapp
 import expo.modules.splashscreen.SplashScreenManager
 
 import android.os.Build

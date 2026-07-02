@@ -63,6 +63,7 @@ export const useCreatePost = (params: any = {}) => {
   const [hashtagInput, setHashtagInput] = useState('');
   const [visibility, setVisibility] = useState('Everyone');
   const [selectedGroupId, setSelectedGroupId] = useState<string | null>(null);
+  const [subscriptionTierId, setSubscriptionTierId] = useState<string | null>(null);
   const [userGroups, setUserGroups] = useState<any[]>([]);
   const [selectedImages, setSelectedImages] = useState<string[]>([]);
   const [location, setLocation] = useState<LocationType | null>(null);
@@ -380,7 +381,10 @@ export const useCreatePost = (params: any = {}) => {
           [], // mentions
           visibility,
           selectedGroupId ? [selectedGroupId] : [],
-          postType === 'STORY' ? 'story' : 'post'
+          postType === 'STORY' ? 'story' : 'post',
+          undefined,
+          undefined,
+          subscriptionTierId
         );
       } else {
         res = await createPost(
@@ -396,7 +400,10 @@ export const useCreatePost = (params: any = {}) => {
           [], // mentions
           visibility,
           selectedGroupId ? [selectedGroupId] : [],
-          postType === 'STORY' ? 'story' : 'post'
+          postType === 'STORY' ? 'story' : 'post',
+          undefined,
+          undefined,
+          subscriptionTierId
         );
       }
 
@@ -456,6 +463,7 @@ export const useCreatePost = (params: any = {}) => {
           setLocation({ name: post.location, address: '', lat: 0, lon: 0 });
         }
         if (post.visibility) setVisibility(post.visibility);
+        if (post.subscriptionTierId) setSubscriptionTierId(post.subscriptionTierId);
         if (post.category) {
           // If category is a string, we might need to match it with our category list
           setSelectedCategories([{ name: post.category }]);
@@ -533,7 +541,7 @@ export const useCreatePost = (params: any = {}) => {
   return {
     step, setStep, loading, caption, setCaption, hashtags, setHashtags,
     hashtagInput, setHashtagInput, visibility, setVisibility,
-    selectedGroupId, setSelectedGroupId, userGroups,
+    selectedGroupId, setSelectedGroupId, subscriptionTierId, setSubscriptionTierId, userGroups,
     selectedImages, setSelectedImages, location, setLocation,
     verifiedLocation, setVerifiedLocation, taggedUsers, setTaggedUsers,
     postType, setPostType, selectedCategories, setSelectedCategories,

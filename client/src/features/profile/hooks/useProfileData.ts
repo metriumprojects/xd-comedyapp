@@ -1,4 +1,4 @@
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, QueryClient } from '@tanstack/react-query';
 import { apiService } from '@/src/_services/apiService';
 import { fetchBlockedUserIds } from '@/services/moderation';
 
@@ -8,72 +8,90 @@ interface UseProfileDataParams {
   enabled: boolean;
 }
 
+async function fetchProfileAggregate(viewedUserId: string, currentUserId: string | null) {
+  if (viewedUserId === 'davis_press_id') {
+    return {
+      _id: 'davis_press_id',
+      displayName: 'Davis Press',
+      username: 'davis_press',
+      avatar: 'https://i.pravatar.cc/150?img=33',
+      bio: 'Comedy enthusiast & content creator. Making people laugh daily!',
+      followersCount: 1420,
+      followingCount: 382,
+      postsCount: 1,
+      interests: 'Stand Up, Pranks, Comics',
+      isPrivate: false,
+      hasAccess: true
+    };
+  }
+  if (viewedUserId === 'paul_zuak_id') {
+    return {
+      _id: 'paul_zuak_id',
+      displayName: 'Paul Zuak',
+      username: 'paul_zuak',
+      avatar: 'https://i.pravatar.cc/150?img=12',
+      bio: 'Just another guy trying to be funny. Member of the local standup club.',
+      followersCount: 980,
+      followingCount: 412,
+      postsCount: 1,
+      interests: 'Humour, Memes',
+      isPrivate: false,
+      hasAccess: true
+    };
+  }
+  if (viewedUserId === 'nolan22_id') {
+    return {
+      _id: 'nolan22_id',
+      displayName: 'Nolan22',
+      username: 'nolan22',
+      avatar: 'https://i.pravatar.cc/150?img=60',
+      bio: 'Pranks and comedy vlogs. Subscriber to funny creators.',
+      followersCount: 2300,
+      followingCount: 890,
+      postsCount: 1,
+      interests: 'Vlogs, Comedy',
+      isPrivate: false,
+      hasAccess: true
+    };
+  }
+
+  const profileRes = await apiService.get(`/users/${viewedUserId}/aggregated`, { requesterUserId: currentUserId });
+  if (!profileRes.success || !profileRes.data) {
+    throw new Error(profileRes.error || 'Failed to fetch profile');
+  }
+  return profileRes.data;
+}
+
+/** Warm profile cache while user is on home — makes profile tab feel instant */
+export function prefetchOwnProfile(client: QueryClient, userId: string) {
+  if (!userId) return;
+  void client.prefetchQuery({
+    queryKey: ['profile', userId, userId],
+    queryFn: () => fetchProfileAggregate(userId, userId),
+    staleTime: 1000 * 60 * 5,
+  });
+  void client.prefetchQuery({
+    queryKey: ['profilePosts', userId],
+    queryFn: async () => {
+      const res = await apiService.getUserPosts(userId, { viewerId: userId });
+      return res?.success && Array.isArray(res.data) ? res.data : [];
+    },
+    staleTime: 1000 * 60 * 2,
+  });
+}
+
 export function useProfileData({ viewedUserId, currentUserId, enabled }: UseProfileDataParams) {
   // 1. Fetch Aggregated Profile Data
   const profileQuery = useQuery({
     queryKey: ['profile', viewedUserId, currentUserId],
     queryFn: async () => {
       if (!viewedUserId) return null;
-
-      // Mock fallbacks for seeded subscription users
-      if (viewedUserId === 'davis_press_id') {
-        return {
-          _id: 'davis_press_id',
-          displayName: 'Davis Press',
-          username: 'davis_press',
-          avatar: 'https://i.pravatar.cc/150?img=33',
-          bio: 'Comedy enthusiast & content creator. Making people laugh daily!',
-          followersCount: 1420,
-          followingCount: 382,
-          postsCount: 1,
-          interests: 'Stand Up, Pranks, Comics',
-          isPrivate: false,
-          hasAccess: true
-        };
-      }
-      if (viewedUserId === 'paul_zuak_id') {
-        return {
-          _id: 'paul_zuak_id',
-          displayName: 'Paul Zuak',
-          username: 'paul_zuak',
-          avatar: 'https://i.pravatar.cc/150?img=12',
-          bio: 'Just another guy trying to be funny. Member of the local standup club.',
-          followersCount: 980,
-          followingCount: 412,
-          postsCount: 1,
-          interests: 'Humour, Memes',
-          isPrivate: false,
-          hasAccess: true
-        };
-      }
-      if (viewedUserId === 'nolan22_id') {
-        return {
-          _id: 'nolan22_id',
-          displayName: 'Nolan22',
-          username: 'nolan22',
-          avatar: 'https://i.pravatar.cc/150?img=60',
-          bio: 'Pranks and comedy vlogs. Subscriber to funny creators.',
-          followersCount: 2300,
-          followingCount: 890,
-          postsCount: 1,
-          interests: 'Vlogs, Comedy',
-          isPrivate: false,
-          hasAccess: true
-        };
-      }
-
-      const [blockedSet, profileRes] = await Promise.all([
-        currentUserId ? fetchBlockedUserIds(currentUserId) : Promise.resolve(new Set<string>()),
-        apiService.get(`/users/${viewedUserId}/aggregated`, { requesterUserId: currentUserId }),
-      ]);
-      
-      if (!profileRes.success || !profileRes.data) {
-        throw new Error(profileRes.error || 'Failed to fetch profile');
-      }
-      return profileRes.data;
+      await (currentUserId ? fetchBlockedUserIds(currentUserId) : Promise.resolve(new Set<string>()));
+      return fetchProfileAggregate(viewedUserId, currentUserId);
     },
     enabled: enabled && !!viewedUserId,
-    staleTime: 1000 * 60 * 5, // 5 minutes cache
+    staleTime: 1000 * 60 * 5,
+    placeholderData: (previousData) => previousData,
   });
 
   const profileData = profileQuery.data;
@@ -139,6 +157,7 @@ export function useProfileData({ viewedUserId, currentUserId, enabled }: UseProf
     },
     enabled: enabled && !!viewedUserId && canViewPrivateProfile,
     staleTime: 1000 * 60 * 2,
+    placeholderData: (previousData) => previousData ?? [],
   });
 
   // 3. Fetch User Sections (Collections)
@@ -212,7 +231,13 @@ export function useProfileData({ viewedUserId, currentUserId, enabled }: UseProf
       if (!viewedUserId) return [];
       try {
         const res = await apiService.get(`/users/${viewedUserId}/highlights`);
-        return res?.success && Array.isArray(res.data) ? res.data : [];
+        const rawList = res?.success && Array.isArray(res.data) ? res.data : [];
+        return rawList.map((h: any) => ({
+          ...h,
+          id: String(h?._id || h?.id || ''),
+          title: h?.title || h?.name || 'Highlight',
+          coverImage: h?.coverImage || h?.cover || h?.image || h?.imageUrl || '',
+        })).filter((h: any) => !!h.id);
       } catch (error: any) {
         if (error.response?.status === 404) return [];
         throw error;
@@ -230,8 +255,9 @@ export function useProfileData({ viewedUserId, currentUserId, enabled }: UseProf
     savedSectionPosts: savedPostsQuery.data || [],
     taggedPosts: taggedPostsQuery.data || [],
     highlights: highlightsQuery.data || [],
-    isLoading: profileQuery.isLoading,
-    isRefetching: profileQuery.isRefetching,
+    isLoading: profileQuery.isPending && !profileQuery.data,
+    isError: profileQuery.isError,
+    isRefetching: profileQuery.isFetching && !!profileQuery.data,
     refetchAll: async () => {
       await Promise.all([
         profileQuery.refetch(),

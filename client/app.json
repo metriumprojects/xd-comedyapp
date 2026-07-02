@@ -1,7 +1,7 @@
 {
   "expo": {
-    "name": "Trips",
-    "slug": "trave-social",
+    "name": "Comedy App",
+    "slug": "comedy-app",
     "version": "1.1.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
@@ -15,7 +15,7 @@
         "monochromeImage": "./assets/images/icon.png"
       },
       "softwareKeyboardLayoutMode": "resize",
-      "package": "com.tauhee56.travesocial",
+      "package": "com.hussain2125.comedyapp",
       "googleServicesFile": "./google-services.json",
       "permissions": [
         "android.permission.CAMERA",
@@ -35,7 +35,7 @@
     },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.tauhee56.travesocial",
+      "bundleIdentifier": "com.hussain2125.comedyapp",
       "buildNumber": "39",
       "googleServicesFile": "./GoogleService-Info.plist",
       "config": {
@@ -43,12 +43,12 @@
       },
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false,
-        "NSCameraUsageDescription": "Allow Trips to access your camera for capturing and sharing your travel moments. For example, you can take a photo of a landmark to add to your post or start a live broadcast.",
-        "NSMicrophoneUsageDescription": "Allow Trips to access your microphone during live streaming so your followers can hear you describe your travel journey.",
-        "NSPhotoLibraryUsageDescription": "Allow Trips to access your photo library so you can share your travel experiences by uploading photos and videos to your posts, stories, and profile. For example, you can pick a beautiful landscape photo from your library to share it with your followers.",
-        "NSLocationWhenInUseUsageDescription": "Allow Trips to use your location for maps, location tagging, and passport suggestions while you use the app.",
-        "NSLocationAlwaysAndWhenInUseUsageDescription": "Allow Trips to use your location while you are using the app for maps, tagging, and passport suggestions.",
-        "NSLocationAlwaysUsageDescription": "Trips uses your location only while you are using the app for maps and passport suggestions.",
+        "NSCameraUsageDescription": "Allow Comedy App to access your camera for capturing and sharing your moments. For example, you can take a photo to add to your post or start a live broadcast.",
+        "NSMicrophoneUsageDescription": "Allow Comedy App to access your microphone during live streaming so your followers can hear you.",
+        "NSPhotoLibraryUsageDescription": "Allow Comedy App to access your photo library so you can share your experiences by uploading photos and videos to your posts, stories, and profile. For example, you can pick a photo from your library to share it.",
+        "NSLocationWhenInUseUsageDescription": "Allow Comedy App to use your location for maps, location tagging, and suggestions while you use the app.",
+        "NSLocationAlwaysAndWhenInUseUsageDescription": "Allow Comedy App to use your location while you are using the app for maps, tagging, and suggestions.",
+        "NSLocationAlwaysUsageDescription": "Comedy App uses your location only while you are using the app for maps and suggestions.",
         "UIBackgroundModes": [
           "remote-notification"
         ]
@@ -64,6 +64,7 @@
       "favicon": "./assets/images/favicon.png"
     },
     "plugins": [
+      "@sentry/react-native",
       "expo-router",
       "expo-apple-authentication",
       [
@@ -76,9 +77,11 @@
         "expo-build-properties",
         {
           "ios": {
-            "useFrameworks": "static"
+            "useFrameworks": "static",
+            "newArchEnabled": true
           },
           "android": {
+            "newArchEnabled": true,
             "manifestPlaceholders": {
               "appAuthRedirectScheme": "trave-social",
               "traveSocialScheme": "trave-social"
@@ -102,16 +105,16 @@
       [
         "expo-camera",
         {
-          "cameraPermission": "Allow Trips to access your camera for capturing and sharing your travel moments. For example, you can take a photo of a landmark to add to your post or start a live broadcast.",
-          "microphonePermission": "Allow Trips to access your microphone during live streaming so your followers can hear you describe your travel journey.",
+          "cameraPermission": "Allow Comedy App to access your camera for capturing and sharing your moments. For example, you can take a photo to add to your post or start a live broadcast.",
+          "microphonePermission": "Allow Comedy App to access your microphone during live streaming so your followers can hear you.",
           "recordAudioAndroid": true
         }
       ],
       [
         "expo-image-picker",
         {
-          "photosPermission": "Allow Trips to access your photo library so you can share your travel experiences by uploading photos and videos to your posts, stories, and profile. For example, you can pick a beautiful landscape photo from your library to share it with your followers.",
-          "cameraPermission": "Allow Trips to access your camera for capturing and sharing your travel moments. For example, you can take a photo of a landmark to add to your post."
+          "photosPermission": "Allow Comedy App to access your photo library so you can share your experiences by uploading photos and videos to your posts, stories, and profile. For example, you can pick a photo from your library to share it.",
+          "cameraPermission": "Allow Comedy App to access your camera for capturing and sharing your moments. For example, you can take a photo to add to your post."
         }
       ],
       [
@@ -133,7 +136,8 @@
           "backgroundColor": "#FFFFFF"
         }
       ],
-      "react-native-compressor"
+      "react-native-compressor",
+      "expo-video"
     ],
     "experiments": {
       "typedRoutes": true
@@ -146,9 +150,8 @@
       "analyticsEnabled": true,
       "dailyCounterSampleRate": 0.05,
       "eas": {
-        "projectId": "3ab87f13-3f1d-487a-8ff7-0374f04f7aa3"
+        "projectId": "ed1e5ed8-1ac0-470d-89e2-28378e15cfcb"
       }
-    },
-    "owner": "tauhee56"
+    }
   }
 }

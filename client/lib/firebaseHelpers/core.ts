@@ -887,7 +887,8 @@ export async function createPost(
   allowedFollowers: string[] = [],
   postType: string = 'post',
   thumbnailUrlRaw?: string,
-  aspectRatio?: number
+  aspectRatio?: number,
+  subscriptionTierId?: string | null
 ) {
   try {
     const normalizeLocationKey = (val: any) => String(val || '').trim().toLowerCase();
@@ -976,6 +977,9 @@ export async function createPost(
       isPrivate: allowedFollowers.length > 0,  // mark as private when group is selected
       aspectRatio,
     };
+    if (subscriptionTierId) {
+      payload.subscriptionTierId = subscriptionTierId;
+    }
     if (uploadedThumbnailUrl) {
       payload.thumbnailUrl = uploadedThumbnailUrl;
     }
@@ -1396,7 +1400,8 @@ export async function updatePost(
   allowedFollowers: string[] = [],
   postType: string = 'post',
   thumbnailUrlRaw?: string,
-  aspectRatio?: number
+  aspectRatio?: number,
+  subscriptionTierId?: string | null
 ) {
   try {
     const normalizeLocationKey = (val: any) => String(val || '').trim().toLowerCase();
@@ -1461,6 +1466,10 @@ export async function updatePost(
       isPrivate: allowedFollowers.length > 0,
       aspectRatio,
     };
+
+    if (subscriptionTierId) {
+      payload.subscriptionTierId = subscriptionTierId;
+    }
 
     if (thumbnailUrlRaw) payload.thumbnailUrl = thumbnailUrlRaw;
 

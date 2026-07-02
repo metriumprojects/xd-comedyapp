@@ -1,7 +1,7 @@
 import { Feather, Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { Tabs, useFocusEffect, useRouter, usePathname, useSegments } from "expo-router";
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
-import { ActivityIndicator, Alert, Animated, Dimensions, StyleSheet, Text, TouchableOpacity, View, FlatList, Modal, ScrollView, Platform } from 'react-native';
+import { ActivityIndicator, Alert, Animated, Dimensions, StyleSheet, Text, TouchableOpacity, View, FlatList, Modal, ScrollView, Platform, InteractionManager } from 'react-native';
 import AsyncStorage from '@/lib/storage';
 import { useNotifications } from '../../hooks/useNotifications';
 import { notificationService } from '../../lib/notificationService';
@@ -105,7 +105,7 @@ export default function TabsLayout() {
   /** Standard-height bottom bar (content ~56pt) + safe inset; sync with floating UI `bottom`. */
   const bottomTabLayout = useMemo(() => {
     const bottomTabSafe = Math.max(insets.bottom, Platform.OS === 'android' ? 8 : 10);
-    const contentMin = 64;
+    const contentMin = 54;
     const height = contentMin + bottomTabSafe;
     return { bottomTabSafe, height };
   }, [insets.bottom]);
@@ -242,6 +242,7 @@ export default function TabsLayout() {
       <HeaderVisibilityContext.Provider value={headerVisibilityValue}>
         <TabEventContext.Provider value={{ emitHomeTabPress, subscribeHomeTabPress }}>
           <Tabs
+            initialRouteName="home"
             screenOptions={{
               headerShown: false,
               // Header is now in-flow and animates its own height.
@@ -255,7 +256,7 @@ export default function TabsLayout() {
               tabBarItemStyle: {
                 flex: 1,
                 justifyContent: 'flex-start',
-                paddingTop: 4,
+                paddingTop: 0,
               },
               tabBarLabelStyle: {
                 fontSize: TAB_LABEL_SIZE,
@@ -263,10 +264,10 @@ export default function TabsLayout() {
                 marginBottom: 10,
               },
               tabBarIconStyle: {
-                marginTop: -2,
+                marginTop: 0,
               },
               lazy: true,
-              freezeOnBlur: true,
+              freezeOnBlur: false,
               tabBarStyle,
             }}
           >
@@ -279,6 +280,8 @@ export default function TabsLayout() {
                 },
               }}
               options={{
+                lazy: false,
+                freezeOnBlur: false,
                 title: "Home",
                 tabBarLabelStyle: {
                   fontSize: TAB_LABEL_SIZE,
@@ -388,6 +391,8 @@ export default function TabsLayout() {
                 },
               }}
               options={{
+                lazy: false,
+                freezeOnBlur: false,
                 title: "Profile",
                 tabBarLabelStyle: {
                   fontSize: TAB_LABEL_SIZE,
@@ -686,25 +691,30 @@ function TopMenu({ setMenuVisible, setGroupsDrawerVisible }: { setMenuVisible: (
     if (u) setAnalyticsUserId(u);
   }, [currentUserId]);
 
-  // Refresh badge counts when screen comes into focus
+  // Refresh badge counts after navigation animation — never block tab switch
   useFocusEffect(
     React.useCallback(() => {
-      async function fetchCounts() {
-        const userId = currentUserId;
-        if (!userId) return;
-        // Notifications
-        try {
-          await fetchNotifications();
-        } catch { }
-        // Messages
-        const msgRes = await getUserConversations(userId);
-        if (Array.isArray(msgRes)) {
+      let cancelled = false;
+      const task = InteractionManager.runAfterInteractions(() => {
+        if (cancelled) return;
+        async function fetchCounts() {
+          const userId = currentUserId;
+          if (!userId || cancelled) return;
+          try {
+            await fetchNotifications();
+          } catch { }
+          const msgRes = await getUserConversations(userId);
+          if (cancelled || !Array.isArray(msgRes)) return;
           const unreadMsgs = msgRes.reduce((sum: number, convo: any) => sum + (convo.unread || 0), 0);
           setUnreadMsg(unreadMsgs);
         }
-      }
-      fetchCounts();
-    }, [currentUserId])
+        fetchCounts();
+      });
+      return () => {
+        cancelled = true;
+        task.cancel?.();
+      };
+    }, [currentUserId, fetchNotifications])
   );
 
   const getNotificationNavRoute = (item: any) => {
@@ -733,9 +743,9 @@ function TopMenu({ setMenuVisible, setGroupsDrawerVisible }: { setMenuVisible: (
 
 
   return (
-    <View style={[styles.topMenu, { 
-      paddingTop: isProfileScreen ? (insets.top || 8) : Math.max(insets.top, 12), 
-      height: (isProfileScreen ? (isSmallDevice ? 34 : 38) : (isSmallDevice ? 50 : 56)) + (isProfileScreen ? (insets.top || 8) : Math.max(insets.top, 12)) 
+    <View style={[styles.topMenu, {
+      paddingTop: isProfileScreen ? (insets.top || 8) : Math.max(insets.top, 12),
+      height: (isProfileScreen ? (isSmallDevice ? 34 : 38) : (isSmallDevice ? 50 : 56)) + (isProfileScreen ? (insets.top || 8) : Math.max(insets.top, 12))
     }]}>
       <View style={{ flexDirection: 'row', alignItems: 'center', minWidth: 150, marginRight: 8 }}>
         {isProfileScreen ? null : (
@@ -812,14 +822,14 @@ const styles = StyleSheet.create({
   floatingStoriesContainer: {
     position: 'absolute',
     bottom: 0,
-    left: 12, 
-    maxWidth: SCREEN_WIDTH - 40, 
-    paddingVertical: 5, 
+    left: 12,
+    maxWidth: SCREEN_WIDTH - 40,
+    paddingVertical: 5,
     paddingHorizontal: 8,
     backgroundColor: 'rgba(255, 255, 255, 0.5)', // Premium transparent white
     borderRadius: 40, // Perfect pill shape
     zIndex: 90,
-    borderWidth: 1.5, 
+    borderWidth: 1.5,
     borderColor: 'rgba(255, 255, 255, 0.4)', // Reflective border
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },

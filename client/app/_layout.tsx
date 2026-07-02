@@ -8,6 +8,9 @@ if (typeof global === 'object' && typeof global.WeakRef === 'undefined') {
   };
 }
 
+import { enableScreens } from 'react-native-screens';
+enableScreens(true);
+
 import { Ionicons } from '@expo/vector-icons';
 import * as Font from 'expo-font';
 import { StatusBar } from 'expo-status-bar';
@@ -25,6 +28,7 @@ import { Audio } from 'expo-av';
 import { disconnectSocket, getSocket, initializeSocket } from '@/src/_services/socketService';
 import { AppDialogProvider } from '@/src/_components/AppDialogProvider';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { StripeProvider } from '@stripe/stripe-react-native';
 import { useAppStore } from '@/store/useAppStore';
 import { resolveCanonicalUserId } from '@/lib/currentUser';
 // Load location service (foreground passport checks + optional TaskManager shim)
@@ -90,6 +94,9 @@ const queryClient = new QueryClient({
       retry: 2,
       staleTime: 1000 * 60 * 5, // 5 minutes
       gcTime: 1000 * 60 * 15, // 15 minutes
+      refetchOnMount: false,
+      refetchOnWindowFocus: false,
+      refetchOnReconnect: true,
     },
   },
 });
@@ -229,6 +236,7 @@ export default function RootLayout() {
   }, []);
 
   return (
+    <StripeProvider publishableKey={process.env.EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY || ''}>
     <QueryClientProvider client={queryClient}>
       <ErrorBoundary>
         <UserProvider>
@@ -250,7 +258,7 @@ export default function RootLayout() {
                 <Stack.Screen name="auth/forgot-password" />
                 <Stack.Screen name="auth/reset-otp" />
                 <Stack.Screen name="auth/reset-password" />
-                <Stack.Screen name="(tabs)" />
+                <Stack.Screen name="(tabs)" options={{ animation: 'none' }} />
                 <Stack.Screen name="create-post" options={{ presentation: 'fullScreenModal', animation: 'slide_from_bottom' }} />
                 <Stack.Screen name="podium" options={{ headerShown: false, animation: 'slide_from_bottom' }} />
                 <Stack.Screen name="edit-post" options={{ headerShown: false, animation: 'slide_from_right' }} />
@@ -269,5 +277,6 @@ export default function RootLayout() {
         </UserProvider>
       </ErrorBoundary>
     </QueryClientProvider>
+    </StripeProvider>
   );
 }

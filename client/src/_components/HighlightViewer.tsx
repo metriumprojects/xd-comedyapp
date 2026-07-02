@@ -3,6 +3,7 @@ import { Dimensions, Image, Modal, StyleSheet, Text, TouchableOpacity, View, Act
 import { Ionicons } from '@expo/vector-icons';
 import { getHighlightStories } from '../../lib/firebaseHelpers/core';
 import { flattenStoryPayload, getCachedHighlightStories, pickStoryId, pickStoryMedia } from '../../lib/storyViewer';
+import { getVideoThumbnailUrl } from '../../lib/imageHelpers';
 import CommentSection from './CommentSection';
 import { Video, ResizeMode } from 'expo-av';
 import { highlightManager } from '../../lib/highlightManager';
@@ -49,8 +50,15 @@ const HighlightViewer: React.FC<HighlightViewerProps> = ({ visible, highlightId,
       setShowComments(false);
       setIsPaused(false);
       progress.setValue(0);
+    } else {
+      setStories([]);
+      if (highlightId) {
+        setLoading(true);
+      } else {
+        setLoading(false);
+      }
     }
-  }, [visible]);
+  }, [visible, highlightId]);
 
   useEffect(() => {
     let mounted = true;
@@ -70,38 +78,16 @@ const HighlightViewer: React.FC<HighlightViewerProps> = ({ visible, highlightId,
     if (highlightId && visible) {
       setLoading(true);
       getHighlightStories(highlightId).then((res: any) => {
-        const storyArray = Array.isArray(res?.stories)
-          ? res.stories
-          : Array.isArray(res?.data?.stories)
-            ? res.data.stories
-            : Array.isArray(res?.data)
-              ? res.data
-              : [];
-        const normalized = (Array.isArray(storyArray) ? storyArray : [])
-          .map((raw: any, idx: number) => {
-            const flat = flattenStoryPayload(raw);
-            const media = pickStoryMedia(flat);
-            const sid = pickStoryId(flat, raw, idx);
-            return {
-              ...flat,
-              id: sid,
-              _id: flat._id || flat.id || sid,
-              imageUrl: media.mediaType === 'video' ? (media.imageUrl || media.videoUrl || '') : (media.imageUrl || ''),
-              videoUrl: media.mediaType === 'video' ? media.videoUrl : undefined,
-              mediaType: media.mediaType,
-            } as Story;
-          })
-          .slice()
-          .sort((a: any, b: any) => {
-            const ta = Date.parse(String(a?.createdAt || a?.timestamp || 0)) || 0;
-            const tb = Date.parse(String(b?.createdAt || b?.timestamp || 0)) || 0;
-            return ta - tb;
-          });
-        (async () => {
-          // If backend is empty (e.g. 24h expiry or eventual consistency), fall back to local archive.
-          if (normalized.length === 0 && highlightId) {
-            const cached = await getCachedHighlightStories(highlightId);
-            const cachedNorm = (Array.isArray(cached) ? cached : []).map((raw: any, idx: number) => {
+        try {
+          const storyArray = Array.isArray(res?.stories)
+            ? res.stories
+            : Array.isArray(res?.data?.stories)
+              ? res.data.stories
+              : Array.isArray(res?.data)
+                ? res.data
+                : [];
+          const normalized = (Array.isArray(storyArray) ? storyArray : [])
+            .map((raw: any, idx: number) => {
               const flat = flattenStoryPayload(raw);
               const media = pickStoryMedia(flat);
               const sid = pickStoryId(flat, raw, idx);
@@ -113,14 +99,49 @@ const HighlightViewer: React.FC<HighlightViewerProps> = ({ visible, highlightId,
                 videoUrl: media.mediaType === 'video' ? media.videoUrl : undefined,
                 mediaType: media.mediaType,
               } as Story;
+            })
+            .slice()
+            .sort((a: any, b: any) => {
+              const ta = Date.parse(String(a?.createdAt || a?.timestamp || 0)) || 0;
+              const tb = Date.parse(String(b?.createdAt || b?.timestamp || 0)) || 0;
+              return ta - tb;
             });
-            setStories(cachedNorm);
-          } else {
-            setStories(normalized);
-          }
+          (async () => {
+            try {
+              // If backend is empty (e.g. 24h expiry or eventual consistency), fall back to local archive.
+              if (normalized.length === 0 && highlightId) {
+                const cached = await getCachedHighlightStories(highlightId);
+                const cachedNorm = (Array.isArray(cached) ? cached : []).map((raw: any, idx: number) => {
+                  const flat = flattenStoryPayload(raw);
+                  const media = pickStoryMedia(flat);
+                  const sid = pickStoryId(flat, raw, idx);
+                  return {
+                    ...flat,
+                    id: sid,
+                    _id: flat._id || flat.id || sid,
+                    imageUrl: media.mediaType === 'video' ? (media.imageUrl || media.videoUrl || '') : (media.imageUrl || ''),
+                    videoUrl: media.mediaType === 'video' ? media.videoUrl : undefined,
+                    mediaType: media.mediaType,
+                  } as Story;
+                });
+                setStories(cachedNorm);
+              } else {
+                setStories(normalized);
+              }
+            } catch (err) {
+              console.error('[HighlightViewer] Error handling stories normalization:', err);
+            } finally {
+              setLoading(false);
+              setCurrentIndex(0);
+            }
+          })();
+        } catch (err) {
+          console.error('[HighlightViewer] Error in response mapping:', err);
           setLoading(false);
-          setCurrentIndex(0);
-        })();
+        }
+      }).catch((err) => {
+        console.error('[HighlightViewer] Error fetching stories:', err);
+        setLoading(false);
       });
     }
   }, [highlightId, visible]);
@@ -168,7 +189,9 @@ const HighlightViewer: React.FC<HighlightViewerProps> = ({ visible, highlightId,
     const flat = flattenStoryPayload(s as any);
     const media = pickStoryMedia(flat);
     if (media.mediaType === 'video') {
-      return media.imageUrl || media.videoUrl || String(flat.userAvatar || '');
+      const videoUri = media.videoUrl || '';
+      const posterUri = media.imageUrl || '';
+      return getVideoThumbnailUrl(videoUri, posterUri) || String(flat.userAvatar || '');
     }
     return media.imageUrl || String(flat.userAvatar || '');
   };
@@ -248,6 +271,62 @@ const HighlightViewer: React.FC<HighlightViewerProps> = ({ visible, highlightId,
           },
           style: 'destructive'
         }
+      ]
+    );
+  };
+
+  const handleDeleteHighlight = async () => {
+    if (!highlightId) return;
+    Alert.alert(
+      'Delete Highlight',
+      'Are you sure you want to delete this entire highlight?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            setDeleting(true);
+            try {
+              // Optimistic UI emission
+              try { feedEventEmitter.emitHighlightDeleted(String(highlightId)); } catch {}
+              
+              const uid = String(userId || localUid || '');
+              const result = await highlightManager.deleteHighlight({
+                highlightId,
+                userId: uid
+              });
+              
+              onClose();
+            } catch (error: any) {
+              Alert.alert('Error', 'Failed to delete highlight: ' + error.message);
+            } finally {
+              setDeleting(false);
+            }
+          }
+        }
+      ]
+    );
+  };
+
+  const handleActionPress = () => {
+    Alert.alert(
+      'Highlight Options',
+      'Choose an action for this highlight',
+      [
+        {
+          text: 'Remove from Highlight',
+          onPress: handleDeleteStory,
+        },
+        {
+          text: 'Delete Highlight',
+          style: 'destructive',
+          onPress: handleDeleteHighlight,
+        },
+        {
+          text: 'Cancel',
+          style: 'cancel',
+        },
       ]
     );
   };
@@ -354,7 +433,7 @@ const HighlightViewer: React.FC<HighlightViewerProps> = ({ visible, highlightId,
                 {(userId || localUid) && (
                   <TouchableOpacity
                     style={styles.actionBtn}
-                    onPress={handleDeleteStory}
+                    onPress={handleActionPress}
                     disabled={deleting}
                   >
                     <Ionicons name="ellipsis-horizontal" size={24} color="#fff" />

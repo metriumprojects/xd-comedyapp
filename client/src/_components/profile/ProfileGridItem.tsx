@@ -24,7 +24,7 @@ const ProfileGridItem = React.memo(({
   isVideoUrl,
   DEFAULT_IMAGE_URL
 }: ProfileGridItemProps) => {
-  const mainMediaUrl = item.imageUrl || item.mediaUrl || (Array.isArray(item.mediaUrls) && item.mediaUrls[0]) || '';
+  const mainMediaUrl = item.imageUrl || item.mediaUrl || item.media?.[0]?.url || (Array.isArray(item.mediaUrls) && item.mediaUrls[0]) || '';
   const isVideo = item.mediaType === 'video' || isVideoUrl(mainMediaUrl);
   const mediaUrl = item.thumbnailUrl || 
                    (isVideo ? getVideoThumbnailUrl(mainMediaUrl) : mainMediaUrl) || 
@@ -100,13 +100,12 @@ const styles = StyleSheet.create({
     bottom: 0,
     left: 0,
     right: 0,
-    height: 36,
+    backgroundColor: 'rgba(0,0,0,0.4)',
+    paddingVertical: 4,
+    paddingHorizontal: 6,
     flexDirection: 'row',
-    alignItems: 'flex-end',
     justifyContent: 'space-between',
-    paddingHorizontal: 8,
-    paddingBottom: 6,
-    backgroundColor: 'rgba(0,0,0,0.25)',
+    alignItems: 'center',
   },
   statLeft: {
     flexDirection: 'row',
@@ -115,13 +114,11 @@ const styles = StyleSheet.create({
   statRight: {
     flexDirection: 'row',
     alignItems: 'center',
+    gap: 4,
   },
   statText: {
     color: '#fff',
-    fontSize: 10,
+    fontSize: 9,
     fontWeight: '600',
-    textShadowColor: 'rgba(0,0,0,0.5)',
-    textShadowOffset: { width: 0.5, height: 0.5 },
-    textShadowRadius: 1,
   },
 });

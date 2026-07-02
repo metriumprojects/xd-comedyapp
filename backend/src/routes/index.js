@@ -32,6 +32,7 @@ router.use('/notifications', notificationRoutes);
 router.use('/stories', storyRoutes);
 router.use('/users', userRoutes);
 router.use('/users', sectionRoutes);
+router.use('/users', savedRoutes);
 router.use('/categories', categoriesRoutes);
 router.use('/branding', brandingRoutes);
 router.use('/presence', presenceRoutes);
@@ -49,6 +50,8 @@ router.use('/public', require('./public'));
 router.use('/follow', require('./follow'));
 router.use('/highlights', require('./highlight'));
 router.use('/media', require('./media'));
+router.use('/subscriptions', require('./subscription'));
+router.use('/withdrawals', require('./withdrawal'));
 router.get('/all-regions', async (req, res) => {
   try {
     const mongoose = require('mongoose');
