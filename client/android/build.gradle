@@ -6,7 +6,7 @@ buildscript {
         minSdkVersion = Integer.parseInt(findProperty('android.minSdkVersion') ?: '24')
         compileSdkVersion = Integer.parseInt(findProperty('android.compileSdkVersion') ?: '35')
         targetSdkVersion = Integer.parseInt(findProperty('android.targetSdkVersion') ?: '34')
-        kotlinVersion = findProperty('android.kotlinVersion') ?: '1.9.25'
+        kotlinVersion = '1.9.24'
 
         ndkVersion = "26.1.10909125"
     }
@@ -42,10 +42,139 @@ allprojects {
 }
 
 subprojects { project ->
+    // Helper to safely add dependencies if the project is registered in settings.gradle
+    def safeAdd = { task, projectPath, taskName ->
+        if (rootProject.findProject(projectPath) != null) {
+            task.dependsOn("${projectPath}:${taskName}")
+        }
+    }
+
+    project.pluginManager.withPlugin('kotlin-android') {
+        project.tasks.withType(org.jetbrains.kotlin.gradle.tasks.KotlinCompile).configureEach {
+            kotlinOptions {
+                if (!freeCompilerArgs.any { it.contains("suppressKotlinVersionCompatibilityCheck") }) {
+                    freeCompilerArgs += [
+                        "-P",
+                        "plugin:androidx.compose.compiler.plugins.kotlin:suppressKotlinVersionCompatibilityCheck=1.9.25"
+                    ]
+                }
+            }
+        }
+    }
+
     project.tasks.configureEach { task ->
         if (task.name == 'generateCodegenArtifactsFromSchema') {
-            task.dependsOn(':sentry-react-native:generateCodegenSchemaFromJavaScript')
+            safeAdd(task, ':sentry-react-native', 'generateCodegenSchemaFromJavaScript')
+        }
+        if (task.name == 'packageDebugResources') {
+            safeAdd(task, ':sentry-react-native', 'generateDebugResValues')
+            safeAdd(task, ':sentry_react-native', 'generateDebugResValues')
+            safeAdd(task, ':sentry-react-native-expo', 'generateDebugResValues')
+        }
+        if (task.name == 'packageReleaseResources') {
+            safeAdd(task, ':sentry-react-native', 'generateReleaseResValues')
+            safeAdd(task, ':sentry_react-native', 'generateReleaseResValues')
+            safeAdd(task, ':sentry-react-native-expo', 'generateReleaseResValues')
+        }
+        if (task.name == 'extractDeepLinksDebug') {
+            safeAdd(task, ':sentry_react-native', 'generateDebugResValues')
+            safeAdd(task, ':sentry-react-native', 'generateDebugResValues')
+            safeAdd(task, ':sentry-react-native-expo', 'generateDebugResValues')
+        }
+        if (task.name == 'extractDeepLinksRelease') {
+            safeAdd(task, ':sentry_react-native', 'generateReleaseResValues')
+            safeAdd(task, ':sentry-react-native', 'generateReleaseResValues')
+            safeAdd(task, ':sentry-react-native-expo', 'generateReleaseResValues')
+        }
+        if (task.name == 'compileDebugLibraryResources') {
+            safeAdd(task, ':sentry-react-native', 'packageDebugResources')
+            safeAdd(task, ':sentry_react-native', 'packageDebugResources')
+            safeAdd(task, ':sentry-react-native-expo', 'packageDebugResources')
+        }
+        if (task.name == 'compileReleaseLibraryResources') {
+            safeAdd(task, ':sentry-react-native', 'packageReleaseResources')
+            safeAdd(task, ':sentry_react-native', 'packageReleaseResources')
+            safeAdd(task, ':sentry-react-native-expo', 'packageReleaseResources')
+        }
+        if (task.name == 'parseDebugLocalResources') {
+            safeAdd(task, ':sentry-react-native', 'packageDebugResources')
+            safeAdd(task, ':sentry_react-native', 'packageDebugResources')
+            safeAdd(task, ':sentry-react-native-expo', 'packageDebugResources')
+        }
+        if (task.name == 'parseReleaseLocalResources') {
+            safeAdd(task, ':sentry-react-native', 'packageReleaseResources')
+            safeAdd(task, ':sentry_react-native', 'packageReleaseResources')
+            safeAdd(task, ':sentry-react-native-expo', 'packageReleaseResources')
+        }
+        if (task.name == 'generateDebugRFile') {
+            safeAdd(task, ':sentry-react-native', 'parseDebugLocalResources')
+            safeAdd(task, ':sentry_react-native', 'parseDebugLocalResources')
+            safeAdd(task, ':sentry-react-native-expo', 'parseDebugLocalResources')
+        }
+        if (task.name == 'generateReleaseRFile') {
+            safeAdd(task, ':sentry-react-native', 'parseReleaseLocalResources')
+            safeAdd(task, ':sentry_react-native', 'parseReleaseLocalResources')
+            safeAdd(task, ':sentry-react-native-expo', 'parseReleaseLocalResources')
+        }
+        if (task.name == 'compileDebugJavaWithJavac') {
+            safeAdd(task, ':sentry-react-native', 'generateDebugRFile')
+            safeAdd(task, ':sentry_react-native', 'generateDebugRFile')
+            safeAdd(task, ':sentry-react-native-expo', 'generateDebugRFile')
+            safeAdd(task, ':sentry-react-native', 'javaPreCompileDebug')
+            safeAdd(task, ':sentry_react-native', 'javaPreCompileDebug')
+            safeAdd(task, ':sentry-react-native-expo', 'javaPreCompileDebug')
+            safeAdd(task, ':sentry-react-native', 'generateDebugBuildConfig')
+            safeAdd(task, ':sentry_react-native', 'generateDebugBuildConfig')
+            safeAdd(task, ':sentry-react-native-expo', 'generateDebugBuildConfig')
+            if (!project.name.startsWith('sentry-react-native') && !project.name.startsWith('sentry_react-native')) {
+                safeAdd(task, ':sentry-react-native', 'bundleLibCompileToJarDebug')
+                safeAdd(task, ':sentry_react-native', 'bundleLibCompileToJarDebug')
+                safeAdd(task, ':sentry-react-native-expo', 'bundleLibCompileToJarDebug')
+            }
+        }
+        if (task.name == 'compileReleaseJavaWithJavac') {
+            safeAdd(task, ':sentry-react-native', 'generateReleaseRFile')
+            safeAdd(task, ':sentry_react-native', 'generateReleaseRFile')
+            safeAdd(task, ':sentry-react-native-expo', 'generateReleaseRFile')
+            safeAdd(task, ':sentry-react-native', 'javaPreCompileRelease')
+            safeAdd(task, ':sentry_react-native', 'javaPreCompileRelease')
+            safeAdd(task, ':sentry-react-native-expo', 'javaPreCompileRelease')
+            safeAdd(task, ':sentry-react-native', 'generateReleaseBuildConfig')
+            safeAdd(task, ':sentry_react-native', 'generateReleaseBuildConfig')
+            safeAdd(task, ':sentry-react-native-expo', 'generateReleaseBuildConfig')
+            if (!project.name.startsWith('sentry-react-native') && !project.name.startsWith('sentry_react-native')) {
+                safeAdd(task, ':sentry-react-native', 'bundleLibCompileToJarRelease')
+                safeAdd(task, ':sentry_react-native', 'bundleLibCompileToJarRelease')
+                safeAdd(task, ':sentry-react-native-expo', 'bundleLibCompileToJarRelease')
+            }
+        }
+        if (task.name == 'compileDebugKotlin') {
+            if (!project.name.startsWith('sentry-react-native') && !project.name.startsWith('sentry_react-native')) {
+                safeAdd(task, ':sentry-react-native', 'bundleLibCompileToJarDebug')
+                safeAdd(task, ':sentry_react-native', 'bundleLibCompileToJarDebug')
+                safeAdd(task, ':sentry-react-native-expo', 'bundleLibCompileToJarDebug')
+            }
+        }
+        if (task.name == 'compileReleaseKotlin') {
+            if (!project.name.startsWith('sentry-react-native') && !project.name.startsWith('sentry_react-native')) {
+                safeAdd(task, ':sentry-react-native', 'bundleLibCompileToJarRelease')
+                safeAdd(task, ':sentry_react-native', 'bundleLibCompileToJarRelease')
+                safeAdd(task, ':sentry-react-native-expo', 'bundleLibCompileToJarRelease')
+            }
+        }
+        if (task.name == 'bundleLibCompileToJarDebug') {
+            safeAdd(task, ':sentry-react-native', 'compileDebugJavaWithJavac')
+            safeAdd(task, ':sentry_react-native', 'compileDebugJavaWithJavac')
+            safeAdd(task, ':sentry-react-native-expo', 'compileDebugJavaWithJavac')
+        }
+        if (task.name == 'bundleLibCompileToJarRelease') {
+            safeAdd(task, ':sentry-react-native', 'compileReleaseJavaWithJavac')
+            safeAdd(task, ':sentry_react-native', 'compileReleaseJavaWithJavac')
+            safeAdd(task, ':sentry-react-native-expo', 'compileReleaseJavaWithJavac')
         }
     }
 }
+
+
+
 

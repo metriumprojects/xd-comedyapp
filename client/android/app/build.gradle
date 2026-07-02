@@ -95,6 +95,10 @@ android {
         targetSdkVersion rootProject.ext.targetSdkVersion
         versionCode 123
         versionName "1.1.0"
+        manifestPlaceholders = [
+            appAuthRedirectScheme: "trave-social",
+            traveSocialScheme: "trave-social"
+        ]
     }
     signingConfigs {
         debug {
