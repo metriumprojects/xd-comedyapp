@@ -78,10 +78,16 @@ export default function EditProfile() {
   // Parse comma-separated interests string into an array
   const selectedInterests = React.useMemo(() => {
     if (typeof interests === 'string' && interests.trim()) {
-      return interests.split(/[\s,]+/).map(s => s.trim()).filter(Boolean);
+      return interests.split(',').map(s => s.trim()).filter(Boolean);
     }
     return [];
   }, [interests]);
+
+  // Dynamically include any custom/legacy interests the user already has saved
+  const displayedCategories = React.useMemo(() => {
+    const custom = selectedInterests.filter(c => !PRESET_CATEGORIES.includes(c));
+    return [...PRESET_CATEGORIES, ...custom];
+  }, [selectedInterests]);
 
   // Toggle category selection
   const handleToggleInterest = (category: string) => {
@@ -146,7 +152,16 @@ export default function EditProfile() {
         setWebsite(result.data.website || '');
         setLocation((result.data as any).location || '');
         setPhone((result.data as any).phone || '');
-        setInterests((result.data as any).interests || '');
+        let rawInt = (result.data as any).interests || '';
+        if (typeof rawInt === 'string' && rawInt.trim()) {
+          let parts = rawInt.split(',').map(s => s.trim()).filter(Boolean);
+          if (parts.includes('Stand') || parts.includes('Up')) {
+            parts = parts.filter(p => p !== 'Stand' && p !== 'Up');
+            parts.push('Stand Up');
+          }
+          rawInt = Array.from(new Set(parts)).join(', ');
+        }
+        setInterests(rawInt);
         setAvatar(result.data.avatar || '');
         setIsPrivate(!!(result.data as any).isPrivate);
         setError(null);
@@ -424,7 +439,7 @@ export default function EditProfile() {
           <View style={styles.formGroup}>
             <Text style={styles.fieldLabel}>Interests (Choose up to 3)</Text>
             <View style={styles.chipsContainer}>
-              {PRESET_CATEGORIES.map((category) => {
+              {displayedCategories.map((category) => {
                 const isSelected = selectedInterests.includes(category);
                 return (
                   <TouchableOpacity

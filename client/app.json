@@ -64,7 +64,7 @@
       "favicon": "./assets/images/favicon.png"
     },
     "plugins": [
-      "@sentry/react-native",
+      "@sentry/react-native/expo",
       "expo-router",
       "expo-apple-authentication",
       [

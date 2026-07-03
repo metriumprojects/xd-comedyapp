@@ -42,6 +42,18 @@ allprojects {
 }
 
 subprojects { project ->
+    // The expo autolinking generates ExpoModulesPackageList.java that references
+    // io.sentry.react.expo.SentryExpoPackage, but the autolinking resolver does NOT
+    // add :sentry-react-native-expo as a compile dependency of :expo.
+    // We inject it manually here so the :expo module can compile.
+    if (project.name == 'expo') {
+        project.afterEvaluate {
+            if (rootProject.findProject(':sentry-react-native-expo') != null) {
+                project.dependencies.add('implementation', project.project(':sentry-react-native-expo'))
+            }
+        }
+    }
+
     // Helper to safely add dependencies if the project is registered in settings.gradle
     def safeAdd = { task, projectPath, taskName ->
         if (rootProject.findProject(projectPath) != null) {
@@ -65,6 +77,15 @@ subprojects { project ->
     project.tasks.configureEach { task ->
         if (task.name == 'generateCodegenArtifactsFromSchema') {
             safeAdd(task, ':sentry-react-native', 'generateCodegenSchemaFromJavaScript')
+        }
+        // :sentry_react-native shares build output with :sentry-react-native
+        if (task.name == 'packageDebugAssets') {
+            safeAdd(task, ':sentry-react-native', 'compileDebugShaders')
+            safeAdd(task, ':sentry_react-native', 'compileDebugShaders')
+        }
+        if (task.name == 'packageReleaseAssets') {
+            safeAdd(task, ':sentry-react-native', 'compileReleaseShaders')
+            safeAdd(task, ':sentry_react-native', 'compileReleaseShaders')
         }
         if (task.name == 'packageDebugResources') {
             safeAdd(task, ':sentry-react-native', 'generateDebugResValues')
@@ -126,7 +147,7 @@ subprojects { project ->
             safeAdd(task, ':sentry-react-native', 'generateDebugBuildConfig')
             safeAdd(task, ':sentry_react-native', 'generateDebugBuildConfig')
             safeAdd(task, ':sentry-react-native-expo', 'generateDebugBuildConfig')
-            if (!project.name.startsWith('sentry-react-native') && !project.name.startsWith('sentry_react-native')) {
+            if (!project.name.startsWith('sentry') && project.name != 'expo-modules-core') {
                 safeAdd(task, ':sentry-react-native', 'bundleLibCompileToJarDebug')
                 safeAdd(task, ':sentry_react-native', 'bundleLibCompileToJarDebug')
                 safeAdd(task, ':sentry-react-native-expo', 'bundleLibCompileToJarDebug')
@@ -142,39 +163,55 @@ subprojects { project ->
             safeAdd(task, ':sentry-react-native', 'generateReleaseBuildConfig')
             safeAdd(task, ':sentry_react-native', 'generateReleaseBuildConfig')
             safeAdd(task, ':sentry-react-native-expo', 'generateReleaseBuildConfig')
-            if (!project.name.startsWith('sentry-react-native') && !project.name.startsWith('sentry_react-native')) {
+            if (!project.name.startsWith('sentry') && project.name != 'expo-modules-core') {
                 safeAdd(task, ':sentry-react-native', 'bundleLibCompileToJarRelease')
                 safeAdd(task, ':sentry_react-native', 'bundleLibCompileToJarRelease')
                 safeAdd(task, ':sentry-react-native-expo', 'bundleLibCompileToJarRelease')
             }
         }
         if (task.name == 'compileDebugKotlin') {
-            if (!project.name.startsWith('sentry-react-native') && !project.name.startsWith('sentry_react-native')) {
+            if (!project.name.startsWith('sentry') && project.name != 'expo-modules-core') {
                 safeAdd(task, ':sentry-react-native', 'bundleLibCompileToJarDebug')
                 safeAdd(task, ':sentry_react-native', 'bundleLibCompileToJarDebug')
                 safeAdd(task, ':sentry-react-native-expo', 'bundleLibCompileToJarDebug')
             }
         }
         if (task.name == 'compileReleaseKotlin') {
-            if (!project.name.startsWith('sentry-react-native') && !project.name.startsWith('sentry_react-native')) {
+            if (!project.name.startsWith('sentry') && project.name != 'expo-modules-core') {
                 safeAdd(task, ':sentry-react-native', 'bundleLibCompileToJarRelease')
                 safeAdd(task, ':sentry_react-native', 'bundleLibCompileToJarRelease')
                 safeAdd(task, ':sentry-react-native-expo', 'bundleLibCompileToJarRelease')
             }
         }
         if (task.name == 'bundleLibCompileToJarDebug') {
-            safeAdd(task, ':sentry-react-native', 'compileDebugJavaWithJavac')
-            safeAdd(task, ':sentry_react-native', 'compileDebugJavaWithJavac')
-            safeAdd(task, ':sentry-react-native-expo', 'compileDebugJavaWithJavac')
+            if (project.name.startsWith('sentry') || project.name.startsWith('sentry_react-native')) {
+                safeAdd(task, ':sentry-react-native', 'compileDebugJavaWithJavac')
+                safeAdd(task, ':sentry_react-native', 'compileDebugJavaWithJavac')
+                safeAdd(task, ':sentry-react-native-expo', 'compileDebugJavaWithJavac')
+            }
         }
         if (task.name == 'bundleLibCompileToJarRelease') {
-            safeAdd(task, ':sentry-react-native', 'compileReleaseJavaWithJavac')
-            safeAdd(task, ':sentry_react-native', 'compileReleaseJavaWithJavac')
-            safeAdd(task, ':sentry-react-native-expo', 'compileReleaseJavaWithJavac')
+            if (project.name.startsWith('sentry') || project.name.startsWith('sentry_react-native')) {
+                safeAdd(task, ':sentry-react-native', 'compileReleaseJavaWithJavac')
+                safeAdd(task, ':sentry_react-native', 'compileReleaseJavaWithJavac')
+                safeAdd(task, ':sentry-react-native-expo', 'compileReleaseJavaWithJavac')
+            }
+        }
+        // :sentry-react-native and :sentry_react-native share the same android/build directory,
+        // so bundleLibRuntimeToJar must wait for the other project's compile tasks.
+        if (task.name == 'bundleLibRuntimeToJarDebug') {
+            if (project.name.startsWith('sentry') || project.name.startsWith('sentry_react-native')) {
+                safeAdd(task, ':sentry-react-native', 'compileDebugJavaWithJavac')
+                safeAdd(task, ':sentry_react-native', 'compileDebugJavaWithJavac')
+                safeAdd(task, ':sentry-react-native-expo', 'compileDebugJavaWithJavac')
+            }
+        }
+        if (task.name == 'bundleLibRuntimeToJarRelease') {
+            if (project.name.startsWith('sentry') || project.name.startsWith('sentry_react-native')) {
+                safeAdd(task, ':sentry-react-native', 'compileReleaseJavaWithJavac')
+                safeAdd(task, ':sentry_react-native', 'compileReleaseJavaWithJavac')
+                safeAdd(task, ':sentry-react-native-expo', 'compileReleaseJavaWithJavac')
+            }
         }
     }
 }
-
-
-
-

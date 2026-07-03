@@ -1,4 +1,8 @@
 require('dotenv').config();
+// Set DNS servers to Google & Cloudflare to resolve MongoDB Atlas SRV DNS query issues
+const dns = require('dns');
+dns.setServers(['8.8.8.8', '1.1.1.1']);
+
 const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');

@@ -51,6 +51,45 @@ export const isVideoUri = (uri: string, galleryAssets?: GalleryAsset[]) => {
   return lower.endsWith('.mp4') || lower.endsWith('.mov') || lower.includes('video');
 };
 
+const buildFriendlyLocationName = (details: any): string => {
+  if (!details) return '';
+  const parts: string[] = [];
+
+  // Get area/neighborhood/sublocality/placeName
+  const area = details.neighborhood || details.sublocality || details.placeName;
+  const isValidArea = area && typeof area === 'string' && !/^\d+$/.test(area.trim()) && !area.includes('+');
+
+  if (isValidArea) {
+    parts.push(area.trim());
+  }
+
+  if (details.city && typeof details.city === 'string') {
+    parts.push(details.city.trim());
+  }
+
+  if (details.country && typeof details.country === 'string') {
+    parts.push(details.country.trim());
+  }
+
+  if (parts.length > 0) {
+    return parts.join(', ');
+  }
+
+  if (details.address && typeof details.address === 'string') {
+    const addressParts = details.address.split(',');
+    if (addressParts.length > 1) {
+      const firstPart = addressParts[0].trim();
+      const hasNumber = /\d/.test(firstPart);
+      if (hasNumber) {
+        return addressParts.slice(1).map((p: any) => p.trim()).join(', ');
+      }
+    }
+    return details.address.trim();
+  }
+
+  return 'Current Location';
+};
+
 export const useCreatePost = (params: any = {}) => {
   const router = useRouter();
   const user = useUser();
@@ -66,7 +105,37 @@ export const useCreatePost = (params: any = {}) => {
   const [subscriptionTierId, setSubscriptionTierId] = useState<string | null>(null);
   const [userGroups, setUserGroups] = useState<any[]>([]);
   const [selectedImages, setSelectedImages] = useState<string[]>([]);
-  const [location, setLocation] = useState<LocationType | null>(null);
+  const [location, rawSetLocation] = useState<LocationType | null>(null);
+
+  const setLocation = useCallback(async (loc: LocationType | null) => {
+    if (!loc) {
+      rawSetLocation(null);
+      return;
+    }
+
+    const needsDetails = loc.placeId && (!loc.lat || !loc.lon || (Number(loc.lat) === 0 && Number(loc.lon) === 0));
+
+    if (needsDetails && loc.placeId) {
+      try {
+        const details = await mapService.getPlaceDetails(loc.placeId);
+        if (details) {
+          rawSetLocation({
+            name: loc.name,
+            address: details.address || loc.address,
+            placeId: loc.placeId,
+            lat: details.latitude,
+            lon: details.longitude,
+            verified: loc.verified
+          });
+          return;
+        }
+      } catch (err) {
+        console.error('[useCreatePost] Failed to fetch place details for location selection:', err);
+      }
+    }
+    rawSetLocation(loc);
+  }, []);
+
   const [verifiedLocation, setVerifiedLocation] = useState<LocationType | null>(null);
   const [taggedUsers, setTaggedUsers] = useState<UserType[]>([]);
   const [postType, setPostType] = useState(params.postType || 'POST');
@@ -486,6 +555,54 @@ export const useCreatePost = (params: any = {}) => {
       setLoading(false);
     }
   };
+
+  // Fetch current location on mount if not in edit mode
+  useEffect(() => {
+    if (params.editPostId) return;
+
+    const fetchDefaultLocation = async () => {
+      try {
+        const { status } = await Location.requestForegroundPermissionsAsync();
+        if (status !== 'granted') return;
+
+        const currentLoc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+        const lat = currentLoc.coords.latitude;
+        const lon = currentLoc.coords.longitude;
+
+        try {
+          const addressRes = await mapService.reverseGeocode(lat, lon);
+          if (addressRes) {
+            const friendlyName = buildFriendlyLocationName(addressRes);
+            rawSetLocation({
+              name: friendlyName,
+              address: addressRes.address || `GPS: ${lat.toFixed(4)}, ${lon.toFixed(4)}`,
+              lat,
+              lon
+            });
+          } else {
+            rawSetLocation({
+              name: 'Current Location',
+              address: `GPS: ${lat.toFixed(4)}, ${lon.toFixed(4)}`,
+              lat,
+              lon
+            });
+          }
+        } catch (e) {
+          console.error('[useCreatePost] Reverse geocoding failed:', e);
+          rawSetLocation({
+            name: 'Current Location',
+            address: `GPS: ${lat.toFixed(4)}, ${lon.toFixed(4)}`,
+            lat,
+            lon
+          });
+        }
+      } catch (err) {
+        console.error('[useCreatePost] Failed to fetch default location:', err);
+      }
+    };
+
+    fetchDefaultLocation();
+  }, [params.editPostId]);
 
   useEffect(() => { 
     // Initial load for creating a new post: we need the gallery

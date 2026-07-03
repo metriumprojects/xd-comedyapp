@@ -77,7 +77,12 @@ const ProfileHeader: React.FC<ProfileHeaderProps> = ({
   const interestsList = React.useMemo(() => {
     const rawInterests = profile?.interests || '';
     if (typeof rawInterests === 'string' && rawInterests.trim()) {
-      return rawInterests.split(/[\s,]+/).filter(Boolean);
+      let parts = rawInterests.split(',').map(s => s.trim()).filter(Boolean);
+      if (parts.includes('Stand') || parts.includes('Up')) {
+        parts = parts.filter(p => p !== 'Stand' && p !== 'Up');
+        parts.push('Stand Up');
+      }
+      return Array.from(new Set(parts));
     }
     return ['Stand Up', 'Pranks', 'Comics']; // Default fallback category chips
   }, [profile?.interests]);
