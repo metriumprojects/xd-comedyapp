@@ -1,6 +1,6 @@
 /**
- * Rasterize Trips SVGs for Expo (icon, favicon, marks).
- * Full-screen `assets/splash.png` is built from `splashscreenlogo.png` when present, else from SVG.
+ * Rasterize Giggle image for Expo (icon, favicon, marks, splash).
+ * Full-screen `assets/splash.png` and logo marks are built from `giggle.png`.
  * Run: npm run assets:trips-png
  */
 import fs from 'node:fs';
@@ -13,30 +13,23 @@ const clientRoot = path.join(__dirname, '..');
 const imagesDir = path.join(clientRoot, 'assets', 'images');
 const assetsDir = path.join(clientRoot, 'assets');
 
-const svgApp = path.join(imagesDir, 'logo-trips-app.svg');
-const svgWordmark = path.join(imagesDir, 'logo-trips.svg');
-
-const BRAND = { r: 102, g: 126, b: 234, alpha: 1 }; // #667eea
+const sourceImage = path.join(imagesDir, 'giggle.png');
 const WHITE = { r: 255, g: 255, b: 255, alpha: 1 };
 
 /** Keep primary artwork inside ~64% of square so iOS / adaptive-icon masks do not clip. */
 const ICON_SAFE_FRACTION = 0.64;
 
 async function main() {
-  if (!fs.existsSync(svgApp)) {
-    console.error('Missing:', svgApp);
-    process.exit(1);
-  }
-  if (!fs.existsSync(svgWordmark)) {
-    console.error('Missing:', svgWordmark);
+  if (!fs.existsSync(sourceImage)) {
+    console.error('Missing source image:', sourceImage);
     process.exit(1);
   }
 
-  // App icon + adaptive foreground (1024): padded square on white (matches adaptiveIcon.backgroundColor)
+  // 1. App Icon (1024x1024)
   const iconSide = 1024;
   const iconInner = Math.round(iconSide * ICON_SAFE_FRACTION);
-  const iconMark = await sharp(svgApp)
-    .resize(iconInner, iconInner, { fit: 'contain', background: WHITE })
+  const iconMark = await sharp(sourceImage)
+    .resize(iconInner, iconInner, { fit: 'contain', background: { r: 255, g: 255, b: 255, alpha: 0 } })
     .png()
     .toBuffer();
   await sharp({
@@ -47,46 +40,41 @@ async function main() {
     .toFile(path.join(imagesDir, 'icon.png'));
   console.log('Wrote assets/images/icon.png');
 
-  // Optional legacy full-screen splash (expo-splash uses assets/images/splashscreenlogo.png in app.json)
-  const splashLogoPath = path.join(imagesDir, 'splashscreenlogo.png');
+  // 2. Splash Screen Logo (512x512)
+  await sharp(sourceImage)
+    .resize(512, 512, { fit: 'contain', background: { r: 255, g: 255, b: 255, alpha: 0 } })
+    .png()
+    .toFile(path.join(imagesDir, 'splashscreenlogo.png'));
+  console.log('Wrote assets/images/splashscreenlogo.png');
+
+  // 3. Full screen splash.png (1242x2688) with white background
   const splashW = 1242;
   const splashH = 2688;
   const splashInner = Math.round(Math.min(splashW, splashH) * 0.34);
-  const markSource = fs.existsSync(splashLogoPath) ? splashLogoPath : svgApp;
-  const markPng = await sharp(markSource)
-    .resize(splashInner, splashInner, { fit: 'contain', background: WHITE })
+  const splashMark = await sharp(sourceImage)
+    .resize(splashInner, splashInner, { fit: 'contain', background: { r: 255, g: 255, b: 255, alpha: 0 } })
     .png()
     .toBuffer();
-
   await sharp({
-    create: {
-      width: splashW,
-      height: splashH,
-      channels: 4,
-      background: WHITE,
-    },
+    create: { width: splashW, height: splashH, channels: 4, background: WHITE },
   })
-    .composite([{ input: markPng, gravity: 'center' }])
+    .composite([{ input: splashMark, gravity: 'center' }])
     .png()
     .toFile(path.join(assetsDir, 'splash.png'));
-  console.log(
-    fs.existsSync(splashLogoPath)
-      ? 'Wrote assets/splash.png (from splashscreenlogo.png)'
-      : 'Wrote assets/splash.png (from logo-trips-app.svg)',
-  );
+  console.log('Wrote assets/splash.png');
 
-  // In-app header mark (bundled PNG; avoids huge SVG at runtime)
-  await sharp(svgWordmark)
-    .resize(512, 512, { fit: 'contain', background: { ...BRAND, alpha: 0 } })
+  // 4. logo-trips-mark.png (In-app branding logo)
+  await sharp(sourceImage)
+    .resize(512, 512, { fit: 'contain', background: { r: 255, g: 255, b: 255, alpha: 0 } })
     .png()
     .toFile(path.join(imagesDir, 'logo-trips-mark.png'));
   console.log('Wrote assets/images/logo-trips-mark.png');
 
-  // Web favicon (same safe inset as app icon)
+  // 5. Favicon (48x48)
   const favSide = 48;
   const favInner = Math.round(favSide * ICON_SAFE_FRACTION);
-  const favMark = await sharp(svgApp)
-    .resize(favInner, favInner, { fit: 'contain', background: WHITE })
+  const favMark = await sharp(sourceImage)
+    .resize(favInner, favInner, { fit: 'contain', background: { r: 255, g: 255, b: 255, alpha: 0 } })
     .png()
     .toBuffer();
   await sharp({
