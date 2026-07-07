@@ -137,7 +137,8 @@
         }
       ],
       "react-native-compressor",
-      "expo-video"
+      "expo-video",
+      "./plugins/withPodfileFmtFix"
     ],
     "experiments": {
       "typedRoutes": true
