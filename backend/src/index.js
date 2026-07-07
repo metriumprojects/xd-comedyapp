@@ -67,17 +67,34 @@ initSentry(app);
 
 // ============= FIREBASE INITIALIZATION =============
 try {
-  const serviceAccountPath = path.join(__dirname, '../serviceAccountKey.json');
-  const serviceAccount = require(serviceAccountPath);
-  
-  if (admin.apps.length === 0) {
-    admin.initializeApp({
-      credential: admin.credential.cert(serviceAccount),
-      projectId: process.env.FIREBASE_PROJECT_ID || serviceAccount.project_id,
-    });
+  let serviceAccount = null;
+
+  if (process.env.FIREBASE_SERVICE_ACCOUNT) {
+    try {
+      serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
+    } catch (e) {
+      console.warn('⚠️ Invalid FIREBASE_SERVICE_ACCOUNT JSON in env:', e.message);
+    }
+  } else {
+    const serviceAccountPath = path.join(__dirname, '../serviceAccountKey.json');
+    try {
+      serviceAccount = require(serviceAccountPath);
+    } catch (e) {
+      // Local file not found, which is fine if env var is used in production
+    }
   }
-  
-  console.log('✅ Firebase Admin initialized');
+
+  if (admin.apps.length === 0) {
+    if (serviceAccount) {
+      admin.initializeApp({
+        credential: admin.credential.cert(serviceAccount),
+        projectId: process.env.FIREBASE_PROJECT_ID || serviceAccount.project_id,
+      });
+      console.log('✅ Firebase Admin initialized successfully');
+    } else {
+      console.warn('⚠️ No Firebase Service Account found. Firebase Auth verification and notifications may not work.');
+    }
+  }
 } catch (error) {
   console.warn('⚠️ Firebase Admin initialization warning:', error.message);
 }
