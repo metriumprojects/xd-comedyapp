@@ -1827,5 +1827,36 @@ router.delete('/:userId', async (req, res) => {
   }
 });
 
+// POST /api/users/bulk-profiles - Get multiple user profiles at once (Bulk Fetch)
+router.post('/bulk-profiles', optionalAuth, async (req, res) => {
+  try {
+    const { uids } = req.body;
+    if (!Array.isArray(uids) || uids.length === 0) {
+      return res.status(400).json({ success: false, error: 'uids array is required' });
+    }
+
+    // Limit bulk size to prevent abuse
+    const limitedUids = uids.slice(0, 50);
+
+    // Convert potential string IDs to ObjectId candidates for DB query
+    const objectIds = limitedUids
+      .filter(id => mongoose.Types.ObjectId.isValid(id))
+      .map(id => new mongoose.Types.ObjectId(id));
+
+    const users = await User.find({
+      $or: [
+        { _id: { $in: objectIds } },
+        { firebaseUid: { $in: limitedUids } },
+        { uid: { $in: limitedUids } }
+      ]
+    }).select('_id displayName name avatar photoURL username uid firebaseUid role');
+
+    res.json({ success: true, data: users });
+  } catch (err) {
+    console.error('[POST /users/bulk-profiles] Error:', err.message);
+    res.status(500).json({ success: false, error: 'Failed to fetch bulk profiles' });
+  }
+});
+
 module.exports = router;
 
