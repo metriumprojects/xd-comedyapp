@@ -50,12 +50,10 @@ export {
 
 // Default categories
 export const DEFAULT_CATEGORIES = [
-  { name: 'Travel', image: 'https://via.placeholder.com/80x80?text=Travel' },
-  { name: 'Food', image: 'https://via.placeholder.com/80x80?text=Food' },
-  { name: 'Adventure', image: 'https://via.placeholder.com/80x80?text=Adventure' },
-  { name: 'Culture', image: 'https://via.placeholder.com/80x80?text=Culture' },
-  { name: 'Nature', image: 'https://via.placeholder.com/80x80?text=Nature' },
-  { name: 'Nightlife', image: 'https://via.placeholder.com/80x80?text=Nightlife' }
+  { name: 'Stand Up', image: 'https://images.pexels.com/photos/2810816/pexels-photo-2810816.jpeg?auto=compress&cs=tinysrgb&w=150' },
+  { name: 'Memes', image: 'https://images.pexels.com/photos/1545743/pexels-photo-1545743.jpeg?auto=compress&cs=tinysrgb&w=150' },
+  { name: 'Pranks', image: 'https://images.pexels.com/photos/1006073/pexels-photo-1006073.jpeg?auto=compress&cs=tinysrgb&w=150' },
+  { name: 'Comics', image: 'https://images.pexels.com/photos/3184291/pexels-photo-3184291.jpeg?auto=compress&cs=tinysrgb&w=150' }
 ];
 
 // Ensure default categories exist

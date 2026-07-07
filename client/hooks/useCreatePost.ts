@@ -55,18 +55,29 @@ const buildFriendlyLocationName = (details: any): string => {
   if (!details) return '';
   const parts: string[] = [];
 
-  // Get area/neighborhood/sublocality/placeName
-  const area = details.neighborhood || details.sublocality || details.placeName;
+  // Get area/neighborhood/sublocality/placeName/district/subregion
+  let area = details.neighborhood || details.sublocality || details.district || details.subregion;
+  
+  if (!area) {
+    const candidate = details.street || details.placeName || details.name;
+    if (candidate && typeof candidate === 'string' && !/^\d+$/.test(candidate.trim()) && !candidate.includes('+')) {
+      area = candidate;
+    }
+  }
+
   const isValidArea = area && typeof area === 'string' && !/^\d+$/.test(area.trim()) && !area.includes('+');
 
   if (isValidArea) {
-    parts.push(area.trim());
+    parts.push((area as string).trim());
   }
 
-  if (details.city && typeof details.city === 'string') {
-    parts.push(details.city.trim());
+  // Get City
+  const city = details.city || details.subregion;
+  if (city && typeof city === 'string' && city.trim() !== String(area || '').trim()) {
+    parts.push(city.trim());
   }
 
+  // Get Country
   if (details.country && typeof details.country === 'string') {
     parts.push(details.country.trim());
   }
@@ -87,7 +98,7 @@ const buildFriendlyLocationName = (details: any): string => {
     return details.address.trim();
   }
 
-  return 'Current Location';
+  return '';
 };
 
 export const useCreatePost = (params: any = {}) => {
@@ -569,33 +580,55 @@ export const useCreatePost = (params: any = {}) => {
         const lat = currentLoc.coords.latitude;
         const lon = currentLoc.coords.longitude;
 
+        let friendlyName = '';
+        let addressStr = `GPS: ${lat.toFixed(4)}, ${lon.toFixed(4)}`;
+
+        // 1. Try Expo native reverse geocoding first (highly accurate, respects user privacy and system location preferences)
         try {
-          const addressRes = await mapService.reverseGeocode(lat, lon);
-          if (addressRes) {
-            const friendlyName = buildFriendlyLocationName(addressRes);
-            rawSetLocation({
-              name: friendlyName,
-              address: addressRes.address || `GPS: ${lat.toFixed(4)}, ${lon.toFixed(4)}`,
-              lat,
-              lon
-            });
-          } else {
-            rawSetLocation({
-              name: 'Current Location',
-              address: `GPS: ${lat.toFixed(4)}, ${lon.toFixed(4)}`,
-              lat,
-              lon
-            });
+          const nativeAddresses = await Location.reverseGeocodeAsync({ latitude: lat, longitude: lon });
+          if (nativeAddresses && nativeAddresses.length > 0) {
+            const nativeAddress = nativeAddresses[0];
+            friendlyName = buildFriendlyLocationName(nativeAddress);
+            if (friendlyName) {
+              const formattedAddressParts = [
+                nativeAddress.streetNumber,
+                nativeAddress.street,
+                nativeAddress.district,
+                nativeAddress.city,
+                nativeAddress.region,
+                nativeAddress.country
+              ].filter(Boolean);
+              addressStr = formattedAddressParts.join(', ');
+            }
           }
-        } catch (e) {
-          console.error('[useCreatePost] Reverse geocoding failed:', e);
-          rawSetLocation({
-            name: 'Current Location',
-            address: `GPS: ${lat.toFixed(4)}, ${lon.toFixed(4)}`,
-            lat,
-            lon
-          });
+        } catch (nativeErr) {
+          console.warn('[useCreatePost] Expo native reverse geocoding failed:', nativeErr);
         }
+
+        // 2. Fallback to Google Maps reverse geocoding if native geocoder returned nothing/failed
+        if (!friendlyName) {
+          try {
+            const addressRes = await mapService.reverseGeocode(lat, lon);
+            if (addressRes) {
+              friendlyName = buildFriendlyLocationName(addressRes);
+              addressStr = addressRes.address || addressStr;
+            }
+          } catch (googleErr) {
+            console.error('[useCreatePost] Google reverse geocoding failed:', googleErr);
+          }
+        }
+
+        // 3. Fallback name if both geocoders failed to return a name
+        if (!friendlyName) {
+          friendlyName = 'Current Location';
+        }
+
+        rawSetLocation({
+          name: friendlyName,
+          address: addressStr,
+          lat,
+          lon
+        });
       } catch (err) {
         console.error('[useCreatePost] Failed to fetch default location:', err);
       }

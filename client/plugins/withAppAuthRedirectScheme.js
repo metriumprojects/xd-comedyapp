@@ -1,6 +1,6 @@
 const { withAppBuildGradle } = require('expo/config-plugins');
 
-const REDIRECT_SCHEME = 'trave-social';
+const REDIRECT_SCHEME = 'comedy-app';
 
 function ensureManifestPlaceholderInDefaultConfig(buildGradle) {
   const defaultConfigRegex = /(defaultConfig\s*\{)([\s\S]*?)(\n\s*\})/m;

@@ -54,7 +54,7 @@ const withAndroidManifestFix = (config) => {
         fixed = true;
         return {
           $: {
-            'android:scheme': 'trave-social'
+            'android:scheme': 'comedy-app'
           }
         };
       }
@@ -65,15 +65,15 @@ const withAndroidManifestFix = (config) => {
       console.log('✅ Fixed ${appAuthRedirectScheme} placeholder in AndroidManifest.xml');
     } else {
       const hasTraveScheme = browsableFilter.data.some(
-        (dataItem) => dataItem.$['android:scheme'] === 'trave-social'
+        (dataItem) => dataItem.$['android:scheme'] === 'comedy-app'
       );
       if (!hasTraveScheme) {
         browsableFilter.data.unshift({
           $: {
-            'android:scheme': 'trave-social'
+            'android:scheme': 'comedy-app'
           }
         });
-        console.log('✅ Added trave-social scheme to AndroidManifest.xml');
+        console.log('✅ Added comedy-app scheme to AndroidManifest.xml');
       }
     }
 

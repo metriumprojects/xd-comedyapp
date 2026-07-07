@@ -9,7 +9,7 @@ const logger = winston.createLogger({
     winston.format.splat(),
     winston.format.json()
   ),
-  defaultMeta: { service: 'trave-social-backend' },
+  defaultMeta: { service: 'comedy-app-backend' },
   transports: [
     ...(process.env.NODE_ENV !== 'test' ? [
       // Write all logs with level `error` and below to `error.log`

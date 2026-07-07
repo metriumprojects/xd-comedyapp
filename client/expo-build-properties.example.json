@@ -6,8 +6,8 @@
         {
           "android": {
             "manifestPlaceholders": {
-              "traveSocialScheme": "trave-social",
-              "appAuthRedirectScheme": "trave-social"
+              "traveSocialScheme": "comedy-app",
+              "appAuthRedirectScheme": "comedy-app"
             }
           }
         }

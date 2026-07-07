@@ -5,7 +5,7 @@
     "version": "1.1.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
-    "scheme": "trave-social",
+    "scheme": "comedy-app",
     "userInterfaceStyle": "light",
     "android": {
       "versionCode": 123,
@@ -83,8 +83,8 @@
           "android": {
             "newArchEnabled": true,
             "manifestPlaceholders": {
-              "appAuthRedirectScheme": "trave-social",
-              "traveSocialScheme": "trave-social"
+              "appAuthRedirectScheme": "comedy-app",
+              "traveSocialScheme": "comedy-app"
             },
             "enableProguardInReleaseBuilds": true,
             "enableShrinkResourcesInReleaseBuilds": true,
