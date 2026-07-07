@@ -1,8 +1,10 @@
 # Dependency and Expo dirs
 node_modules/
 .expo/
+.tmp-pack/
 dist/
 web-build/
+
 
 # Native folders
 android/
