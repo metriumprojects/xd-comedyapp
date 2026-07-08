@@ -15,12 +15,12 @@ cloudinary.config({
 // Configure multer for memory storage with strict limits
 const upload = multer({ 
   storage: multer.memoryStorage(),
-  limits: { fileSize: 15 * 1024 * 1024 } // 15MB limit
+  limits: { fileSize: 100 * 1024 * 1024 } // 100MB limit for videos and posts
 });
 
 const uploadStory = multer({
   storage: multer.memoryStorage(),
-  limits: { fileSize: 50 * 1024 * 1024 }
+  limits: { fileSize: 100 * 1024 * 1024 } // 100MB limit
 });
 
 /**
@@ -28,16 +28,22 @@ const uploadStory = multer({
  */
 async function uploadToCloudinary(fileBuffer, folder, resourceType = 'auto', options = {}) {
   return new Promise((resolve, reject) => {
+    const isVideo = resourceType === 'video' || resourceType === 'audio';
+    const uploadOptions = {
+      folder: folder,
+      resource_type: resourceType,
+      upload_preset: process.env.CLOUDINARY_UPLOAD_PRESET || undefined,
+    };
+
+    if (!isVideo) {
+      uploadOptions.transformation = [
+        { quality: 'auto' },
+        { fetch_format: 'auto' }
+      ];
+    }
+
     const uploadStream = cloudinary.uploader.upload_stream(
-      {
-        folder: folder,
-        resource_type: resourceType,
-        upload_preset: process.env.CLOUDINARY_UPLOAD_PRESET || undefined,
-        transformation: [
-          { quality: 'auto' },
-          { fetch_format: 'auto' }
-        ]
-      },
+      uploadOptions,
       (error, result) => {
         if (error) {
           logger.error('❌ Cloudinary upload error: %O', error);
