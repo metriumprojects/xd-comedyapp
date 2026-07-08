@@ -36,7 +36,7 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.hussain2125.comedyapp",
-      "buildNumber": "41",
+      "buildNumber": "42",
       "googleServicesFile": "./GoogleService-Info.plist",
       "config": {
         "googleMapsApiKey": "AIzaSyCQ1Fe55xOwt9fFfAiGIDVoEt01i2hL-zs"
@@ -92,6 +92,7 @@
             "targetSdkVersion": 35,
             "kotlinVersion": "1.9.24",
             "enableMinifyInReleaseBuilds": true,
+            "extraProguardRules": "-keep class com.stripe.android.** { *; }\n-keep class com.reactnativestripesdk.** { *; }\n-dontwarn com.stripe.**",
             "gradleProperties": {
               "org.gradle.jvmargs": "-Xmx4g -XX:MaxMetaspaceSize=1g",
               "org.gradle.daemon": "false",
