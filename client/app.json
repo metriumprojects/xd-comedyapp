@@ -98,7 +98,7 @@
               "org.gradle.daemon": "false",
               "org.gradle.configureondemand": "false",
               "org.gradle.parallel": "true",
-              "android.kotlin.suppressKotlinVersionCompatibilityCheck.1.9.24": "true"
+              "android.kotlin.suppressKotlinVersionCompatibilityCheck": "true"
             }
           }
         }
@@ -139,7 +139,9 @@
       ],
       "react-native-compressor",
       "expo-video",
-      "./plugins/withPodfileFmtFix"
+      "./plugins/withPodfileFmtFix",
+      "./plugins/withKotlinVersionFix",
+      "./plugins/withAppAuthRedirectScheme"
     ],
     "experiments": {
       "typedRoutes": true
