@@ -114,9 +114,16 @@ function MessageBubbleInner({
       })
     ]).start();
   }, []);
-  const displayText = typeof text === 'string'
-    ? text.trim().replace(/(^|\s)#([\p{L}\p{N}_]+)/gu, '$1$2')
-    : text;
+  const displayText = React.useMemo(() => {
+    if (typeof text !== 'string') return text;
+    const trimmed = text.trim();
+    try {
+      const unicodeRegex = new RegExp('(^|\\s)#([\\p{L}\\p{N}_]+)', 'gu');
+      return trimmed.replace(unicodeRegex, '$1$2');
+    } catch (e) {
+      return trimmed.replace(/(^|\s)#([A-Za-z0-9_]+)/g, '$1$2');
+    }
+  }, [text]);
   const inferMediaType = React.useCallback((explicitType: any, mUrl: any, aUrl: any, imgUrl: any, aDuration: any, msgText: any) => {
     const explicit = typeof explicitType === 'string' ? explicitType.trim().toLowerCase() : '';
     if (explicit && explicit !== 'text') return explicit;
