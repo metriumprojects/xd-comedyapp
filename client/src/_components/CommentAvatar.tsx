@@ -58,7 +58,7 @@ export default function CommentAvatar({ userId, userAvatar, size = 36 }: { userI
     >
       <ExpoImage
         source={{ uri: avatarUri }}
-        style={{ width: size, height: size, borderRadius: size / 2, marginRight: 12 }}
+        style={{ width: size, height: size, borderRadius: size / 2 }}
         contentFit="cover"
         cachePolicy="memory-disk"
         onError={() => setFailed(true)}

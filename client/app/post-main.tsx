@@ -56,13 +56,13 @@ export default function PostScreen() {
 
   if (!postId) {
     return (
-      <SafeAreaView style={styles.container}>
+      <SafeAreaView style={styles.container} edges={["top", "bottom"]}>
         <Text style={styles.notFound}>No postId provided. Cannot load post.</Text>
       </SafeAreaView>
     );
   }
   if (loading) return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={styles.container} edges={["top", "bottom"]}>
       <View style={{ padding: 24 }}>
         <View style={{ width: '100%', height: 200, borderRadius: 12, backgroundColor: '#eee', marginBottom: 16 }} />
         <View style={{ width: 120, height: 24, borderRadius: 8, backgroundColor: '#eee', marginBottom: 12 }} />
@@ -73,14 +73,14 @@ export default function PostScreen() {
   );
 
   if (!post) return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={styles.container} edges={["top", "bottom"]}>
       <Text style={styles.notFound}>Post not found.</Text>
     </SafeAreaView>
   );
 
   return (
     <ErrorBoundary>
-      <SafeAreaView style={styles.container}>
+      <SafeAreaView style={styles.container} edges={["top", "bottom"]}>
         <ScrollView contentContainerStyle={styles.content}>
           <PostCard 
             post={post} 

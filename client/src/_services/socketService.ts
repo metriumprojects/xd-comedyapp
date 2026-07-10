@@ -2,6 +2,7 @@ import io, { Socket } from 'socket.io-client';
 import { getAPIBaseURL } from '../../config/environment';
 import AsyncStorage from '@/lib/storage';
 import { Platform } from 'react-native';
+import { resolveCanonicalUserId } from '../../lib/currentUser';
 
 let socket: Socket | null = null;
 let currentUserId: string | null = null;
@@ -13,8 +14,18 @@ const MAX_RECONNECT_ATTEMPTS = 15;
  * Hardened for production environments with token refresh and platform tracking.
  */
 export async function initializeSocket(userId: string): Promise<Socket> {
+  let canonicalUserId = userId;
+  try {
+    const resolved = await resolveCanonicalUserId(userId);
+    if (resolved) {
+      canonicalUserId = resolved;
+    }
+  } catch (e) {
+    console.warn('[Socket] Failed to resolve canonical user ID:', e);
+  }
+
   // If already connected for the same user, just return existing socket
-  if (socket && socket.connected && currentUserId === userId) {
+  if (socket && socket.connected && currentUserId === canonicalUserId) {
     return socket;
   }
 
@@ -28,7 +39,7 @@ export async function initializeSocket(userId: string): Promise<Socket> {
   const SOCKET_URL = API_BASE.replace('/api', '');
   const token = await AsyncStorage.getItem('token');
 
-  console.log('[Socket] 🔄 Initializing connection for user:', userId);
+  console.log('[Socket] 🔄 Initializing connection for user:', canonicalUserId);
 
   socket = io(SOCKET_URL, {
     transports: ['websocket', 'polling'],
@@ -45,13 +56,13 @@ export async function initializeSocket(userId: string): Promise<Socket> {
     autoConnect: true,
   });
 
-  currentUserId = userId;
+  currentUserId = canonicalUserId;
 
   // Connection events
   socket.on('connect', () => {
     console.log('[Socket] ✅ Connected (ID: %s)', socket?.id);
     reconnectAttempts = 0;
-    socket?.emit('join', userId);
+    socket?.emit('join', canonicalUserId);
   });
 
   socket.on('connect_error', async (error) => {

@@ -190,18 +190,17 @@ const ProfileModals: React.FC<ProfileModalsProps> = (props) => {
       </Modal>
 
       <Modal visible={commentModalVisible} animationType="slide" transparent={true} onRequestClose={() => setCommentModalVisible(false)}>
-        <KeyboardAvoidingView
-          style={{ flex: 1 }}
-          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-          keyboardVerticalOffset={Platform.OS === 'ios' ? getKeyboardOffset() : 0}
-        >
           <View style={styles.commentModalContainer}>
             <TouchableOpacity
               style={{ flex: 1 }}
               activeOpacity={1}
               onPress={() => setCommentModalVisible(false)}
             />
-            <View style={[styles.commentSheet, { maxHeight: getModalHeight(0.9) }]}>
+            <KeyboardAvoidingView
+              behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+              keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
+              style={[styles.commentSheet, { maxHeight: getModalHeight(0.9) }]}
+            >
               <View style={styles.commentHandleContainer}>
                 <View style={styles.commentHandle} />
                 <Text style={styles.commentTitle}>Comments</Text>
@@ -214,9 +213,8 @@ const ProfileModals: React.FC<ProfileModalsProps> = (props) => {
                   currentUser={currentUserId ? { uid: currentUserId } : undefined}
                 />
               )}
-            </View>
+            </KeyboardAvoidingView>
           </View>
-        </KeyboardAvoidingView>
       </Modal>
 
       {/* Edit sections modal */}

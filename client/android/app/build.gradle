@@ -95,10 +95,12 @@ android {
         targetSdkVersion rootProject.ext.targetSdkVersion
         versionCode 123
         versionName "1.1.0"
+
+        // Manifest placeholders for react-native-app-auth
         manifestPlaceholders = [
-            appAuthRedirectScheme: "trave-social",
-            traveSocialScheme: "trave-social"
+            appAuthRedirectScheme: 'comedy-app'
         ]
+
     }
     signingConfigs {
         debug {

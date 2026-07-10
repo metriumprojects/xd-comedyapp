@@ -1,0 +1,37 @@
+# Dependency and cache directories
+node_modules/
+**/node_modules/
+.expo/
+**/client/.expo/
+client/dist/
+client/web-build/
+
+# Native folders (since we don't have custom code and build on cloud)
+client/android/
+client/ios/
+
+# Built binaries
+**/*.apk
+**/*.aab
+client/builds/
+
+# Server backend (completely unneeded for mobile client build)
+backend/
+
+# Admin web app (completely unneeded for mobile build)
+client/admin/
+
+# Large assets in client
+client/assets/fake data/
+client/assets/fake profile/
+client/assets/cities/
+client/assets/countries/
+
+# Temp inspection folders
+client/tmp-inspect/
+**/.tmp-pack/
+
+# Git folder and local logs
+.git/
+**/*.log
+**/*.tmp

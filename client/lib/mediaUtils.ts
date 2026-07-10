@@ -23,6 +23,8 @@ export async function compressVideoSafe(uri: string): Promise<string> {
             {
                 compressionMethod: 'auto',
                 minimumFileSizeForCompress: 0,
+                maxSize: 1280,
+                bitrate: 2000000,
             }
         );
         return compressedUri;

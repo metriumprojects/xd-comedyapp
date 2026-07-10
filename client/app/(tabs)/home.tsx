@@ -8,7 +8,8 @@ import {
   TouchableOpacity,
   View,
   TextInput,
-  Platform
+  Platform,
+  RefreshControl
 } from "react-native";
 import { Feather, Ionicons } from "@expo/vector-icons";
 import * as Haptics from 'expo-haptics';
@@ -33,6 +34,7 @@ import { useNotifications } from '../../hooks/useNotifications';
 import { useUIStore } from '../../store/useUIStore';
 import { useQueryClient } from '@tanstack/react-query';
 import { prefetchOwnProfile } from '@/src/features/profile/hooks/useProfileData';
+import { useTabEvent } from './_layout';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get("window");
 
@@ -131,6 +133,44 @@ export default function Home() {
 
   // 3. User notification counts
   const { notifications, unreadCount, fetchNotifications, markAllAsRead } = useNotifications(currentUserId || '', 60000);
+
+  const [refreshing, setRefreshing] = useState(false);
+
+  const handleRefresh = useCallback(async () => {
+    setRefreshing(true);
+    try {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
+      const promises: Promise<any>[] = [
+        loadInitialFeed(0, { bypassDedupe: true, _t: Date.now() }),
+        loadCategories()
+      ];
+      if (currentUserId) {
+        promises.push(fetchFollowedStories());
+        promises.push(fetchNotifications());
+      }
+      await Promise.allSettled(promises);
+    } catch (e) {
+      console.warn('[Home] Refresh failed:', e);
+    } finally {
+      setRefreshing(false);
+    }
+  }, [loadInitialFeed, loadCategories, currentUserId, fetchFollowedStories, fetchNotifications]);
+
+  const tabEvent = useTabEvent();
+  useEffect(() => {
+    if (!tabEvent) return;
+    const unsubscribe = tabEvent.subscribeHomeTabPress(() => {
+      if (isScreenFocused) {
+        if (flatListRef.current) {
+          flatListRef.current.scrollToOffset({ offset: 0, animated: true });
+        }
+        handleRefresh();
+      }
+    });
+    return unsubscribe;
+  }, [tabEvent, isScreenFocused, handleRefresh]);
+
+
 
   // Initial user setup
   useEffect(() => {
@@ -316,6 +356,14 @@ export default function Home() {
             offset: containerHeight * index,
             index,
           })}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={handleRefresh}
+              tintColor="#fff"
+              colors={["#FF8D00"]}
+            />
+          }
         />
       ) : loading ? (
         <HomeReelSkeleton height={containerHeight} />
@@ -325,7 +373,7 @@ export default function Home() {
           <Text style={styles.emptyText}>No comedy reels found</Text>
           <TouchableOpacity
             style={styles.refreshBtn}
-            onPress={() => loadInitialFeed(0)}
+            onPress={handleRefresh}
           >
             <Text style={styles.refreshBtnText}>Refresh</Text>
           </TouchableOpacity>

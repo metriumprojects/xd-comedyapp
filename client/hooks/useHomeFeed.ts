@@ -50,6 +50,10 @@ export function useHomeFeed(currentUserId: string | null, isOnline: boolean) {
   }, []);
 
   const loadInitialFeed = async (pageNum = 0, options?: { silent?: boolean, [key: string]: any }) => {
+    if (pageNum === 0) {
+      cursorRef.current = null;
+      cursorDateRef.current = null;
+    }
     if (pageNum === 0 && !options?.silent) setLoading(true);
     try {
       const limit = 20;

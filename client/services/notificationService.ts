@@ -82,6 +82,12 @@ export async function getPushNotificationToken() {
  */
 export async function savePushToken(userId: string, token: string) {
   try {
+    const cachedToken = await AsyncStorage.getItem(`last_saved_push_token_${userId}`);
+    if (cachedToken === token) {
+      console.log('ℹ️ Push token already synced with backend');
+      return { success: true };
+    }
+
     const { apiService } = require('@/src/_services/apiService');
 
     // apiService handles base URL, auth headers, and 401 clearing automatically
@@ -89,6 +95,7 @@ export async function savePushToken(userId: string, token: string) {
 
     if (result.success) {
       console.log('✅ Push token saved to backend');
+      await AsyncStorage.setItem(`last_saved_push_token_${userId}`, token);
       return { success: true };
     } else {
       throw new Error(result.error || 'Failed to save push token');

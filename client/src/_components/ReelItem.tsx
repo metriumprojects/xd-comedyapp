@@ -143,6 +143,7 @@ export const ReelItem = React.memo<ReelItemProps>(({
   const [seenStoryIds, setSeenStoryIds] = useState<string[]>([]);
 
   useEffect(() => {
+    if (!shouldLoad) return;
     const fetchStories = async () => {
       const creatorUserId = post?.userId?._id || post?.userId;
       if (!creatorUserId) return;
@@ -159,7 +160,7 @@ export const ReelItem = React.memo<ReelItemProps>(({
       }
     };
     fetchStories();
-  }, [post?.userId]);
+  }, [post?.userId, shouldLoad]);
 
   const loadSeenStoryIds = useCallback(async () => {
     try {
@@ -629,8 +630,9 @@ export const ReelItem = React.memo<ReelItemProps>(({
   }, [activeUserId, creatorId, isOwner, post?.subscriptionTierId]);
 
   useEffect(() => {
+    if (!shouldLoad) return;
     checkSubscriptionStatus();
-  }, [checkSubscriptionStatus, isActive]);
+  }, [checkSubscriptionStatus, isActive, shouldLoad]);
 
   useEffect(() => {
     if (!creatorId || isOwner) return;

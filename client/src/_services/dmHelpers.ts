@@ -54,12 +54,14 @@ export const normalizeMessage = (m: any): any => {
   
   const rootCreatedAt = m?.createdAt;
   const rootTimestamp = m?.timestamp;
+  const resolvedCreatedAt = rootCreatedAt || rootTimestamp || new Date().toISOString();
+  const resolvedTimestamp = rootTimestamp || rootCreatedAt || new Date().toISOString();
   
   const base = {
     ...m,
     id: String(id),
-    createdAt: rootCreatedAt,
-    timestamp: rootTimestamp,
+    createdAt: resolvedCreatedAt,
+    timestamp: resolvedTimestamp,
     mediaType: normalizedMediaType,
     ...(legacyStoryId && !m?.sharedStory
       ? {
@@ -77,7 +79,7 @@ export const normalizeMessage = (m: any): any => {
     ...(normalizedAudioDuration ? { audioDuration: normalizedAudioDuration } : {}),
   };
 
-  const t = toTimestampMs(rootCreatedAt ?? rootTimestamp);
+  const t = toTimestampMs(resolvedCreatedAt);
   return { ...base, __ts: t };
 };
 

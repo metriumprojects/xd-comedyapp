@@ -203,11 +203,9 @@ export function useDM(conversationIdParam: string | null, otherUserId: string | 
         if (!cancelled) {
           const normalized = msgList.map((m: any) => normalizeMessage(m));
           setMessages(normalized);
-          // Update memory and disk cache
-          if (normalized.length > 0) {
-            setCachedMessages(cid, normalized.slice(0, 30));
-            AsyncStorage.setItem(cacheKey, JSON.stringify(normalized.slice(0, 50))).catch(() => {});
-          }
+          // Update memory and disk cache (always write to clear cache on empty fetches)
+          setCachedMessages(cid, normalized.slice(0, 30));
+          AsyncStorage.setItem(cacheKey, JSON.stringify(normalized.slice(0, 50))).catch(() => {});
         }
       } catch (error) {
         console.error('[DM] Fetch error:', error);
@@ -276,7 +274,13 @@ export function useDM(conversationIdParam: string | null, otherUserId: string | 
     isOtherTyping,
     conversationMeta,
     loadMore,
-    clearMessages: () => setMessages([]),
+    clearMessages: () => {
+      setMessages([]);
+      if (conversationId) {
+        setCachedMessages(conversationId, []);
+        AsyncStorage.removeItem(`messages_cache_${conversationId}`).catch(() => {});
+      }
+    },
     setLoading,
     setMessages,
     isNearBottomRef

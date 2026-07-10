@@ -285,7 +285,6 @@ function registerMessagingSocket({ io, mongoose, toObjectId, sendExpoPushToUser 
       };
 
       const actualConversationId = convo.conversationId || String(convo._id);
-      convo.messages.push(message);
       convo.lastMessage = text;
       convo.lastMessageAt = new Date();
       await convo.save();
@@ -472,7 +471,6 @@ function registerMessagingSocket({ io, mongoose, toObjectId, sendExpoPushToUser 
       };
 
       const actualConversationId = convo.conversationId || String(convo._id);
-      convo.messages.push(message);
       convo.lastMessage = `[${mediaType?.toUpperCase()}]`;
       convo.lastMessageAt = new Date();
       await convo.save();

@@ -99,6 +99,10 @@ export const CommentSection: React.FC<CommentSectionProps> = ({
   };
 
   const loadData = useCallback(async () => {
+    if (!postId || postId === "undefined" || postId === "null") {
+      setLoading(false);
+      return;
+    }
     try {
       setLoading(true);
       const res = await getPostComments(postId);

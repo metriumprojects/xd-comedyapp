@@ -54,7 +54,7 @@ const PORT = process.env.PORT || 5000;
 // ============= RATE LIMITING =============
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 300, // limit each IP to 300 requests per windowMs (defense against DDoS/scraping)
+  max: process.env.NODE_ENV === 'production' ? 1500 : 999999, // prevent rate limiting in dev/testing
   message: { success: false, error: 'Too many requests, please try again later.' },
   standardHeaders: true,
   legacyHeaders: false,

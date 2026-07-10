@@ -399,9 +399,9 @@ export const apiService = {
   sendMessage: (conversationId: string, data: any) => apiRequest('post', `/conversations/${conversationId}/messages`, data),
 
   // ✅ Categories & Locations
-  getCategories: () => apiRequest('get', `/categories?t=${Date.now()}`),
+  getCategories: () => apiRequest('get', '/categories'),
   getPodiumRankings: (type: string, timeframe: string) => apiRequest('get', '/posts/podium', undefined, { type, timeframe }),
-  getRegions: () => apiRequest('get', `/all-regions?t=${Date.now()}`),
+  getRegions: () => apiRequest('get', '/all-regions'),
   getLocationCount: () => apiRequest('get', '/posts/location-count'),
   getLocationSuggestions: (q: string, limit: number = 10) =>
     apiRequest('get', '/locations/suggest', undefined, { q, limit }),

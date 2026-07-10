@@ -1,7 +1,9 @@
 // Disable React Native CLI autolinking for @sentry/react-native on Android.
-// Expo autolinking already includes this package via expo-module.config.json.
-// Having BOTH creates two Gradle projects (:sentry-react-native and :sentry_react-native)
-// that share the same android/build directory, causing file lock conflicts.
+// Sentry is excluded from BOTH autolinking systems to avoid conflicts:
+//   1. RN CLI autolinking: disabled here (prevents duplicate Gradle projects)
+//   2. Expo autolinking: excluded in app.json (expo-handler/SentryExpoPackage is for SDK 53+)
+// Sentry's native setup is handled by the config plugin (@sentry/react-native/expo)
+// and sentry.gradle.kts applied in android/app/build.gradle.
 module.exports = {
   dependencies: {
     '@sentry/react-native': {

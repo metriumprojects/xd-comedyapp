@@ -33,7 +33,7 @@
         <action android:name="android.intent.action.VIEW"/>
         <category android:name="android.intent.category.DEFAULT"/>
         <category android:name="android.intent.category.BROWSABLE"/>
-        <data android:scheme="trave-social"/>
+        <data android:scheme="comedy-app"/>
         <data android:scheme="com.hussain2125.comedyapp"/>
         <data android:scheme="exp+comedy-app"/>
       </intent-filter>

@@ -574,15 +574,27 @@ export async function uploadMedia(uri: string, mediaType: 'image' | 'video' = 'i
   try {
     console.log(`[uploadMedia] 📤 Starting ${mediaType} upload from URI:`, uri);
 
+    let finalUri = uri;
+    if (mediaType === 'video') {
+      try {
+        const { compressVideoSafe } = require('../mediaUtils');
+        console.log('[uploadMedia] 🎬 Compressing video before upload...');
+        finalUri = await compressVideoSafe(uri);
+        console.log('[uploadMedia] 🎬 Video compressed. New URI:', finalUri);
+      } catch (compressError) {
+        console.warn('[uploadMedia] ⚠️ Video compression failed, using original:', compressError);
+      }
+    }
+
     // Fast path: all local uploads via multipart (industry standard)
-    if (uri.startsWith('file://') || uri.startsWith('content://') || uri.startsWith('/') || !uri.includes('://')) {
-      const multipartResult = await uploadWithMultipart(uri, mediaType, path);
+    if (finalUri.startsWith('file://') || finalUri.startsWith('content://') || finalUri.startsWith('/') || !finalUri.includes('://')) {
+      const multipartResult = await uploadWithMultipart(finalUri, mediaType, path);
       if (multipartResult?.success && multipartResult?.url) {
         return multipartResult;
       }
       console.warn('[uploadMedia] ⚠️ Multipart upload failed:', multipartResult?.error);
       return { success: false, error: multipartResult?.error || 'Upload failed' };
-    } else if (uri.startsWith('http://') || uri.startsWith('https://')) {
+    } else if (finalUri.startsWith('http://') || finalUri.startsWith('https://')) {
       // Handle http(s):// URIs - download locally then upload
       console.log('[uploadMedia] 🌐 Detected http(s) URI, downloading to local cache...');
       try {
@@ -590,7 +602,7 @@ export async function uploadMedia(uri: string, mediaType: 'image' | 'video' = 'i
         const extension = mediaType === 'video' ? '.mp4' : '.jpg';
         const localUri = FileSystem.cacheDirectory + 'dl_' + Date.now() + extension;
         
-        const { uri: downloadedUri } = await FileSystem.downloadAsync(uri, localUri);
+        const { uri: downloadedUri } = await FileSystem.downloadAsync(finalUri, localUri);
         console.log('[uploadMedia] ✅ Downloaded to:', downloadedUri);
         
         return uploadWithMultipart(downloadedUri, mediaType, path);
@@ -641,16 +653,30 @@ async function uploadWithMultipart(
     const endpointUrl = `${API_BASE_URL}/upload/upload`;
 
     const safeType = mediaType === 'video' ? 'video' : 'image';
-    const contentType = safeType === 'video' ? 'video/mp4' : 'image/jpeg';
-    const fileName = safeType === 'video'
-      ? `video-${Date.now()}.mp4`
-      : `image-${Date.now()}.jpg`;
+    
+    // Dynamically detect file extension from URI
+    const extension = uri.split('.').pop()?.toLowerCase() || (safeType === 'video' ? 'mp4' : 'jpg');
+    
+    // Match correct MIME type for iOS (especially .mov QuickTime videos)
+    let contentType = 'image/jpeg';
+    if (safeType === 'video') {
+      contentType = extension === 'mov' ? 'video/quicktime' : 'video/mp4';
+    } else if (extension === 'png') {
+      contentType = 'image/png';
+    } else if (extension === 'gif') {
+      contentType = 'image/gif';
+    }
+
+    const fileName = `${safeType}-${Date.now()}.${extension}`;
+
+    // Clean and decode the URI (fixes spaces and special characters for iOS file system)
+    const cleanedUri = Platform.OS === 'ios' ? decodeURIComponent(uri) : uri;
 
     const formData = new FormData();
     formData.append('mediaType', safeType);
     if (path) formData.append('path', path);
     formData.append('fileName', fileName);
-    formData.append('file', { uri, name: fileName, type: contentType } as any);
+    formData.append('file', { uri: cleanedUri, name: fileName, type: contentType } as any);
 
     const response: any = await new Promise((resolve, reject) => {
       const xhr = new XMLHttpRequest();

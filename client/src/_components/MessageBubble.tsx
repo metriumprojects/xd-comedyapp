@@ -87,6 +87,18 @@ function MessageBubbleInner({
   const fadeAnim = React.useRef(new Animated.Value(0)).current;
   const scaleAnim = React.useRef(new Animated.Value(0.95)).current;
 
+  const safeFormatTime = React.useCallback((ts: any) => {
+    try {
+      if (typeof formatTime === 'function') {
+        return formatTime(ts) || '';
+      }
+      return '';
+    } catch (e) {
+      console.warn('[MessageBubble] formatTime failed:', e);
+      return '';
+    }
+  }, [formatTime]);
+
   React.useEffect(() => {
     Animated.parallel([
       Animated.timing(fadeAnim, {
@@ -658,6 +670,10 @@ function MessageBubbleInner({
               <View>
                 <Text style={[styles.msgText, isSelf && styles.msgTextSelf]}>
                   {displayText}
+                  {/* Invisible spacer to reserve room for the inline time+tick */}
+                  <Text style={{ fontSize: 12, color: 'transparent' }}>
+                    {'  '}{safeFormatTime(createdAt)}{isSelf ? ' ✓' : ''}
+                  </Text>
                 </Text>
                 {editedAt && (
                   <Text style={[styles.editedText, isSelf ? styles.editedTextSelf : styles.editedTextOther]}>
@@ -666,19 +682,22 @@ function MessageBubbleInner({
                 )}
               </View>
             )}
-  
-            {/* Removed internal timestamp for cleaner Instagram style */}
-            <View style={styles.msgFooter}>
+
+            {/* WhatsApp-style inline time + tick overlay */}
+            <View style={[styles.msgMeta, !displayText && { position: 'relative', marginTop: 4 }]}>
+              <Text style={[styles.msgTime, isSelf && styles.msgTimeSelf]}>
+                {safeFormatTime(createdAt)}
+              </Text>
               {isSelf && (
                 <View style={styles.statusIcons}>
                   {read ? (
-                    <Ionicons name="checkmark-done" size={14} color="#fff" />
+                    <Ionicons name="checkmark-done" size={13} color="#fff" />
                   ) : delivered ? (
-                    <Ionicons name="checkmark-done" size={14} color="rgba(255,255,255,0.6)" />
+                    <Ionicons name="checkmark-done" size={13} color="rgba(255,255,255,0.55)" />
                   ) : sent ? (
-                    <Ionicons name="checkmark" size={14} color="rgba(255,255,255,0.6)" />
+                    <Ionicons name="checkmark" size={13} color="rgba(255,255,255,0.55)" />
                   ) : (
-                    <Ionicons name="checkmark" size={14} color="rgba(255,255,255,0.2)" />
+                    <Ionicons name="time-outline" size={11} color="rgba(255,255,255,0.35)" />
                   )}
                 </View>
               )}
@@ -790,12 +809,13 @@ const styles = StyleSheet.create({
   editedTextOther: {
     color: '#8e8e8e',
   },
-  msgFooter: {
+  msgMeta: {
+    position: 'absolute',
+    bottom: 6,
+    right: 10,
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'flex-end',
-    marginTop: 2,
-    paddingBottom: 2,
+    gap: 3,
   },
   msgTime: {
     fontSize: 10,
@@ -803,14 +823,11 @@ const styles = StyleSheet.create({
   },
   msgTimeSelf: {
     fontSize: 10,
-    color: 'rgba(255,255,255,0.7)',
+    color: 'rgba(255,255,255,0.65)',
   },
   statusIcons: {
-    marginLeft: 4,
+    marginLeft: 2,
   },
-  statusSent: { fontSize: 10, color: 'rgba(255,255,255,0.5)' },
-  statusDelivered: { fontSize: 10, color: 'rgba(255,255,255,0.5)' },
-  statusRead: { fontSize: 10, color: '#fff', fontWeight: '800' },
   statusPending: { fontSize: 8 },
   replyBox: {
     backgroundColor: 'rgba(0,0,0,0.05)',

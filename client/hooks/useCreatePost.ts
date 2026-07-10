@@ -46,6 +46,11 @@ export type GalleryAsset = {
 
 export const isVideoUri = (uri: string, galleryAssets?: GalleryAsset[]) => {
   if (!uri) return false;
+  // Check gallery asset metadata first (critical for iOS ph:// URIs)
+  if (galleryAssets && galleryAssets.length > 0) {
+    const asset = galleryAssets.find(a => a.uri === uri);
+    if (asset) return asset.mediaType === 'video';
+  }
   const lower = String(uri || '').toLowerCase();
   if (lower.endsWith('.jpg') || lower.endsWith('.jpeg') || lower.endsWith('.png')) return false;
   return lower.endsWith('.mp4') || lower.endsWith('.mov') || lower.includes('video');
@@ -443,7 +448,8 @@ export const useCreatePost = (params: any = {}) => {
       const authUserId = await getAuthenticatedUserId();
       if (!authUserId) throw new Error('User not authenticated');
 
-      const isVideo = isVideoUri(selectedImages[0], galleryAssets);
+      // Check if ANY selected media is a video
+      const isVideo = selectedImages.some(uri => isVideoUri(uri, galleryAssets));
       
       let res;
       if (params.editPostId) {

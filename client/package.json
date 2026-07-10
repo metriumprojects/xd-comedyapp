@@ -155,6 +155,9 @@
       "exclude": [
         "@sentry/react-native"
       ]
+    },
+    "autolinking": {
+      "exclude": ["@sentry/react-native"]
     }
   },
   "private": true
