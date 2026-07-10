@@ -215,6 +215,7 @@ if (process.env.NODE_ENV !== 'test') {
   // Initialize Socket.IO
   const JWT_SECRET = process.env.JWT_SECRET;
   io = initSockets(server, JWT_SECRET);
+  app.set('io', io);
 }
 
 // ============= GRACEFUL SHUTDOWN =============

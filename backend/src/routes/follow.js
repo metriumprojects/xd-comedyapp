@@ -51,7 +51,7 @@ router.post('/', verifyToken, validate(followUserSchema), async (req, res) => {
     // Best-effort: create follow notification
     try {
       const User = mongoose.model('User');
-      const { notificationQueue } = require('../services/queue');
+      const { notificationQueue } = require('../../services/queue');
 
       const followerUser = await User.findOne({ 
         $or: [
