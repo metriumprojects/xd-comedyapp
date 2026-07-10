@@ -6,12 +6,12 @@ import { Platform } from 'react-native';
 // ⚠️ FIREBASE CONFIGURATION - AUTHENTICATION ONLY
 // Firebase is ONLY used for social login authentication (Google, Apple, Snapchat, TikTok)
 // All data operations (posts, stories, comments, etc.) should use Backend API
-// Backend URL: https://travel-social-backend.onrender.com/api
+// Backend URL: https://comedyapp.onrender.com/api
 
 // ✅ SECURE FIREBASE CONFIGURATION - Environment Variables
 // Firebase is ONLY used for social login authentication (Google, Apple, Snapchat, TikTok)
 // All data operations (posts, stories, comments, etc.) use Backend API
-// Backend URL: https://travel-social-backend.onrender.com/api
+// Backend URL: https://comedyapp.onrender.com/api
 
 import { FIREBASE_CONFIG } from './environment';
 const firebaseConfig = FIREBASE_CONFIG;

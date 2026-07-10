@@ -2,13 +2,13 @@
   "expo": {
     "name": "Comedy App",
     "slug": "comedy-app",
-    "version": "1.1.0",
+    "version": "1.1.1",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "comedy-app",
     "userInterfaceStyle": "light",
     "android": {
-      "versionCode": 123,
+      "versionCode": 124,
       "adaptiveIcon": {
         "backgroundColor": "#FFFFFF",
         "foregroundImage": "./assets/images/icon.png",
@@ -36,7 +36,7 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.hussain2125.comedyapp",
-      "buildNumber": "48",
+      "buildNumber": "50",
       "googleServicesFile": "./GoogleService-Info.plist",
       "config": {
         "googleMapsApiKey": "AIzaSyCQ1Fe55xOwt9fFfAiGIDVoEt01i2hL-zs"

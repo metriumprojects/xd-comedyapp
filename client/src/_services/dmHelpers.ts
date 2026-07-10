@@ -30,45 +30,78 @@ export const toTimestampMs = (raw: any): number => {
 };
 
 export const normalizeMessage = (m: any): any => {
-  const rawText = typeof m?.text === 'string' ? m.text : '';
+  if (!m) return m;
+
+  // Extract raw document from Mongoose wrapper if present
+  const raw = m._doc || m;
+  
+  // Safe deep copy to strip non-serializable fields & circular references
+  let clean: any = {};
+  try {
+    clean = JSON.parse(JSON.stringify(raw));
+  } catch (e) {
+    const keys = [
+      'id', '_id', 'conversationId', 'senderId', 'recipientId', 'text', 
+      'mediaType', 'mediaUrl', 'mediaUrls', 'audioUrl', 'audioDuration', 
+      'thumbnailUrl', 'sharedPost', 'sharedStory', 'replyTo', 'reactions', 
+      'readBy', 'read', 'delivered', 'timestamp', 'createdAt', 'tempId'
+    ];
+    keys.forEach(k => {
+      if (raw[k] !== undefined) {
+        if (typeof raw[k] === 'object' && raw[k] !== null) {
+          try {
+            clean[k] = JSON.parse(JSON.stringify(raw[k]));
+          } catch {
+            clean[k] = {};
+          }
+        } else {
+          clean[k] = raw[k];
+        }
+      }
+    });
+  }
+
+  const source = clean;
+
+  const rawText = typeof source?.text === 'string' ? source.text : '';
   const trimmedText = rawText.trim();
   const legacyStoryMatch = rawText.match(/story[:;]\/\/([A-Za-z0-9_-]+)|Shared a story:\s*([A-Za-z0-9_-]+)/i);
   const legacyStoryId = legacyStoryMatch?.[1] || legacyStoryMatch?.[2] || '';
 
-  const normalizedMediaType = m?.mediaType || m?.type || m?.messageType
-    || (m?.audioUrl ? 'audio' : undefined)
-    || ((m?.audioDuration || m?.duration) && !trimmedText ? 'audio' : undefined)
-    || (m?.sharedStory ? 'story' : undefined)
+  const normalizedMediaType = source?.mediaType || source?.type || source?.messageType
+    || (source?.audioUrl ? 'audio' : undefined)
+    || ((source?.audioDuration || source?.duration) && !trimmedText ? 'audio' : undefined)
+    || (source?.sharedStory ? 'story' : undefined)
     || (legacyStoryId ? 'story' : undefined)
-    || (typeof (m?.mediaUrl || m?.url || m?.fileUrl) === 'string' && /\.(m4a|aac|mp3|wav|ogg)(\?|$)/i.test(String(m?.mediaUrl || m?.url || m?.fileUrl)) ? 'audio' : undefined)
-    || (typeof (m?.mediaUrl || m?.url || m?.fileUrl) === 'string' && /\.(mp4|mov|webm)(\?|$)/i.test(String(m?.mediaUrl || m?.url || m?.fileUrl)) ? 'video' : undefined)
-    || (typeof (m?.mediaUrl || m?.url || m?.fileUrl) === 'string' && /\.(jpe?g|png|gif|webp)(\?|$)/i.test(String(m?.mediaUrl || m?.url || m?.fileUrl)) ? 'image' : undefined)
-    || (m?.imageUrl ? 'image' : undefined)
-    || (m?.sharedPost ? 'post' : undefined);
+    || (typeof (source?.mediaUrl || source?.url || source?.fileUrl) === 'string' && /\.(m4a|aac|mp3|wav|ogg)(\?|$)/i.test(String(source?.mediaUrl || source?.url || source?.fileUrl)) ? 'audio' : undefined)
+    || (typeof (source?.mediaUrl || source?.url || source?.fileUrl) === 'string' && /\.(mp4|mov|webm)(\?|$)/i.test(String(source?.mediaUrl || source?.url || source?.fileUrl)) ? 'video' : undefined)
+    || (typeof (source?.mediaUrl || source?.url || source?.fileUrl) === 'string' && /\.(jpe?g|png|gif|webp)(\?|$)/i.test(String(source?.mediaUrl || source?.url || source?.fileUrl)) ? 'image' : undefined)
+    || (source?.imageUrl ? 'image' : undefined)
+    || (source?.sharedPost ? 'post' : undefined);
 
-  const normalizedMediaUrl = m?.mediaUrl || m?.url || m?.fileUrl || m?.attachmentUrl || m?.media?.url || m?.imageUrl;
-  const normalizedAudioUrl = m?.audioUrl || (normalizedMediaType === 'audio' ? normalizedMediaUrl : undefined);
-  const normalizedAudioDuration = m?.audioDuration || m?.duration;
+  const normalizedMediaUrl = source?.mediaUrl || source?.url || source?.fileUrl || source?.attachmentUrl || source?.media?.url || source?.imageUrl;
+  const normalizedAudioUrl = source?.audioUrl || (normalizedMediaType === 'audio' ? normalizedMediaUrl : undefined);
+  const normalizedAudioDuration = source?.audioDuration || source?.duration;
 
-  const id = m?.id || m?._id || m?.messageId || `local_${Date.now()}`;
+  const id = source?.id || source?._id || source?.messageId || `local_${Date.now()}`;
   
-  const rootCreatedAt = m?.createdAt;
-  const rootTimestamp = m?.timestamp;
+  const rootCreatedAt = source?.createdAt;
+  const rootTimestamp = source?.timestamp;
   const resolvedCreatedAt = rootCreatedAt || rootTimestamp || new Date().toISOString();
   const resolvedTimestamp = rootTimestamp || rootCreatedAt || new Date().toISOString();
   
   const base = {
-    ...m,
+    ...source,
     id: String(id),
     createdAt: resolvedCreatedAt,
     timestamp: resolvedTimestamp,
     mediaType: normalizedMediaType,
-    ...(legacyStoryId && !m?.sharedStory
+    ...(legacyStoryId && !source?.sharedStory
       ? {
           sharedStory: {
             storyId: legacyStoryId,
             id: legacyStoryId,
-            userId: m?.senderId,
+            userId: source?.senderId,
             userName: 'Story',
             userAvatar: DEFAULT_AVATAR_URL,
           }

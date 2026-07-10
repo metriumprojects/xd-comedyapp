@@ -440,8 +440,7 @@ function Inbox() {
     };
 
     const missingAll = ids
-      .filter((id) => shouldRefetchProfile(profilesByIdRef.current?.[id]))
-      .filter((id) => !requestedProfileIdsRef.current.has(id));
+      .filter((id) => shouldRefetchProfile(profilesByIdRef.current?.[id]) || !requestedProfileIdsRef.current.has(id));
     // Fetch a bit more aggressively so names appear quickly (still bounded).
     const missing = missingAll.slice(0, 48);
     if (missing.length === 0) return;
@@ -483,7 +482,7 @@ function Inbox() {
             const chunk = stillMissing.slice(i, i + chunkSize);
             const settled = await Promise.allSettled(
               chunk.map(async (id) => {
-                const res = await apiService.get(`/users/${id}`, userId ? { requesterUserId: String(userId) } : undefined);
+                const res = await apiService.get(`/users/${id}?_t=${Date.now()}`, userId ? { requesterUserId: String(userId) } : undefined);
                 if (!res?.success) return null;
                 const data = (res?.data && typeof res.data === 'object' && (res.data as any).data && typeof (res.data as any).data === 'object')
                   ? (res.data as any).data
@@ -999,7 +998,7 @@ function Inbox() {
               router.push({
                 pathname: '/dm',
                 params: {
-                  conversationId: it._id || it.id,
+                  conversationId: it.conversationId || it.id,
                   otherUserId: it.otherUserId || it.id,
                   user: it.displayName || 'User',
                   isGroup: it.isGroup ? '1' : '0'

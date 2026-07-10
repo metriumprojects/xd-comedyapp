@@ -12,12 +12,12 @@ let isBackendReady = false;
 let wakeupPromise: Promise<boolean> | null = null;
 
 // In release builds we should never default to localhost.
-let getAPIBaseURL: any = () => 'https://travel-social-backend.onrender.com/api';
+let getAPIBaseURL: any = () => 'https://comedyapp.onrender.com/api';
 
 // Safely load environment config
 try {
   const envModule = require('../../config/environment');
-  getAPIBaseURL = envModule.getAPIBaseURL || (() => 'https://travel-social-backend.onrender.com/api');
+  getAPIBaseURL = envModule.getAPIBaseURL || (() => 'https://comedyapp.onrender.com/api');
 } catch (e) {
   console.warn('[BackendWakeup] Failed to load environment config, using default:', e);
 }

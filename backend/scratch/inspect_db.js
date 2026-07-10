@@ -1,77 +1,37 @@
 const mongoose = require('mongoose');
-const path = require('path');
-require('dotenv').config({ path: path.join(__dirname, '../.env') });
+const mongoUri = 'mongodb://comedyapp_db:582NLsXkus0UpzLM@ac-kcegpvr-shard-00-00.oodwscn.mongodb.net:27017,ac-kcegpvr-shard-00-01.oodwscn.mongodb.net:27017,ac-kcegpvr-shard-00-02.oodwscn.mongodb.net:27017/comedyapp?ssl=true&replicaSet=atlas-dw22r4-shard-0&authSource=admin&retryWrites=true&w=majority';
 
-const mongoUri = process.env.MONGO_URI || process.env.MONGODB_URI || 'mongodb://127.0.0.1:27017/travel-social';
+const UserSchema = new mongoose.Schema({}, { strict: false });
+const ConversationSchema = new mongoose.Schema({}, { strict: false });
+const MessageSchema = new mongoose.Schema({}, { strict: false });
 
-console.log('Connecting to MongoDB at:', mongoUri);
+const User = mongoose.models.User || mongoose.model('User', UserSchema, 'users');
+const Conversation = mongoose.models.Conversation || mongoose.model('Conversation', ConversationSchema, 'conversations');
+const Message = mongoose.models.Message || mongoose.model('Message', MessageSchema, 'messages');
 
-async function runInspect() {
-  try {
-    await mongoose.connect(mongoUri);
-    console.log('✅ Connected to MongoDB successfully!\n');
+async function run() {
+  await mongoose.connect(mongoUri);
+  console.log('Connected to DB');
 
-    // Load/define models
-    const User = mongoose.models.User || mongoose.model('User', new mongoose.Schema({
-      email: String,
-      username: String,
-      displayName: String,
-      firebaseUid: String,
-      uid: String,
-      createdAt: Date
-    }));
+  const user = await User.findOne({ email: 'testuser3@gmail.com' }).lean();
+  console.log('User testuser3:', user);
 
-    const Post = mongoose.models.Post || mongoose.model('Post', new mongoose.Schema({
-      userId: String,
-      caption: String,
-      content: String,
-      mediaUrls: [String],
-      createdAt: Date
-    }));
-
-    // Find all users
-    const users = await User.find({}).lean();
-    console.log(`=== DATABASE USERS (${users.length}) ===`);
-    
-    const userMap = {};
-    for (const u of users) {
-      userMap[String(u._id)] = u;
-      if (u.firebaseUid) userMap[u.firebaseUid] = u;
-      if (u.uid) userMap[u.uid] = u;
-
-      // Count posts for this user
-      const postCount = await Post.countDocuments({ 
-        userId: { $in: [String(u._id), u.firebaseUid, u.uid].filter(Boolean) } 
-      });
-
-      console.log(`- ID: ${u._id}`);
-      console.log(`  DisplayName: "${u.displayName}"`);
-      console.log(`  Username: "${u.username || 'N/A'}"`);
-      console.log(`  Email: "${u.email}"`);
-      console.log(`  FirebaseUid: "${u.firebaseUid || 'N/A'}"`);
-      console.log(`  Posts Count: ${postCount}`);
-      console.log('-----------------------------------');
+  if (user) {
+    const userId = String(user._id);
+    const convos = await Conversation.find({ participants: userId }).lean();
+    console.log('Conversations count:', convos.length);
+    for (const c of convos) {
+      const convoId = c.conversationId || String(c._id);
+      console.log('\n--- Convo ID:', convoId, 'participants:', c.participants);
+      const msgs = await Message.find({ conversationId: convoId }).sort({ timestamp: -1 }).limit(15).lean();
+      console.log('Messages (last 15):');
+      msgs.forEach(m => console.log(JSON.stringify(m)));
     }
-
-    // Find all posts
-    const posts = await Post.find({}).sort({ createdAt: -1 }).lean();
-    console.log(`\n=== DATABASE POSTS (${posts.length}) ===`);
-    
-    for (const p of posts) {
-      const creator = userMap[p.userId] || { displayName: 'Unknown Creator', email: 'N/A' };
-      console.log(`- Post ID: ${p._id}`);
-      console.log(`  Creator: "${creator.displayName}" (${creator.email})`);
-      console.log(`  Caption: "${p.caption || p.content || 'No Caption'}"`);
-      console.log(`  Media URLs:`, p.mediaUrls);
-      console.log(`  Created At: ${p.createdAt}`);
-      console.log('-----------------------------------');
-    }
-
-    process.exit(0);
-  } catch (error) {
-    console.error('Inspection failed:', error);
-    process.exit(1);
+  } else {
+    console.log('User testuser3@gmail.com not found');
   }
+
+  await mongoose.disconnect();
 }
 
-runInspect();
+run().catch(console.error);

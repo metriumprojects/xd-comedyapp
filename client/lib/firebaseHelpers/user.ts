@@ -65,7 +65,7 @@ export async function getHighlightStories(highlightId: string) {
 export async function getUserProfile(uid: string) {
   try {
     const { apiService } = await import('@/src/_services/apiService');
-    const res = await apiService.get(`/users/${uid}`);
+    const res = await apiService.get(`/users/${uid}?_t=${Date.now()}`);
 
     if (!res.success) {
       return { success: false, error: res.error || 'User not found' };
@@ -97,6 +97,7 @@ export async function getUserProfile(uid: string) {
       id: userData._id || userData.uid,
       uid: userData.uid,
       name: userData.displayName || userData.name || 'User',
+      displayName: userData.displayName || userData.name || 'User',
       email: userData.email || '',
       avatar: userAvatar,
       photoURL: userAvatar,

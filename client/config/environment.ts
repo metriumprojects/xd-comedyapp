@@ -302,7 +302,7 @@ export const STORAGE_KEYS = {
 
 // API Base URL Helper
 export function getAPIBaseURL(): string {
-  const prodUrl = 'https://travel-social-backend.onrender.com/api';
+  const prodUrl = 'https://comedyapp.onrender.com/api';
   // Avoid runtime crashes in release when env resolution fails.
   const envUrl = process.env.EXPO_PUBLIC_API_BASE_URL || getEnvVar('EXPO_PUBLIC_API_BASE_URL', '');
   const normalizedEnvUrl = String(envUrl || '').trim().toLowerCase();

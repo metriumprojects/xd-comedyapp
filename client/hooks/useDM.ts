@@ -30,7 +30,10 @@ export function useDM(conversationIdParam: string | null, otherUserId: string | 
   const { messageCache, setCachedMessages, convoMap } = useAppStore();
   
   // Resolve conversationId from param or global map (for instant profile-to-chat navigation)
-  const resolvedConvoId = conversationIdParam || (otherUserId ? convoMap[otherUserId] : null);
+  const normalizedParamId = (conversationIdParam && conversationIdParam !== 'null' && conversationIdParam !== 'undefined')
+    ? conversationIdParam
+    : null;
+  const resolvedConvoId = normalizedParamId || (otherUserId ? convoMap[otherUserId] : null);
   
   const [conversationId, setConversationId] = useState<string | null>(resolvedConvoId);
   
@@ -132,6 +135,11 @@ export function useDM(conversationIdParam: string | null, otherUserId: string | 
     if (!hasPreloadedMessagesRef.current) {
       setLoading(true);
     }
+
+    // Ensure socket is active for real-time sync
+    initializeSocket(currentUserId).catch((err) => {
+      if (__DEV__) console.warn('[useDM] Socket connection failed:', err);
+    });
     
     const fetchAll = async () => {
       if (!conversationId && !otherUserId) return;
@@ -159,12 +167,14 @@ export function useDM(conversationIdParam: string | null, otherUserId: string | 
             if (concatList1.length > 0) {
               msgRes = concatRes1;
               msgList = concatList1;
+              setConversationId(concatId1);
             } else {
               const concatRes2 = await fetchMessages(concatId2);
               const concatList2 = extractMessages(concatRes2);
               if (concatList2.length > 0) {
                 msgRes = concatRes2;
                 msgList = concatList2;
+                setConversationId(concatId2);
               }
             }
           } catch {}
