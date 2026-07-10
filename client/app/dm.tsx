@@ -151,15 +151,15 @@ export default function DM() {
   const [currentUserId, setCurrentUserId] = useState<string | null>(storeUserId);
 
   useEffect(() => {
-    if (!currentUserId && storeUserId) {
+    if (storeUserId) {
       setCurrentUserId(storeUserId);
-    } else if (!currentUserId) {
+    } else {
       // Emergency recovery from storage
       AsyncStorage.getItem('userId').then(id => {
         if (id) setCurrentUserId(id);
       });
     }
-  }, [storeUserId, currentUserId]);
+  }, [storeUserId]);
   const flatListRef = useRef<FlatList>(null);
 
   const {

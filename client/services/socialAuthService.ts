@@ -7,6 +7,7 @@ import * as WebBrowser from 'expo-web-browser';
 import { Alert, Platform } from 'react-native';
 import { GOOGLE_SIGN_IN_CONFIG } from '../config/environment';
 import { DEFAULT_AVATAR_URL } from '@/lib/api';
+import { useAppStore } from '@/store/useAppStore';
 
 
 // Read env with safe fallback to undefined (avoids accidental string "undefined")
@@ -618,6 +619,11 @@ export async function handleSocialAuthResult(result: any, router: any) {
         // iOS Fix: Store all avatar variants for fallback access
         const avatarToStore = response.user?.avatar || response.user?.photoURL || response.user?.profilePicture || userAvatar || '';
         await storage.setItem('userId', String(userIdToStore));
+        try {
+          useAppStore.getState().setUserId(String(userIdToStore));
+        } catch (e) {
+          console.warn('[SocialAuth] Zustand setUserId warning:', e);
+        }
         await storage.setItem('uid', String(firebaseUidToStore));
         await storage.setItem('firebaseUid', String(firebaseUidToStore));
         await storage.setItem('userAvatar', avatarToStore);  // iOS Fix: Cache avatar in storage

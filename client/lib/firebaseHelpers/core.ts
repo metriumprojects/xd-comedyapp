@@ -1,6 +1,7 @@
 import AsyncStorage from '@/lib/storage';
 import * as MediaLibrary from 'expo-media-library';
 import { apiService } from '@/src/_services/apiService';
+import { useAppStore } from '@/store/useAppStore';
 import { API_BASE_URL } from '../api';
 import {
   sendLiveComment as socketSendLiveComment,
@@ -120,6 +121,11 @@ export async function signInWithEmailPassword(
       await AsyncStorage.setItem('firebaseUid', String(response.user?.firebaseUid || firebaseUser.uid));
 
       console.log('[signInWithEmailPassword] ✅ Unified Identity stored:', canonicalUserId);
+      try {
+        useAppStore.getState().setUserId(canonicalUserId);
+      } catch (e) {
+        console.warn('[signInWithEmailPassword] Zustand setUserId warning:', e);
+      }
       return { success: true, user: firebaseUser };
     } else {
       console.error('[signInWithEmailPassword] ❌ MongoDB sync failed:', response);
@@ -214,6 +220,11 @@ export async function registerWithEmailPassword(
       await AsyncStorage.setItem('firebaseUid', String(response.user?.firebaseUid || firebaseUser.uid));
 
       console.log('[registerWithEmailPassword] ✅ Unified Identity stored:', canonicalUserId);
+      try {
+        useAppStore.getState().setUserId(canonicalUserId);
+      } catch (e) {
+        console.warn('[registerWithEmailPassword] Zustand setUserId warning:', e);
+      }
       return { success: true, user: firebaseUser };
     } else {
       console.error('[registerWithEmailPassword] ❌ MongoDB sync failed:', response.error);
@@ -265,6 +276,12 @@ export async function signOutUser(): Promise<{ success: boolean; error?: string 
   try {
     console.log('[signOutUser] Logging out');
 
+    try {
+      useAppStore.getState().logout();
+    } catch (e) {
+      console.warn('[signOutUser] Zustand logout warning:', e);
+    }
+
     // Sign out from Firebase
     try {
       if (auth) {
@@ -291,6 +308,9 @@ export async function signOutUser(): Promise<{ success: boolean; error?: string 
   } catch (error: any) {
     console.error('[signOutUser] Error:', error.message);
     // Still clear local storage even if backend call fails
+    try {
+      useAppStore.getState().logout();
+    } catch (e) {}
     await AsyncStorage.removeItem('token');
     await AsyncStorage.removeItem('userId');
     await AsyncStorage.removeItem('userEmail');

@@ -1,5 +1,6 @@
 import AsyncStorage from '@/lib/storage';
 import { apiService } from './apiService';
+import { useAppStore } from '@/store/useAppStore';
 
 /**
  * Register with email and password
@@ -29,6 +30,11 @@ export async function registerWithEmailPassword(email: string, password: string,
         ['firebaseUid', firebaseUid],
         ['userEmail', response.user.email],
       ]);
+      try {
+        useAppStore.getState().setUserId(canonicalUserId);
+      } catch (e) {
+        console.warn('[Auth] Zustand setUserId warning:', e);
+      }
       console.log('[Auth] ✅ Registration successful');
       return { success: true, user: response.user };
     } else {
@@ -67,6 +73,11 @@ export async function signInWithEmailPassword(email: string, password: string) {
         ['firebaseUid', firebaseUid],
         ['userEmail', response.user.email],
       ]);
+      try {
+        useAppStore.getState().setUserId(canonicalUserId);
+      } catch (e) {
+        console.warn('[Auth] Zustand setUserId warning:', e);
+      }
       console.log('[Auth] ✅ Sign in successful');
       return { success: true, user: response.user };
     } else {
@@ -85,6 +96,12 @@ export async function logoutUser() {
   try {
     console.log('[Auth] Logging out');
     
+    try {
+      useAppStore.getState().logout();
+    } catch (e) {
+      console.warn('[Auth] Zustand logout warning:', e);
+    }
+
     // Notify backend
     await apiService.post('/auth/logout', {});
     
@@ -96,6 +113,9 @@ export async function logoutUser() {
   } catch (error: any) {
     console.error('[Auth] Logout error:', error.message);
     // Still clear local storage even if backend call fails
+    try {
+      useAppStore.getState().logout();
+    } catch (e) {}
     await AsyncStorage.multiRemove(['token', 'userId', 'uid', 'firebaseUid', 'userEmail']);
     return { success: true };
   }
