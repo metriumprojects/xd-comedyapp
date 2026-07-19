@@ -232,7 +232,19 @@ export function useProfileData({ viewedUserId, currentUserId, enabled }: UseProf
       try {
         const res = await apiService.get(`/users/${viewedUserId}/highlights`);
         const rawList = res?.success && Array.isArray(res.data) ? res.data : [];
-        return rawList.map((h: any) => ({
+        
+        // Filter out duplicates by ID or title to prevent showing duplicate highlights
+        const seen = new Set();
+        const uniqueHighlights = [];
+        for (const h of rawList) {
+          const key = String(h.id || h._id || h.title || '').trim();
+          if (key && !seen.has(key)) {
+            seen.add(key);
+            uniqueHighlights.push(h);
+          }
+        }
+
+        return uniqueHighlights.map((h: any) => ({
           ...h,
           id: String(h?._id || h?.id || ''),
           title: h?.title || h?.name || 'Highlight',
@@ -247,6 +259,23 @@ export function useProfileData({ viewedUserId, currentUserId, enabled }: UseProf
     staleTime: 1000 * 60 * 5,
   });
 
+  // 8. Fetch Liked Posts (if viewing own profile)
+  const likedPostsQuery = useQuery({
+    queryKey: ['profileLikedPosts', viewedUserId],
+    queryFn: async () => {
+      if (!viewedUserId) return [];
+      try {
+        const res = await apiService.get(`/users/${viewedUserId}/liked-posts`);
+        return res?.success && Array.isArray(res.data) ? res.data : [];
+      } catch (error: any) {
+        if (error.response?.status === 404) return [];
+        throw error;
+      }
+    },
+    enabled: enabled && !!viewedUserId && isOwnProfile,
+    staleTime: 1000 * 60 * 2,
+  });
+
   return {
     profile: profileQuery.data,
     posts: postsQuery.data || [],
@@ -254,6 +283,7 @@ export function useProfileData({ viewedUserId, currentUserId, enabled }: UseProf
     userStories: storiesQuery.data || [],
     savedSectionPosts: savedPostsQuery.data || [],
     taggedPosts: taggedPostsQuery.data || [],
+    likedPosts: likedPostsQuery.data || [],
     highlights: highlightsQuery.data || [],
     isLoading: profileQuery.isPending && !profileQuery.data,
     isError: profileQuery.isError,
@@ -267,6 +297,7 @@ export function useProfileData({ viewedUserId, currentUserId, enabled }: UseProf
         taggedPostsQuery.refetch(),
         highlightsQuery.refetch(),
         isOwnProfile ? savedPostsQuery.refetch() : Promise.resolve(),
+        isOwnProfile ? likedPostsQuery.refetch() : Promise.resolve(),
       ]);
     }
   };

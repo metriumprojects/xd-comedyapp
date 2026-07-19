@@ -1,7 +1,7 @@
 import { Feather, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
-import { Image, Modal, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Image, Modal, ScrollView, StyleSheet, Text, TouchableOpacity, View, Share } from 'react-native';
 import SaveButton from '@/src/_components/SaveButton';
 import { useUser } from '@/src/_components/UserContext';
 import { likePost, unlikePost } from '@/lib/firebaseHelpers';
@@ -82,7 +82,6 @@ const PostItem: React.FC<{ item: PostType }> = ({ item }) => {
 
   const handleShare = async () => {
     try {
-      const { Share } = await import('react-native');
       let shareMessage = `Check out this post`;
       if (item?.userName) shareMessage += ` by ${item.userName}`;
       if (item?.location) shareMessage += ` at ${item.location}`;

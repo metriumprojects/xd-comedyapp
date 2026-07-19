@@ -1251,5 +1251,27 @@ router.get('/:postId/comments', optionalAuth, async (req, res) => {
   }
 });
 
+// POST /:postId/share - Increment share count
+router.post('/:postId/share', optionalAuth, async (req, res) => {
+  try {
+    const { postId } = req.params;
+    const Post = mongoose.model('Post');
+    
+    const post = await Post.findOneAndUpdate(
+      resolvePostQuery(postId),
+      { $inc: { shareCount: 1 } },
+      { new: true }
+    );
+    
+    if (!post) {
+      return res.status(404).json({ success: false, error: 'Post not found' });
+    }
+    
+    res.json({ success: true, shareCount: post.shareCount, data: post });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
 module.exports = router;
 

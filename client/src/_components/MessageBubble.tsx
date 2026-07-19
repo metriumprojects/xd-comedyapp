@@ -1,12 +1,14 @@
 import React, { useCallback } from 'react';
-import { AppState, Image, StyleSheet, Text, TouchableOpacity, View, Animated, Easing } from 'react-native';
+import { AppState, Image, StyleSheet, Text, TouchableOpacity, View, Animated, Easing, Modal, ActivityIndicator } from 'react-native';
 import { Image as ExpoImage } from 'expo-image';
-import { Audio } from 'expo-av';
+import { Audio, Video, ResizeMode } from 'expo-av';
 import * as FileSystem from 'expo-file-system';
 import { Feather, Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { DEFAULT_AVATAR_URL } from '@/lib/api';
 import { apiService } from '@/src/_services/apiService';
+import { normalizeMediaUrl, isVideoUrl } from '@/lib/utils/media';
+import { getVideoThumbnailUrl } from '@/lib/imageHelpers';
 
 type Props = {
   text?: string;
@@ -41,6 +43,7 @@ type Props = {
   onReaction?: (emoji: string) => void;
   reactions?: { [emoji: string]: string[] };
   failed?: boolean;
+  thumbnailUrl?: string | null;
 };
 
 function MessageBubbleInner({
@@ -76,8 +79,11 @@ function MessageBubbleInner({
   onReaction,
   reactions,
   failed,
+  thumbnailUrl,
 }: Props) {
   const [playing, setPlaying] = React.useState(false);
+  const [playVideoModalVisible, setPlayVideoModalVisible] = React.useState(false);
+  const [videoLoaded, setVideoLoaded] = React.useState(false);
   const [isLoaded, setIsLoaded] = React.useState(false);
   const [playbackPosition, setPlaybackPosition] = React.useState(0);
   const [playbackDuration, setPlaybackDuration] = React.useState(0);
@@ -85,19 +91,13 @@ function MessageBubbleInner({
   const [storyExpired, setStoryExpired] = React.useState(false);
   const [storyLoading, setStoryLoading] = React.useState(false);
   const fadeAnim = React.useRef(new Animated.Value(0)).current;
-  const scaleAnim = React.useRef(new Animated.Value(0.95)).current;
 
-  const safeFormatTime = React.useCallback((ts: any) => {
-    try {
-      if (typeof formatTime === 'function') {
-        return formatTime(ts) || '';
-      }
-      return '';
-    } catch (e) {
-      console.warn('[MessageBubble] formatTime failed:', e);
-      return '';
+  React.useEffect(() => {
+    if (!playVideoModalVisible) {
+      setVideoLoaded(false);
     }
-  }, [formatTime]);
+  }, [playVideoModalVisible]);
+  const scaleAnim = React.useRef(new Animated.Value(0.95)).current;
 
   React.useEffect(() => {
     Animated.parallel([
@@ -114,16 +114,9 @@ function MessageBubbleInner({
       })
     ]).start();
   }, []);
-  const displayText = React.useMemo(() => {
-    if (typeof text !== 'string') return text;
-    const trimmed = text.trim();
-    try {
-      const unicodeRegex = new RegExp('(^|\\s)#([\\p{L}\\p{N}_]+)', 'gu');
-      return trimmed.replace(unicodeRegex, '$1$2');
-    } catch (e) {
-      return trimmed.replace(/(^|\s)#([A-Za-z0-9_]+)/g, '$1$2');
-    }
-  }, [text]);
+  const displayText = typeof text === 'string'
+    ? text.trim().replace(/(^|\s)#([\p{L}\p{N}_]+)/gu, '$1$2')
+    : text;
   const inferMediaType = React.useCallback((explicitType: any, mUrl: any, aUrl: any, imgUrl: any, aDuration: any, msgText: any) => {
     const explicit = typeof explicitType === 'string' ? explicitType.trim().toLowerCase() : '';
     if (explicit && explicit !== 'text') return explicit;
@@ -181,6 +174,46 @@ function MessageBubbleInner({
     return sharedPostMediaUrls.length;
   }, [sharedPost, sharedPostMediaUrls]);
   const sharedPostPreviewUrl = sharedPostMediaUrls[0] || sharedPost?.imageUrl || sharedPost?.image || null;
+  const [sharedPostThumb, setSharedPostThumb] = React.useState<string | null>(null);
+
+  React.useEffect(() => {
+    let isMounted = true;
+    const rawUrl = sharedPostMediaUrls[0] || sharedPost?.imageUrl || sharedPost?.image || null;
+    if (!rawUrl) {
+      setSharedPostThumb(null);
+      return;
+    }
+    const normalized = normalizeMediaUrl(rawUrl);
+    const isVideo = sharedPost?.mediaType === 'video' || isVideoUrl(normalized);
+    
+    if (isVideo) {
+      const cloudThumb = getVideoThumbnailUrl(normalized);
+      if (cloudThumb !== normalized && cloudThumb.endsWith('.jpg')) {
+        setSharedPostThumb(cloudThumb);
+      } else {
+        // Fallback to local expo-video-thumbnails generation
+        (async () => {
+          try {
+            const { getThumbnailAsync } = await import('expo-video-thumbnails');
+            const { uri } = await getThumbnailAsync(normalized, { time: 1000 });
+            if (isMounted) {
+              setSharedPostThumb(uri);
+            }
+          } catch (e) {
+            console.warn('[MessageBubble] Failed to generate video thumbnail:', e);
+            setSharedPostThumb(normalized); // fallback to original
+          }
+        })();
+      }
+    } else {
+      setSharedPostThumb(normalized);
+    }
+    
+    return () => {
+      isMounted = false;
+    };
+  }, [sharedPost, sharedPostMediaUrls]);
+
   const legacyStoryId = typeof text === 'string'
     ? (text.match(/story[:;]\/\/([A-Za-z0-9_-]+)/i)?.[1] || text.match(/Shared a story:\s*([A-Za-z0-9_-]+)/i)?.[1] || '')
     : '';
@@ -190,6 +223,34 @@ function MessageBubbleInner({
     setResolvedStory(sharedStory || null);
     setStoryExpired(false);
   }, [sharedStory]);
+
+  const [localVideoThumb, setLocalVideoThumb] = React.useState<string | null>(null);
+
+  React.useEffect(() => {
+    let isMounted = true;
+    if (resolvedMediaType === 'video' && resolvedMediaUrl) {
+      const isVideo = isVideoUrl(resolvedMediaUrl);
+      const isCloudinary = resolvedMediaUrl.includes('res.cloudinary.com');
+      
+      if (!isCloudinary && isVideo) {
+        // Fallback to local expo-video-thumbnails generation
+        (async () => {
+          try {
+            const { getThumbnailAsync } = await import('expo-video-thumbnails');
+            const { uri } = await getThumbnailAsync(resolvedMediaUrl, { time: 1000 });
+            if (isMounted) {
+              setLocalVideoThumb(uri);
+            }
+          } catch (e) {
+            console.warn('[MessageBubble] Failed to generate local video thumbnail:', e);
+          }
+        })();
+      }
+    }
+    return () => {
+      isMounted = false;
+    };
+  }, [resolvedMediaType, resolvedMediaUrl]);
 
   React.useEffect(() => {
     let cancelled = false;
@@ -471,7 +532,7 @@ function MessageBubbleInner({
       )}
       
       <View style={[styles.bubbleWrapper, isSelf ? { alignItems: 'flex-end' } : { alignItems: 'flex-start' }]}>
-        <View style={{ flexDirection: isSelf ? 'row-reverse' : 'row', alignItems: 'center' }}>
+        <View style={{ flexDirection: isSelf ? 'row-reverse' : 'row', alignItems: 'center', overflow: 'visible' }}>
           <TouchableOpacity 
             activeOpacity={1}
             onPress={handlePress}
@@ -497,19 +558,41 @@ function MessageBubbleInner({
                 style={StyleSheet.absoluteFillObject}
               />
             )}
-            {resolvedMediaType === 'image' && resolvedMediaUrl && (
+             {resolvedMediaType === 'image' && resolvedMediaUrl && (
               <TouchableOpacity onPress={() => onPressImage?.(resolvedMediaUrl)}>
-                <Image source={{ uri: resolvedMediaUrl }} style={styles.msgImage} />
+                <ExpoImage source={{ uri: resolvedMediaUrl }} style={styles.msgImage} contentFit="cover" cachePolicy="memory-disk" transition={150} />
               </TouchableOpacity>
             )}
             
             {resolvedMediaType === 'video' && resolvedMediaUrl && (
-              <View style={styles.videoStub}>
+              <TouchableOpacity onPress={() => setPlayVideoModalVisible(true)} style={styles.videoStub}>
+                {(() => {
+                  const poster = (thumbnailUrl && !isVideoUrl(thumbnailUrl))
+                    ? thumbnailUrl
+                    : (getVideoThumbnailUrl(resolvedMediaUrl) !== resolvedMediaUrl ? getVideoThumbnailUrl(resolvedMediaUrl) : localVideoThumb);
+                  if (poster) {
+                    return (
+                      <ExpoImage
+                        source={{ uri: poster }}
+                        style={StyleSheet.absoluteFillObject}
+                        contentFit="cover"
+                        cachePolicy="memory-disk"
+                        transition={150}
+                      />
+                    );
+                  }
+                  return (
+                    <View style={[StyleSheet.absoluteFillObject, { backgroundColor: '#1e1e1e', justifyContent: 'center', alignItems: 'center' }]}>
+                      <Ionicons name="videocam-outline" size={32} color="rgba(255,255,255,0.45)" style={{ marginBottom: 12 }} />
+                    </View>
+                  );
+                })()}
+                <View style={[StyleSheet.absoluteFillObject, { backgroundColor: 'rgba(0,0,0,0.25)' }]} />
                 <Ionicons name="play" color="white" size={40} style={styles.centerPlay} />
                 <View style={styles.bottomPlayCircle}>
                   <Ionicons name="play" color="white" size={14} />
                 </View>
-              </View>
+              </TouchableOpacity>
             )}
   
             {resolvedMediaType === 'audio' && (audioUrl || resolvedMediaUrl || audioDuration) && (
@@ -583,9 +666,9 @@ function MessageBubbleInner({
                   />
                   <Text style={styles.sharedPostAuthorName} numberOfLines={1}>{sharedPost.userName || sharedPost.username || 'User'}</Text>
                 </View>
-                {sharedPostPreviewUrl ? (
+                {sharedPostThumb ? (
                   <View style={styles.sharedPostImageWrap}>
-                    <Image source={{ uri: sharedPostPreviewUrl }} style={styles.sharedPostImage} />
+                    <ExpoImage source={{ uri: sharedPostThumb }} style={styles.sharedPostImage} contentFit="cover" cachePolicy="memory-disk" transition={150} />
                     {sharedPostMediaCount > 1 && (
                       <View style={styles.multiMediaBadge}>
                         <Ionicons name="copy-outline" size={12} color="#fff" />
@@ -612,9 +695,12 @@ function MessageBubbleInner({
                 style={styles.storyCard}
               >
                 {/* Story thumbnail */}
-                <Image
+                <ExpoImage
                   source={{ uri: resolvedStory.mediaUrl || resolvedStory.imageUrl || resolvedStory.videoUrl || resolvedStory.image || resolvedStory.video || DEFAULT_AVATAR_URL }}
                   style={styles.storyCardImage}
+                  contentFit="cover"
+                  cachePolicy="memory-disk"
+                  transition={150}
                 />
                 {/* Gradient overlay top */}
                 <View style={styles.storyCardGradientTop} />
@@ -677,10 +763,6 @@ function MessageBubbleInner({
               <View>
                 <Text style={[styles.msgText, isSelf && styles.msgTextSelf]}>
                   {displayText}
-                  {/* Invisible spacer to reserve room for the inline time+tick */}
-                  <Text style={{ fontSize: 12, color: 'transparent' }}>
-                    {'  '}{safeFormatTime(createdAt)}{isSelf ? ' ✓' : ''}
-                  </Text>
                 </Text>
                 {editedAt && (
                   <Text style={[styles.editedText, isSelf ? styles.editedTextSelf : styles.editedTextOther]}>
@@ -689,36 +771,34 @@ function MessageBubbleInner({
                 )}
               </View>
             )}
-
-            {/* WhatsApp-style inline time + tick overlay */}
-            <View style={[styles.msgMeta, !displayText && { position: 'relative', marginTop: 4 }]}>
-              <Text style={[styles.msgTime, isSelf && styles.msgTimeSelf]}>
-                {safeFormatTime(createdAt)}
-              </Text>
+  
+            {/* Removed internal timestamp for cleaner Instagram style */}
+            <View style={styles.msgFooter}>
               {isSelf && (
                 <View style={styles.statusIcons}>
                   {read ? (
-                    <Ionicons name="checkmark-done" size={13} color="#fff" />
+                    <Ionicons name="checkmark-done" size={14} color="#fff" />
                   ) : delivered ? (
-                    <Ionicons name="checkmark-done" size={13} color="rgba(255,255,255,0.55)" />
+                    <Ionicons name="checkmark-done" size={14} color="rgba(255,255,255,0.6)" />
                   ) : sent ? (
-                    <Ionicons name="checkmark" size={13} color="rgba(255,255,255,0.55)" />
+                    <Ionicons name="checkmark" size={14} color="rgba(255,255,255,0.6)" />
                   ) : (
-                    <Ionicons name="time-outline" size={11} color="rgba(255,255,255,0.35)" />
+                    <Ionicons name="checkmark" size={14} color="rgba(255,255,255,0.2)" />
                   )}
                 </View>
               )}
             </View>
 
-            {/* Reactions Display */}
-            {reactions && Object.keys(reactions).length > 0 && (
-              <View style={styles.reactionsBadge}>
-                {Object.keys(reactions).map(emoji => (
-                  <Text key={emoji} style={styles.reactionEmoji}>{emoji}</Text>
-                ))}
-              </View>
-            )}
           </TouchableOpacity>
+
+          {/* Reactions Display - outside bubble to avoid overflow clipping */}
+          {reactions && Object.keys(reactions).length > 0 && (
+            <View style={[styles.reactionsBadge, isSelf ? { right: 8, left: undefined } : { left: 8, right: undefined }]}>
+              {Object.keys(reactions).map(emoji => (
+                <Text key={emoji} style={styles.reactionEmoji}>{emoji}</Text>
+              ))}
+            </View>
+          )}
           
           {/* Share icon next to bubble (only for media/story/post) */}
           {(resolvedMediaType === 'video' || resolvedMediaType === 'image' || resolvedMediaType === 'post' || resolvedMediaType === 'story') && (
@@ -727,6 +807,43 @@ function MessageBubbleInner({
             </TouchableOpacity>
           )}
         </View>
+
+        {resolvedMediaType === 'video' && resolvedMediaUrl && (
+          <Modal
+            visible={playVideoModalVisible}
+            transparent={false}
+            animationType="fade"
+            onRequestClose={() => setPlayVideoModalVisible(false)}
+          >
+            <View style={{ flex: 1, backgroundColor: '#000', justifyContent: 'center', alignItems: 'center' }}>
+              <TouchableOpacity 
+                style={{ position: 'absolute', top: 50, right: 20, zIndex: 10, padding: 10 }}
+                onPress={() => setPlayVideoModalVisible(false)}
+              >
+                <Ionicons name="close" size={30} color="#fff" />
+              </TouchableOpacity>
+              
+              {!videoLoaded && (
+                <ActivityIndicator 
+                  size="large" 
+                  color="#FF8D00" 
+                  style={{ position: 'absolute', zIndex: 5 }} 
+                />
+              )}
+              
+              <Video
+                source={{ uri: resolvedMediaUrl }}
+                style={{ width: '100%', height: '80%' }}
+                resizeMode={ResizeMode.CONTAIN}
+                shouldPlay={playVideoModalVisible}
+                useNativeControls
+                isLooping={false}
+                onLoad={() => setVideoLoaded(true)}
+                status={{ shouldPlay: true }}
+              />
+            </View>
+          </Modal>
+        )}
       </View>
     </Animated.View>
   );
@@ -745,7 +862,8 @@ const MessageBubble = React.memo(MessageBubbleInner, (prev, next) => {
     prev.isSelf === next.isSelf &&
     prev.mediaUrl === next.mediaUrl &&
     prev.audioUrl === next.audioUrl &&
-    prev.reactions === next.reactions
+    prev.reactions === next.reactions &&
+    prev.thumbnailUrl === next.thumbnailUrl
   );
 });
 
@@ -755,6 +873,7 @@ const styles = StyleSheet.create({
   container: {
     flexDirection: 'row',
     marginVertical: 2,
+    marginBottom: 18,
     paddingHorizontal: 8,
     alignItems: 'flex-end',
   },
@@ -773,6 +892,7 @@ const styles = StyleSheet.create({
   },
   bubbleWrapper: {
     maxWidth: '85%',
+    overflow: 'visible',
   },
   msgBubble: {
     borderRadius: 22,
@@ -816,13 +936,12 @@ const styles = StyleSheet.create({
   editedTextOther: {
     color: '#8e8e8e',
   },
-  msgMeta: {
-    position: 'absolute',
-    bottom: 6,
-    right: 10,
+  msgFooter: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 3,
+    justifyContent: 'flex-end',
+    marginTop: 2,
+    paddingBottom: 2,
   },
   msgTime: {
     fontSize: 10,
@@ -830,11 +949,14 @@ const styles = StyleSheet.create({
   },
   msgTimeSelf: {
     fontSize: 10,
-    color: 'rgba(255,255,255,0.65)',
+    color: 'rgba(255,255,255,0.7)',
   },
   statusIcons: {
-    marginLeft: 2,
+    marginLeft: 4,
   },
+  statusSent: { fontSize: 10, color: 'rgba(255,255,255,0.5)' },
+  statusDelivered: { fontSize: 10, color: 'rgba(255,255,255,0.5)' },
+  statusRead: { fontSize: 10, color: '#fff', fontWeight: '800' },
   statusPending: { fontSize: 8 },
   replyBox: {
     backgroundColor: 'rgba(0,0,0,0.05)',
@@ -1126,8 +1248,7 @@ const styles = StyleSheet.create({
   },
   reactionsBadge: {
     position: 'absolute',
-    bottom: -12,
-    right: 12,
+    bottom: -14,
     flexDirection: 'row',
     backgroundColor: '#fff',
     borderRadius: 12,
@@ -1135,11 +1256,12 @@ const styles = StyleSheet.create({
     paddingVertical: 2,
     borderWidth: 0.5,
     borderColor: '#eee',
-    elevation: 2,
+    elevation: 3,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 1,
+    shadowOpacity: 0.12,
+    shadowRadius: 2,
+    zIndex: 10,
   },
   reactionEmoji: {
     fontSize: 12,

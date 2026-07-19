@@ -1,5 +1,5 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Alert, ActivityIndicator, Linking } from 'react-native';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Alert, ActivityIndicator, Linking, Animated } from 'react-native';
 import { Feather, Ionicons } from '@expo/vector-icons';
 import { Image as ExpoImage } from 'expo-image';
 import { useRouter } from 'expo-router';
@@ -43,6 +43,82 @@ export const ProfileStatistics: React.FC<ProfileStatisticsProps> = ({
   const [withdrawLoading, setWithdrawLoading] = useState(false);
   const [setupLoading, setSetupLoading] = useState(false);
   const [payoutHistory, setPayoutHistory] = useState<WithdrawalRecord[]>([]);
+
+  // Skeleton pulsing animation
+  const skeletonOpacity = useRef(new Animated.Value(0.3)).current;
+
+  useEffect(() => {
+    let anim: Animated.CompositeAnimation | null = null;
+    if (loading) {
+      anim = Animated.loop(
+        Animated.sequence([
+          Animated.timing(skeletonOpacity, {
+            toValue: 0.7,
+            duration: 800,
+            useNativeDriver: true,
+          }),
+          Animated.timing(skeletonOpacity, {
+            toValue: 0.3,
+            duration: 800,
+            useNativeDriver: true,
+          }),
+        ])
+      );
+      anim.start();
+    } else {
+      skeletonOpacity.setValue(1);
+    }
+    return () => {
+      if (anim) anim.stop();
+    };
+  }, [loading]);
+
+  // Reset states on userId change to prevent showing old cached results
+  useEffect(() => {
+    setSubscribers([]);
+    setTierPrice('0');
+    setConnectStatus(null);
+    setBalance(null);
+    setPayoutHistory([]);
+    setLoading(true);
+  }, [currentUserId]);
+
+  // Skeleton rendering helper for subscriber list item cards
+  const renderSkeletonCard = () => {
+    return (
+      <Animated.View style={[styles.subscriberCard, { opacity: skeletonOpacity }]}>
+        <View style={styles.cardHeader}>
+          <View style={[styles.avatar, { backgroundColor: '#e5e5ea' }]} />
+          <View style={styles.cardHeaderInfo}>
+            <View style={{ width: 120, height: 16, backgroundColor: '#e5e5ea', borderRadius: 4, marginBottom: 6 }} />
+            <View style={{ width: 180, height: 12, backgroundColor: '#e5e5ea', borderRadius: 4, marginBottom: 4 }} />
+            <View style={{ width: 80, height: 12, backgroundColor: '#e5e5ea', borderRadius: 4 }} />
+          </View>
+        </View>
+        <View style={[styles.btnMessage, { backgroundColor: '#e5e5ea', width: 90, marginTop: 10 }]}>
+          <View style={{ width: 60, height: 12, backgroundColor: '#d1d1d6', borderRadius: 4 }} />
+        </View>
+      </Animated.View>
+    );
+  };
+
+  const renderStatValue = (val: string | number, width = 60) => {
+    if (loading) {
+      return (
+        <Animated.View style={{ width, height: 28, backgroundColor: '#e5e5ea', borderRadius: 6, marginVertical: 4, opacity: skeletonOpacity }} />
+      );
+    }
+    return <Text style={styles.statValue}>{val}</Text>;
+  };
+
+  const renderBalanceValue = (val: string, width = 120) => {
+    if (loading) {
+      return (
+        <Animated.View style={{ width, height: 36, backgroundColor: '#e5e5ea', borderRadius: 6, marginVertical: 4, opacity: skeletonOpacity }} />
+      );
+    }
+    return <Text style={styles.moneyValue}>{val}</Text>;
+  };
 
   const loadSubscribers = useCallback(async () => {
     if (!currentUserId) return;
@@ -314,15 +390,15 @@ export const ProfileStatistics: React.FC<ProfileStatisticsProps> = ({
         </View>
         <View style={styles.statsGrid}>
           <View style={styles.statCol}>
-            <Text style={styles.statValue}>{stats.views}</Text>
+            {renderStatValue(stats.views, 50)}
             <Text style={styles.statLabel}>Total views</Text>
           </View>
           <View style={styles.statCol}>
-            <Text style={styles.statValue}>{stats.laughs}</Text>
+            {renderStatValue(stats.laughs, 50)}
             <Text style={styles.statLabel}>Total laughs</Text>
           </View>
           <View style={styles.statCol}>
-            <Text style={styles.statValue}>{activeSubscribersCount}</Text>
+            {renderStatValue(activeSubscribersCount, 40)}
             <Text style={styles.statLabel}>Subscribers</Text>
           </View>
         </View>
@@ -336,7 +412,7 @@ export const ProfileStatistics: React.FC<ProfileStatisticsProps> = ({
         </View>
         <View style={styles.moneyRow}>
           <View style={styles.moneyContainer}>
-            <Text style={styles.moneyValue}>{displayBalance}</Text>
+            {renderBalanceValue(displayBalance, 100)}
             <Text style={styles.moneyLabel}>{displayBalanceLabel}</Text>
             {balance && balance.pending > 0 && (
               <Text style={styles.pendingText}>{pendingBalance} pending</Text>
@@ -492,11 +568,22 @@ export const ProfileStatistics: React.FC<ProfileStatisticsProps> = ({
         {/* Subscribers Cards List */}
         <View style={styles.list}>
           {loading ? (
-            <ActivityIndicator size="small" color="#007aff" style={{ padding: 20 }} />
+            <>
+              {renderSkeletonCard()}
+              {renderSkeletonCard()}
+            </>
           ) : filteredSubscribers.length > 0 ? (
             filteredSubscribers.map((item, idx) => (
               <View key={item.subscriberId || idx} style={styles.subscriberCard}>
-                <View style={styles.cardHeader}>
+                <TouchableOpacity 
+                  style={styles.cardHeader} 
+                  activeOpacity={0.7}
+                  onPress={() => {
+                    if (item.subscriberId) {
+                      router.push(`/user-profile/${item.subscriberId}` as any);
+                    }
+                  }}
+                >
                   <ExpoImage 
                     source={{ uri: item.subscriberAvatar || DEFAULT_AVATAR_URL }} 
                     style={styles.avatar}
@@ -507,7 +594,7 @@ export const ProfileStatistics: React.FC<ProfileStatisticsProps> = ({
                     <Text style={styles.subText}>Subscription to "{item.title || 'One Creator'}" #34526</Text>
                     <Text style={styles.priceText}>${item.price} per month</Text>
                   </View>
-                </View>
+                </TouchableOpacity>
                 
                 {item.status === 'active' && (
                   <TouchableOpacity 

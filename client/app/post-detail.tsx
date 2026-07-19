@@ -198,11 +198,7 @@ export default function PostDetailScreen() {
               setCommentModalVisible(false);
             }}
           />
-          <KeyboardAvoidingView
-            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-            keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
-            style={{ backgroundColor: '#fff', height: '80%', borderTopLeftRadius: 20, borderTopRightRadius: 20 }}
-          >
+          <View style={{ backgroundColor: '#fff', height: '80%', borderTopLeftRadius: 20, borderTopRightRadius: 20 }}>
             <View style={{ width: 40, height: 4, backgroundColor: '#eee', borderRadius: 2, alignSelf: 'center', marginVertical: 10 }} />
             <View style={{ flexDirection: 'row', justifyContent: 'space-between', paddingHorizontal: 16, paddingBottom: 10, borderBottomWidth: 0.5, borderBottomColor: '#eee' }}>
               <Text style={{ fontWeight: '700', fontSize: 16 }}>Comments</Text>
@@ -221,7 +217,7 @@ export default function PostDetailScreen() {
               currentAvatar={commentModalAvatar}
               currentUser={currentUser}
             />
-          </KeyboardAvoidingView>
+          </View>
         </View>
       </Modal>
     </SafeAreaView>

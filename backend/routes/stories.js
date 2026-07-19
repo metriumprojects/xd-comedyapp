@@ -4,6 +4,8 @@ const Story = require('../src/models/Story');
 const mongoose = require('mongoose');
 
 const { verifyToken, optionalAuth } = require('../src/middleware/authMiddleware');
+const validate = require('../src/middleware/validateMiddleware');
+const { createStorySchema } = require('../src/validations/storyValidation');
 
 /**
  * GET /api/stories/active
@@ -12,13 +14,63 @@ const { verifyToken, optionalAuth } = require('../src/middleware/authMiddleware'
 router.get('/active', optionalAuth, async (req, res) => {
   try {
     const now = new Date();
-    const Post = mongoose.model('Post'); // Some stories might be posts? No, usually Story.
     const Story = mongoose.model('Story');
+    const User = mongoose.model('User');
+    const Group = mongoose.model('Group');
+    const { resolveUserIdentifiers } = require('../src/utils/userUtils');
     
-    // Simple fetch of all non-expired stories
-    const stories = await Story.find({ expiresAt: { $gt: now } }).sort({ createdAt: -1 }).limit(100).lean();
+    // Resolve requester's user variants and group memberships
+    const requesterUserId = req.userId || null;
+    let viewerVariants = [];
+    let viewerGroupIds = [];
+    let followingUserIds = [];
     
-    res.json({ success: true, data: stories });
+    if (requesterUserId) {
+      const { candidates } = await resolveUserIdentifiers(requesterUserId);
+      viewerVariants = candidates.map(id => String(id));
+      const viewerGroups = await Group.find({ members: { $in: viewerVariants } }).lean();
+      viewerGroupIds = viewerGroups.map(g => String(g._id));
+
+      const Follow = mongoose.model('Follow');
+      const follows = await Follow.find({ followerId: requesterUserId }).select('followingId').lean();
+      followingUserIds = follows.map(f => String(f.followingId));
+    }
+
+    const matchQuery = { expiresAt: { $gt: now } };
+    if (requesterUserId) {
+      matchQuery.userId = { $in: [...viewerVariants, ...followingUserIds] };
+      matchQuery.$or = [
+        { isPrivate: { $ne: true }, visibility: { $in: ['Everyone', 'everyone', null, undefined] } },
+        { userId: { $in: viewerVariants } },
+        { allowedFollowers: { $in: [...viewerVariants, ...viewerGroupIds] } }
+      ];
+    } else {
+      matchQuery.isPrivate = { $ne: true };
+      matchQuery.visibility = { $in: ['Everyone', 'everyone', null, undefined] };
+    }
+
+    // Fetch filtered non-expired stories
+    const stories = await Story.find(matchQuery).sort({ createdAt: -1 }).limit(100).lean();
+    
+    // Resolve active users to filter out stories from deleted users
+    const userIds = [...new Set(stories.map(s => s.userId))].filter(Boolean);
+    const activeUsers = await User.find({
+      $or: [
+        { _id: { $in: userIds.filter(id => mongoose.Types.ObjectId.isValid(id)).map(id => new mongoose.Types.ObjectId(id)) } },
+        { firebaseUid: { $in: userIds } },
+        { uid: { $in: userIds } }
+      ]
+    }).select('_id firebaseUid uid').lean();
+
+    const activeUserSet = new Set();
+    activeUsers.forEach(u => {
+      activeUserSet.add(String(u._id));
+      if (u.firebaseUid) activeUserSet.add(String(u.firebaseUid));
+      if (u.uid) activeUserSet.add(String(u.uid));
+    });
+
+    const filteredStories = stories.filter(s => s.userId && activeUserSet.has(String(s.userId)));
+    res.json({ success: true, data: filteredStories });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
   }
@@ -31,18 +83,49 @@ router.get('/active', optionalAuth, async (req, res) => {
 router.get('/', optionalAuth, async (req, res) => {
   try {
     const { userId } = req.query;
-    const requesterUserId = req.userId || null; // Use authenticated userId if available
+    const requesterUserId = req.userId || null;
     const limit = Math.min(parseInt(req.query.limit || '50'), 100);
-    
-    // Build initial match query
-    const matchQuery = { expiresAt: { $gt: new Date() } };
-    if (userId) matchQuery.userId = userId;
+    const Group = mongoose.model('Group');
+    const { resolveUserIdentifiers } = require('../src/utils/userUtils');
 
+    let viewerVariants = [];
+    let viewerGroupIds = [];
+    let followingUserIds = [];
+
+    if (requesterUserId) {
+      const { candidates } = await resolveUserIdentifiers(requesterUserId);
+      viewerVariants = candidates.map(id => String(id));
+      const viewerGroups = await Group.find({ members: { $in: viewerVariants } }).lean();
+      viewerGroupIds = viewerGroups.map(g => String(g._id));
+
+      const Follow = mongoose.model('Follow');
+      const follows = await Follow.find({ followerId: requesterUserId }).select('followingId').lean();
+      followingUserIds = follows.map(f => String(f.followingId));
+    }
+
+    const matchQuery = { expiresAt: { $gt: new Date() } };
+    if (userId) {
+      matchQuery.userId = userId;
+    } else if (requesterUserId) {
+      matchQuery.userId = { $in: [...viewerVariants, ...followingUserIds] };
+      matchQuery.$or = [
+        { isPrivate: { $ne: true }, visibility: { $in: ['Everyone', 'everyone', null, undefined] } },
+        { userId: { $in: viewerVariants } },
+        { allowedFollowers: { $in: [...viewerVariants, ...viewerGroupIds] } }
+      ];
+    } else {
+      matchQuery.isPrivate = { $ne: true };
+      matchQuery.visibility = { $in: ['Everyone', 'everyone', null, undefined] };
+    }
+
+    // PERF: match → sort → limit FIRST, then do the expensive $lookup joins.
+    // Without this order, MongoDB joins every document in the collection.
     const pipeline = [
       { $match: matchQuery },
       { $sort: { createdAt: -1 } },
       { $limit: limit },
-      // 1. Join with Users collection to get author details and privacy status
+
+      // 1. Join user details (only on the limited set)
       {
         $lookup: {
           from: 'users',
@@ -59,14 +142,15 @@ router.get('/', optionalAuth, async (req, res) => {
                 }
               }
             },
-            { $project: { displayName: 1, name: 1, avatar: 1, photoURL: 1, profilePicture: 1, isPrivate: 1 } }
+            { $project: { displayName: 1, name: 1, avatar: 1, photoURL: 1, profilePicture: 1, isPrivate: 1 } },
+            { $limit: 1 }
           ],
           as: 'author'
         }
       },
       { $unwind: { path: '$author', preserveNullAndEmptyArrays: true } },
-      
-      // 2. Join with Follows collection IF requesterUserId is provided
+
+      // 2. Follow-status join only when requester is known
       ...(requesterUserId ? [
         {
           $lookup: {
@@ -82,7 +166,8 @@ router.get('/', optionalAuth, async (req, res) => {
                     ]
                   }
                 }
-              }
+              },
+              { $limit: 1 }
             ],
             as: 'followStatus'
           }
@@ -92,28 +177,27 @@ router.get('/', optionalAuth, async (req, res) => {
         { $addFields: { isFollowing: false } }
       ]),
 
-      // 3. Privacy Filtering Logic
+      // 3. Privacy filter and author existence check
       {
         $match: {
+          author: { $exists: true, $ne: null },
           $or: [
-            { 'author.isPrivate': { $ne: true } }, // Author is public
-            { userId: requesterUserId },           // Own story
-            { isFollowing: true }                  // Requester follows author
+            { isPrivate: true },
+            { 'author.isPrivate': { $ne: true } },
+            { userId: requesterUserId },
+            { isFollowing: true }
           ]
         }
       },
 
-      // 4. Format final output
+      // 4. Flatten output fields
       {
         $addFields: {
-          // Map author fields to flat structure for backward compatibility
           userName: { $ifNull: ['$author.displayName', { $ifNull: ['$author.name', { $ifNull: ['$userName', 'Anonymous'] }] }] },
           userAvatar: { $ifNull: ['$author.avatar', { $ifNull: ['$author.photoURL', { $ifNull: ['$author.profilePicture', '$userAvatar'] }] }] },
         }
       },
-      {
-        $unset: ['followStatus', 'isFollowing', 'author']
-      }
+      { $unset: ['followStatus', 'isFollowing', 'author'] }
     ];
 
     const stories = await mongoose.model('Story').aggregate(pipeline);
@@ -128,9 +212,9 @@ router.get('/', optionalAuth, async (req, res) => {
  * POST /api/stories
  * Create a new story (Requires Auth)
  */
-router.post('/', verifyToken, async (req, res) => {
+router.post('/', verifyToken, validate(createStorySchema), async (req, res) => {
   try {
-    const { userName, mediaUrl, mediaType, caption, locationData, thumbnailUrl, thumbnail } = req.body;
+    const { userName, mediaUrl, mediaType, caption, locationData, thumbnailUrl, thumbnail, postMetadata, isPostShare, visibility, allowedFollowers, isPrivate } = req.body;
     const userId = req.userId; // Always use authenticated userId
 
     if (!userId || !mediaUrl) {
@@ -148,12 +232,41 @@ router.post('/', verifyToken, async (req, res) => {
       ]
     });
 
+    // Resolve structured geographical details
+    let resolvedLocationData = locationData || null;
+    if (caption || locationData) {
+      try {
+        const { resolveGeographicalData } = require('../src/utils/geoResolver');
+        resolvedLocationData = resolveGeographicalData(caption, locationData);
+      } catch (err) {
+        console.warn('[CreateStory] Failed to resolve geo data:', err.message);
+      }
+    }
+
+    let normalizedPostMetadata = null;
+    if (postMetadata) {
+      if (typeof postMetadata === 'object') {
+        normalizedPostMetadata = postMetadata;
+      } else if (typeof postMetadata === 'string') {
+        try {
+          normalizedPostMetadata = JSON.parse(postMetadata);
+        } catch (e) {
+          console.warn('[CreateStory] Failed to parse postMetadata string:', e.message);
+        }
+      }
+    }
+
     const storyData = {
       userId,
       userName: user?.displayName || user?.name || userName || 'Anonymous',
-      userAvatar: user?.avatar || user?.photoURL || null,
+      userAvatar: user?.avatar || user?.photoURL || user?.profilePicture || null,
       caption: caption || '',
-      locationData: locationData || null,
+      locationData: resolvedLocationData,
+      postMetadata: normalizedPostMetadata,
+      isPostShare: !!(isPostShare || normalizedPostMetadata?.postId),
+      visibility: visibility || 'Everyone',
+      allowedFollowers: Array.isArray(allowedFollowers) ? allowedFollowers : [],
+      isPrivate: isPrivate !== undefined ? !!isPrivate : (visibility && visibility !== 'Everyone'),
       createdAt: new Date(),
       expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000)
     };
@@ -168,7 +281,8 @@ router.post('/', verifyToken, async (req, res) => {
     const story = new Story(storyData);
     await story.save();
 
-    console.log('[POST /stories] Story created:', story._id, 'for user:', user?.displayName || userName);
+    console.log('[POST /stories] Story created:', story._id, 'for user:', user?.displayName || userName, 'postMetadata:', normalizedPostMetadata ? 'yes' : 'no', 'textOverlays:', normalizedPostMetadata?.textOverlays?.length ?? 0);
+    console.log('[POST /stories] Full postMetadata saved:', JSON.stringify(normalizedPostMetadata, null, 2));
 
     // BACKGROUND TRIGGER: Notify followers about new story
     (async () => {
@@ -208,57 +322,11 @@ router.post('/', verifyToken, async (req, res) => {
 });
 
 /**
- * GET /api/stories/user/:userId
- * Get active stories for a specific user
- */
-router.get('/user/:userId', async (req, res) => {
-  try {
-    const { userId } = req.params;
-    if (!userId) {
-      return res.status(400).json({ success: false, error: 'userId required' });
-    }
-
-    const now = new Date();
-    const stories = await Story.find({
-      userId: userId,
-      expiresAt: { $gt: now }
-    }).sort({ createdAt: 1 }).lean();
-
-    // Fetch user data from database to enrich stories
-    const db = mongoose.connection.db;
-    const usersCollection = db.collection('users');
-    const user = await usersCollection.findOne({
-      $or: [
-        { firebaseUid: userId },
-        { uid: userId },
-        { _id: mongoose.Types.ObjectId.isValid(userId) ? new mongoose.Types.ObjectId(userId) : null }
-      ]
-    });
-
-    const enrichedStories = stories.map(story => ({
-      ...story,
-      id: String(story._id),
-      imageUrl: story.image || null,
-      videoUrl: story.video || null,
-      mediaUrl: story.image || story.video || null,
-      mediaType: story.video ? 'video' : 'image',
-      userName: user?.displayName || user?.name || story.userName || 'Anonymous',
-      userAvatar: user?.avatar || user?.photoURL || story.userAvatar || null,
-    }));
-
-    res.json({ success: true, data: enrichedStories });
-  } catch (err) {
-    console.error('[GET /api/stories/user/:userId] Error:', err.message);
-    res.status(500).json({ success: false, error: err.message });
-  }
-});
-
-/**
  * GET /api/stories/:storyId
  * Get a single story by ID
  * Returns story data enriched with user info, or expired flag if unavailable
  */
-router.get('/:storyId', async (req, res) => {
+router.get('/:storyId', optionalAuth, async (req, res) => {
   try {
     const { storyId } = req.params;
 
@@ -286,6 +354,35 @@ router.get('/:storyId', async (req, res) => {
           userAvatar: storyObj.userAvatar,
         }
       });
+    }
+
+    // Verify requester visibility access to story
+    const requesterUserId = req.userId || null;
+    let hasAccess = false;
+
+    if (!story.isPrivate || ['Everyone', 'everyone', null, undefined].includes(story.visibility)) {
+      hasAccess = true;
+    } else if (requesterUserId) {
+      const { resolveUserIdentifiers } = require('../src/utils/userUtils');
+      const requester = await resolveUserIdentifiers(requesterUserId);
+      const viewerVariants = requester.candidates.map(id => String(id));
+      
+      const isCreator = viewerVariants.includes(String(story.userId));
+      if (isCreator) {
+        hasAccess = true;
+      } else {
+        const Group = mongoose.model('Group');
+        const viewerGroups = await Group.find({ members: { $in: viewerVariants } }).lean();
+        const viewerGroupIds = viewerGroups.map(g => String(g._id));
+        
+        hasAccess = story.allowedFollowers.some(id => 
+          viewerVariants.includes(String(id)) || viewerGroupIds.includes(String(id))
+        );
+      }
+    }
+
+    if (!hasAccess) {
+      return res.status(403).json({ success: false, error: 'Unauthorized to view this story' });
     }
 
     // Enrich with user data
@@ -338,8 +435,14 @@ router.delete('/:storyId', verifyToken, async (req, res) => {
     }
 
     // Verify ownership (if userId provided)
-    if (userId && story.userId !== userId) {
-      return res.status(403).json({ success: false, error: 'Not authorized to delete this story' });
+    if (userId) {
+      const { resolveUserIdentifiers } = require('../src/utils/userUtils');
+      const { candidates: userCandidates } = await resolveUserIdentifiers(userId);
+      const userCandidateStrings = userCandidates.map(String);
+      
+      if (!userCandidateStrings.includes(String(story.userId))) {
+        return res.status(403).json({ success: false, error: 'Not authorized to delete this story' });
+      }
     }
 
     // Delete the story
@@ -458,7 +561,7 @@ router.post('/:storyId/comments', verifyToken, async (req, res) => {
     const comment = {
       _id: new mongoose.Types.ObjectId(),
       userId,
-      userName: user?.displayName || user?.name || userName || 'Anonymous',
+      userName: user?.displayName || user?.name || user?.username || userName || 'Anonymous',
       userAvatar: user?.avatar || user?.photoURL || null,
       text,
       createdAt: new Date()
@@ -515,6 +618,135 @@ router.get('/:storyId/comments', async (req, res) => {
   } catch (err) {
     console.error('[GET /stories/:storyId/comments] Error:', err.message);
     res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+
+/**
+ * DELETE /api/stories/:storyId/comments/:commentId
+ * Delete a comment from a story (owner of comment OR story owner)
+ */
+router.delete('/:storyId/comments/:commentId', verifyToken, async (req, res) => {
+  try {
+    const { storyId, commentId } = req.params;
+    const userId = req.userId; // authenticated user's MongoDB _id
+
+    if (!mongoose.Types.ObjectId.isValid(storyId) || !mongoose.Types.ObjectId.isValid(commentId)) {
+      return res.status(400).json({ success: false, error: 'Invalid storyId or commentId' });
+    }
+
+    const story = await Story.findById(storyId);
+    if (!story) {
+      return res.status(404).json({ success: false, error: 'Story not found' });
+    }
+
+    // Build the full candidates list for the authenticated user
+    const { resolveUserIdentifiers } = require('../src/utils/userUtils');
+    const { candidates: userCandidates } = await resolveUserIdentifiers(userId);
+    const userCandidateStrings = userCandidates.map(String);
+
+    // Find the target comment
+    const commentIndex = (story.comments || []).findIndex(
+      c => String(c._id) === commentId
+    );
+
+    if (commentIndex === -1) {
+      return res.status(404).json({ success: false, error: 'Comment not found' });
+    }
+
+    const comment = story.comments[commentIndex];
+
+    // Authorization: comment owner OR story owner
+    const isCommentOwner = userCandidateStrings.includes(String(comment.userId));
+    const isStoryOwner   = userCandidateStrings.includes(String(story.userId));
+
+    if (!isCommentOwner && !isStoryOwner) {
+      return res.status(403).json({ success: false, error: 'Not authorized to delete this comment' });
+    }
+
+    story.comments.splice(commentIndex, 1);
+    await story.save();
+
+    console.log(`[DELETE /stories/${storyId}/comments/${commentId}] Comment deleted by user: ${userId}`);
+    res.json({ success: true, message: 'Comment deleted successfully', data: story.comments });
+  } catch (err) {
+    console.error('[DELETE /stories/:storyId/comments/:commentId] Error:', err.message);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+/**
+ * PATCH /api/stories/:storyId/comments/:commentId
+ * Edit a comment on a story (comment owner only)
+ */
+router.patch('/:storyId/comments/:commentId', verifyToken, async (req, res) => {
+  try {
+    const { storyId, commentId } = req.params;
+    const { text } = req.body;
+    const userId = req.userId;
+
+    if (!text || !text.trim()) {
+      return res.status(400).json({ success: false, error: 'text is required' });
+    }
+
+    if (!mongoose.Types.ObjectId.isValid(storyId) || !mongoose.Types.ObjectId.isValid(commentId)) {
+      return res.status(400).json({ success: false, error: 'Invalid storyId or commentId' });
+    }
+
+    const story = await Story.findById(storyId);
+    if (!story) {
+      return res.status(404).json({ success: false, error: 'Story not found' });
+    }
+
+    const { resolveUserIdentifiers } = require('../src/utils/userUtils');
+    const { candidates: userCandidates } = await resolveUserIdentifiers(userId);
+    const userCandidateStrings = userCandidates.map(String);
+
+    const comment = (story.comments || []).find(c => String(c._id) === commentId);
+    if (!comment) {
+      return res.status(404).json({ success: false, error: 'Comment not found' });
+    }
+
+    // Only comment owner can edit
+    if (!userCandidateStrings.includes(String(comment.userId))) {
+      return res.status(403).json({ success: false, error: 'Not authorized to edit this comment' });
+    }
+
+    // Use positional $set operator — reliable for nested array mutations without markModified
+    const editedAt = new Date();
+    await Story.updateOne(
+      { _id: storyId, 'comments._id': new mongoose.Types.ObjectId(commentId) },
+      { $set: { 'comments.$.text': text.trim(), 'comments.$.editedAt': editedAt } }
+    );
+
+    console.log(`[PATCH /stories/${storyId}/comments/${commentId}] Comment edited by user: ${userId}`);
+    res.json({ success: true, message: 'Comment updated successfully', data: { ...comment.toObject(), text: text.trim(), editedAt } });
+  } catch (err) {
+    console.error('[PATCH /stories/:storyId/comments/:commentId] Error:', err.message);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+/**
+ * GET /api/stories/user/:userId
+ * Get active stories for a specific user
+ */
+router.get('/user/:userId', optionalAuth, async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const Story = mongoose.model('Story');
+    const { resolveUserIdentifiers } = require('../src/utils/userUtils');
+    const { candidates } = await resolveUserIdentifiers(userId);
+
+    const stories = await Story.find({
+      userId: { $in: candidates.map(String) },
+      expiresAt: { $gt: new Date() }
+    }).sort({ createdAt: -1 });
+
+    res.json({ success: true, data: stories });
+  } catch (err) {
+    console.error('[GET /stories/user/:userId] Error:', err.message);
+    res.status(500).json({ success: false, error: 'Operation failed' });
   }
 });
 

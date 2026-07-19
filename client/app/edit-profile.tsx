@@ -2,7 +2,7 @@ import { DEFAULT_AVATAR_URL } from '../lib/api';
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@/lib/storage';
 import { useRouter, useLocalSearchParams } from 'expo-router';
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import { ActivityIndicator, Alert, Image, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Switch, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -13,6 +13,7 @@ import { useAuthLoading } from '@/src/_components/UserContext';
 import { hapticLight, hapticMedium, hapticSuccess } from '../lib/haptics';
 import { useAppDialog } from '@/src/_components/AppDialogProvider';
 import { safeRouterBack } from '@/lib/safeRouterBack';
+import { useQueryClient } from '@tanstack/react-query';
 
 // Runtime import with fallback
 let ImagePicker: any = null;
@@ -40,9 +41,11 @@ export default function EditProfile() {
     // Default avatar from Firebase Storage
     
   const router = useRouter();
+  const queryClient = useQueryClient();
   const params = useLocalSearchParams();
   const { showSuccess } = useAppDialog();
   const [userId, setUserId] = useState<string | null>(null);
+  const [loggingOut, setLoggingOut] = useState(false);
   const authLoading = useAuthLoading();
   
   // Get current user ID from AsyncStorage (token-based auth)
@@ -66,28 +69,21 @@ export default function EditProfile() {
   const [bio, setBio] = useState('');
   const [website, setWebsite] = useState('');
   const [location, setLocation] = useState('');
-  const [phone, setPhone] = useState('');
-  const [interests, setInterests] = useState('');
   const [avatar, setAvatar] = useState('');
   const [newAvatarUri, setNewAvatarUri] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isPrivate, setIsPrivate] = useState(false);
+  const [interests, setInterests] = useState('');
 
   // Parse comma-separated interests string into an array
-  const selectedInterests = React.useMemo(() => {
+  const selectedInterests = useMemo(() => {
     if (typeof interests === 'string' && interests.trim()) {
-      return interests.split(',').map(s => s.trim()).filter(Boolean);
+      return interests.split(/[\s,]+/).map(s => s.trim()).filter(Boolean);
     }
     return [];
   }, [interests]);
-
-  // Dynamically include any custom/legacy interests the user already has saved
-  const displayedCategories = React.useMemo(() => {
-    const custom = selectedInterests.filter(c => !PRESET_CATEGORIES.includes(c));
-    return [...PRESET_CATEGORIES, ...custom];
-  }, [selectedInterests]);
 
   // Toggle category selection
   const handleToggleInterest = (category: string) => {
@@ -151,19 +147,9 @@ export default function EditProfile() {
         setBio(result.data.bio || '');
         setWebsite(result.data.website || '');
         setLocation((result.data as any).location || '');
-        setPhone((result.data as any).phone || '');
-        let rawInt = (result.data as any).interests || '';
-        if (typeof rawInt === 'string' && rawInt.trim()) {
-          let parts = rawInt.split(',').map(s => s.trim()).filter(Boolean);
-          if (parts.includes('Stand') || parts.includes('Up')) {
-            parts = parts.filter(p => p !== 'Stand' && p !== 'Up');
-            parts.push('Stand Up');
-          }
-          rawInt = Array.from(new Set(parts)).join(', ');
-        }
-        setInterests(rawInt);
         setAvatar(result.data.avatar || '');
         setIsPrivate(!!(result.data as any).isPrivate);
+        setInterests((result.data as any).interests || '');
         setError(null);
       } else {
         console.warn('âš ï¸ Profile fetch returned no data - using empty form');
@@ -214,8 +200,6 @@ export default function EditProfile() {
     console.log('  Bio:', bio);
     console.log('  Website:', website);
     console.log('  Location:', location);
-    console.log('  Phone:', phone);
-    console.log('  Interests:', interests);
     console.log('  IsPrivate:', isPrivate);
     console.log('  New Avatar URI:', newAvatarUri ? 'Yes' : 'No');
     
@@ -246,17 +230,24 @@ export default function EditProfile() {
         bio,
         website,
         location,
-        phone,
-        interests,
         avatar: finalAvatar,
         photoURL: finalAvatar, // Also set photoURL
         isPrivate,
+        interests,
         updatedAt: new Date().toISOString(),
       });
       
       if (result && result.success) {
         hapticSuccess();
         console.log('✅ Profile updated');
+        
+        // Invalidate profile query caches to automatically refresh profile details in UI
+        queryClient.invalidateQueries({ queryKey: ['profile', userId] });
+        queryClient.invalidateQueries({ queryKey: ['profilePosts', userId] });
+        queryClient.invalidateQueries({ queryKey: ['profileSavedPosts', userId] });
+        queryClient.invalidateQueries({ queryKey: ['profileSections', userId] });
+        queryClient.invalidateQueries({ queryKey: ['profileTaggedPosts', userId] });
+        queryClient.invalidateQueries({ queryKey: ['profileHighlights', userId] });
         
         // If privacy setting changed, TODO: implement backend API to update all user's posts
         console.log('🔄 Updating posts privacy to:', isPrivate);
@@ -337,7 +328,7 @@ export default function EditProfile() {
     <SafeAreaView style={styles.safe} edges={["top", "bottom"]}>
       <KeyboardAvoidingView
         style={{ flex: 1 }}
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
       >
         {/* Header */}
@@ -425,21 +416,9 @@ export default function EditProfile() {
           </View>
 
           <View style={styles.formGroup}>
-            <Text style={styles.fieldLabel}>Phone</Text>
-            <TextInput
-              value={phone}
-              onChangeText={setPhone}
-              style={styles.input}
-              placeholder="+1 (555) 123-4567"
-              placeholderTextColor="#999"
-              keyboardType="phone-pad"
-            />
-          </View>
-
-          <View style={styles.formGroup}>
-            <Text style={styles.fieldLabel}>Interests (Choose up to 3)</Text>
+            <Text style={styles.fieldLabel}>Tags (Choose up to 3)</Text>
             <View style={styles.chipsContainer}>
-              {displayedCategories.map((category) => {
+              {PRESET_CATEGORIES.map((category) => {
                 const isSelected = selectedInterests.includes(category);
                 return (
                   <TouchableOpacity
@@ -464,6 +443,7 @@ export default function EditProfile() {
               })}
             </View>
           </View>
+
 
           {/* Privacy Toggle (temporarily disabled)
           <View style={styles.privacySection}>
@@ -495,14 +475,21 @@ export default function EditProfile() {
         {/* Bottom Buttons */}
         <View style={styles.bottomBar}>
           <TouchableOpacity
-            style={styles.logoutBtn}
+            style={[styles.logoutBtn, loggingOut && { opacity: 0.5 }]}
+            disabled={loggingOut}
             onPress={async () => {
+              if (loggingOut) return;
+              setLoggingOut(true);
               hapticLight();
               Alert.alert(
                 'Log Out',
                 'Are you sure you want to log out?',
                 [
-                  { text: 'Cancel', style: 'cancel' },
+                  { 
+                    text: 'Cancel', 
+                    style: 'cancel',
+                    onPress: () => setLoggingOut(false)
+                  },
                   {
                     text: 'Log Out',
                     style: 'destructive',
@@ -525,12 +512,14 @@ export default function EditProfile() {
                             }
                           }, 100);
                         } else {
-                          console.error('âŒ [Logout] Failed:', result);
+                          console.error('❌ [Logout] Failed:', result);
                           Alert.alert('Error', 'Failed to log out');
+                          setLoggingOut(false);
                         }
                       } catch (err: any) {
-                        console.error('âŒ [Logout] Exception:', err);
+                        console.error('❌ [Logout] Exception:', err);
                         Alert.alert('Error', 'Failed to log out');
+                        setLoggingOut(false);
                       }
                     }
                   }
@@ -731,8 +720,8 @@ const styles = StyleSheet.create({
     borderColor: '#e5e5ea',
   },
   categoryChipSelected: {
-    backgroundColor: '#00a2ff',
-    borderColor: '#00a2ff',
+    backgroundColor: '#FF8D00',
+    borderColor: '#FF8D00',
   },
   categoryChipText: {
     fontSize: 13,

@@ -888,114 +888,48 @@ router.get('/:userId/tagged-posts', optionalAuth, async (req, res) => {
   }
 });
 
-// GET /api/users/:userId/sections - Get user sections (with privacy check)
-router.get('/:userId/sections', async (req, res) => {
+// GET /api/users/:userId/liked-posts - Get posts/reels liked by user
+router.get('/:userId/liked-posts', optionalAuth, async (req, res) => {
   try {
     const { userId } = req.params;
-    const { requesterUserId } = req.query;
+    const {
+      skip: skipRaw,
+      limit: limitRaw,
+    } = req.query;
 
-    const Section = mongoose.model('Section');
-    const User = mongoose.model('User');
-    const Follow = mongoose.model('Follow');
+    const requesterUserId = req.userId || null;
+    const skip = Number.isFinite(Number(skipRaw)) ? Math.max(0, Number(skipRaw)) : 0;
+    const limit = Number.isFinite(Number(limitRaw)) ? Math.min(100, Math.max(1, Number(limitRaw))) : 30;
 
-    // Resolve the user document (handle both Firebase UID and MongoDB _id)
-    const targetUser = await User.findOne({
-      $or: [
-        { firebaseUid: userId },
-        { uid: userId },
-        { _id: mongoose.Types.ObjectId.isValid(userId) ? new mongoose.Types.ObjectId(userId) : null }
-      ]
-    }).lean();
+    const target = await resolveUserIdentifiers(userId);
+    const query = {
+      likes: { $in: target.candidates.map(String) }
+    };
 
-    // All possible userId strings stored in sections for this user
-    const userIdVariants = [userId];
-    if (targetUser) {
-      if (targetUser.firebaseUid) userIdVariants.push(String(targetUser.firebaseUid));
-      if (targetUser._id) userIdVariants.push(String(targetUser._id));
-      if (targetUser.uid) userIdVariants.push(String(targetUser.uid));
-    }
-    const uniqueVariants = [...new Set(userIdVariants)];
+    const enriched = await postService.getEnrichedPosts(query, {
+      skip,
+      limit,
+      viewerId: requesterUserId
+    });
 
-    // If user is private, check access permission
-    if (targetUser?.isPrivate) {
-      const requester = requesterUserId ? await resolveUserIdentifiers(requesterUserId) : null;
-      const target = await resolveUserIdentifiers(userId);
+    const normalized = (Array.isArray(enriched) ? enriched : []).map((p) => {
+      const id = p._id ? String(p._id) : (p.id ? String(p.id) : undefined);
+      return {
+        ...p,
+        id,
+        _id: p._id,
+        isLiked: true,
+      };
+    });
 
-      if (requester) {
-        const isSelf = requester.canonicalId === target.canonicalId;
-        if (!isSelf) {
-          const follows = await Follow.findOne({
-            followerId: { $in: requester.candidates },
-            followingId: { $in: target.candidates }
-          });
-          if (!follows) return res.json({ success: true, data: [] });
-        }
-      } else {
-        return res.json({ success: true, data: [] });
-      }
-    }
-
-    const queryVariants = [...uniqueVariants];
-    if (targetUser && targetUser._id) {
-      queryVariants.push(targetUser._id);
-    }
-
-    const collaboratorStringVariants = queryVariants.map(v => String(v));
-    const collaboratorObjectIdVariants = collaboratorStringVariants
-      .filter(id => mongoose.Types.ObjectId.isValid(id))
-      .map(id => new mongoose.Types.ObjectId(id));
-
-    // Query sections using all known userId variants and collaborators
-    const sections = await Section
-      .find({ 
-        $or: [
-          { userId: { $in: uniqueVariants } },
-          { collaborators: { $in: queryVariants } },
-          { collaborators: { $in: collaboratorStringVariants } },
-          { collaborators: { $in: collaboratorObjectIdVariants } },
-          { 'collaborators.userId': { $in: collaboratorStringVariants } },
-          { 'collaborators.userId': { $in: collaboratorObjectIdVariants } }
-        ]
-      })
-      .sort({ order: 1, createdAt: 1 })
-      .lean();
-
-    // Populate collaborators with basic user info (same logic as sections.js)
-    const populatedSections = await Promise.all(sections.map(async (section) => {
-      const s = section;
-      if (s.collaborators && s.collaborators.length > 0) {
-        const collabIds = s.collaborators
-          .map(entry => {
-            if (entry && typeof entry === 'object') {
-              return String(entry.userId || entry._id || entry.id || entry.uid || entry.firebaseUid || '');
-            }
-            return String(entry || '');
-          })
-          .filter(Boolean);
-        const collabUsers = await User.find({ 
-          $or: [
-            { _id: { $in: collabIds.filter(id => mongoose.Types.ObjectId.isValid(id)).map(id => new mongoose.Types.ObjectId(id)) } },
-            { uid: { $in: collabIds } },
-            { firebaseUid: { $in: collabIds } }
-          ]
-        }, 'name displayName username avatar uid firebaseUid _id').lean();
-
-        s.collaborators = s.collaborators.map(entry => {
-          const idStr = entry && typeof entry === 'object'
-            ? String(entry.userId || entry._id || entry.id || entry.uid || entry.firebaseUid || '')
-            : String(entry || '');
-          const u = collabUsers.find(user => String(user._id) === idStr || user.uid === idStr || user.firebaseUid === idStr);
-          return u ? { ...u, id: String(u._id), _id: String(u._id) } : entry;
-        });
-      }
-      return s;
-    }));
-
-    res.json({ success: true, data: populatedSections || [] });
+    res.json({ success: true, data: normalized });
   } catch (err) {
+    console.error('[GET /:userId/liked-posts] Error:', err.message);
     res.status(500).json({ success: false, error: err.message, data: [] });
   }
 });
+
+
 
 // GET /api/users/:userId/highlights - Get user highlights (with privacy check)
 router.get('/:userId/highlights', async (req, res) => {
@@ -1780,6 +1714,17 @@ router.put('/:userId/push-token', async (req, res) => {
   }
 });
 
+// Helper to lazy-load Firebase Admin SDK for user deletion
+function getFirebaseAdmin() {
+  try {
+    const admin = require('firebase-admin');
+    if (!admin.apps.length) return null;
+    return admin;
+  } catch {
+    return null;
+  }
+}
+
 // DELETE /api/users/:userId - Delete user account
 router.delete('/:userId', async (req, res) => {
   try {
@@ -1790,6 +1735,10 @@ router.delete('/:userId', async (req, res) => {
     const Comment = mongoose.model('Comment');
     const Follow = mongoose.model('Follow');
     const Passport = mongoose.model('Passport');
+    const Story = mongoose.model('Story');
+    const SavedPost = mongoose.models.SavedPost || mongoose.model('SavedPost');
+    const Highlight = mongoose.model('Highlight');
+    const Section = mongoose.model('Section');
 
     const query = {
       $or: [
@@ -1805,15 +1754,46 @@ router.delete('/:userId', async (req, res) => {
     }
 
     const userCandidates = await resolveUserIdentifiers(userId);
-    const candidateStrings = userCandidates.candidates.map(String);
+    const candidateStrings = [...new Set([
+      ...userCandidates.candidates.map(String),
+      String(user._id),
+      user.firebaseUid,
+      user.uid,
+      userId
+    ].filter(Boolean).map(String))];
 
-    // Delete associated data
+    // Delete associated authentication record in Firebase Auth
+    const firebaseUid = user.firebaseUid || user.uid;
+    if (firebaseUid) {
+      const admin = getFirebaseAdmin();
+      if (admin) {
+        try {
+          await admin.auth().deleteUser(firebaseUid);
+          console.log('[DELETE /users/:userId] Successfully deleted user from Firebase Auth:', firebaseUid);
+        } catch (authErr) {
+          console.error('[DELETE /users/:userId] Firebase Auth deletion warning:', authErr.message);
+        }
+      }
+    }
+
+    // Delete associated data across all models
     await Promise.all([
       Post.deleteMany({ userId: { $in: candidateStrings } }),
       Comment.deleteMany({ userId: { $in: candidateStrings } }),
       Follow.deleteMany({ followerId: { $in: candidateStrings } }),
       Follow.deleteMany({ followingId: { $in: candidateStrings } }),
-      Passport.deleteMany({ userId: { $in: candidateStrings } })
+      Passport.deleteMany({ userId: { $in: candidateStrings } }),
+      Story.deleteMany({ userId: { $in: candidateStrings } }),
+      SavedPost ? SavedPost.deleteMany({ userId: { $in: candidateStrings } }) : Promise.resolve(),
+      Highlight.deleteMany({ userId: { $in: candidateStrings } }),
+      Section.deleteMany({ userId: { $in: candidateStrings } }),
+      Post.updateMany({}, {
+        $pull: {
+          taggedUserIds: { $in: candidateStrings },
+          likes: { $in: candidateStrings },
+          savedBy: { $in: candidateStrings }
+        }
+      })
     ]);
 
     // Finally delete the user

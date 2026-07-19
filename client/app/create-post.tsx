@@ -58,7 +58,7 @@ export default function CreatePostScreen() {
   const dummyPanHandlers = { onStartShouldSetResponder: () => true, onMoveShouldSetResponder: () => true };
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: '#fff' }} edges={["top", "bottom"]}>
+    <View style={{ flex: 1, backgroundColor: '#fff', paddingTop: insets.top || (Platform.OS === 'ios' ? 47 : 0), paddingBottom: insets.bottom || (Platform.OS === 'ios' ? 34 : 0) }}>
       {step === 'picker' ? (
         <MediaPicker
           assets={galleryAssets || []}
@@ -236,6 +236,6 @@ export default function CreatePostScreen() {
           <ActivityIndicator size="large" color="#0095f6" />
         </View>
       )}
-    </SafeAreaView>
+    </View>
   );
 }

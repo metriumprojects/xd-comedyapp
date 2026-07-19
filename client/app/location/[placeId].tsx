@@ -9,6 +9,8 @@ import NotificationsModal from '@/src/_components/NotificationsModal';
 import StoriesViewer from '@/src/_components/StoriesViewer';
 import VerifiedBadge from '@/src/_components/VerifiedBadge';
 import { apiService } from '@/src/_services/apiService';
+import PostViewerModal from '@/src/_components/PostViewerModal';
+import { getVideoThumbnailUrl } from '@/lib/imageHelpers';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { feedEventEmitter } from '../../lib/feedEventEmitter';
 import { hapticLight } from '../../lib/haptics';
@@ -139,6 +141,10 @@ export default function LocationDetailsScreen() {
   const [showScrollTop, setShowScrollTop] = useState(false);
   const flatListRef = React.useRef<FlatList>(null);
 
+  // Post viewer state
+  const [postViewerVisible, setPostViewerVisible] = useState<boolean>(false);
+  const [selectedPostIndex, setSelectedPostIndex] = useState<number>(0);
+
   // --- NEW: PAGINATION & SKELETON STATES ---
   const [page, setPage] = useState(0);
   const [hasMore, setHasMore] = useState(true);
@@ -163,16 +169,80 @@ export default function LocationDetailsScreen() {
     return url.replace('/upload/', `/upload/w_${width},c_limit,q_auto,f_auto/`);
   }, []);
 
-  const renderPostItem = React.useCallback(({ item }: { item: Post }) => (
-    <PostCard 
-      post={{
-        ...item,
-        imageUrl: getOptimizedUrl(item.imageUrl, 800)
-      }} 
-      currentUser={currentUser} 
-      showMenu={false} 
-    />
-  ), [currentUser, getOptimizedUrl]);
+  const formatCount = (num: number): string => {
+    if (!num) return '0';
+    if (num >= 1000000) return (num / 1000000).toFixed(1) + 'M';
+    if (num >= 1000) return (num / 1000).toFixed(1) + 'K';
+    return String(num);
+  };
+
+  const formatTimeAgo = (date: Date): string => {
+    const seconds = Math.floor((new Date().getTime() - date.getTime()) / 1000);
+    if (seconds < 60) return 'Just now';
+    const minutes = Math.floor(seconds / 60);
+    if (minutes < 60) return `${minutes}m ago`;
+    const hours = Math.floor(minutes / 60);
+    if (hours < 24) return `${hours}h ago`;
+    const days = Math.floor(hours / 24);
+    return `${days}d ago`;
+  };
+
+  const renderPostItem = React.useCallback(({ item, index }: { item: any; index: number }) => {
+    const mainMediaUrl = item.mediaUrl || item.imageUrl || (Array.isArray(item.media) ? item.media[0]?.url : '') || (Array.isArray(item.mediaUrls) ? item.mediaUrls[0] : '');
+    const isVideo = item.mediaType === 'video' || (mainMediaUrl && mainMediaUrl.includes('.mp4'));
+    const thumbUrl = item.thumbnailUrl || (isVideo ? getVideoThumbnailUrl(mainMediaUrl) : mainMediaUrl) || DEFAULT_AVATAR_URL;
+    const views = item.viewCount || item.views || 0;
+    const laughs = item.laughCount || item.laughs || 0;
+    const tomatoes = item.tomatoCount || item.tomatoes || 0;
+    const timeText = item.createdAt ? formatTimeAgo(new Date(item.createdAt)) : '1d ago';
+
+    return (
+      <TouchableOpacity
+        style={styles.gridCard}
+        onPress={() => {
+          setSelectedPostIndex(index);
+          setPostViewerVisible(true);
+        }}
+      >
+        <View style={styles.thumbnailContainer}>
+          <Image
+            source={{ uri: thumbUrl }}
+            style={styles.thumbnail}
+            resizeMode="cover"
+          />
+          {/* Stats Overlay */}
+          <View style={styles.statsOverlayRow}>
+            <View style={styles.statOverlayItem}>
+              <Feather name="play" size={10} color="#fff" style={{ marginRight: 2 }} />
+              <Text style={styles.statOverlayText}>{formatCount(views)}</Text>
+            </View>
+            <View style={{ flex: 1 }} />
+            <View style={[styles.statOverlayItem, { marginRight: 6 }]}>
+              <Text style={styles.statOverlayText}>{laughs} 😂</Text>
+            </View>
+            <View style={styles.statOverlayItem}>
+              <Text style={styles.statOverlayText}>{tomatoes} 🍅</Text>
+            </View>
+          </View>
+        </View>
+        <Text style={styles.gridCaption} numberOfLines={2}>
+          {item.caption || item.content || ''}
+        </Text>
+        <View style={styles.creatorRow}>
+          <Image
+            source={{ uri: item.userAvatar || item.creator?.avatar || DEFAULT_AVATAR_URL }}
+            style={styles.creatorAvatar}
+          />
+          <View style={styles.creatorInfo}>
+            <Text style={styles.creatorName} numberOfLines={1}>
+              {item.userName || item.creator?.displayName || 'Creator'}
+            </Text>
+            <Text style={styles.timeText}>{timeText}</Text>
+          </View>
+        </View>
+      </TouchableOpacity>
+    );
+  }, [allPosts]);
 
   // Premium Skeleton Component
   const LocationSkeleton = React.useCallback(() => (
@@ -977,7 +1047,10 @@ export default function LocationDetailsScreen() {
         </View>
       ) : (
         <FlatList
-          data={selectedSubLocation ? filteredPosts : allPosts}
+          key="location-posts-grid"
+          data={allPosts}
+          numColumns={2}
+          columnWrapperStyle={styles.gridColumnWrapper}
           scrollEventThrottle={16}
           onScroll={(e) => {
             const y = e.nativeEvent.contentOffset?.y ?? 0;
@@ -1020,117 +1093,11 @@ export default function LocationDetailsScreen() {
                     </Text>
                   </View>
                   <View style={[styles.locationRow, { marginTop: 6 }]}>
-                    <Ionicons name="people" size={16} color="#666" />
-                    <Text style={styles.visitsText}>{totalVisits} Visits</Text>
-                  </View>
-                  <View style={[styles.locationRow, { marginTop: 4 }]}>
-                    <Ionicons name="checkmark-circle" size={16} color="#666" />
-                    <Text style={styles.verifiedText}>{verifiedVisits || 137} Verified visits</Text>
+                    <Ionicons name="grid-outline" size={16} color="#666" style={{ marginRight: 6 }} />
+                    <Text style={styles.visitsText}>{allPosts.length} Posts</Text>
                   </View>
                 </View>
               </View>
-
-              {/* Stories/People Section */}
-              {stories.length > 0 && (
-                <View style={styles.storiesSection}>
-                  <Text style={styles.sectionTitle}>STORIES</Text>
-                  <ScrollView
-                    horizontal
-                    showsHorizontalScrollIndicator={false}
-                    contentContainerStyle={styles.storiesScroll}
-                  >
-                    {stories.map((story, index) => (
-                      <TouchableOpacity
-                        key={story.id || story._id || `story - ${index} `}
-                        style={styles.storyCard}
-                        onPress={() => onStoryPress && onStoryPress(stories, index)}
-                      >
-                        <Image
-                          source={{ uri: getOptimizedUrl(story.imageUrl || story.userAvatar || '', 200) }}
-                          style={styles.storyAvatar}
-                        />
-                        <Text style={styles.storyUserName} numberOfLines={1}>
-                          {(story.userName || 'user').toLowerCase()}
-                        </Text>
-                      </TouchableOpacity>
-                    ))}
-                  </ScrollView>
-                </View>
-              )}
-
-              {/* Sub Locations Section (PLACES) */}
-              {subLocations.length > 0 && (
-                <View style={styles.subLocationsSection}>
-                  <Text style={styles.sectionTitle}>{getSubLocationsTitle()}</Text>
-                  <ScrollView
-                    horizontal
-                    showsHorizontalScrollIndicator={false}
-                    contentContainerStyle={styles.subLocationsScroll}
-                  >
-                    {subLocations.map((subLoc) => (
-                      <TouchableOpacity
-                        key={subLoc.name}
-                        style={styles.subLocationCard}
-                        onPress={() => handleSubLocationFilter(subLoc.name)}
-                      >
-                        <Image
-                          source={{ uri: getOptimizedUrl(subLoc.thumbnail || 'https://via.placeholder.com/100', 200) }}
-                          style={[
-                            styles.subLocationImage,
-                            selectedSubLocation === subLoc.name && styles.subLocationImageSelected
-                          ]}
-                        />
-                        <Text 
-                          style={[
-                            styles.subLocationName,
-                            selectedSubLocation === subLoc.name && styles.subLocationNameSelected
-                          ]} 
-                          numberOfLines={2}
-                        >
-                          {subLoc.name}
-                        </Text>
-                      </TouchableOpacity>
-                    ))}
-                  </ScrollView>
-                </View>
-              )}
-
-              {/* Nested Specific Spots (e.g. MARYLEBONE) */}
-              {selectedSubLocation && subLocations.find(s => s.name === selectedSubLocation)?.spots?.length! > 0 && (
-                <View style={[styles.subLocationsSection, { borderBottomWidth: 0, paddingTop: 0 }]}>
-                  <Text style={[styles.sectionTitle, { textTransform: 'uppercase' }]}>{selectedSubLocation}</Text>
-                  <ScrollView
-                    horizontal
-                    showsHorizontalScrollIndicator={false}
-                    contentContainerStyle={styles.subLocationsScroll}
-                  >
-                    {subLocations.find(s => s.name === selectedSubLocation)?.spots?.map((spot) => (
-                      <TouchableOpacity
-                        key={spot.name}
-                        style={styles.subLocationCard}
-                        onPress={() => handleSpecificSpotFilter(spot.name)}
-                      >
-                        <Image
-                          source={{ uri: getOptimizedUrl(spot.thumbnail || 'https://via.placeholder.com/100', 200) }}
-                          style={[
-                            styles.subLocationImage,
-                            selectedSpecificSpot === spot.name && styles.subLocationImageSelected
-                          ]}
-                        />
-                        <Text 
-                          style={[
-                            styles.subLocationName,
-                            selectedSpecificSpot === spot.name && styles.subLocationNameSelected
-                          ]} 
-                          numberOfLines={2}
-                        >
-                          {spot.name}
-                        </Text>
-                      </TouchableOpacity>
-                    ))}
-                  </ScrollView>
-                </View>
-              )}
             </>
           }
           renderItem={renderPostItem}
@@ -1144,7 +1111,7 @@ export default function LocationDetailsScreen() {
           ListFooterComponent={() => (
             loadingMore ? (
               <View style={{ paddingVertical: 20 }}>
-                <ActivityIndicator size="small" color="#007AFF" />
+                <ActivityIndicator size="small" color="#FF8D00" />
               </View>
             ) : null
           )}
@@ -1191,6 +1158,16 @@ export default function LocationDetailsScreen() {
         visible={notificationsModalVisible}
         onClose={() => setNotificationsModalVisible(false)}
       />
+
+      {/* Full screen Post Viewer */}
+      {postViewerVisible && React.createElement(PostViewerModal as any, {
+        visible: postViewerVisible,
+        onClose: () => setPostViewerVisible(false),
+        posts: allPosts,
+        selectedPostIndex: selectedPostIndex,
+        authUser: viewerId ? { _id: viewerId, id: viewerId, uid: viewerId } : null,
+        title: "Location Posts",
+      })}
     </View>
   );
 }
@@ -1250,9 +1227,9 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff',
   },
   locationImage: {
-    width: 76,
-    height: 76,
-    borderRadius: 26,
+    width: 70,
+    height: 70,
+    borderRadius: 35,
     marginRight: 16,
     backgroundColor: '#f0f0f0',
   },
@@ -1384,5 +1361,78 @@ const styles = StyleSheet.create({
     zIndex: 999,
     borderWidth: 1,
     borderColor: 'rgba(0,0,0,0.1)',
+  },
+  gridColumnWrapper: {
+    justifyContent: 'space-between',
+    paddingHorizontal: 12,
+    paddingTop: 12,
+  },
+  gridCard: {
+    width: (width - 36) / 2,
+    marginBottom: 16,
+  },
+  thumbnailContainer: {
+    width: '100%',
+    height: 200,
+    borderRadius: 8,
+    overflow: 'hidden',
+    backgroundColor: '#f2f2f7',
+    position: 'relative',
+  },
+  thumbnail: {
+    width: '100%',
+    height: '100%',
+  },
+  statsOverlayRow: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0,0,0,0.4)',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+  },
+  statOverlayItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  statOverlayText: {
+    color: '#fff',
+    fontSize: 10,
+    fontWeight: '600',
+  },
+  gridCaption: {
+    fontSize: 13,
+    fontWeight: '500',
+    color: '#111',
+    marginTop: 6,
+    lineHeight: 17,
+  },
+  creatorRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 6,
+  },
+  creatorAvatar: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: '#f2f2f7',
+    marginRight: 8,
+  },
+  creatorInfo: {
+    flex: 1,
+  },
+  creatorName: {
+    fontSize: 12,
+    fontWeight: '400',
+    color: '#666',
+  },
+  timeText: {
+    fontSize: 10,
+    color: '#999',
+    marginTop: 1,
   },
 });

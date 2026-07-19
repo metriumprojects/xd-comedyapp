@@ -53,7 +53,7 @@ const User = require('../models/User');
  */
 router.post('/register-firebase', validate(registerFirebaseSchema), async (req, res) => {
   try {
-    const { idToken, firebaseUid: clientUid, email, displayName, avatar } = req.body;
+    const { idToken, firebaseUid: clientUid, email, displayName, avatar, username } = req.body;
 
     // SECURITY: Verify Firebase ID Token on backend
     let firebaseUid = clientUid;
@@ -96,6 +96,7 @@ router.post('/register-firebase', validate(registerFirebaseSchema), async (req, 
         email: email ? email.toLowerCase() : `${firebaseUid}@comedyapp.com`,
         displayName: displayName || (email ? email.split('@')[0] : 'User'),
         avatar: avatar || null,
+        username: username ? username.toLowerCase().trim() : undefined,
         followersCount: 0,
         followingCount: 0
       });
@@ -108,6 +109,9 @@ router.post('/register-firebase', validate(registerFirebaseSchema), async (req, 
       }
       if (!user.avatar && avatar) {
         user.avatar = avatar;
+      }
+      if (username && !user.username) {
+        user.username = username.toLowerCase().trim();
       }
       user.updatedAt = new Date();
       await user.save();
@@ -354,6 +358,23 @@ router.get('/username/check', async (req, res) => {
     res.json({ success: true, available: !existingUser });
   } catch (error) {
     logger.error('[Auth] Username check error: %O', error);
+    res.status(500).json({ success: false, error: 'Check failed' });
+  }
+});
+
+/**
+ * GET /api/auth/email/check
+ * Check if an email is available
+ */
+router.get('/email/check', async (req, res) => {
+  try {
+    const { email } = req.query;
+    if (!email) return res.status(400).json({ success: false, error: 'Email is required' });
+
+    const existingUser = await User.findOne({ email: email.toLowerCase().trim() });
+    res.json({ success: true, available: !existingUser });
+  } catch (error) {
+    logger.error('[Auth] Email check error: %O', error);
     res.status(500).json({ success: false, error: 'Check failed' });
   }
 });

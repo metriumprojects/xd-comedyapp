@@ -98,8 +98,8 @@ export default function TabsLayout() {
   const insets = useSafeAreaInsets();
   const segments = useSegments();
   const isProfileScreen = segments[segments.length - 1] === 'profile';
-  const currentHeaderHeight = isProfileScreen ? (isSmallDevice ? 34 : 38) : TOP_MENU_HEIGHT;
-  const currentSafeTop = isProfileScreen ? (insets.top || 8) : Math.max(insets.top, 12);
+  const currentHeaderHeight = TOP_MENU_HEIGHT;
+  const currentSafeTop = Math.max(insets.top, 12);
   const totalHeaderHeight = currentHeaderHeight + currentSafeTop;
 
   /** Standard-height bottom bar (content ~56pt) + safe inset; sync with floating UI `bottom`. */
@@ -744,8 +744,8 @@ function TopMenu({ setMenuVisible, setGroupsDrawerVisible }: { setMenuVisible: (
 
   return (
     <View style={[styles.topMenu, {
-      paddingTop: isProfileScreen ? (insets.top || 8) : Math.max(insets.top, 12),
-      height: (isProfileScreen ? (isSmallDevice ? 34 : 38) : (isSmallDevice ? 50 : 56)) + (isProfileScreen ? (insets.top || 8) : Math.max(insets.top, 12))
+      paddingTop: Math.max(insets.top, 12),
+      height: (isSmallDevice ? 50 : 56) + Math.max(insets.top, 12)
     }]}>
       <View style={{ flexDirection: 'row', alignItems: 'center', minWidth: 150, marginRight: 8 }}>
         {isProfileScreen ? null : (
@@ -768,31 +768,24 @@ function TopMenu({ setMenuVisible, setGroupsDrawerVisible }: { setMenuVisible: (
           </TouchableOpacity>
         )}
       </View>
-      {isProfileScreen ? (
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-          <TouchableOpacity style={styles.topBtn} onPress={() => { logAnalyticsEvent('open_groups_drawer'); setGroupsDrawerVisible(true); }}>
-            <Feather name="users" size={20} color="#000" />
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.topBtn} onPress={async () => { logAnalyticsEvent('open_notifications'); setNotificationsModalVisible(true); try { await markAllAsRead(); await fetchNotifications({ force: true }); } catch { } }}>
-            <Feather name="bell" size={20} color="#000" />
-            {renderCountBadge(unreadCount, '#ff3b30', isSmallDevice ? -4 : -6, isSmallDevice ? -4 : -6)}
-          </TouchableOpacity>
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+        <TouchableOpacity style={styles.topBtn} onPress={() => { logAnalyticsEvent('open_groups_drawer'); setGroupsDrawerVisible(true); }}>
+          <Feather name="users" size={20} color="#000" />
+        </TouchableOpacity>
+        <TouchableOpacity style={styles.topBtn} onPress={async () => { logAnalyticsEvent('open_notifications'); setNotificationsModalVisible(true); try { await markAllAsRead(); await fetchNotifications({ force: true }); } catch { } }}>
+          <Feather name="bell" size={20} color="#000" />
+          {renderCountBadge(unreadCount, '#ff3b30', isSmallDevice ? -4 : -6, isSmallDevice ? -4 : -6)}
+        </TouchableOpacity>
+        <TouchableOpacity style={styles.topBtn} onPress={() => { logAnalyticsEvent('open_inbox'); router.push('/inbox' as any); }}>
+          <Feather name="message-square" size={20} color="#000" />
+          {renderCountBadge(unreadMsg, '#FF8D00', isSmallDevice ? -4 : -6, isSmallDevice ? -4 : -6)}
+        </TouchableOpacity>
+        {isProfileScreen && (
           <TouchableOpacity style={[styles.topBtn, { zIndex: 101 }]} onPress={() => { logAnalyticsEvent('open_menu'); setMenuVisible(true); }}>
             <Feather name="more-vertical" size={20} color="#000" />
           </TouchableOpacity>
-        </View>
-      ) : (
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-          <TouchableOpacity style={styles.topBtn} onPress={async () => { logAnalyticsEvent('open_notifications'); setNotificationsModalVisible(true); try { await markAllAsRead(); await fetchNotifications({ force: true }); } catch { } }}>
-            <Feather name="bell" size={20} color="#000" />
-            {renderCountBadge(unreadCount, '#ff3b30', -4, -4)}
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.topBtn} onPress={() => { logAnalyticsEvent('open_inbox'); router.push('/inbox' as any); }}>
-            <Feather name="message-square" size={20} color="#000" />
-            {renderCountBadge(unreadMsg, '#FF8D00', -4, -4)}
-          </TouchableOpacity>
-        </View>
-      )}
+        )}
+      </View>
 
       {/* Notifications Modal */}
       <NotificationsModal

@@ -9,16 +9,16 @@ import { Audio } from 'expo-av';
 import AsyncStorage from '@/lib/storage';
 import * as FileSystem from 'expo-file-system';
 import {
-  addNotification,
-  deleteMessage,
-  editMessage,
-  fetchMessages,
-  getOrCreateConversation,
-  getUserProfile,
-  markConversationAsRead,
-  reactToMessage,
-  sendMessage,
-  clearConversation,
+    addNotification,
+    deleteMessage,
+    editMessage,
+    fetchMessages,
+    getOrCreateConversation,
+    getUserProfile,
+    markConversationAsRead,
+    reactToMessage,
+    sendMessage,
+    clearConversation,
 } from '../lib/firebaseHelpers/index';
 import { safeRouterBack } from '@/lib/safeRouterBack';
 import {
@@ -43,7 +43,7 @@ import { useDMMedia } from '../hooks/useDMMedia';
 import { normalizeMediaUrl, normalizeAvatarUrl } from '../lib/utils/media';
 import { toDate, getRelativeTime } from '../lib/utils/date';
 import { OfflineBanner } from '@/src/_components/OfflineBanner';
-import {
+import { 
   subscribeToMessages as socketSubscribeToMessages,
   initializeSocket,
   sendTypingIndicator,
@@ -73,19 +73,19 @@ function useUserProfile(uid: string | null) {
 }
 
 // Missing exports from messaging helpers that were used in dm.tsx
-import {
-  uploadMedia,
+import { 
+  uploadMedia, 
   sendMediaMessage as sendMediaMessageApi,
-  extensionFromFileUri
+  extensionFromFileUri 
 } from '../lib/firebaseHelpers/messages';
 
-import {
+import { 
   subscribeToUserStatus as socketSubscribeToUserStatus,
   requestUserStatus
 } from '../src/_services/socketService';
 
 const subscribeToUserPresence = (uid: string, callback: (presence: any) => void) => {
-  if (!uid) return () => { };
+  if (!uid) return () => {};
   requestUserStatus(uid);
   return socketSubscribeToUserStatus((data) => {
     if (String(data.userId) === String(uid)) {
@@ -97,7 +97,7 @@ const subscribeToUserPresence = (uid: string, callback: (presence: any) => void)
 // --- Sub-components ---
 const ChatItem = React.memo(({ item, currentUserId, displayName, avatarUri, activeSoundId, formatTime, onReaction, onLongPress, onPressPost, onPressStory, onPressImage, onPressShare, onPlayStart }: any) => {
   if (item.type === 'date') return <View style={styles.dateWrap}><Text style={styles.dateText}>{item.date}</Text></View>;
-
+  
   return (
     <MessageBubble
       {...item}
@@ -134,7 +134,7 @@ export default function DM() {
     ? (rawParamConversationId[0] as string) || null
     : (typeof rawParamConversationId === 'string' ? rawParamConversationId : null);
   const isGroupParam = String((params as any)?.isGroup || '') === '1';
-
+  
   const otherUserId: string | null = (() => {
     const raw = (params.otherUserId ?? params.id) as unknown;
     if (Array.isArray(raw)) return (raw[0] as string) || null;
@@ -151,15 +151,15 @@ export default function DM() {
   const [currentUserId, setCurrentUserId] = useState<string | null>(storeUserId);
 
   useEffect(() => {
-    if (storeUserId) {
+    if (!currentUserId && storeUserId) {
       setCurrentUserId(storeUserId);
-    } else {
+    } else if (!currentUserId) {
       // Emergency recovery from storage
       AsyncStorage.getItem('userId').then(id => {
         if (id) setCurrentUserId(id);
       });
     }
-  }, [storeUserId]);
+  }, [storeUserId, currentUserId]);
   const flatListRef = useRef<FlatList>(null);
 
   const {
@@ -171,31 +171,25 @@ export default function DM() {
     isOtherTyping,
     conversationMeta,
     loadMore,
-    clearMessages,
     setMessages,
     setLoading,
     isNearBottomRef
   } = useDM(paramConversationId || null, otherUserId, currentUserId, (msg) => {
     // Only scroll if it's from the other person or if we are near bottom
     if (msg.senderId !== currentUserId) {
-      setTimeout(() => {
-        try {
-          flatListRef.current?.scrollToOffset({ offset: 0, animated: true });
-        } catch (e) {
-          console.warn('[DM] scrollToOffset failed:', e);
-        }
-      }, 100);
+       flatListRef.current?.scrollToOffset({ offset: 0, animated: true });
+       if (conversationId && currentUserId) {
+         markConversationAsRead(conversationId, currentUserId).catch(() => {});
+       }
     }
   });
 
-  // Mark conversation as read when loaded, or when messages update
+  // Mark conversation as read when entering the chat
   useEffect(() => {
     if (conversationId && currentUserId) {
-      markConversationAsRead(conversationId, currentUserId).catch((e) => {
-        console.warn('[DM] Failed to mark conversation as read:', e);
-      });
+      markConversationAsRead(conversationId, currentUserId).catch(() => {});
     }
-  }, [conversationId, currentUserId, messages.length]);
+  }, [conversationId, currentUserId]);
 
   const {
     recording,
@@ -244,22 +238,22 @@ export default function DM() {
       seen.add(key);
       return true;
     });
-
+    
     const sorted = [...unique].sort((a, b) => (a.__ts || 0) - (b.__ts || 0));
     const list: any[] = [];
     let lastDateKey: string | null = null;
-
+    
     sorted.forEach((msg) => {
       const ms = msg.__ts || Date.now();
       const dateObj = new Date(ms > Date.now() ? Date.now() : ms);
       const dateKey = `${dateObj.getFullYear()}-${dateObj.getMonth()}-${dateObj.getDate()}`;
-
+      
       if (dateKey !== lastDateKey) {
         const now = new Date();
         const diffDays = (now.getTime() - dateObj.getTime()) / (1000 * 60 * 60 * 24);
         let formattedDate = "";
         const timeStr = dateObj.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }).toUpperCase();
-
+        
         if (dateKey === `${now.getFullYear()}-${now.getMonth()}-${now.getDate()}`) {
           formattedDate = timeStr;
         } else if (diffDays < 7) {
@@ -272,7 +266,7 @@ export default function DM() {
           const months = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'];
           formattedDate = `${months[dateObj.getMonth()]} ${dateObj.getDate()}, ${dateObj.getFullYear()}, ${timeStr}`;
         }
-
+        
         list.push({ type: 'date', date: formattedDate, id: `date_${dateKey}` });
         lastDateKey = dateKey;
       }
@@ -324,19 +318,45 @@ export default function DM() {
       tempOrigin: true,
       ...extra
     };
-
+    
     setMessages(prev => [...prev, tempMsg]);
 
     try {
       let uploadRes: any;
-      if (typeof uri === 'string' && uri.startsWith('file://')) {
+      const isLocalUri = typeof uri === 'string' && (
+        uri.startsWith('file://') ||
+        uri.startsWith('ph://') ||
+        uri.startsWith('assets-library://') ||
+        uri.startsWith('content://') ||
+        uri.startsWith('/')
+      );
+      let finalUri = uri;
+      if (isLocalUri) {
+        try {
+          const { compressVideoSafe, compressImageSafe } = require('../lib/mediaUtils');
+          if (type === 'video') {
+            if (__DEV__) console.log('[DM] Compressing local video:', uri);
+            finalUri = await compressVideoSafe(uri);
+          } else if (type === 'image') {
+            if (__DEV__) console.log('[DM] Compressing local image:', uri);
+            finalUri = await compressImageSafe(uri);
+          }
+        } catch (compressErr) {
+          console.warn('[DM] Media compression failed:', compressErr);
+        }
+      }
+
+      if (isLocalUri) {
+        uploadRes = await uploadMedia(finalUri, type as any);
+      } else if (typeof uri === 'string' && (uri.startsWith('http://') || uri.startsWith('https://'))) {
+        // Remote URI — uploadMedia handles downloading/re-uploading
         uploadRes = await uploadMedia(uri, type as any);
       } else {
         const base64 = await FileSystem.readAsStringAsync(uri, { encoding: FileSystem.EncodingType.Base64 });
         const mime = type === 'audio' ? 'audio/x-m4a' : (type === 'video' ? 'video/mp4' : 'image/jpeg');
         uploadRes = await uploadMedia(`data:${mime};base64,${base64}`, type as any);
       }
-
+      
       if (uploadRes?.success) {
         const uploadedUrl = uploadRes?.url || uploadRes?.data?.url || uploadRes?.secureUrl;
         const res = await sendMediaMessageApi(
@@ -344,7 +364,12 @@ export default function DM() {
           currentUserId,
           uploadedUrl,
           type as any,
-          { recipientId: otherUserId || undefined, ...extra, tempId }
+          { 
+            recipientId: otherUserId || undefined, 
+            thumbnailUrl: uploadRes?.thumbnailUrl || uploadRes?.data?.thumbnailUrl,
+            ...extra, 
+            tempId 
+          }
         );
         if (res?.success) {
           const finalMsg = normalizeMessage((res as any).data || (res as any).message);
@@ -367,7 +392,7 @@ export default function DM() {
       return;
     }
     if (sending) return;
-
+    
     // We can proceed even if conversationId is null
     const msgText = input.trim();
     if (conversationId && currentUserId && otherUserId) {
@@ -398,7 +423,7 @@ export default function DM() {
     const sentAtMs = Date.now();
     const tempMsg = normalizeMessage({ id: tempId, senderId: currentUserId, text: msgText, createdAt: new Date(sentAtMs).toISOString(), __ts: sentAtMs, sent: false, tempOrigin: true, replyTo: replyData });
     setMessages(prev => [tempMsg, ...prev]);
-
+    
     // Scroll to bottom (offset 0 in inverted list)
     setTimeout(() => {
       flatListRef.current?.scrollToOffset({ offset: 0, animated: true });
@@ -412,13 +437,13 @@ export default function DM() {
       if (res?.success && ((res as any).message || (res as any).data)) {
         const backendMsg = (res as any).message || (res as any).data;
         // Force the same timestamp as temp message to avoid jumping around
-        const finalized = normalizeMessage({
-          ...backendMsg,
+        const finalized = normalizeMessage({ 
+          ...backendMsg, 
           timestamp: backendMsg.timestamp || new Date(sentAtMs).toISOString(),
-          sent: true
+          sent: true 
         });
 
-
+        
         setMessages(prev => {
           // Remove temp, add final, then dedupe and sort
           const filtered = prev.filter(m => String(m.id) !== String(tempId) && String(m.id) !== String(finalized.id));
@@ -485,12 +510,31 @@ export default function DM() {
     if (!conversationId) return;
     Alert.alert("Clear Chat?", "Wipe message history for you?", [
       { text: "Cancel", style: "cancel" },
-      {
-        text: "Clear", style: "destructive", onPress: async () => {
-          const res = await clearConversation(conversationId);
-          if (res?.success) clearMessages();
+      { text: "Clear", style: "destructive", onPress: async () => {
+        const res = await clearConversation(conversationId);
+        if (res?.success) {
+          setMessages([]);
+          // Clear memory cache in Zustand store for all possible variant cache keys
+          try {
+            useAppStore.getState().setCachedMessages(conversationId, []);
+            if (otherUserId && currentUserId) {
+              const concatId1 = `${currentUserId}_${otherUserId}`;
+              const concatId2 = `${otherUserId}_${currentUserId}`;
+              useAppStore.getState().setCachedMessages(concatId1, []);
+              useAppStore.getState().setCachedMessages(concatId2, []);
+              AsyncStorage.removeItem(`messages_cache_${concatId1}`).catch(() => {});
+              AsyncStorage.removeItem(`messages_cache_${concatId2}`).catch(() => {});
+            }
+          } catch (err) {
+            console.warn('[handleClearChat] Zustand clear failed:', err);
+          }
+          // Clear AsyncStorage disk cache for current key
+          AsyncStorage.removeItem(`messages_cache_${conversationId}`).catch(() => {});
+          showSuccess("Chat cleared successfully!");
+        } else {
+          Alert.alert("Error", res?.error || "Failed to clear chat on server.");
         }
-      }
+      }}
     ]);
   };
 
@@ -512,7 +556,7 @@ export default function DM() {
       onLongPress={(msg: any) => {
         setSelectedMessage(msg);
         setShowMessageMenu(true);
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => { });
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
       }}
       onPressPost={(post: any) => {
         const resolved = post?.sharedPost || post;
@@ -520,12 +564,12 @@ export default function DM() {
         if (pid) router.push({ pathname: '/post-detail', params: { id: String(pid) } } as any);
       }}
       onPressStory={(story: any) => {
-        const sid = story?.id || story?._id || story?.storyId;
-        if (!sid) return;
-        const mediaUrl = story?.mediaUrl || story?.imageUrl || story?.videoUrl || story?.image || story?.video;
-        if (mediaUrl) {
-          setStoryViewerData({ stories: [{ ...story, id: sid, videoUrl: story.videoUrl || (story.mediaType === 'video' ? mediaUrl : null), imageUrl: story.imageUrl || (story.mediaType !== 'video' ? mediaUrl : null) }], visible: true });
-        }
+         const sid = story?.id || story?._id || story?.storyId;
+         if (!sid) return;
+         const mediaUrl = story?.mediaUrl || story?.imageUrl || story?.videoUrl || story?.image || story?.video;
+         if (mediaUrl) {
+           setStoryViewerData({ stories: [{ ...story, id: sid, videoUrl: story.videoUrl || (story.mediaType === 'video' ? mediaUrl : null), imageUrl: story.imageUrl || (story.mediaType !== 'video' ? mediaUrl : null) }], visible: true });
+         }
       }}
       onPressImage={(url: string) => setViewerImage(url)}
       onPressShare={(msg: any) => {
@@ -533,9 +577,12 @@ export default function DM() {
         if (kind === 'post' || kind === 'story') {
           setSharePostItem({ shareType: kind, data: msg.sharedPost || msg.sharedStory });
           setShowShareModal(true);
+        } else if (kind === 'image' || kind === 'video') {
+          setSharePostItem({ shareType: kind, mediaUrl: msg.mediaUrl, thumbnailUrl: msg.thumbnailUrl });
+          setShowShareModal(true);
         }
       }}
-      onPlayStart={(id: string) => setActiveSoundId(id)} />
+      onPlayStart={(id: string) => setActiveSoundId(id)}    />
   ), [currentUserId, displayName, avatarUri, activeSoundId, formatTimeForBubble]);
 
   const renderContent = () => {
@@ -544,16 +591,16 @@ export default function DM() {
     if (loading && messages.length === 0) {
       return <View style={styles.centered}><ActivityIndicator size="large" color="#FF8D00" /></View>;
     }
-
+    
     if (!conversationId && !loading) {
-      return (
-        <View style={styles.centered}>
-          <Text style={{ color: '#94a3b8', marginBottom: 12 }}>Could not start chat</Text>
-          <TouchableOpacity onPress={() => router.back()} style={{ backgroundColor: '#FF8D00', padding: 10, borderRadius: 8 }}>
-            <Text style={{ color: '#fff' }}>Go Back</Text>
-          </TouchableOpacity>
-        </View>
-      );
+       return (
+         <View style={styles.centered}>
+           <Text style={{ color: '#94a3b8', marginBottom: 12 }}>Could not start chat</Text>
+           <TouchableOpacity onPress={() => router.back()} style={{ backgroundColor: '#FF8D00', padding: 10, borderRadius: 8 }}>
+             <Text style={{ color: '#fff' }}>Go Back</Text>
+           </TouchableOpacity>
+         </View>
+       );
     }
 
     return (
@@ -567,16 +614,14 @@ export default function DM() {
         onEndReached={loadMore}
         onEndReachedThreshold={0.5}
         extraData={messages}
+        contentContainerStyle={{ paddingTop: 16, paddingBottom: 16 }}
+        keyboardShouldPersistTaps="handled"
       />
     );
   };
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
-      <KeyboardAvoidingView
-        style={{ flex: 1 }}
-        behavior="padding"
-        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 24}
-      >
+      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'padding'}>
         <DMHeader
           displayName={displayName}
           avatarUri={avatarUri}
@@ -584,6 +629,16 @@ export default function DM() {
           statusText={isOtherTyping ? 'typing...' : (otherUserPresence?.status === 'online' ? 'Online' : '')}
           onBack={() => safeRouterBack()}
           onInfo={() => setShowOptionsModal(true)}
+          onTitlePress={() => {
+            if (isGroupConversation) {
+              setShowOptionsModal(true);
+            } else if (otherUserId) {
+              router.push({
+                pathname: '/user-profile',
+                params: { uid: otherUserId }
+              } as any);
+            }
+          }}
         />
         <View style={{ flex: 1 }}>
           {renderContent()}
@@ -605,16 +660,39 @@ export default function DM() {
         />
       </KeyboardAvoidingView>
 
-      <ShareModal
+      <ShareModal 
         visible={showShareModal}
         currentUserId={currentUserId!}
         modalVariant="chat"
         sharePayload={sharePostItem}
         onClose={() => setShowShareModal(false)}
-        onSend={async () => { setShowShareModal(false); }}
+        onSend={async (userIds) => {
+          setShowShareModal(false);
+          // Optimistic UI: add shared post message immediately to the current DM
+          if (sharePostItem && conversationId && currentUserId) {
+            const kind = String(sharePostItem?.shareType || 'post').toLowerCase();
+            const data = sharePostItem?.data ?? sharePostItem;
+            const tempId = createTempId('temp_share');
+            const sentAtMs = Date.now();
+            const tempMsg = normalizeMessage({
+              id: tempId,
+              senderId: currentUserId,
+              mediaType: kind,
+              createdAt: new Date(sentAtMs).toISOString(),
+              __ts: sentAtMs,
+              sent: false,
+              tempOrigin: true,
+              ...(kind === 'post' ? { sharedPost: data } : { sharedStory: data }),
+            });
+            setMessages(prev => [tempMsg, ...prev]);
+            setTimeout(() => {
+              flatListRef.current?.scrollToOffset({ offset: 0, animated: true });
+            }, 100);
+          }
+        }}
       />
 
-      <EmojiPicker
+      <EmojiPicker 
         onEmojiSelected={(emoji) => setInput(prev => prev + emoji.emoji)}
         open={showEmojiPicker}
         onClose={() => setShowEmojiPicker(false)}
@@ -648,42 +726,42 @@ export default function DM() {
       </Modal>}
 
       <Modal visible={showMessageMenu} transparent animationType="fade">
-        <Pressable style={styles.modalOverlay} onPress={() => setShowMessageMenu(false)}>
-          <View style={styles.instaMenuOptions}>
-            {/* Reaction Bar */}
-            <View style={styles.reactionBar}>
-              {REACTIONS.map((emoji) => (
-                <TouchableOpacity
-                  key={emoji}
-                  style={styles.reactionBtn}
-                  onPress={() => handleReaction(selectedMessage, emoji)}
-                >
-                  <Text style={styles.reactionEmoji}>{emoji}</Text>
-                </TouchableOpacity>
-              ))}
-              <TouchableOpacity
-                style={styles.reactionBtnPlus}
-                onPress={() => {
-                  setShowMessageMenu(false);
-                  setTimeout(() => setShowEmojiPicker(true), 300);
-                }}
-              >
-                <Ionicons name="add" size={22} color="#666" />
-              </TouchableOpacity>
-            </View>
-            {/* Action Items */}
-            <TouchableOpacity style={styles.instaMenuItem} onPress={() => { setReplyingTo(selectedMessage); setShowMessageMenu(false); }}>
-              <Text style={styles.instaMenuLabel}>Reply</Text>
-              <Ionicons name="arrow-undo-outline" size={22} color="#000" />
-            </TouchableOpacity>
-            {selectedMessage?.senderId === currentUserId && (
-              <TouchableOpacity style={styles.instaMenuItem} onPress={() => { setEditingMessage(selectedMessage); setInput(selectedMessage.text); setShowMessageMenu(false); }}>
-                <Text style={styles.instaMenuLabel}>Edit</Text>
-                <Ionicons name="create-outline" size={22} color="#000" />
-              </TouchableOpacity>
-            )}
-          </View>
-        </Pressable>
+         <Pressable style={styles.modalOverlay} onPress={() => setShowMessageMenu(false)}>
+           <View style={styles.instaMenuOptions}>
+             {/* Reaction Bar */}
+             <View style={styles.reactionBar}>
+               {REACTIONS.map((emoji) => (
+                 <TouchableOpacity
+                   key={emoji}
+                   style={styles.reactionBtn}
+                   onPress={() => handleReaction(selectedMessage, emoji)}
+                 >
+                   <Text style={styles.reactionEmoji}>{emoji}</Text>
+                 </TouchableOpacity>
+               ))}
+               <TouchableOpacity
+                 style={styles.reactionBtnPlus}
+                 onPress={() => {
+                   setShowMessageMenu(false);
+                   setTimeout(() => setShowEmojiPicker(true), 300);
+                 }}
+               >
+                 <Ionicons name="add" size={22} color="#666" />
+               </TouchableOpacity>
+             </View>
+             {/* Action Items */}
+             <TouchableOpacity style={styles.instaMenuItem} onPress={() => { setReplyingTo(selectedMessage); setShowMessageMenu(false); }}>
+               <Text style={styles.instaMenuLabel}>Reply</Text>
+               <Ionicons name="arrow-undo-outline" size={22} color="#000" />
+             </TouchableOpacity>
+             {selectedMessage?.senderId === currentUserId && (
+               <TouchableOpacity style={styles.instaMenuItem} onPress={() => { setEditingMessage(selectedMessage); setInput(selectedMessage.text); setShowMessageMenu(false); }}>
+                 <Text style={styles.instaMenuLabel}>Edit</Text>
+                 <Ionicons name="create-outline" size={22} color="#000" />
+               </TouchableOpacity>
+             )}
+           </View>
+         </Pressable>
       </Modal>
     </View>
   );

@@ -166,10 +166,10 @@ router.get('/:postId/comments', optionalAuth, async (req, res) => {
   try {
     const { postId } = req.params;
     const viewerId = req.userId || null;
-    
+
     const Post = mongoose.model('Post');
     const Comment = mongoose.model('Comment');
-    
+
     // Resolve post
     const post = await Post.findOne({
       $or: [
@@ -184,15 +184,15 @@ router.get('/:postId/comments', optionalAuth, async (req, res) => {
 
     // Security: Check visibility (Basic implementation)
     if (post.isPrivate && (!viewerId || String(post.userId) !== String(viewerId))) {
-       // Check for follow status if needed, for now just allow owner
-       if (String(post.userId) !== String(viewerId)) {
-         return res.status(403).json({ success: false, error: 'Private content' });
-       }
+      // Check for follow status if needed, for now just allow owner
+      if (String(post.userId) !== String(viewerId)) {
+        return res.status(403).json({ success: false, error: 'Private content' });
+      }
     }
 
     // Fetch comments
-    const comments = await Comment.find({ 
-      postId: { $in: [String(post._id), String(post.id)].filter(Boolean) } 
+    const comments = await Comment.find({
+      postId: { $in: [String(post._id), String(post.id)].filter(Boolean) }
     }).sort({ createdAt: -1 }).lean();
 
     // Enrich comments with author data

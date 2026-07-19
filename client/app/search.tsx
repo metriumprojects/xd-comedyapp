@@ -1,9 +1,9 @@
-import React, { useRef, useState, useEffect } from 'react';
+import React, { useRef, useState, useEffect, useCallback } from 'react';
 import { ActivityIndicator, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { FlashList } from '@shopify/flash-list';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter, useFocusEffect } from 'expo-router';
 // Native debounce — eliminates the full lodash bundle from this screen
 function debounce<T extends (...args: any[]) => any>(fn: T, delay: number): (...args: Parameters<T>) => void {
   let timer: ReturnType<typeof setTimeout>;
@@ -39,6 +39,12 @@ export default function SearchScreen() {
   useEffect(() => {
     resolveCanonicalUserId().then(setCurrentUserId).catch(() => {});
   }, []);
+
+  useFocusEffect(
+    useCallback(() => {
+      setQuery('');
+    }, [])
+  );
 
   const {
     trendingHashtags,
@@ -101,36 +107,35 @@ export default function SearchScreen() {
       ) : activeTab === 'users' ? (
         <FlashList
           data={userResults}
-          keyExtractor={(item, index) => item.firebaseUid || item._id || item.uid || item.id || String(index)}
-          renderItem={({ item }: { item: any }) => {
-            const itemUserId = item.firebaseUid || item._id || item.uid || item.id;
-            return (
-              <TouchableOpacity 
-                style={styles.row} 
-                onPress={() => {
-                  if (itemUserId === currentUserId) {
-                    router.push('/(tabs)/profile');
-                  } else if (itemUserId) {
-                    // Other users go to wrapper with uid param
-                    router.push({ pathname: '/user-profile', params: { uid: itemUserId } });
-                  }
-                }}
-              >
-                <ExpoImage 
-                  source={{ uri: item.photoURL || item.avatar || DEFAULT_AVATAR_URL }} 
-                  style={styles.avatar}
-                  contentFit="cover"
-                  transition={200}
-                  cachePolicy="memory-disk"
-                />
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.name}>{item.displayName || item.userName || 'User'}</Text>
-                  <Text style={styles.email}>{item.email}</Text>
-                </View>
-                <Feather name="chevron-right" size={20} color="#ccc" />
-              </TouchableOpacity>
-            );
-          }}
+          keyExtractor={item => item.uid || item.id}
+          renderItem={({ item }: { item: any }) => (
+            <TouchableOpacity 
+              style={styles.row} 
+              onPress={() => {
+                const itemUserId = item.uid || item.id;
+                // If it's current user, go to profile tab instead of wrapper
+                if (itemUserId === currentUserId) {
+                  router.push('/(tabs)/profile');
+                } else {
+                  // Other users go to wrapper with uid param
+                  router.push({ pathname: '/user-profile', params: { uid: itemUserId } });
+                }
+              }}
+            >
+              <ExpoImage 
+                source={{ uri: item.photoURL || item.avatar || DEFAULT_AVATAR_URL }} 
+                style={styles.avatar}
+                contentFit="cover"
+                transition={200}
+                cachePolicy="memory-disk"
+              />
+              <View style={{ flex: 1 }}>
+                <Text style={styles.name}>{item.displayName || item.userName || 'User'}</Text>
+                <Text style={styles.email}>{item.email}</Text>
+              </View>
+              <Feather name="chevron-right" size={20} color="#ccc" />
+            </TouchableOpacity>
+          )}
           ListEmptyComponent={<Text style={{ color: '#888', marginTop: 32, textAlign: 'center' }}>No users found</Text>}
           refreshing={loading}
           onRefresh={() => handleSearch(query)}

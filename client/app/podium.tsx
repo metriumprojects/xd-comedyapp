@@ -21,6 +21,9 @@ import { getVideoThumbnailUrl } from '../lib/imageHelpers';
 import { normalizeMediaUrl } from '../lib/utils/media';
 import { DEFAULT_AVATAR_URL } from '../lib/api';
 import AsyncStorage from '@/lib/storage';
+import NotificationsModal from '@/src/_components/NotificationsModal';
+import { useNotifications } from '../hooks/useNotifications';
+import * as VideoThumbnails from 'expo-video-thumbnails';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -145,7 +148,11 @@ const MOCK_VIDEOS = MOCK_CREATORS.map(item => ({
 // Resolve a thumbnail URL: prefer thumbnailUrl, fall back to video-to-jpg conversion
 const resolveThumbnail = (thumbnailUrl?: string | null, mediaUrl?: string | null): string => {
   if (thumbnailUrl && typeof thumbnailUrl === 'string' && thumbnailUrl.trim()) {
-    return normalizeMediaUrl(thumbnailUrl);
+    const cleanUrl = thumbnailUrl.split('?')[0].split('#')[0].toLowerCase();
+    const isVideo = cleanUrl.endsWith('.mp4') || cleanUrl.endsWith('.mov') || cleanUrl.endsWith('.m4v') || cleanUrl.endsWith('.3gp') || cleanUrl.endsWith('.quicktime') || cleanUrl.endsWith('.webm') || cleanUrl.endsWith('.mkv') || thumbnailUrl.includes('video/upload');
+    if (!isVideo) {
+      return normalizeMediaUrl(thumbnailUrl);
+    }
   }
   if (mediaUrl && typeof mediaUrl === 'string' && mediaUrl.trim()) {
     return normalizeMediaUrl(getVideoThumbnailUrl(mediaUrl));
@@ -153,10 +160,54 @@ const resolveThumbnail = (thumbnailUrl?: string | null, mediaUrl?: string | null
   return '';
 };
 
+// Custom image component to dynamically generate thumbnail if it resolved to a local or external video URL
+const PodiumMediaImage = ({ thumbnailUrl, mediaUrl, style, contentFit, transition, cachePolicy }: {
+  thumbnailUrl?: string | null;
+  mediaUrl?: string | null;
+  style?: any;
+  contentFit?: any;
+  transition?: number;
+  cachePolicy?: any;
+}) => {
+  const resolved = useMemo(() => resolveThumbnail(thumbnailUrl, mediaUrl), [thumbnailUrl, mediaUrl]);
+  const clean = resolved.split('?')[0].split('#')[0].toLowerCase();
+  const isVideo = clean.endsWith('.mp4') || clean.endsWith('.mov') || clean.endsWith('.m4v') || clean.endsWith('.3gp') || clean.endsWith('.quicktime') || clean.endsWith('.webm') || clean.endsWith('.mkv');
+
+  const [localVideoThumb, setLocalVideoThumb] = useState<string>('');
+
+  useEffect(() => {
+    let active = true;
+    if (isVideo && resolved) {
+      VideoThumbnails.getThumbnailAsync(resolved, { time: 0 })
+        .then(res => {
+          if (active && res?.uri) {
+            setLocalVideoThumb(res.uri);
+          }
+        })
+        .catch(() => {});
+    }
+    return () => { active = false; };
+  }, [resolved, isVideo]);
+
+  const finalUri = isVideo ? (localVideoThumb || resolved) : resolved;
+
+  return (
+    <ExpoImage
+      source={{ uri: finalUri || DEFAULT_AVATAR_URL }}
+      style={style}
+      contentFit={contentFit}
+      transition={transition}
+      cachePolicy={cachePolicy}
+    />
+  );
+};
+
 export default function PodiumScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const [notificationsModalVisible, setNotificationsModalVisible] = useState(false);
+  const { notifications, unreadCount, fetchNotifications, markAsRead, markAllAsRead } = useNotifications(currentUserId || '', 60000);
 
   useEffect(() => {
     AsyncStorage.getItem('userId').then(uid => { if (uid) setCurrentUserId(uid); }).catch(() => {});
@@ -273,8 +324,30 @@ export default function PodiumScreen() {
           <TouchableOpacity style={styles.headerIcon} onPress={() => router.push('/inbox')}>
             <Feather name="message-square" size={22} color="#000" />
           </TouchableOpacity>
-          <TouchableOpacity style={styles.headerIcon} onPress={() => {}}>
+          <TouchableOpacity style={styles.headerIcon} onPress={async () => {
+            setNotificationsModalVisible(true);
+            try {
+              await markAllAsRead();
+              await fetchNotifications({ force: true });
+            } catch { }
+          }}>
             <Feather name="bell" size={22} color="#000" />
+            {unreadCount > 0 && (
+              <View style={{
+                position: 'absolute',
+                top: -4,
+                right: -4,
+                backgroundColor: '#ff3b30',
+                borderRadius: 7,
+                height: 14,
+                minWidth: 14,
+                alignItems: 'center',
+                justifyContent: 'center',
+                paddingHorizontal: 2,
+              }}>
+                <Text style={{ color: '#fff', fontSize: 8, fontWeight: 'bold' }}>{unreadCount > 99 ? '99+' : unreadCount}</Text>
+              </View>
+            )}
           </TouchableOpacity>
           <TouchableOpacity style={styles.headerIcon} onPress={() => {}}>
             <Feather name="more-vertical" size={22} color="#000" />
@@ -382,7 +455,7 @@ export default function PodiumScreen() {
                     <ExpoImage source={{ uri: normalizeMediaUrl(top2.creator.avatar) || DEFAULT_AVATAR_URL }} style={[styles.avatarImage, { borderColor: '#C0C0C0' }]} contentFit="cover" transition={200} cachePolicy="memory-disk" />
                   ) : (
                     <View style={styles.videoThumbnailContainer}>
-                      <ExpoImage source={{ uri: resolveThumbnail(top2.thumbnailUrl, top2.mediaUrl) }} style={styles.videoThumbnail} contentFit="cover" transition={200} cachePolicy="memory-disk" />
+                      <PodiumMediaImage thumbnailUrl={top2.thumbnailUrl} mediaUrl={top2.mediaUrl} style={styles.videoThumbnail} contentFit="cover" transition={200} cachePolicy="memory-disk" />
                       <View style={styles.playIconOverlay}>
                         <Ionicons name="play" size={14} color="#fff" />
                       </View>
@@ -414,7 +487,7 @@ export default function PodiumScreen() {
                     <ExpoImage source={{ uri: normalizeMediaUrl(top1.creator.avatar) || DEFAULT_AVATAR_URL }} style={[styles.avatarImage, { borderColor: '#FFD700', width: 70, height: 70, borderRadius: 35 }]} contentFit="cover" transition={200} cachePolicy="memory-disk" />
                   ) : (
                     <View style={[styles.videoThumbnailContainer, { width: 75, height: 75 }]}>
-                      <ExpoImage source={{ uri: resolveThumbnail(top1.thumbnailUrl, top1.mediaUrl) }} style={styles.videoThumbnail} contentFit="cover" transition={200} cachePolicy="memory-disk" />
+                      <PodiumMediaImage thumbnailUrl={top1.thumbnailUrl} mediaUrl={top1.mediaUrl} style={styles.videoThumbnail} contentFit="cover" transition={200} cachePolicy="memory-disk" />
                       <View style={styles.playIconOverlay}>
                         <Ionicons name="play" size={16} color="#fff" />
                       </View>
@@ -446,7 +519,7 @@ export default function PodiumScreen() {
                     <ExpoImage source={{ uri: normalizeMediaUrl(top3.creator.avatar) || DEFAULT_AVATAR_URL }} style={[styles.avatarImage, { borderColor: '#CD7F32' }]} contentFit="cover" transition={200} cachePolicy="memory-disk" />
                   ) : (
                     <View style={styles.videoThumbnailContainer}>
-                      <ExpoImage source={{ uri: resolveThumbnail(top3.thumbnailUrl, top3.mediaUrl) }} style={styles.videoThumbnail} contentFit="cover" transition={200} cachePolicy="memory-disk" />
+                      <PodiumMediaImage thumbnailUrl={top3.thumbnailUrl} mediaUrl={top3.mediaUrl} style={styles.videoThumbnail} contentFit="cover" transition={200} cachePolicy="memory-disk" />
                       <View style={styles.playIconOverlay}>
                         <Ionicons name="play" size={14} color="#fff" />
                       </View>
@@ -489,7 +562,7 @@ export default function PodiumScreen() {
                     {item.funniestVideo && (
                       <TouchableOpacity style={styles.funniestVideoContainer} activeOpacity={0.7} onPress={() => navigateToPost(String(item.funniestVideo.id))}>
                         <View style={styles.videoRow}>
-                          <ExpoImage source={{ uri: resolveThumbnail(item.funniestVideo.thumbnailUrl, item.funniestVideo.mediaUrl) }} style={styles.nestedThumbnail} contentFit="cover" transition={200} cachePolicy="memory-disk" />
+                          <PodiumMediaImage thumbnailUrl={item.funniestVideo.thumbnailUrl} mediaUrl={item.funniestVideo.mediaUrl} style={styles.nestedThumbnail} contentFit="cover" transition={200} cachePolicy="memory-disk" />
                           <View style={styles.videoDetails}>
                             <View style={styles.funniestTitleRow}>
                               <Text style={styles.funniestLabel}>Funniest video</Text>
@@ -513,7 +586,7 @@ export default function PodiumScreen() {
                     {/* Main Video Row — tappable to open video */}
                     <TouchableOpacity style={styles.videoRow} activeOpacity={0.7} onPress={() => navigateToPost(String(item.id))}>
                       <View style={styles.thumbnailWrapper}>
-                        <ExpoImage source={{ uri: resolveThumbnail(item.thumbnailUrl, item.mediaUrl) }} style={styles.listThumbnail} contentFit="cover" transition={200} cachePolicy="memory-disk" />
+                        <PodiumMediaImage thumbnailUrl={item.thumbnailUrl} mediaUrl={item.mediaUrl} style={styles.listThumbnail} contentFit="cover" transition={200} cachePolicy="memory-disk" />
                         <View style={styles.playIconOverlay}>
                           <Ionicons name="play" size={18} color="#fff" />
                         </View>
@@ -549,6 +622,17 @@ export default function PodiumScreen() {
           </View>
         </ScrollView>
       )}
+
+      {/* Notifications Modal */}
+      <NotificationsModal
+        visible={notificationsModalVisible}
+        onClose={async () => {
+          setNotificationsModalVisible(false);
+          try {
+            await fetchNotifications({ force: true });
+          } catch { }
+        }}
+      />
     </SafeAreaView>
   );
 }

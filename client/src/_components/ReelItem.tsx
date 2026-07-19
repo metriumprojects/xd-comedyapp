@@ -114,6 +114,7 @@ export const ReelItem = React.memo<ReelItemProps>(({
   const [showComments, setShowComments] = useState(false);
   const [showShare, setShowShare] = useState(false);
   const [showMenu, setShowMenu] = useState(false);
+  const [shareCount, setShareCount] = useState<number>(post?.shareCount || 0);
   const [isFollowing, setIsFollowing] = useState(post?.isFollowing || false);
   const [isSaved, setIsSaved] = useState(() => {
     if (post?.isSaved !== undefined) return post.isSaved;
@@ -230,6 +231,7 @@ export const ReelItem = React.memo<ReelItemProps>(({
     setCommentCount(post.commentCount !== undefined ? post.commentCount : (post.commentsCount || 0));
     setLaughCount(post.laughCount || 0);
     setTomatoCount(post.tomatoCount || 0);
+    setShareCount(post.shareCount || 0);
     setIsFollowing(post.isFollowing || false);
     setHasLaughed(post.hasLaughed || false);
     setHasTomatoed(post.hasTomatoed || false);
@@ -245,6 +247,7 @@ export const ReelItem = React.memo<ReelItemProps>(({
   // Subscribe to real-time updates for this specific post
   useEffect(() => {
     if (!post?._id) return;
+    const cid = String(post?.userId?._id || post?.userId || '');
     const sub = feedEventEmitter.onPostUpdated(post._id, (pid, data) => {
       if (!data) return;
       if (data.isSaved !== undefined) {
@@ -270,12 +273,22 @@ export const ReelItem = React.memo<ReelItemProps>(({
       if (data.isFollowing !== undefined) {
         setIsFollowing(data.isFollowing);
       }
+      if (data.shareCount !== undefined) {
+        setShareCount(data.shareCount);
+      }
+    });
+
+    const unsubFollow = feedEventEmitter.onFeedUpdate((event) => {
+      if (event.type === 'USER_FOLLOW_CHANGED' && String(event.userId) === cid) {
+        setIsFollowing(!!event.data?.isFollowing);
+      }
     });
 
     return () => {
       sub.remove();
+      unsubFollow();
     };
-  }, [post?._id]);
+  }, [post?._id, post?.userId]);
 
   // Subscribe to comment count updates for this post
   useEffect(() => {
@@ -434,6 +447,9 @@ export const ReelItem = React.memo<ReelItemProps>(({
         const res = await unfollowUser(String(myId), String(creatorId));
         if (!res.success) throw new Error(res.error || 'Failed to unfollow');
       }
+      
+      // Emit follow status update globally for this creator
+      feedEventEmitter.emitUserFollowChanged(String(creatorId), newFollowing);
     } catch (err: any) {
       setIsFollowing(!newFollowing);
       Alert.alert("Error", err.message || "Failed to perform follow action");
@@ -880,7 +896,7 @@ export const ReelItem = React.memo<ReelItemProps>(({
             {/* Share Button */}
             <TouchableOpacity style={styles.actionBtn} onPress={() => setShowShare(true)}>
               <Ionicons name="arrow-redo" size={28} color="#ffffff" />
-              <Text style={styles.actionText}>{post?.shareCount ?? 0}</Text>
+              <Text style={styles.actionText}>{shareCount}</Text>
             </TouchableOpacity>
 
             {/* Fullscreen Focus Toggle Button (Scan Icon) */}
@@ -1078,7 +1094,12 @@ export const ReelItem = React.memo<ReelItemProps>(({
               style={styles.menuItem}
               onPress={() => {
                 setShowMenu(false);
-                router.push(`/create-post?editPostId=${post._id}&initialData=${encodeURIComponent(JSON.stringify(post))}`);
+                setTimeout(() => {
+                  feedEventEmitter.emit('closePostViewer');
+                  setTimeout(() => {
+                    router.push(`/create-post?editPostId=${post._id}`);
+                  }, 500);
+                }, 250);
               }}
             >
               <Feather name="edit-3" size={20} color="#333" />

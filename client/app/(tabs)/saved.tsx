@@ -369,6 +369,24 @@ export default function SavedScreen() {
     }, [targetUserId, loadData])
   );
 
+  // Automatically refresh saved data on collection/post modifications
+  useEffect(() => {
+    const sub = feedEventEmitter.addListener('feedUpdated', () => {
+      if (uid) loadData(uid, { force: true });
+    });
+
+    const unsubFeed = feedEventEmitter.onFeedUpdate((event) => {
+      if (event.type === 'POST_UPDATED' || event.type === 'POST_DELETED' || event.type === 'POST_CREATED') {
+        if (uid) loadData(uid, { force: true });
+      }
+    });
+
+    return () => {
+      sub.remove();
+      unsubFeed();
+    };
+  }, [uid, loadData]);
+
   // ── Computed posts ────────────────────────────────────────────────────────
 
   const displayedPosts: SavedPost[] = activeCollection
@@ -934,13 +952,11 @@ export default function SavedScreen() {
           <View style={styles.sheetBackdrop} />
         </TouchableWithoutFeedback>
 
-        <KeyboardAvoidingView
-          behavior={(Platform.OS as any) === 'ios' ? 'padding' : undefined}
-          enabled={(Platform.OS as any) === 'ios'}
-          style={{ justifyContent: 'flex-end', flex: 1 }}
-          keyboardVerticalOffset={(Platform.OS as any) === 'ios' ? 0 : 0}
-        >
-          <View style={[styles.sheet, { paddingBottom: insets.bottom + 8, minHeight: SCREEN_H * 0.5 }]}>
+        <View style={{ justifyContent: 'flex-end', flex: 1 }}>
+          <KeyboardAvoidingView
+            behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+            style={[styles.sheet, { paddingBottom: insets.bottom + 8, minHeight: SCREEN_H * 0.5 }]}
+          >
             <View style={styles.dragHandle} />
 
             {editSubScreen === 'main' ? (
@@ -1143,8 +1159,8 @@ export default function SavedScreen() {
                 )}
               </>
             )}
-          </View>
-        </KeyboardAvoidingView>
+          </KeyboardAvoidingView>
+        </View>
       </Modal>
     );
   };
@@ -1234,11 +1250,7 @@ export default function SavedScreen() {
               setCommentModalVisible(false);
             }}
           />
-          <KeyboardAvoidingView
-            behavior={(Platform.OS as any) === 'ios' ? 'padding' : 'height'}
-            keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
-            style={{ backgroundColor: '#fff', height: '80%', borderTopLeftRadius: 20, borderTopRightRadius: 20 }}
-          >
+          <View style={{ backgroundColor: '#fff', height: '80%', borderTopLeftRadius: 20, borderTopRightRadius: 20 }}>
             <View style={{ width: 40, height: 4, backgroundColor: '#eee', borderRadius: 2, alignSelf: 'center', marginVertical: 10 }} />
             <View style={{ flexDirection: 'row', justifyContent: 'space-between', paddingHorizontal: 16, paddingBottom: 10, borderBottomWidth: 0.5, borderBottomColor: '#eee' }}>
               <Text style={{ fontWeight: '700', fontSize: 16 }}>Comments</Text>
@@ -1257,7 +1269,7 @@ export default function SavedScreen() {
               currentAvatar={commentModalAvatar}
               currentUser={currentUserId ? { uid: currentUserId } : null}
             />
-          </KeyboardAvoidingView>
+          </View>
         </View>
       </Modal>
 

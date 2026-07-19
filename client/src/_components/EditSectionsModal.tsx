@@ -171,7 +171,7 @@ export default function EditSectionsModal({
     if (!currentUserId) return;
     setLoadingFollowers(true);
     try {
-      const res = await apiService.get(`/users/${currentUserId}/followers`);
+      const res = await apiService.get(`/follow/users/${currentUserId}/followers`);
       const list = res?.data || res || [];
       setFollowers(Array.isArray(list) ? list : []);
     } catch (e) {
@@ -187,15 +187,14 @@ export default function EditSectionsModal({
         setSearching(true);
         try {
           const res = await apiService.get(`/users/search?q=${encodeURIComponent(collaboratorInput)}&requesterUserId=${currentUserId}`);
-          if (res?.success && Array.isArray(res.data)) {
-            const normalized = res.data.map((u: any) => ({
-              ...u,
-              uid: u._id || u.firebaseUid,
-              name: u.displayName || u.name || 'User',
-              avatar: u.avatar || u.photoURL || u.profilePicture || ''
-            }));
-            setSearchResults(normalized);
-          }
+          const list = Array.isArray(res) ? res : (res?.data || []);
+          const normalized = list.map((u: any) => ({
+            ...u,
+            uid: u._id || u.firebaseUid,
+            name: u.displayName || u.name || 'User',
+            avatar: u.avatar || u.photoURL || u.profilePicture || ''
+          }));
+          setSearchResults(normalized);
         } catch (e) { console.error('search error', e); }
         finally { setSearching(false); }
       } else {
@@ -520,7 +519,7 @@ export default function EditSectionsModal({
       <GestureHandlerRootView style={{ flex: 1 }}>
         <KeyboardAvoidingView
           style={{ flex: 1 }}
-          behavior="padding"
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         >
           <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
             {/* Header */}

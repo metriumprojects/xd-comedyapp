@@ -1,17 +1,57 @@
+const mongoose = require('mongoose');
 const Highlight = require('../models/Highlight');
+const Story = require('../models/Story');
 
-// Helper – normalise an incoming story entry from the client
+function safeDate(value) {
+  const date = value ? new Date(value) : new Date();
+  return Number.isNaN(date.getTime()) ? new Date() : date;
+}
+
+function mediaKeyFrom(entry) {
+  const seed = String(
+    entry?.mediaUrl ||
+    entry?.videoUrl ||
+    entry?.video ||
+    entry?.imageUrl ||
+    entry?.image ||
+    entry?.thumbnailUrl ||
+    entry?.uri ||
+    ''
+  ).trim();
+  if (!seed) return '';
+  return `media_${Buffer.from(seed).toString('base64url').slice(0, 24)}`;
+}
+
 function normaliseStory(entry) {
   if (!entry) return null;
   if (typeof entry === 'string') {
-    return { storyId: entry, imageUrl: '', mediaType: 'image', createdAt: new Date() };
+    const storyId = entry.trim();
+    return storyId ? { storyId, id: storyId, imageUrl: '', videoUrl: '', mediaUrl: '', mediaType: 'image', createdAt: new Date() } : null;
   }
+
+  const rawId = String(entry.storyId || entry.id || entry._id || '').trim();
+  const storyId = rawId || mediaKeyFrom(entry);
+  if (!storyId) return null;
+
+  const imageUrl = entry.imageUrl || entry.image || entry.imageUri || entry.thumbnailUrl || '';
+  const videoUrl = entry.videoUrl || entry.video || entry.videoUri || '';
+  const mediaUrl = entry.mediaUrl || imageUrl || videoUrl || '';
+  const mediaType = entry.mediaType || (videoUrl ? 'video' : 'image');
+
   return {
-    storyId:   entry.storyId   || entry.id   || '',
-    imageUrl:  entry.imageUrl  || entry.image || entry.imageUri || '',
-    videoUrl:  entry.videoUrl  || entry.videoUri || '',
-    mediaType: entry.mediaType || (entry.videoUrl ? 'video' : 'image'),
-    createdAt: entry.createdAt ? new Date(entry.createdAt) : new Date()
+    id: storyId,
+    storyId,
+    userId: entry.userId || null,
+    userName: entry.userName || entry.username || entry.displayName || null,
+    userAvatar: entry.userAvatar || entry.avatar || entry.photoURL || null,
+    imageUrl,
+    videoUrl,
+    thumbnailUrl: entry.thumbnailUrl || entry.thumbnail || null,
+    mediaUrl,
+    mediaType,
+    createdAt: safeDate(entry.createdAt || entry.timestamp),
+    locationData: entry.locationData || null,
+    postMetadata: entry.postMetadata || null
   };
 }
 
@@ -29,58 +69,48 @@ exports.getHighlightsByUser = async (req, res) => {
 
 // POST /api/highlights
 exports.createHighlight = async (req, res) => {
+  console.log('[createHighlight] Request body:', req.body);
   try {
-    const { userId, title, coverImage, stories = [], storySnapshot } = req.body;
-    if (!userId || !title) return res.status(400).json({ success: false, error: 'userId and title required' });
-
-    let resolvedStories = [];
-    const mongoose = require('mongoose');
-    const Story = mongoose.model('Story');
-
-    if (storySnapshot) {
-      const s = normaliseStory(storySnapshot);
-      if (s) resolvedStories = [s];
-    } else if (Array.isArray(stories) && stories.length > 0) {
-      for (const entry of stories) {
-        if (typeof entry === 'string') {
-          try {
-            const st = mongoose.Types.ObjectId.isValid(entry) ? await Story.findById(entry).lean() : null;
-            if (st) {
-              resolvedStories.push({
-                id: String(st._id),
-                storyId: String(st._id),
-                userId: st.userId,
-                userName: st.userName,
-                userAvatar: st.userAvatar,
-                imageUrl: st.image || null,
-                videoUrl: st.video || null,
-                thumbnailUrl: st.thumbnail || null,
-                mediaUrl: st.image || st.video || null,
-                mediaType: st.video ? 'video' : 'image',
-                createdAt: st.createdAt || new Date(),
-                expiresAt: st.expiresAt || null,
-              });
-            } else {
-              resolvedStories.push(normaliseStory(entry));
-            }
-          } catch {
-            resolvedStories.push(normaliseStory(entry));
-          }
-        } else {
-          const s = normaliseStory(entry);
-          if (s) resolvedStories.push(s);
-        }
-      }
+    const { userId, title, coverImage, stories = [], storyIds = [], items = [], storySnapshot, storySnapshots = [], visibility } = req.body;
+    const resolvedUserId = req.userId || userId;
+    if (!resolvedUserId || !title) {
+      console.warn('[createHighlight] Validation failed: userId or title missing.', { resolvedUserId, title });
+      return res.status(400).json({ success: false, error: 'userId and title required' });
     }
 
-    const coverUrl = coverImage || (resolvedStories[0] && (resolvedStories[0].imageUrl || resolvedStories[0].mediaUrl)) || '';
+    let resolvedItems = [];
+    let resolvedStoryIds = [];
+
+    const incomingStories = [];
+    if (storySnapshot) incomingStories.push(storySnapshot);
+    if (Array.isArray(storySnapshots)) incomingStories.push(...storySnapshots);
+    if (Array.isArray(items)) incomingStories.push(...items);
+    if (Array.isArray(stories)) incomingStories.push(...stories);
+    if (Array.isArray(storyIds)) incomingStories.push(...storyIds);
+
+    if (incomingStories.length > 0) {
+      const seen = new Set();
+      resolvedItems = incomingStories
+        .map(normaliseStory)
+        .filter(Boolean)
+        .filter((item) => {
+          if (seen.has(item.storyId)) return false;
+          seen.add(item.storyId);
+          return true;
+        });
+      resolvedStoryIds = resolvedItems.map(item => item.storyId).filter(Boolean);
+    }
+
+    const firstItem = resolvedItems[0];
+    const coverUrl = coverImage || firstItem?.thumbnailUrl || firstItem?.imageUrl || firstItem?.videoUrl || firstItem?.mediaUrl || '';
 
     const highlight = new Highlight({
-      userId,
+      userId: resolvedUserId,
       title,
       coverImage: coverUrl,
-      stories: resolvedStories.map(s => s.storyId).filter(Boolean),
-      items: resolvedStories,
+      stories: resolvedStoryIds,
+      items: resolvedItems,
+      visibility: visibility || 'Public',
       createdAt: new Date(),
       updatedAt: new Date()
     });
@@ -94,57 +124,78 @@ exports.createHighlight = async (req, res) => {
 
 // POST /api/highlights/:id/stories
 exports.addStoryToHighlight = async (req, res) => {
+  console.log('[addStoryToHighlight] Request body:', req.body, 'params:', req.params);
   try {
     const { id } = req.params;
-    const { storySnapshot } = req.body;
+    const { storySnapshot, storyId: clientStoryId } = req.body;
+
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({ success: false, error: 'Invalid highlight ID format' });
+    }
 
     const highlight = await Highlight.findById(id);
-    if (!highlight) return res.status(404).json({ success: false, error: 'Highlight not found' });
+    if (!highlight) {
+      console.warn(`[addStoryToHighlight] Highlight not found for ID: ${id}`);
+      return res.status(404).json({ success: false, error: 'Highlight not found' });
+    }
 
-    let entry = null;
-    const mongoose = require('mongoose');
-    const Story = mongoose.model('Story');
+    let entry = storySnapshot ? normaliseStory(storySnapshot) : null;
+    const storyId = String(clientStoryId || entry?.storyId || req.body.storyId || '').trim();
 
-    if (typeof storySnapshot === 'string' || (storySnapshot && !storySnapshot.imageUrl && !storySnapshot.image)) {
-      const sid = typeof storySnapshot === 'string' ? storySnapshot : (storySnapshot.storyId || storySnapshot.id);
-      try {
-        const st = mongoose.Types.ObjectId.isValid(sid) ? await Story.findById(sid).lean() : null;
-        if (st) {
-          entry = {
-            id: String(st._id),
-            storyId: String(st._id),
-            userId: st.userId,
-            userName: st.userName,
-            userAvatar: st.userAvatar,
-            imageUrl: st.image || null,
-            videoUrl: st.video || null,
-            thumbnailUrl: st.thumbnail || null,
-            mediaUrl: st.image || st.video || null,
-            mediaType: st.video ? 'video' : 'image',
-            createdAt: st.createdAt || new Date(),
-            expiresAt: st.expiresAt || null,
-          };
-        }
-      } catch (err) {}
+    if (!storyId) {
+      console.warn('[addStoryToHighlight] Validation failed: storyId is required. Request body:', req.body);
+      return res.status(400).json({ success: false, error: 'storyId is required' });
     }
 
     if (!entry) {
-      entry = normaliseStory(storySnapshot);
+      try {
+        const st = mongoose.Types.ObjectId.isValid(storyId) ? await Story.findById(storyId).lean() : null;
+        if (st) {
+          entry = {
+            storyId: String(st._id),
+            imageUrl: st.image || null,
+            videoUrl: st.video || null,
+            mediaType: st.video ? 'video' : 'image',
+            createdAt: st.createdAt || new Date()
+          };
+        }
+      } catch (err) {
+        // ignore
+      }
     }
 
-    if (!entry) return res.status(400).json({ success: false, error: 'story data required' });
+    if (!entry) {
+      entry = {
+        storyId,
+        imageUrl: '',
+        mediaType: 'image',
+        createdAt: new Date()
+      };
+    }
+
+    if (!highlight.items) highlight.items = [];
+    const isAlreadyInItems = highlight.items.some(item => {
+      const itemId = typeof item === 'string' ? item : (item?.storyId || item?.id);
+      return String(itemId) === String(storyId);
+    });
+
+    if (!isAlreadyInItems) {
+      highlight.items.push(entry);
+    }
 
     if (!highlight.stories) highlight.stories = [];
-    if (!highlight.items) highlight.items = [];
-
-    const alreadyIn = highlight.stories.includes(entry.storyId);
-    if (!alreadyIn) {
-      highlight.stories.push(entry.storyId);
-      highlight.items.push(entry);
-      if (!highlight.coverImage && entry.imageUrl) highlight.coverImage = entry.imageUrl;
-      highlight.updatedAt = new Date();
-      await highlight.save();
+    if (!highlight.stories.some(s => String(s) === String(storyId))) {
+      highlight.stories.push(storyId);
     }
+
+    if (!highlight.coverImage) {
+      highlight.coverImage = entry.thumbnailUrl || entry.imageUrl || entry.videoUrl || entry.mediaUrl || '';
+    }
+
+    highlight.updatedAt = new Date();
+    highlight.markModified('items');
+    highlight.markModified('stories');
+    await highlight.save();
 
     res.json({ success: true, data: highlight });
   } catch (err) {
@@ -160,16 +211,27 @@ exports.removeStoryFromHighlight = async (req, res) => {
     const highlight = await Highlight.findById(id);
     if (!highlight) return res.status(404).json({ success: false, error: 'Highlight not found' });
 
-    highlight.stories = highlight.stories.filter(s => s !== storyId);
-    highlight.items = (highlight.items || []).filter(item => {
-      if (typeof item === 'string') return item !== storyId;
-      if (item && typeof item === 'object') return (item.id || item.storyId || '') !== storyId;
-      return true;
-    });
+    if (highlight.stories) {
+      highlight.stories = highlight.stories.filter(s => String(s) !== String(storyId));
+    }
+
+    if (highlight.items) {
+      highlight.items = highlight.items.filter(item => {
+        const itemId = typeof item === 'string' ? item : (item?.storyId || item?.id);
+        return String(itemId) !== String(storyId);
+      });
+    }
+
+    const remaining = (highlight.items?.length || 0) + (highlight.stories?.length || 0);
+    if (remaining <= 0) {
+      await Highlight.deleteOne({ _id: id });
+      return res.json({ success: true, deletedHighlight: true });
+    }
+
     highlight.updatedAt = new Date();
     await highlight.save();
 
-    res.json({ success: true, data: highlight });
+    res.json({ success: true, data: highlight, deletedHighlight: false });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
   }
@@ -219,25 +281,38 @@ exports.deleteHighlight = async (req, res) => {
 exports.getHighlightStories = async (req, res) => {
   try {
     const { id } = req.params;
-    const mongoose = require('mongoose');
-    const Highlight = mongoose.model('Highlight');
-    const highlight = await Highlight.findById(id);
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({ success: false, error: 'Invalid highlight ID format' });
+    }
 
+    const highlight = await Highlight.findById(id);
     if (!highlight) {
       return res.status(404).json({ success: false, error: 'Highlight not found' });
     }
 
-    // Prefer items snapshots (survives story expiry). Fallback to stories ids.
     const items = Array.isArray(highlight.items) ? highlight.items : [];
-    const hasSnapshots = items.some((it) => it && typeof it === 'object' && (it.mediaUrl || it.imageUrl || it.videoUrl));
-    if (hasSnapshots) {
-      const normalized = items
-        .map((it) => {
-          if (!it) return null;
-          if (typeof it === 'string') return null;
-          const storyId = String(it.id || it.storyId || '').trim();
-          if (!storyId) return null;
-          return {
+    
+    const snapshotItems = [];
+    const bareStringIds = [];
+    const seenIds = new Set();
+
+    for (const it of items) {
+      if (!it) continue;
+      if (typeof it === 'string') {
+        const sid = it.trim();
+        if (sid && !seenIds.has(sid)) {
+          bareStringIds.push(sid);
+          seenIds.add(sid);
+        }
+        continue;
+      }
+      if (typeof it === 'object') {
+        const storyId = String(it.storyId || it.id || '').trim();
+        if (!storyId) continue;
+        if (seenIds.has(storyId)) continue;
+        seenIds.add(storyId);
+        if (it.mediaUrl || it.imageUrl || it.videoUrl) {
+          snapshotItems.push({
             ...it,
             id: storyId,
             _id: storyId,
@@ -245,38 +320,99 @@ exports.getHighlightStories = async (req, res) => {
             videoUrl: it.videoUrl || null,
             mediaUrl: it.mediaUrl || it.imageUrl || it.videoUrl || null,
             mediaType: it.mediaType || (it.videoUrl ? 'video' : 'image'),
-          };
-        })
-        .filter(Boolean);
-      return res.json({ success: true, data: normalized });
+            postMetadata: it.postMetadata || null,
+          });
+        } else {
+          bareStringIds.push(storyId);
+        }
+      }
     }
 
-    const storyIds = highlight.stories || [];
-    if (!storyIds || storyIds.length === 0) {
-      return res.json({ success: true, data: [] });
+    const storyIds = Array.isArray(highlight.stories) ? highlight.stories : [];
+    for (const sid of storyIds) {
+      const s = String(sid).trim();
+      if (s && !seenIds.has(s)) {
+        bareStringIds.push(s);
+        seenIds.add(s);
+      }
     }
 
-    const Story = mongoose.model('Story');
-    const storiesArray = await Story.find({
-      _id: { $in: storyIds.filter(sid => mongoose.Types.ObjectId.isValid(sid)) }
-    }).lean();
+    let dbLookedUp = [];
+    if (bareStringIds.length > 0) {
+      try {
+        const validIds = bareStringIds.filter(sid => mongoose.Types.ObjectId.isValid(sid));
+        if (validIds.length > 0) {
+          const foundStories = await Story.find({ _id: { $in: validIds } }).lean();
+          dbLookedUp = foundStories.map(story => ({
+            id: String(story._id),
+            _id: String(story._id),
+            storyId: String(story._id),
+            userId: story.userId,
+            userName: story.userName,
+            userAvatar: story.userAvatar,
+            imageUrl: story.image || null,
+            videoUrl: story.video || null,
+            mediaUrl: story.image || story.video || null,
+            mediaType: story.video ? 'video' : 'image',
+            createdAt: story.createdAt || null,
+            postMetadata: story.postMetadata || null,
+          }));
 
-    const enrichedStories = storiesArray.map(story => ({
-      ...story,
-      id: String(story._id),
-      imageUrl: story.image || null,
-      videoUrl: story.video || null,
-      mediaUrl: story.image || story.video || null,
-      mediaType: story.video ? 'video' : 'image',
-    }));
+          if (dbLookedUp.length > 0) {
+            try {
+              let needsSave = false;
+              for (const snap of dbLookedUp) {
+                const existsInItems = highlight.items.some((it) => {
+                  if (typeof it === 'string') return String(it).trim() === snap.id;
+                  if (it && typeof it === 'object') return String(it.id || it.storyId || '') === snap.id;
+                  return false;
+                });
+                if (existsInItems) {
+                  highlight.items = highlight.items.map((it) => {
+                    if (typeof it === 'string' && String(it).trim() === snap.id) { needsSave = true; return snap; }
+                    if (it && typeof it === 'object' && String(it.id || it.storyId || '') === snap.id && !it.mediaUrl && !it.imageUrl) {
+                      needsSave = true;
+                      return { ...it, ...snap };
+                    }
+                    return it;
+                  });
+                } else {
+                  highlight.items.push(snap);
+                  needsSave = true;
+                }
+              }
+              if (needsSave) {
+                highlight.markModified('items');
+                await highlight.save();
+              }
+            } catch (err) {
+              console.warn('[getHighlightStories] Backfill failed:', err.message);
+            }
+          }
+        }
+      } catch (err) {
+        console.warn('[getHighlightStories] Story collection query failed:', err.message);
+      }
+    }
 
-    enrichedStories.sort((a, b) => {
-      const idxA = storyIds.indexOf(a.id);
-      const idxB = storyIds.indexOf(b.id);
+    const allStories = [...snapshotItems, ...dbLookedUp];
+
+    const idOrder = items.map((it) => {
+      if (typeof it === 'string') return String(it).trim();
+      if (it && typeof it === 'object') return String(it.id || it.storyId || '');
+      return '';
+    });
+    
+    allStories.sort((a, b) => {
+      const idxA = idOrder.indexOf(a.id);
+      const idxB = idOrder.indexOf(b.id);
+      if (idxA === -1 && idxB === -1) return 0;
+      if (idxA === -1) return 1;
+      if (idxB === -1) return -1;
       return idxA - idxB;
     });
 
-    res.json({ success: true, data: enrichedStories });
+    res.json({ success: true, data: allStories });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
   }

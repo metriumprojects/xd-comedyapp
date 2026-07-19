@@ -1,5 +1,5 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Alert, ActivityIndicator } from 'react-native';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Alert, ActivityIndicator, Animated } from 'react-native';
 import { Feather, Ionicons } from '@expo/vector-icons';
 import { Image as ExpoImage } from 'expo-image';
 import { useRouter } from 'expo-router';
@@ -16,6 +16,64 @@ export const ProfileSubscriptions: React.FC<ProfileSubscriptionsProps> = ({ curr
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<'recent' | 'all' | 'oldest' | 'canceled'>('recent');
   const [subscriptions, setSubscriptions] = useState<SubscriptionRecord[]>([]);
+
+  // Skeleton pulsing animation
+  const skeletonOpacity = useRef(new Animated.Value(0.3)).current;
+
+  useEffect(() => {
+    let anim: Animated.CompositeAnimation | null = null;
+    if (loading) {
+      anim = Animated.loop(
+        Animated.sequence([
+          Animated.timing(skeletonOpacity, {
+            toValue: 0.7,
+            duration: 800,
+            useNativeDriver: true,
+          }),
+          Animated.timing(skeletonOpacity, {
+            toValue: 0.3,
+            duration: 800,
+            useNativeDriver: true,
+          }),
+        ])
+      );
+      anim.start();
+    } else {
+      skeletonOpacity.setValue(1);
+    }
+    return () => {
+      if (anim) anim.stop();
+    };
+  }, [loading]);
+
+  // Reset states on userId change to prevent showing old cached results
+  useEffect(() => {
+    setSubscriptions([]);
+    setLoading(true);
+  }, [currentUserId]);
+
+  const renderSkeletonCard = () => {
+    return (
+      <Animated.View style={[styles.card, { opacity: skeletonOpacity }]}>
+        <View style={styles.cardHeader}>
+          <View style={[styles.avatar, { backgroundColor: '#e5e5ea' }]} />
+          <View style={styles.cardHeaderInfo}>
+            <View style={{ width: 120, height: 16, backgroundColor: '#e5e5ea', borderRadius: 4, marginBottom: 6 }} />
+            <View style={{ width: 180, height: 12, backgroundColor: '#e5e5ea', borderRadius: 4, marginBottom: 4 }} />
+            <View style={{ width: 80, height: 12, backgroundColor: '#e5e5ea', borderRadius: 4 }} />
+          </View>
+        </View>
+        <View style={styles.actions}>
+          <View style={[styles.btnSeeProfile, { backgroundColor: '#e5e5ea', width: 90 }]}>
+            <View style={{ width: 60, height: 12, backgroundColor: '#d1d1d6', borderRadius: 4 }} />
+          </View>
+          <View style={[styles.btnCancel, { backgroundColor: '#e5e5ea', width: 130 }]}>
+            <View style={{ width: 100, height: 12, backgroundColor: '#d1d1d6', borderRadius: 4 }} />
+          </View>
+        </View>
+      </Animated.View>
+    );
+  };
 
   const loadSubscriptions = useCallback(async () => {
     if (!currentUserId) return;
@@ -91,14 +149,6 @@ export const ProfileSubscriptions: React.FC<ProfileSubscriptionsProps> = ({ curr
 
   const filteredItems = getFilteredData();
 
-  if (loading) {
-    return (
-      <View style={styles.center}>
-        <ActivityIndicator size="small" color="#007aff" />
-      </View>
-    );
-  }
-
   return (
     <View style={styles.container}>
       {/* Horizontal filter pills */}
@@ -139,7 +189,12 @@ export const ProfileSubscriptions: React.FC<ProfileSubscriptionsProps> = ({ curr
 
       {/* Subscription Cards List */}
       <View style={styles.list}>
-        {filteredItems.length > 0 ? (
+        {loading ? (
+          <>
+            {renderSkeletonCard()}
+            {renderSkeletonCard()}
+          </>
+        ) : filteredItems.length > 0 ? (
           filteredItems.map((item, idx) => (
             <View key={item.id || idx} style={styles.card}>
               <View style={styles.cardHeader}>

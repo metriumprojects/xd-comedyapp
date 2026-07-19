@@ -30,6 +30,7 @@ interface HighlightSelectionModalProps {
   onSelectHighlight: (highlightId: string) => void;
   onCreateNew: () => void;
   loading?: boolean;
+  useViewOverlay?: boolean;
 }
 
 export default function HighlightSelectionModal({
@@ -39,6 +40,7 @@ export default function HighlightSelectionModal({
   onSelectHighlight,
   onCreateNew,
   loading = false,
+  useViewOverlay = false,
 }: HighlightSelectionModalProps) {
   const insets = useSafeAreaInsets();
   const hasHighlights = highlights && highlights.length > 0;
@@ -74,38 +76,51 @@ export default function HighlightSelectionModal({
     </TouchableOpacity>
   );
 
-  return (
-    <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
-      <View style={styles.overlay}>
-        <TouchableOpacity style={styles.dismissArea} activeOpacity={1} onPress={onClose} />
+  const innerContent = (
+    <View style={styles.overlay}>
+      <TouchableOpacity style={styles.dismissArea} activeOpacity={1} onPress={onClose} />
+      
+      <View style={[styles.sheet, { paddingBottom: Math.max(insets.bottom, 20) }]}>
+        <View style={styles.handle} />
         
-        <View style={[styles.sheet, { paddingBottom: Math.max(insets.bottom, 20) }]}>
-          <View style={styles.handle} />
-          
-          <View style={styles.header}>
-            <Text style={styles.headerTitle}>Add to a highlight</Text>
-            {hasHighlights && (
-              <TouchableOpacity onPress={onCreateNew}>
-                <Text style={styles.newBtnText}>New highlight</Text>
-              </TouchableOpacity>
-            )}
-          </View>
-
-          {loading ? (
-            <ActivityIndicator size="large" color="#FF8D00" style={{ marginVertical: 40 }} />
-          ) : hasHighlights ? (
-            <FlatList
-              data={highlights}
-              keyExtractor={(item) => resolveHighlightId(item) || `hl_${Math.random().toString(36).slice(2)}`}
-              renderItem={renderHighlightItem}
-              contentContainerStyle={styles.listContent}
-              showsVerticalScrollIndicator={false}
-            />
-          ) : (
-            renderEmptyState()
+        <View style={styles.header}>
+          <Text style={styles.headerTitle}>Add to a highlight</Text>
+          {hasHighlights && (
+            <TouchableOpacity onPress={onCreateNew}>
+              <Text style={styles.newBtnText}>New highlight</Text>
+            </TouchableOpacity>
           )}
         </View>
+
+        {loading ? (
+          <ActivityIndicator size="large" color="#FF8D00" style={{ marginVertical: 40 }} />
+        ) : hasHighlights ? (
+          <FlatList
+            data={highlights}
+            keyExtractor={(item) => resolveHighlightId(item) || `hl_${Math.random().toString(36).slice(2)}`}
+            renderItem={renderHighlightItem}
+            contentContainerStyle={styles.listContent}
+            showsVerticalScrollIndicator={false}
+          />
+        ) : (
+          renderEmptyState()
+        )}
       </View>
+    </View>
+  );
+
+  if (useViewOverlay) {
+    if (!visible) return null;
+    return (
+      <View style={[StyleSheet.absoluteFillObject, { zIndex: 120 }]}>
+        {innerContent}
+      </View>
+    );
+  }
+
+  return (
+    <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
+      {innerContent}
     </Modal>
   );
 }

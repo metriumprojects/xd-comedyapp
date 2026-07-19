@@ -40,6 +40,7 @@ const PostSchema = new mongoose.Schema({
   laughedBy: { type: [String], default: [] },
   tomatoedBy: { type: [String], default: [] },
   viewsCount: { type: Number, default: 0 },
+  shareCount: { type: Number, default: 0 },
   isPrivate: { type: Boolean, default: false }, // Privacy flag: true = private account post
   visibility: { type: String, default: 'Everyone' }, // Visibility setting: 'Everyone', 'Friends', 'Family', etc.
   allowedFollowers: { type: [String], default: [] }, // Array of follower IDs who can see this private post
@@ -64,19 +65,19 @@ PostSchema.index({ mediaType: 1, createdAt: -1 });              // Video/image f
 PostSchema.index({ isPrivate: 1, visibility: 1, createdAt: -1 }); // Visibility filter + sort
 PostSchema.index({ laughCount: -1, createdAt: -1 });             // Laugh leaderboard
 PostSchema.index({ tomatoCount: -1, createdAt: -1 });            // Tomato leaderboard
-PostSchema.index({ 
-  location: 'text', 
-  'locationData.name': 'text', 
+PostSchema.index({
+  location: 'text',
+  'locationData.name': 'text',
   caption: 'text',
-  hashtags: 'text' 
-}, { 
-  weights: { 
-    location: 10, 
-    'locationData.name': 10, 
-    caption: 5, 
-    hashtags: 2 
+  hashtags: 'text'
+}, {
+  weights: {
+    location: 10,
+    'locationData.name': 10,
+    caption: 5,
+    hashtags: 2
   },
-  name: "PostSearchIndex" 
+  name: "PostSearchIndex"
 });
 
 

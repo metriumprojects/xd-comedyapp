@@ -2,7 +2,7 @@ import { DEFAULT_AVATAR_URL } from '../lib/api';
 import { Feather, Ionicons } from "@expo/vector-icons";
 import { useRouter, useFocusEffect } from "expo-router";
 import * as Haptics from 'expo-haptics';
-import React, { useEffect, useMemo, useState, useCallback } from "react";
+import React, { useEffect, useMemo, useState, useCallback, useRef } from "react";
 import AsyncStorage from '@/lib/storage';
 import { 
   View, 
@@ -15,445 +15,437 @@ import {
   Platform, 
   ActivityIndicator, 
   FlatList,
+  Alert,
   Dimensions,
-  KeyboardAvoidingView
+  KeyboardAvoidingView,
+  InteractionManager
 } from "react-native";
 import { Image as ExpoImage } from 'expo-image';
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { searchUsers } from "../lib/firebaseHelpers/index";
 import { safeRouterBack } from '@/lib/safeRouterBack';
-import { getVideoThumbnailUrl } from '../lib/imageHelpers';
-import { useLazyLoad } from '../hooks/usePerformance';
+import { apiService } from '@/src/_services/apiService';
+import PostViewerModal from '@/src/_components/PostViewerModal';
+import { getVideoThumbnailUrl } from '@/lib/imageHelpers';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
-const RECENT_SEARCHES_KEY = 'recent_searches_comedy_reels';
+const SEARCH_HISTORY_KEY = 'search_history_v2';
+const DEFAULT_CARD_IMAGE = 'https://images.unsplash.com/photo-1516280440614-37939bbacd6a?w=500';
 
-type TabType = 'posts' | 'videos' | 'image' | 'users' | 'location' | 'laugh' | 'tomato';
+type User = {
+  uid: string;
+  displayName?: string;
+  photoURL?: string;
+  bio?: string;
+  isPrivate?: boolean;
+};
+
+type SearchFilter = 'videos' | 'users' | 'location' | 'laugh' | 'tomato';
 
 export default function SearchModal() {
-  const isReady = useLazyLoad();
-  const [q, setQ] = useState<string>('');
-  const [searchActive, setSearchActive] = useState<boolean>(false);
-  const [recentSearches, setRecentSearches] = useState<string[]>([]);
-  const [activeTab, setActiveTab] = useState<TabType>('posts');
-  
-  const [posts, setPosts] = useState<any[]>([]);
-  const [users, setUsers] = useState<any[]>([]);
-  const [loading, setLoading] = useState<boolean>(false);
-  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
-
   const router = useRouter();
   const insets = useSafeAreaInsets();
 
-  // Load current user and search history on mount
+  const [q, setQ] = useState<string>('');
+  const [filter, setFilter] = useState<SearchFilter>('videos');
+  const [hasSearched, setHasSearched] = useState<boolean>(false);
+  const [history, setHistory] = useState<string[]>([]);
+  const [loading, setLoading] = useState<boolean>(false);
+  const [error, setError] = useState<boolean>(false);
+
+  const [postsResults, setPostsResults] = useState<any[]>([]);
+  const [usersResults, setUsersResults] = useState<User[]>([]);
+
+  // Post viewer state
+  const [postViewerVisible, setPostViewerVisible] = useState<boolean>(false);
+  const [selectedPostIndex, setSelectedPostIndex] = useState<number>(0);
+
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+
+  // Load current user and history on mount
   useEffect(() => {
     AsyncStorage.getItem('userId').then(uid => {
       if (uid) setCurrentUserId(uid);
-    }).catch(err => console.error('[Search] Failed to get userId:', err));
+    }).catch(err => console.error('[SearchModal] Failed to get userId:', err));
 
-    const loadRecentSearches = async () => {
-      try {
-        const stored = await AsyncStorage.getItem(RECENT_SEARCHES_KEY);
-        if (stored) {
-          setRecentSearches(JSON.parse(stored));
-        } else {
-          const defaults = ['Funny prank video', 'Cat videos', 'Stand ups'];
-          setRecentSearches(defaults);
-          await AsyncStorage.setItem(RECENT_SEARCHES_KEY, JSON.stringify(defaults));
-        }
-      } catch (e) {
-        setRecentSearches(['Funny prank video', 'Cat videos', 'Stand ups']);
+    AsyncStorage.getItem(SEARCH_HISTORY_KEY).then(val => {
+      if (val) {
+        try {
+          setHistory(JSON.parse(val));
+        } catch {}
       }
-    };
-    loadRecentSearches();
+    }).catch(() => {});
   }, []);
 
-  // Execute Search query
-  const executeSearch = useCallback(async (query: string, tab: TabType) => {
-    setLoading(true);
-    try {
-      if (tab === 'users') {
-        const result = await searchUsers(query, 20);
-        if (result.success && Array.isArray(result.data)) {
-          setUsers(result.data);
-        } else {
-          setUsers([]);
-        }
-        setPosts([]);
-      } else {
-        const { apiService } = await import('@/src/_services/apiService');
-        const response = await apiService.get('/posts/search', {
-          params: {
-            q: query,
-            filter: tab,
-            limit: 30
-          }
-        });
-        if (response.success && Array.isArray(response.data)) {
-          setPosts(response.data);
-        } else {
-          setPosts([]);
-        }
-        setUsers([]);
-      }
-    } catch (err) {
-      console.error('[Search] Failed execution:', err);
-      setPosts([]);
-      setUsers([]);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+  // Reset when screen is focused
+  useFocusEffect(
+    useCallback(() => {
+      setQ('');
+      setHasSearched(false);
+      setPostsResults([]);
+      setUsersResults([]);
+      setError(false);
+    }, [])
+  );
 
-  // Re-run search if filter pill changes while search is active
-  useEffect(() => {
-    if (searchActive) {
-      executeSearch(q, activeTab);
-    }
-  }, [activeTab, searchActive]);
-
-  if (!isReady) {
-    return (
-      <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
-        <View style={styles.headerSearchRow}>
-          <TouchableOpacity
-            onPress={() => {
-              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
-              safeRouterBack();
-            }}
-            style={styles.backBtn}
-          >
-            <Feather name="arrow-left" size={24} color="#111" />
-          </TouchableOpacity>
-
-          <View style={styles.searchBarContainer}>
-            <Feather name="search" size={18} color="#666" style={styles.searchIcon} />
-            <TextInput
-              style={styles.searchInput}
-              placeholder="Search funny posts..."
-              placeholderTextColor="#999"
-              editable={false}
-            />
-          </View>
-          <View style={styles.searchButton}>
-            <Text style={styles.searchButtonText}>Search</Text>
-          </View>
-        </View>
-        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-          <ActivityIndicator size="small" color="#007aff" />
-        </View>
-      </SafeAreaView>
-    );
-  }
-
-  // Handle submit/execute search action
-  const handleSearchSubmit = async (queryText: string) => {
+  const handleSearchSubmit = async (queryText = q) => {
     const trimmed = queryText.trim();
     if (!trimmed) return;
     Keyboard.dismiss();
-    setSearchActive(true);
-    
-    // Add to search history
-    const filtered = recentSearches.filter(s => s.toLowerCase() !== trimmed.toLowerCase());
-    const updated = [trimmed, ...filtered].slice(0, 10);
-    setRecentSearches(updated);
+
+    // Update history (move search query to the top, limit to 10 entries)
+    setHistory(prev => {
+      const filtered = prev.filter(h => h.toLowerCase() !== trimmed.toLowerCase());
+      const next = [trimmed, ...filtered].slice(0, 10);
+      AsyncStorage.setItem(SEARCH_HISTORY_KEY, JSON.stringify(next)).catch(() => {});
+      return next;
+    });
+
+    setQ(trimmed);
+    setHasSearched(true);
+    setLoading(true);
+    setError(false);
+
     try {
-      await AsyncStorage.setItem(RECENT_SEARCHES_KEY, JSON.stringify(updated));
-    } catch {}
-
-    executeSearch(trimmed, activeTab);
-  };
-
-  // Delete search item from history
-  const handleRemoveRecent = async (item: string) => {
-    const updated = recentSearches.filter(s => s !== item);
-    setRecentSearches(updated);
-    try {
-      await AsyncStorage.setItem(RECENT_SEARCHES_KEY, JSON.stringify(updated));
-    } catch {}
-  };
-
-  // Clear query resets search status
-  const handleClearInput = () => {
-    setQ('');
-    setSearchActive(false);
-    setPosts([]);
-    setUsers([]);
-  };
-
-  // Format relative time helper
-  const getTimeAgo = (dateString: string) => {
-    if (!dateString) return '';
-    try {
-      const now = new Date();
-      const past = new Date(dateString);
-      const diffMs = now.getTime() - past.getTime();
-      const diffMins = Math.floor(diffMs / 60000);
-      if (diffMins < 1) return 'Just now';
-      if (diffMins < 60) return `${diffMins}m ago`;
-      const diffHours = Math.floor(diffMins / 60);
-      if (diffHours < 24) return `${diffHours}h ago`;
-      const diffDays = Math.floor(diffHours / 24);
-      return `${diffDays}d ago`;
-    } catch {
-      return '';
+      if (filter === 'users') {
+        const res = await searchUsers(trimmed, 30);
+        if (res.success && Array.isArray(res.data)) {
+          setUsersResults(res.data);
+        } else {
+          setUsersResults([]);
+        }
+      } else {
+        const res = await apiService.get('/posts/search', {
+          params: { q: trimmed, filter }
+        });
+        if (res.success && Array.isArray(res.data)) {
+          setPostsResults(res.data);
+        } else {
+          setPostsResults([]);
+        }
+      }
+    } catch (err) {
+      console.error('[SearchModal] Search error:', err);
+      setError(true);
+    } finally {
+      setLoading(false);
     }
   };
 
-  // Render video reel card
-  const renderPostItem = ({ item }: { item: any }) => {
-    const views = item.viewsCount || Math.floor((item.laughCount || 0) * 12.4 + (item.tomatoCount || 0) * 4.3 + 12);
-    const formattedViews = views >= 1000 ? `${(views / 1000).toFixed(1)}K` : views;
+  // Re-run search if user changes filter tab while viewing search results
+  useEffect(() => {
+    if (hasSearched && q.trim()) {
+      handleSearchSubmit(q);
+    }
+  }, [filter]);
 
-    const creatorAvatar = item.userId?.avatar || item.userAvatar || DEFAULT_AVATAR_URL;
-    const creatorName = item.userId?.displayName || item.userId?.name || item.userName || 'User';
-    const isVideo = item.mediaType === 'video';
-    const mainMediaUrl = item.imageUrl || item.mediaUrl || (Array.isArray(item.mediaUrls) && item.mediaUrls[0]) || '';
-    const displayUri = item.thumbnailUrl || (isVideo ? getVideoThumbnailUrl(mainMediaUrl) : mainMediaUrl) || 'https://images.pexels.com/photos/2810816/pexels-photo-2810816.jpeg?auto=compress&cs=tinysrgb&w=300';
-    const timeAgo = getTimeAgo(item.createdAt);
+  const deleteHistoryItem = (itemToDelete: string) => {
+    setHistory(prev => {
+      const next = prev.filter(h => h !== itemToDelete);
+      AsyncStorage.setItem(SEARCH_HISTORY_KEY, JSON.stringify(next)).catch(() => {});
+      return next;
+    });
+  };
+
+  const handleClearSearch = () => {
+    setQ('');
+    setHasSearched(false);
+    setPostsResults([]);
+    setUsersResults([]);
+  };
+
+  const formatCount = (num: number): string => {
+    if (!num) return '0';
+    if (num >= 1000000) return (num / 1000000).toFixed(1) + 'M';
+    if (num >= 1000) return (num / 1000).toFixed(1) + 'K';
+    return String(num);
+  };
+
+  const formatTimeAgo = (date: Date): string => {
+    const seconds = Math.floor((new Date().getTime() - date.getTime()) / 1000);
+    if (seconds < 60) return 'Just now';
+    const minutes = Math.floor(seconds / 60);
+    if (minutes < 60) return `${minutes}m ago`;
+    const hours = Math.floor(minutes / 60);
+    if (hours < 24) return `${hours}h ago`;
+    const days = Math.floor(hours / 24);
+    return `${days}d ago`;
+  };
+
+  const renderPostItem = ({ item, index }: { item: any; index: number }) => {
+    const mainMediaUrl = item.mediaUrl || item.imageUrl || (Array.isArray(item.media) ? item.media[0]?.url : '') || (Array.isArray(item.mediaUrls) ? item.mediaUrls[0] : '');
+    const isVideo = item.mediaType === 'video' || (mainMediaUrl && mainMediaUrl.includes('.mp4'));
+    const thumbUrl = item.thumbnailUrl || (isVideo ? getVideoThumbnailUrl(mainMediaUrl) : mainMediaUrl) || DEFAULT_CARD_IMAGE;
+    const views = item.viewCount || item.views || 0;
+    const laughs = item.laughCount || item.laughs || 0;
+    const tomatoes = item.tomatoCount || item.tomatoes || 0;
+    const timeText = item.createdAt ? formatTimeAgo(new Date(item.createdAt)) : '1d ago';
 
     return (
-      <TouchableOpacity 
+      <TouchableOpacity
         style={styles.gridCard}
-        activeOpacity={0.9}
         onPress={() => {
-          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
-          router.push({ pathname: '/post-detail', params: { id: item._id || item.id } });
+          setSelectedPostIndex(index);
+          setPostViewerVisible(true);
         }}
       >
         <View style={styles.thumbnailContainer}>
           <ExpoImage
-            source={{ uri: displayUri }}
+            source={{ uri: thumbUrl }}
             style={styles.thumbnail}
             contentFit="cover"
-            cachePolicy="memory-disk"
-            transition={150}
           />
-          {/* Overlays */}
-          <View style={styles.thumbnailOverlayBottom}>
-            <View style={styles.statLeft}>
-              <Feather name={isVideo ? "play" : "image"} size={10} color="#fff" style={{ marginRight: 2 }} />
-              {isVideo ? <Text style={styles.statText}>{formattedViews}</Text> : null}
+          {/* Stats Overlay */}
+          <View style={styles.statsOverlayRow}>
+            <View style={styles.statOverlayItem}>
+              <Feather name="play" size={10} color="#fff" style={{ marginRight: 2 }} />
+              <Text style={styles.statOverlayText}>{formatCount(views)}</Text>
             </View>
-            <View style={styles.statRight}>
-              <Text style={styles.statText}>😂 {item.laughCount || 0}</Text>
-              <Text style={styles.statText}> 🍅 {item.tomatoCount || 0}</Text>
+            <View style={{ flex: 1 }} />
+            <View style={[styles.statOverlayItem, { marginRight: 6 }]}>
+              <Text style={styles.statOverlayText}>{laughs} 😂</Text>
+            </View>
+            <View style={styles.statOverlayItem}>
+              <Text style={styles.statOverlayText}>{tomatoes} 🍅</Text>
             </View>
           </View>
         </View>
-        {/* Caption and Creator details below card */}
-        <View style={styles.cardDetails}>
-          <Text style={styles.cardCaption} numberOfLines={2}>
-            {item.caption || item.content || ''}
-          </Text>
-          <View style={styles.creatorRow}>
-            <ExpoImage
-              source={{ uri: creatorAvatar }}
-              style={styles.creatorAvatar}
-              contentFit="cover"
-              cachePolicy="memory-disk"
-            />
-            <View style={{ flex: 1, marginLeft: 6 }}>
-              <Text style={styles.creatorName} numberOfLines={1}>{creatorName}</Text>
-              <Text style={styles.timeAgo}>{timeAgo}</Text>
-            </View>
+        <Text style={styles.gridCaption} numberOfLines={2}>
+          {item.caption || item.content || ''}
+        </Text>
+        <View style={styles.creatorRow}>
+          <ExpoImage
+            source={{ uri: item.userAvatar || item.creator?.avatar || DEFAULT_AVATAR_URL }}
+            style={styles.creatorAvatar}
+            contentFit="cover"
+          />
+          <View style={styles.creatorInfo}>
+            <Text style={styles.creatorName} numberOfLines={1}>
+              {item.userName || item.creator?.displayName || 'Creator'}
+            </Text>
+            <Text style={styles.timeText}>{timeText}</Text>
           </View>
         </View>
       </TouchableOpacity>
     );
   };
 
-  // Render user row
-  const renderUserItem = ({ item }: { item: any }) => {
-    const targetUserId = item.firebaseUid || item._id || item.uid;
-    const isOwnProfile = !!currentUserId && !!targetUserId && currentUserId === targetUserId;
-    const userAvatar = item.photoURL || item.avatar || DEFAULT_AVATAR_URL;
-    return (
-      <View style={styles.userResultRow}>
-        <TouchableOpacity
-          style={{ flexDirection: 'row', flex: 1, alignItems: 'center' }}
-          onPress={() => {
-            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
-            if (isOwnProfile) {
-              router.push('/(tabs)/profile');
-            } else if (targetUserId) {
-              router.push(`/user-profile?uid=${targetUserId}`);
-            }
-          }}
-        >
-          <ExpoImage 
-            source={{ uri: userAvatar }} 
-            style={styles.userAvatarImage}
-            contentFit="cover"
-            transition={200}
-            cachePolicy="memory-disk"
-          />
-          <View style={{ marginLeft: 16, flex: 1 }}>
-            <Text style={styles.userDisplayName}>
-              {item.displayName || 'Creator'}{isOwnProfile ? ' (You)' : ''}
-            </Text>
-            {!!item.bio && <Text style={styles.userBio} numberOfLines={1}>{item.bio}</Text>}
-          </View>
-        </TouchableOpacity>
-      </View>
-    );
-  };
-
   return (
-    <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
-      <KeyboardAvoidingView 
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'} 
-        style={{ flex: 1 }}
-      >
-        {/* Header Search Input */}
-        <View style={styles.headerSearchRow}>
-          <TouchableOpacity
-            onPress={() => {
-              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
-              safeRouterBack();
-            }}
-            style={styles.backBtn}
-          >
-            <Feather name="arrow-left" size={24} color="#111" />
-          </TouchableOpacity>
+    <SafeAreaView style={styles.container} edges={['left', 'right']}>
+      <View style={{ flex: 1, paddingTop: Math.max(insets.top + 2, 0) }}>
+        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
+          
+          {/* Header Bar */}
+          <View style={styles.searchHeader}>
+            <TouchableOpacity
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+                if (hasSearched) {
+                  setHasSearched(false);
+                } else {
+                  safeRouterBack();
+                }
+              }}
+              style={styles.backBtn}
+            >
+              <Feather name="arrow-left" size={24} color="#333" />
+            </TouchableOpacity>
 
-          <View style={styles.searchBarContainer}>
-            <Feather name="search" size={18} color="#666" style={styles.searchIcon} />
-            <TextInput
-              style={styles.searchInput}
-              placeholder="Search funny posts..."
-              placeholderTextColor="#999"
-              value={q}
-              onChangeText={setQ}
-              autoCapitalize="none"
-              autoCorrect={false}
-              returnKeyType="search"
-              onSubmitEditing={() => handleSearchSubmit(q)}
-            />
-            {q.length > 0 && (
-              <TouchableOpacity onPress={handleClearInput} style={styles.clearBtnInput}>
-                <Feather name="x" size={16} color="#777" />
-              </TouchableOpacity>
-            )}
-          </View>
-
-          <TouchableOpacity 
-            onPress={() => handleSearchSubmit(q)}
-            style={styles.searchButton}
-          >
-            <Text style={styles.searchButtonText}>Search</Text>
-          </TouchableOpacity>
-        </View>
-
-        {/* Dynamic Views: Results vs History */}
-        {!searchActive ? (
-          /* Search History state */
-          <ScrollView 
-            style={styles.historyScroll}
-            keyboardShouldPersistTaps="handled"
-            showsVerticalScrollIndicator={false}
-          >
-            <Text style={styles.historyTitle}>Recent Searches</Text>
-            {recentSearches.map((item, idx) => (
-              <View key={idx} style={styles.historyRow}>
-                <TouchableOpacity 
-                  style={styles.historyQueryBtn}
-                  onPress={() => {
-                    setQ(item);
-                    handleSearchSubmit(item);
-                  }}
-                >
-                  <Feather name="clock" size={16} color="#999" style={{ marginRight: 12 }} />
-                  <Text style={styles.historyQueryText}>{item}</Text>
+            <View style={styles.searchBarContainer}>
+              <Feather name="search" size={18} color="#666" style={styles.searchIcon} />
+              <TextInput
+                style={styles.searchInput}
+                placeholder="Search"
+                placeholderTextColor="#999"
+                value={q}
+                onChangeText={setQ}
+                onSubmitEditing={() => handleSearchSubmit()}
+                autoCapitalize="none"
+                autoCorrect={false}
+                returnKeyType="search"
+              />
+              {q.length > 0 && (
+                <TouchableOpacity onPress={handleClearSearch} style={styles.clearBtn}>
+                  <Feather name="x" size={16} color="#777" />
                 </TouchableOpacity>
-                <TouchableOpacity 
-                  onPress={() => handleRemoveRecent(item)}
-                  style={styles.removeHistoryBtn}
-                >
-                  <Feather name="x" size={16} color="#999" />
-                </TouchableOpacity>
-              </View>
-            ))}
-          </ScrollView>
-        ) : (
-          /* Search Results state */
-          <View style={{ flex: 1 }}>
-            {/* Horizontal Scrollable Pills */}
-            <View style={styles.filterPillWrapper}>
-              <ScrollView 
-                horizontal 
-                showsHorizontalScrollIndicator={false}
-                contentContainerStyle={styles.filterPillScroll}
-              >
-                {(['posts', 'videos', 'image', 'users', 'location', 'laugh', 'tomato'] as TabType[]).map((tab) => {
-                  const isActive = activeTab === tab;
-                  let label = 'Posts';
-                  if (tab === 'videos') label = 'Videos';
-                  if (tab === 'image') label = 'Images';
-                  if (tab === 'users') label = 'Users';
-                  if (tab === 'location') label = 'Location';
-                  if (tab === 'laugh') label = 'Most 😂';
-                  if (tab === 'tomato') label = 'Most 🍅';
-
-                  return (
-                    <TouchableOpacity
-                      key={tab}
-                      onPress={() => {
-                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
-                        setActiveTab(tab);
-                      }}
-                      style={[
-                        styles.filterPill,
-                        isActive && styles.filterPillActive
-                      ]}
-                    >
-                      <Text style={[
-                        styles.filterPillText,
-                        isActive && styles.filterPillTextActive
-                      ]}>
-                        {label}
-                      </Text>
-                    </TouchableOpacity>
-                  );
-                })}
-              </ScrollView>
+              )}
             </View>
 
-            {/* Results Grid / List */}
-            {loading ? (
-              <View style={styles.centerSpinner}>
-                <ActivityIndicator size="large" color="#FF8D00" />
-              </View>
-            ) : activeTab === 'users' ? (
+            <TouchableOpacity
+              onPress={() => handleSearchSubmit()}
+              style={styles.searchSubmitBtn}
+            >
+              <Text style={styles.searchSubmitBtnText}>Search</Text>
+            </TouchableOpacity>
+          </View>
+
+          {/* Body Content */}
+          <View style={{ flex: 1, backgroundColor: '#fff' }}>
+            {!hasSearched ? (
+              /* Search History List */
               <FlatList
-                key="users-search-list"
-                data={users}
-                keyExtractor={(item, index) => item.firebaseUid || item._id || item.uid || String(index)}
-                renderItem={renderUserItem}
+                data={history}
+                keyExtractor={(item) => item}
                 keyboardShouldPersistTaps="handled"
-                contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 30 }}
+                renderItem={({ item }) => (
+                  <View style={styles.historyRow}>
+                    <TouchableOpacity
+                      style={styles.historyClickable}
+                      onPress={() => handleSearchSubmit(item)}
+                    >
+                      <Feather name="clock" size={16} color="#8e8e93" style={{ marginRight: 12 }} />
+                      <Text style={styles.historyText}>{item}</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      onPress={() => deleteHistoryItem(item)}
+                      style={styles.historyDeleteBtn}
+                    >
+                      <Feather name="x" size={16} color="#c7c7cc" />
+                    </TouchableOpacity>
+                  </View>
+                )}
+                ListHeaderComponent={
+                  history.length > 0 ? (
+                    <Text style={styles.historyHeader}>Recent Searches</Text>
+                  ) : null
+                }
                 ListEmptyComponent={
-                  <Text style={styles.emptyResultsText}>No creators found</Text>
+                  <View style={styles.emptyContainer}>
+                    <Feather name="search" size={48} color="#e5e5ea" style={{ marginBottom: 12 }} />
+                    <Text style={styles.emptyText}>Search comedy videos, creators, or tags</Text>
+                  </View>
                 }
               />
             ) : (
-              <FlatList
-                key="posts-search-grid"
-                data={posts}
-                keyExtractor={(item) => item._id || item.id}
-                renderItem={renderPostItem}
-                numColumns={2}
-                keyboardShouldPersistTaps="handled"
-                columnWrapperStyle={styles.gridColumnWrapper}
-                contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 30 }}
-                ListEmptyComponent={
-                  <Text style={styles.emptyResultsText}>No posts found</Text>
-                }
-              />
+              /* Search Results view */
+              <View style={{ flex: 1 }}>
+                {/* Horizontal Filter Pills */}
+                <View style={styles.filterPillsContainer}>
+                  <ScrollView
+                    horizontal
+                    showsHorizontalScrollIndicator={false}
+                    contentContainerStyle={styles.filterPillsRow}
+                  >
+                    {[
+                      { key: 'videos', label: 'Videos' },
+                      { key: 'users', label: 'Users' },
+                      { key: 'location', label: 'Location' },
+                      { key: 'laugh', label: 'Most 😂' },
+                      { key: 'tomato', label: 'Most 🍅' }
+                    ].map((item) => {
+                      const isActive = filter === item.key;
+                      return (
+                        <TouchableOpacity
+                          key={item.key}
+                          onPress={() => {
+                            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+                            setFilter(item.key as SearchFilter);
+                          }}
+                          style={[
+                            styles.filterPill,
+                            isActive ? styles.filterPillActive : styles.filterPillInactive
+                          ]}
+                        >
+                          <Text
+                            style={[
+                              styles.filterPillText,
+                              isActive ? styles.filterPillTextActive : styles.filterPillTextInactive
+                            ]}
+                          >
+                            {item.label}
+                          </Text>
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </ScrollView>
+                </View>
+
+                {/* List/Grid of Results */}
+                {loading ? (
+                  <View style={styles.loadingContainer}>
+                    <ActivityIndicator size="large" color="#FF8D00" />
+                  </View>
+                ) : error ? (
+                  <View style={styles.emptyContainer}>
+                    <Text style={{ color: '#ff3b30', fontSize: 15 }}>Failed to load results. Please try again.</Text>
+                  </View>
+                ) : filter === 'users' ? (
+                  /* Users Results list */
+                  <FlatList
+                    key="users-search-list"
+                    data={usersResults}
+                    keyExtractor={(item) => item.uid}
+                    keyboardShouldPersistTaps="handled"
+                    renderItem={({ item }) => {
+                      const isOwn = currentUserId === item.uid;
+                      return (
+                        <View style={styles.userResultRow}>
+                          <TouchableOpacity
+                            style={{ flexDirection: 'row', flex: 1, alignItems: 'center' }}
+                            onPress={() => {
+                              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+                              if (isOwn) {
+                                router.push('/(tabs)/profile');
+                              } else {
+                                router.push(`/user-profile/${item.uid}` as any);
+                              }
+                            }}
+                          >
+                            <ExpoImage
+                              source={{ uri: item.photoURL || DEFAULT_AVATAR_URL }}
+                              style={styles.avatarImage}
+                              contentFit="cover"
+                            />
+                            <View style={{ marginLeft: 16, flex: 1 }}>
+                              <Text style={styles.userDisplayName}>
+                                {item.displayName || 'Creator'}{isOwn ? ' (You)' : ''}
+                              </Text>
+                              {!!item.bio && (
+                                <Text style={styles.userBio} numberOfLines={1}>{item.bio}</Text>
+                              )}
+                            </View>
+                          </TouchableOpacity>
+                        </View>
+                      );
+                    }}
+                    ListEmptyComponent={
+                      <View style={styles.emptyContainer}>
+                        <Text style={styles.emptyText}>No users matched your query</Text>
+                      </View>
+                    }
+                  />
+                ) : (
+                  /* Video Posts Results grid */
+                  <FlatList
+                    key="posts-search-grid"
+                    data={postsResults}
+                    keyExtractor={(item) => item._id || item.id}
+                    numColumns={2}
+                    keyboardShouldPersistTaps="handled"
+                    columnWrapperStyle={styles.gridColumnWrapper}
+                    renderItem={renderPostItem}
+                    ListEmptyComponent={
+                      <View style={styles.emptyContainer}>
+                        <Text style={styles.emptyText}>No posts matched your query</Text>
+                      </View>
+                    }
+                  />
+                )}
+              </View>
             )}
           </View>
-        )}
-      </KeyboardAvoidingView>
+        </KeyboardAvoidingView>
+      </View>
+
+      {/* Full screen Post Viewer */}
+      {postViewerVisible && React.createElement(PostViewerModal as any, {
+        visible: postViewerVisible,
+        onClose: () => setPostViewerVisible(false),
+        posts: postsResults,
+        selectedPostIndex: selectedPostIndex,
+        authUser: currentUserId ? { _id: currentUserId, id: currentUserId, uid: currentUserId } : null,
+        title: "Search Results",
+      })}
     </SafeAreaView>
   );
 }
@@ -463,225 +455,227 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#fff',
   },
-  headerSearchRow: {
+  searchHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 16,
+    paddingHorizontal: 12,
     paddingVertical: 10,
+    backgroundColor: '#fff',
     borderBottomWidth: 1,
-    borderBottomColor: '#f0f0f0',
+    borderBottomColor: '#f2f2f7',
   },
   backBtn: {
-    paddingRight: 10,
+    padding: 6,
+    marginRight: 4,
   },
   searchBarContainer: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#f5f5f7',
-    borderRadius: 20,
-    height: 40,
-    paddingHorizontal: 12,
+    backgroundColor: '#f2f2f7',
+    borderRadius: 10,
+    paddingHorizontal: 10,
+    height: 38,
   },
   searchIcon: {
-    marginRight: 6,
+    marginRight: 8,
   },
   searchInput: {
     flex: 1,
     fontSize: 15,
-    color: '#111',
-    paddingVertical: 0,
+    color: '#000',
+    padding: 0,
   },
-  clearBtnInput: {
+  clearBtn: {
     padding: 4,
   },
-  searchButton: {
-    paddingLeft: 12,
-    justifyContent: 'center',
-    height: 40,
+  searchSubmitBtn: {
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    marginLeft: 8,
   },
-  searchButtonText: {
-    color: '#007aff',
-    fontWeight: '600',
+  searchSubmitBtnText: {
     fontSize: 15,
+    fontWeight: '600',
+    color: '#FF8D00',
   },
-  historyScroll: {
-    flex: 1,
+  historyHeader: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#8e8e93',
     paddingHorizontal: 16,
     paddingTop: 16,
-  },
-  historyTitle: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#222',
-    marginBottom: 16,
+    paddingBottom: 8,
+    textTransform: 'uppercase',
   },
   historyRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
+    paddingHorizontal: 16,
     paddingVertical: 12,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: '#f0f0f0',
+    borderBottomWidth: 0.5,
+    borderBottomColor: '#f2f2f7',
   },
-  historyQueryBtn: {
-    flex: 1,
+  historyClickable: {
     flexDirection: 'row',
     alignItems: 'center',
+    flex: 1,
   },
-  historyQueryText: {
-    fontSize: 15,
+  historyText: {
+    fontSize: 16,
     color: '#333',
   },
-  removeHistoryBtn: {
-    padding: 4,
+  historyDeleteBtn: {
+    padding: 8,
   },
-  filterPillWrapper: {
-    borderBottomWidth: 1,
-    borderBottomColor: '#f0f0f0',
-    backgroundColor: '#fff',
+  emptyContainer: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 40,
+    marginTop: 60,
   },
-  filterPillScroll: {
-    paddingHorizontal: 16,
+  emptyText: {
+    fontSize: 15,
+    color: '#8e8e93',
+    textAlign: 'center',
+    lineHeight: 20,
+  },
+  filterPillsContainer: {
     paddingVertical: 10,
+    backgroundColor: '#fff',
+    borderBottomWidth: 0.5,
+    borderBottomColor: '#f2f2f7',
+  },
+  filterPillsRow: {
+    paddingHorizontal: 12,
     gap: 8,
   },
   filterPill: {
-    paddingHorizontal: 16,
+    paddingHorizontal: 14,
     paddingVertical: 6,
-    borderRadius: 15,
-    backgroundColor: '#f5f5f7',
+    borderRadius: 18,
     borderWidth: 1,
-    borderColor: '#e5e5ea',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   filterPillActive: {
-    backgroundColor: '#007aff',
-    borderColor: '#007aff',
+    backgroundColor: '#FF8D00',
+    borderColor: '#FF8D00',
+  },
+  filterPillInactive: {
+    backgroundColor: '#fff',
+    borderColor: '#e5e5ea',
   },
   filterPillText: {
     fontSize: 14,
-    color: '#333',
     fontWeight: '500',
   },
   filterPillTextActive: {
     color: '#fff',
-    fontWeight: '600',
   },
-  centerSpinner: {
+  filterPillTextInactive: {
+    color: '#333',
+  },
+  loadingContainer: {
     flex: 1,
-    justifyContent: 'center',
     alignItems: 'center',
+    justifyContent: 'center',
+    paddingTop: 100,
+  },
+  userResultRow: {
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderBottomWidth: 0.5,
+    borderBottomColor: '#f2f2f7',
+  },
+  avatarImage: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: '#f2f2f7',
+  },
+  userDisplayName: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#111',
+  },
+  userBio: {
+    fontSize: 13,
+    color: '#8e8e93',
+    marginTop: 2,
   },
   gridColumnWrapper: {
     justifyContent: 'space-between',
-    marginBottom: 16,
+    paddingHorizontal: 12,
+    paddingTop: 12,
   },
   gridCard: {
-    width: (SCREEN_WIDTH - 44) / 2,
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    overflow: 'hidden',
+    width: (SCREEN_WIDTH - 32) / 2,
+    marginBottom: 16,
   },
   thumbnailContainer: {
-    height: 180,
     width: '100%',
-    backgroundColor: '#f0f0f0',
-    borderRadius: 12,
+    height: 200,
+    borderRadius: 8,
     overflow: 'hidden',
+    backgroundColor: '#f2f2f7',
     position: 'relative',
   },
   thumbnail: {
     width: '100%',
     height: '100%',
   },
-  thumbnailOverlayBottom: {
+  statsOverlayRow: {
     position: 'absolute',
     bottom: 0,
     left: 0,
     right: 0,
-    height: 40,
     flexDirection: 'row',
-    alignItems: 'flex-end',
-    justifyContent: 'space-between',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0,0,0,0.4)',
     paddingHorizontal: 8,
-    paddingBottom: 8,
-    backgroundColor: 'rgba(0,0,0,0.3)',
+    paddingVertical: 4,
   },
-  statLeft: {
+  statOverlayItem: {
     flexDirection: 'row',
     alignItems: 'center',
   },
-  statRight: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  statText: {
+  statOverlayText: {
     color: '#fff',
-    fontSize: 11,
+    fontSize: 10,
     fontWeight: '600',
-    textShadowColor: 'rgba(0,0,0,0.5)',
-    textShadowOffset: { width: 0.5, height: 0.5 },
-    textShadowRadius: 1,
   },
-  cardDetails: {
-    paddingVertical: 8,
-    paddingHorizontal: 2,
-  },
-  cardCaption: {
+  gridCaption: {
     fontSize: 13,
-    fontWeight: '600',
-    color: '#222',
-    lineHeight: 16,
-    height: 32,
-    marginBottom: 6,
+    fontWeight: '500',
+    color: '#111',
+    marginTop: 6,
+    lineHeight: 17,
   },
   creatorRow: {
     flexDirection: 'row',
     alignItems: 'center',
+    marginTop: 6,
   },
   creatorAvatar: {
     width: 24,
     height: 24,
     borderRadius: 12,
-    backgroundColor: '#f0f0f0',
+    backgroundColor: '#f2f2f7',
+    marginRight: 8,
+  },
+  creatorInfo: {
+    flex: 1,
   },
   creatorName: {
-    fontSize: 11,
-    fontWeight: '500',
-    color: '#555',
+    fontSize: 12,
+    fontWeight: '400',
+    color: '#666',
   },
-  timeAgo: {
-    fontSize: 9,
+  timeText: {
+    fontSize: 10,
     color: '#999',
     marginTop: 1,
-  },
-  emptyResultsText: {
-    textAlign: 'center',
-    color: '#999',
-    marginTop: 40,
-    fontSize: 15,
-  },
-  userResultRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 12,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: '#f0f0f0',
-  },
-  userAvatarImage: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: '#f0f0f0',
-  },
-  userDisplayName: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: '#111',
-  },
-  userBio: {
-    fontSize: 13,
-    color: '#777',
-    marginTop: 2,
   },
 });

@@ -1,9 +1,9 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
-import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { handleSocialAuthResult, signInWithApple, signInWithGoogle, signInWithSnapchat, signInWithTikTok } from '../../services/socialAuthService';
+import { handleSocialAuthResult, signInWithApple, signInWithGoogle } from '../../services/socialAuthService';
 import { AuthBrandHeader } from '@/src/_components/auth/AuthBrandHeader';
 import CustomButton from '@/src/_components/auth/CustomButton';
 import SocialButton from '@/src/_components/auth/SocialButton';
@@ -12,6 +12,20 @@ import { safeRouterBack } from '@/lib/safeRouterBack';
 export default function LoginOptionsScreen() {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
+  const [identifier, setIdentifier] = useState('');
+  const [error, setError] = useState('');
+
+  const handleNext = () => {
+    setError('');
+    if (!identifier.trim()) {
+      setError('Please enter your email');
+      return;
+    }
+    router.push({
+      pathname: '/auth/login-password',
+      params: { identifier: identifier.trim() },
+    });
+  };
 
   const handleGoogleSignIn = async () => {
     setLoading(true);
@@ -27,31 +41,13 @@ export default function LoginOptionsScreen() {
     setLoading(false);
   };
 
-  const handleTikTokSignIn = async () => {
-    setLoading(true);
-    try {
-      const result = await signInWithTikTok();
-      if (result.success) {
-        await handleSocialAuthResult(result, router);
-      }
-    } catch (error) {
-      console.error('TikTok sign-in error:', error);
-    }
-    setLoading(false);
-  };
-
-  const handleSnapchatSignIn = async () => {
-    setLoading(true);
-    const result = await signInWithSnapchat();
-    await handleSocialAuthResult(result, router);
-    setLoading(false);
-  };
-
   return (
     <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
       <ScrollView
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
+        bounces={false}
+        keyboardShouldPersistTaps="handled"
       >
         <View style={styles.content}>
           {/* Balanced Header & Logo Section */}
@@ -71,28 +67,40 @@ export default function LoginOptionsScreen() {
             <View style={styles.headerPlaceholder} />
           </View>
 
-          {/* Login Method Selection */}
-          <View style={styles.methodContainer}>
-            <CustomButton
-              title="Phone"
-              onPress={() => router.push('/auth/phone-login')}
-              variant="primary"
-              style={styles.methodButton}
+          {/* Form */}
+          <View style={styles.formContainer}>
+            <TextInput
+              style={styles.input}
+              placeholder="Please enter your email"
+              placeholderTextColor="#999"
+              value={identifier}
+              onChangeText={setIdentifier}
+              keyboardType="email-address"
+              autoCapitalize="none"
+              autoCorrect={false}
+              spellCheck={false}
+              editable={!loading}
             />
 
-            <CustomButton
-              title="Email"
-              onPress={() => router.push('/auth/email-login')}
-              variant="primary"
-              style={styles.methodButton}
-            />
+            {error ? <Text style={styles.errorText}>{error}</Text> : null}
 
             <CustomButton
-              title="Username"
-              onPress={() => router.push('/auth/username-login')}
-              variant="secondary"
-              style={styles.methodButton}
+              title="Next"
+              onPress={handleNext}
+              variant="primary"
+              style={styles.nextButton}
+              disabled={loading}
             />
+
+            <Text style={styles.noAccountText}>
+              Don't have an account?{' '}
+              <Text
+                style={styles.footerLink}
+                onPress={() => router.push('/auth/signup-options')}
+              >
+                Sign up
+              </Text>
+            </Text>
           </View>
 
           {/* Social Login Options */}
@@ -107,29 +115,10 @@ export default function LoginOptionsScreen() {
               onPress={handleAppleSignIn}
               style={styles.socialButton}
             />
-            <SocialButton
-              provider="tiktok"
-              onPress={handleTikTokSignIn}
-              style={styles.socialButton}
-            />
-            <SocialButton
-              provider="snapchat"
-              onPress={handleSnapchatSignIn}
-              style={styles.socialButton}
-            />
           </View>
 
           {/* Footer */}
           <View style={styles.footer}>
-            <Text style={styles.footerText}>
-              Don't have an account?{' '}
-              <Text
-                style={styles.footerLink}
-                onPress={() => router.push('/auth/signup-options')}
-              >
-                Sign up
-              </Text>
-            </Text>
             <Text style={{ fontSize: 12, color: '#666', textAlign: 'center', marginTop: 15 }}>
               By logging in, you agree to our{' '}
               <Text style={{ fontWeight: '600' }} onPress={() => router.push('/legal/terms' as any)}>Terms of Service</Text> and{' '}
@@ -178,11 +167,31 @@ const styles = StyleSheet.create({
   headerPlaceholder: {
     width: 44,
   },
-  methodContainer: {
+  formContainer: {
+    marginTop: 15,
     marginBottom: 15,
   },
-  methodButton: {
-    marginBottom: 8,
+  input: {
+    backgroundColor: '#f5f5f5',
+    borderRadius: 8,
+    padding: 16,
+    fontSize: 16,
+    color: '#000',
+    marginBottom: 12,
+  },
+  errorText: {
+    color: '#e74c3c',
+    fontSize: 14,
+    marginBottom: 10,
+  },
+  nextButton: {
+    marginBottom: 14,
+  },
+  noAccountText: {
+    fontSize: 14,
+    color: '#666',
+    textAlign: 'center',
+    marginTop: 4,
   },
   socialSection: {
     marginBottom: 15,
@@ -194,10 +203,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginTop: 'auto',
     paddingBottom: 10,
-  },
-  footerText: {
-    fontSize: 14,
-    color: '#666',
   },
   footerLink: {
     color: '#FF8D00',

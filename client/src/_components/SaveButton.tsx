@@ -6,6 +6,7 @@ import { TouchableOpacity, Alert } from "react-native";
 import { useUser } from "./UserContext";
 import { apiService } from "../_services/apiService";
 import SaveToCollectionModal from "./SaveToCollectionModal";
+import { feedEventEmitter } from '../../lib/feedEventEmitter';
 
 async function savePost(postId: string, userId: string) {
   try {
@@ -68,7 +69,6 @@ export default function SaveButton({ post, currentUser }: any) {
   useEffect(() => {
     const pid = post.id || post._id;
     if (!pid) return;
-    const { feedEventEmitter } = require("../../lib/feedEventEmitter");
     const sub = feedEventEmitter.onPostUpdated(pid, (id: string, data: any) => {
       if (!data) return; // Guard against undefined data
       if (data.isSaved !== undefined) setSaved(data.isSaved);

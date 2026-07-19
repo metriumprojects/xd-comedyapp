@@ -253,9 +253,11 @@ export default function RootLayout() {
                 <Stack.Screen name="auth/signup-options" />
                 <Stack.Screen name="auth/phone-signup" />
                 <Stack.Screen name="auth/email-signup" />
+                <Stack.Screen name="auth/password-signup" />
                 <Stack.Screen name="auth/username-signup" />
                 <Stack.Screen name="auth/phone-otp" />
                 <Stack.Screen name="auth/forgot-password" />
+                <Stack.Screen name="auth/login-password" />
                 <Stack.Screen name="auth/reset-otp" />
                 <Stack.Screen name="auth/reset-password" />
                 <Stack.Screen name="(tabs)" options={{ animation: 'none' }} />

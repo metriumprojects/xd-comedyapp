@@ -40,33 +40,44 @@ export const CreateGroupModal: React.FC<CreateGroupModalProps> = ({
   const [groupSearchResults, setGroupSearchResults] = useState<any[]>([]);
   const [selectedGroupMembers, setSelectedGroupMembers] = useState<any[]>([]);
   const [groupSaving, setGroupSaving] = useState(false);
+  const [allFollowing, setAllFollowing] = useState<any[]>([]);
 
   const fetchSuggestions = useCallback(async () => {
+    if (!userId) return;
     try {
-      const res = await apiService.get('/follow/discover', { limit: 10 });
+      const res = await apiService.get(`/follow/users/${userId}/following`);
       if (res?.success && Array.isArray(res.data)) {
+        setAllFollowing(res.data);
         setGroupSearchResults(res.data);
       }
     } catch (e) {
-      console.warn('[CreateGroupModal] Failed to fetch suggestions:', e);
+      console.warn('[CreateGroupModal] Failed to fetch following users:', e);
     }
-  }, []);
+  }, [userId]);
 
   const searchUsersForGroup = useCallback(
     async (query: string) => {
       if (!query || query.trim().length < 2) {
-        fetchSuggestions();
+        setGroupSearchResults(allFollowing);
         return;
       }
       try {
         const res = await apiService.get('/users/search', { q: query.trim(), requesterUserId: userId, limit: 30 });
         const users = Array.isArray(res?.data) ? res.data : [];
         setGroupSearchResults(users);
-      } catch {
-        setGroupSearchResults([]);
+      } catch (err) {
+        console.error('[CreateGroupModal] Search failed:', err);
+        // Fallback to local filter on error
+        const term = query.trim().toLowerCase();
+        const filtered = allFollowing.filter((u: any) => {
+          const uName = String(u.username || '').toLowerCase();
+          const dName = String(u.name || u.displayName || '').toLowerCase();
+          return uName.includes(term) || dName.includes(term);
+        });
+        setGroupSearchResults(filtered);
       }
     },
-    [userId, fetchSuggestions]
+    [allFollowing, userId]
   );
 
   useEffect(() => {
@@ -181,6 +192,7 @@ export const CreateGroupModal: React.FC<CreateGroupModalProps> = ({
       >
         <View style={styles.groupSheetBackdrop}>
           <Pressable style={StyleSheet.absoluteFillObject} onPress={onClose} />
+          
           <Pressable style={[styles.groupSheet, { paddingBottom: Math.max(insets.bottom, 20) }]} onPress={() => {}}>
             <View style={styles.groupHandle} />
             <Text style={styles.groupTitle}>{selectedGroupMembers.length > 1 ? 'New Group' : 'New Message'}</Text>
@@ -205,6 +217,7 @@ export const CreateGroupModal: React.FC<CreateGroupModalProps> = ({
               autoCorrect={false}
               autoCapitalize="none"
             />
+
             <View style={styles.memberChipsWrap}>
               {selectedGroupMembers.map((m: any) => {
                 const id = String(m?._id || m?.id || m?.firebaseUid || m?.uid || '');
@@ -220,61 +233,63 @@ export const CreateGroupModal: React.FC<CreateGroupModalProps> = ({
               })}
             </View>
 
-            <FlashList
-              data={groupSearchResults}
-              keyExtractor={(u: any, index: number) => {
-                const id = String(u?._id || u?.id || u?.firebaseUid || u?.uid || '');
-                return id ? `user_${id}` : `user_idx_${index}`;
-              }}
-              style={{ maxHeight: 230, flexGrow: 0 }}
-              keyboardShouldPersistTaps="handled"
-              keyboardDismissMode="on-drag"
-              renderItem={({ item: u }: { item: any }) => {
-                const id = String(u?._id || u?.id || u?.firebaseUid || u?.uid || '');
-                const selected = selectedGroupMembers.some(
-                  (m: any) => String(m?._id || m?.id || m?.firebaseUid || m?.uid || '') === id
-                );
-                const name = u?.displayName || u?.username || u?.name || 'User';
-                const avatar = u?.avatar || u?.photoURL || DEFAULT_AVATAR_URL;
-                const isDefaultAvatar = !avatar || avatar === DEFAULT_AVATAR_URL || avatar.includes('avatardefault.webp');
-                return (
-                  <TouchableOpacity style={styles.memberRow} onPress={() => toggleGroupMember(u)} activeOpacity={0.8}>
-                    <View style={{ width: 34, height: 34, borderRadius: 17, overflow: 'hidden', marginRight: 10 }}>
-                      {isDefaultAvatar ? (
-                        <View style={{ width: 34, height: 34, borderRadius: 17, backgroundColor: '#788d9a', alignItems: 'center', justifyContent: 'center' }}>
-                          <Text style={{ color: '#fff', fontSize: 18, fontWeight: '700' }}>
-                            {String(name || 'U').trim().charAt(0).toUpperCase()}
-                          </Text>
-                        </View>
-                      ) : (
-                        <ExpoImage 
-                          source={{ uri: avatar }} 
-                          style={[styles.memberAvatar, { marginRight: 0 }]} 
-                          contentFit="cover"
-                          cachePolicy="memory-disk"
-                          transition={150}
-                        />
-                      )}
-                    </View>
-                    <Text style={styles.memberName} numberOfLines={1}>
-                      {name}
-                    </Text>
-                    <Feather
-                      name={selected ? 'check-circle' : 'circle'}
-                      size={18}
-                      color={selected ? '#FF8D00' : '#9ca3af'}
-                    />
-                  </TouchableOpacity>
-                );
-              }}
-              ListEmptyComponent={
-                groupSearch.trim().length >= 2 ? (
-                  <Text style={styles.memberEmpty}>No users found</Text>
-                ) : (
-                  <Text style={styles.memberEmpty}>Suggested for you</Text>
-                )
-              }
-            />
+            <View style={{ height: 230 }}>
+              <FlashList
+                data={groupSearchResults}
+                keyExtractor={(u: any, index: number) => {
+                  const id = String(u?._id || u?.id || u?.firebaseUid || u?.uid || '');
+                  return id ? `user_${id}` : `user_idx_${index}`;
+                }}
+                estimatedItemSize={63}
+                keyboardShouldPersistTaps="handled"
+                keyboardDismissMode="on-drag"
+                renderItem={({ item: u }: { item: any }) => {
+                  const id = String(u?._id || u?.id || u?.firebaseUid || u?.uid || '');
+                  const selected = selectedGroupMembers.some(
+                    (m: any) => String(m?._id || m?.id || m?.firebaseUid || m?.uid || '') === id
+                  );
+                  const name = u?.displayName || u?.username || u?.name || 'User';
+                  const avatar = u?.avatar || u?.photoURL || DEFAULT_AVATAR_URL;
+                  const isDefaultAvatar = !avatar || avatar === DEFAULT_AVATAR_URL || avatar.includes('avatardefault.webp');
+                  return (
+                    <TouchableOpacity style={styles.memberRow} onPress={() => toggleGroupMember(u)} activeOpacity={0.8}>
+                      <View style={{ width: 34, height: 34, borderRadius: 17, overflow: 'hidden', marginRight: 10 }}>
+                        {isDefaultAvatar ? (
+                          <View style={{ width: 34, height: 34, borderRadius: 17, backgroundColor: '#788d9a', alignItems: 'center', justifyContent: 'center' }}>
+                            <Text style={{ color: '#fff', fontSize: 18, fontWeight: '700' }}>
+                              {String(name || 'U').trim().charAt(0).toUpperCase()}
+                            </Text>
+                          </View>
+                        ) : (
+                          <ExpoImage 
+                            source={{ uri: avatar }} 
+                            style={[styles.memberAvatar, { marginRight: 0 }]} 
+                            contentFit="cover"
+                            cachePolicy="memory-disk"
+                            transition={150}
+                          />
+                        )}
+                      </View>
+                      <Text style={styles.memberName} numberOfLines={1}>
+                        {name}
+                      </Text>
+                      <Feather
+                        name={selected ? 'check-circle' : 'circle'}
+                        size={18}
+                        color={selected ? '#FF8D00' : '#9ca3af'}
+                      />
+                    </TouchableOpacity>
+                  );
+                }}
+                ListEmptyComponent={
+                  groupSearch.trim().length >= 2 ? (
+                    <Text style={styles.memberEmpty}>No users found</Text>
+                  ) : (
+                    <Text style={styles.memberEmpty}>Suggested for you</Text>
+                  )
+                }
+              />
+            </View>
 
             <TouchableOpacity
               style={[

@@ -1,7 +1,7 @@
 import { Feather } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import React, { useState, useEffect, useCallback } from 'react';
-import { ActivityIndicator, Alert, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Alert, ScrollView, StyleSheet, Text, TouchableOpacity, View, Linking } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { hapticLight } from '@/lib/haptics';
 import { safeRouterBack } from '@/lib/safeRouterBack';
@@ -62,15 +62,12 @@ export default function SettingsScreen() {
             hapticLight();
             Alert.alert(
               'Send Feedback',
-              'Email your feedback or report an issue to support@travesocial.com',
+              'Email your feedback or report an issue to oceanshah86@gmail.com',
               [
                 { text: 'Cancel', style: 'cancel' },
                 {
                   text: 'Email', onPress: () => {
-                    // Open mail client
-                    import('react-native').then(({ Linking }) => {
-                      Linking.openURL('mailto:support@travesocial.com?subject=App Feedback');
-                    });
+                    Linking.openURL('mailto:oceanshah86@gmail.com?subject=App Feedback');
                   }
                 }
               ]

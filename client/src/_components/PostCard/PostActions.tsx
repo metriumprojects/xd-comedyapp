@@ -73,6 +73,7 @@ const PostActions: React.FC<PostActionsProps> = ({
 
         <TouchableOpacity onPress={onSharePress} style={styles.actionItem}>
           <Ionicons name="paper-plane-outline" size={22} color="#222" />
+          {post?.shareCount > 0 && <Text style={styles.actionCount}>{post.shareCount}</Text>}
         </TouchableOpacity>
       </View>
     </View>

@@ -10,7 +10,8 @@ export type FeedEventType =
   | 'USER_PRIVACY_CHANGED'
   | 'USER_BLOCKED'
   | 'USER_UNBLOCKED'
-  | 'USER_SUBSCRIBED';
+  | 'USER_SUBSCRIBED'
+  | 'USER_FOLLOW_CHANGED';
 
 export interface FeedEvent {
   type: FeedEventType;
@@ -99,6 +100,10 @@ class FeedEventEmitter extends EventEmitter {
 
   emitUserSubscribed(creatorId: string, data?: any) {
     this.emitFeedUpdate({ type: 'USER_SUBSCRIBED', userId: creatorId, data });
+  }
+
+  emitUserFollowChanged(userId: string, isFollowing: boolean) {
+    this.emitFeedUpdate({ type: 'USER_FOLLOW_CHANGED', userId, data: { isFollowing } });
   }
 }
 

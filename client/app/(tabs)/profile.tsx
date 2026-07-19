@@ -296,6 +296,7 @@ export default function Profile({ userIdProp }: any) {
     userStories,
     savedSectionPosts,
     taggedPosts,
+    likedPosts: fetchedLikedPosts,
     highlights,
     isLoading: profileLoading,
     isError: profileIsError,
@@ -408,6 +409,29 @@ export default function Profile({ userIdProp }: any) {
     return () => unsub();
   }, [viewedUserId, profile?._id, profile?.id, isOwnProfile]);
 
+  // Listen for feed/stories/highlight/follow updates to refetch profile state
+  useEffect(() => {
+    const sub = feedEventEmitter.addListener('feedUpdated', () => {
+      refetchAll().catch(() => {});
+    });
+
+    const unsubFeed = feedEventEmitter.onFeedUpdate((event) => {
+      if (
+        event.type === 'HIGHLIGHT_DELETED' ||
+        event.type === 'POST_DELETED' ||
+        event.type === 'POST_CREATED' ||
+        event.type === 'USER_FOLLOW_CHANGED'
+      ) {
+        refetchAll().catch(() => {});
+      }
+    });
+
+    return () => {
+      sub.remove();
+      unsubFeed();
+    };
+  }, [refetchAll]);
+
   // Reset tab to grid if viewing another user's profile and currently on a private/creator tab
   useEffect(() => {
     if (!isOwnProfile && (segmentTab === 'star' || segmentTab === 'stats' || segmentTab === 'heart')) {
@@ -500,15 +524,8 @@ export default function Profile({ userIdProp }: any) {
   const isSubscriptionSectionSelected = selectedSection === subscriptionTitle;
 
   const mergedSections = useMemo(() => {
-    const ownPostIds = new Set(posts.map((p: any) => getPostId(p)));
-    
-    // Only show sections on the profile that contain at least one of the viewed user's own posts
-    const filtered = (sections || []).filter((s: any) => {
-      const ids = s.postIds || [];
-      return ids.some((id: string) => ownPostIds.has(id));
-    });
-
-    const list = [...filtered];
+    // Only show public collections/sections on the profile area (not private/specific ones, even to the owner)
+    const list = (sections || []).filter((s: any) => s.visibility === 'public');
     const showSubFolder = subscriptionPosts.length > 0 || creatorHasTier;
     if (showSubFolder) {
       const subSec = {
@@ -522,7 +539,7 @@ export default function Profile({ userIdProp }: any) {
       list.unshift(subSec);
     }
     return list;
-  }, [sections, posts, subscriptionPosts, creatorHasTier, subscriptionTitle]);
+  }, [sections, subscriptionPosts, creatorHasTier, subscriptionTitle]);
 
   const defaultGridPosts = useMemo(() => {
     if (isOwnProfile) {
@@ -541,8 +558,14 @@ export default function Profile({ userIdProp }: any) {
     if (!selectedSection) return defaultGridPosts;
     if (isSubscriptionSectionSelected) return subscriptionPosts;
     const section = mergedSections.find((s: any) => s.name === selectedSection);
+    
+    // If the backend returned full populated post documents inside the section, show them directly!
+    // This allows rendering other people's posts saved in this collection.
+    if (section && Array.isArray(section.posts) && section.posts.length > 0) {
+      return section.posts;
+    }
+    
     const postIds = section?.postIds || [];
-    // Only show the viewed user's own posts in the selected section
     return posts.filter((p: any) => postIds.includes(getPostId(p)));
   }, [selectedSection, isSubscriptionSectionSelected, defaultGridPosts, subscriptionPosts, mergedSections, posts]);
 
@@ -868,17 +891,10 @@ export default function Profile({ userIdProp }: any) {
     }
     if (segmentTab === 'tagged') return taggedPosts;
     if (segmentTab === 'heart') {
-      return posts.filter((p: any) => {
-        const pid = getPostId(p);
-        const hasLikedState = likedPosts[pid];
-        if (hasLikedState !== undefined) {
-          return hasLikedState;
-        }
-        return p.isLiked || (Array.isArray(p.likes) && p.likes.includes(currentUserId));
-      });
+      return fetchedLikedPosts || [];
     }
     return [];
-  }, [segmentTab, visiblePosts, taggedPosts, likedPosts, posts, currentUserId]);
+  }, [segmentTab, visiblePosts, taggedPosts, fetchedLikedPosts, likedPosts, posts, currentUserId]);
 
 
   // UI

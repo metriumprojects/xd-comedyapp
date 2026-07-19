@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { View, Dimensions, StyleSheet, InteractionManager, Alert, Modal, Pressable, KeyboardAvoidingView, Platform, Text, Animated, PanResponder, TouchableOpacity } from "react-native";
+import { View, Dimensions, StyleSheet, InteractionManager, Alert, Modal, Pressable, Platform, Text, Animated, PanResponder, TouchableOpacity, Keyboard, ScrollView } from "react-native";
 import { Ionicons, Feather } from "@expo/vector-icons";
 import { useRouter } from 'expo-router';
 import * as Haptics from 'expo-haptics';
@@ -16,11 +16,6 @@ import { useUser } from "./UserContext";
 import { likePost, unlikePost, sendPostMessage } from "../../lib/firebaseHelpers";
 import { apiService } from '@/src/_services/apiService';
 import { BACKEND_URL } from "../../lib/api";
-import AsyncStorage from '@/lib/storage';
-import { LinearGradient } from 'expo-linear-gradient';
-import { SubscriptionModal } from './profile/SubscriptionModal';
-import { subscriptionService } from '@/src/_services/subscriptionService';
-import { resolveCanonicalUserId } from '@/lib/currentUser';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -50,27 +45,12 @@ const PostCard: React.FC<PostCardProps> = ({
 
   const router = useRouter();
   const user = useUser();
-  const [resolvedUserId, setResolvedUserId] = useState<string>('');
-
-  useEffect(() => {
-    const fetchCanonicalId = async () => {
-      try {
-        const canonicalId = await resolveCanonicalUserId();
-        if (canonicalId) {
-          setResolvedUserId(canonicalId);
-        }
-      } catch (e) {
-        console.warn('[PostCard] Failed to resolve canonical user ID:', e);
-      }
-    };
-    fetchCanonicalId();
-  }, []);
   const [isLiked, setIsLiked] = useState(() => {
     // 1. Trust backend flag FIRST
     if (post?.isLiked !== undefined) return post.isLiked;
 
     // 2. Fallback to local calculation (Standard MongoDB _id only)
-    const myId = String(currentUser?._id || currentUser?.id || currentUser?.uid || currentUser?.firebaseUid || '');
+    const myId = String(currentUser?._id || currentUser?.id || currentUser?.uid || currentUser?.firebaseUid || (typeof currentUser === 'string' ? currentUser : '') || user?._id || user?.id || user?.uid || '');
     if (myId && Array.isArray(post?.likes)) {
       return post.likes.some((id: any) => {
         const lid = String(id?._id || id?.id || id?.uid || id?.firebaseUid || id || '');
@@ -89,14 +69,12 @@ const PostCard: React.FC<PostCardProps> = ({
   const [showShare, setShowShare] = useState(false);
   const [showFullScreen, setShowFullScreen] = useState<number | null>(null);
   const [showPostMenu, setShowPostMenu] = useState(false);
+  const [showTagsOverlay, setShowTagsOverlay] = useState(false);
   const [localReactions, setLocalReactions] = useState<any[]>(post?.reactions || []);
   const [localCommentCount, setLocalCommentCount] = useState<number>(
     post?.commentCount !== undefined ? post.commentCount : (post?.commentsCount || 0)
   );
-
-  const [isSubscribed, setIsSubscribed] = useState(false);
-  const [subModalVisible, setSubModalVisible] = useState(false);
-  const [creatorPrice, setCreatorPrice] = useState('10.00');
+  const [localShareCount, setLocalShareCount] = useState<number>(post?.shareCount || 0);
 
   // Sync like state when user or post changes
   useEffect(() => {
@@ -107,7 +85,7 @@ const PostCard: React.FC<PostCardProps> = ({
     }
 
     // 2. Fallback to local calculation (Standard MongoDB _id only)
-    const myId = String(currentUser?._id || currentUser?.id || currentUser?.uid || currentUser?.firebaseUid || '');
+    const myId = String(currentUser?._id || currentUser?.id || currentUser?.uid || currentUser?.firebaseUid || (typeof currentUser === 'string' ? currentUser : '') || user?._id || user?.id || user?.uid || '');
     if (myId && Array.isArray(post?.likes)) {
       const liked = post.likes.some((id: any) => {
         const lid = String(id?._id || id?.id || id?.uid || id?.firebaseUid || id || '');
@@ -115,11 +93,34 @@ const PostCard: React.FC<PostCardProps> = ({
       });
       setIsLiked(liked);
     }
-  }, [currentUser?._id, currentUser?.id, post?.likes, post?.isLiked]);
+  }, [currentUser, user, post?.likes, post?.isLiked]);
   const videoRef = useRef<any>(null);
 
 
   const translateY = useRef(new Animated.Value(0)).current;
+  // Use Animated.Value so keyboard movement causes ZERO React re-renders
+  // Zero re-renders = touches always reach the Post button cleanly
+  const keyboardAnim = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
+    const hideEvent = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
+    const showSub = Keyboard.addListener(showEvent, (e) => {
+      Animated.timing(keyboardAnim, {
+        toValue: e.endCoordinates.height,
+        duration: e.duration ?? 250,
+        useNativeDriver: false,
+      }).start();
+    });
+    const hideSub = Keyboard.addListener(hideEvent, (e) => {
+      Animated.timing(keyboardAnim, {
+        toValue: 0,
+        duration: (e as any).duration ?? 200,
+        useNativeDriver: false,
+      }).start();
+    });
+    return () => { showSub.remove(); hideSub.remove(); };
+  }, []);
 
   const panResponder = useRef(
     PanResponder.create({
@@ -150,16 +151,17 @@ const PostCard: React.FC<PostCardProps> = ({
   }, [showComments]);
 
   useEffect(() => {
-    const sub = feedEventEmitter.onPostUpdated(post._id, (pid, data) => {
+    const sub = feedEventEmitter.onPostUpdated(post._id || post.id, (pid, data) => {
       if (!data) return; // Guard against undefined data
       if (data.reactions) {
         setLocalReactions(data.reactions);
       }
       if (data.isLiked !== undefined) setIsLiked(data.isLiked);
       if (data.likeCount !== undefined) setLikeCount(data.likeCount);
+      if (data.shareCount !== undefined) setLocalShareCount(data.shareCount);
       
       if (data.commentCount !== undefined) {
-        setLocalCommentCount(data.commentCount);
+        setLocalCommentCount(data.count || data.commentCount);
       } else if (data.commentsCount !== undefined) {
         setLocalCommentCount(data.commentsCount);
       }
@@ -192,10 +194,11 @@ const PostCard: React.FC<PostCardProps> = ({
     setIsLiked(post?.isLiked || false);
     setLikeCount(post?.likeCount || 0);
     setLocalReactions(post?.reactions || []);
+    setLocalShareCount(post?.shareCount || 0);
     
     const count = post?.commentCount !== undefined ? post.commentCount : (post?.commentsCount || 0);
     setLocalCommentCount(count);
-  }, [post?._id, post?.id, post?.isLiked, post?.likeCount, post?.reactions, post?.commentCount, post?.commentsCount]);
+  }, [post?._id, post?.id, post?.isLiked, post?.likeCount, post?.reactions, post?.commentCount, post?.commentsCount, post?.shareCount]);
 
 
   // Derived data
@@ -240,14 +243,14 @@ const PostCard: React.FC<PostCardProps> = ({
     
     try {
       const userName = currentUser?.displayName || currentUser?.name || 'Someone';
-      if (newLiked) await likePost(post._id, activeUserId);
-      else await unlikePost(post._id, activeUserId);
+      if (newLiked) await likePost(post._id || post.id, activeUserId);
+      else await unlikePost(post._id || post.id, activeUserId);
     } catch (err) {
       // Revert on error
       setIsLiked(!newLiked);
       setLikeCount((prev: number) => !newLiked ? prev + 1 : prev - 1);
     }
-  }, [isLiked, post._id, currentUser]);
+  }, [isLiked, post._id, post.id, currentUser]);
 
   const onScroll = useCallback((event: any) => {
     const x = event.nativeEvent.contentOffset.x;
@@ -289,89 +292,6 @@ const PostCard: React.FC<PostCardProps> = ({
     if (authorIds.length === 0 || viewerIds.length === 0) return false;
     return authorIds.some(aid => viewerIds.includes(aid));
   }, [post, currentUser]);
-
-  const activeUserId = useMemo(() => {
-    if (resolvedUserId) return resolvedUserId;
-    return (
-      (typeof currentUser === 'string' ? currentUser : (currentUser?._id || currentUser?.id || currentUser?.uid || currentUser?.firebaseUid)) ||
-      user?._id || user?.id || user?.uid || ''
-    );
-  }, [resolvedUserId, currentUser, user]);
-
-  const creatorId = useMemo(() => {
-    return String(post?.userId?._id || post?.userId || '');
-  }, [post]);
-
-  const isLocked = useMemo(() => {
-    return post?.visibility === 'Subscribers' && !isOwner && !isSubscribed;
-  }, [post?.visibility, isOwner, isSubscribed]);
-
-  const checkSubscriptionStatus = useCallback(async () => {
-    if (!activeUserId || !creatorId || isOwner) {
-      setIsSubscribed(false);
-      return;
-    }
-    try {
-      const tierId = post?.subscriptionTierId;
-      const key = tierId 
-        ? `sub_subscribed_${activeUserId}_to_tier_${tierId}` 
-        : `sub_subscribed_${activeUserId}_to_${creatorId}`;
-
-      const cachedVal = await AsyncStorage.getItem(key);
-      if (cachedVal !== null) {
-        setIsSubscribed(cachedVal === 'true');
-      }
-
-      const response = await subscriptionService.checkSubscriptionStatus(creatorId);
-      if (response.success) {
-        const activeTiers = response.data.activeTierIds || [];
-        const isCurrentlySubbed = tierId 
-          ? activeTiers.includes(String(tierId))
-          : response.data.isSubscribed;
-
-        // Don't downgrade from cached 'true' to API 'false' — 
-        // the payment just happened and the webhook may not have fired yet
-        if (isCurrentlySubbed || cachedVal !== 'true') {
-          setIsSubscribed(isCurrentlySubbed);
-          await AsyncStorage.setItem(key, isCurrentlySubbed ? 'true' : 'false');
-        }
-        
-        // Always sync general creator-level cache
-        if (response.data.isSubscribed) {
-          await AsyncStorage.setItem(
-            `sub_subscribed_${activeUserId}_to_${creatorId}`,
-            'true'
-          );
-        }
-      }
-      
-      const tiersResponse = await subscriptionService.getTiers(creatorId);
-      if (tiersResponse.success && Array.isArray(tiersResponse.data) && tiersResponse.data.length > 0) {
-        const matchedTier = tierId 
-          ? tiersResponse.data.find(t => String(t._id) === String(tierId)) 
-          : tiersResponse.data[0];
-        if (matchedTier?.price) {
-          setCreatorPrice(matchedTier.price);
-        }
-      }
-    } catch (e) {
-      console.warn('[PostCard] Error checking subscription status:', e);
-    }
-  }, [activeUserId, creatorId, isOwner, post?.subscriptionTierId]);
-
-  useEffect(() => {
-    checkSubscriptionStatus();
-  }, [checkSubscriptionStatus]);
-
-  useEffect(() => {
-    if (!creatorId || isOwner) return;
-    const unsub = feedEventEmitter.onFeedUpdate((event) => {
-      if (event.type === 'USER_SUBSCRIBED' && String(event.userId).toLowerCase() === String(creatorId).toLowerCase()) {
-        setIsSubscribed(true);
-      }
-    });
-    return () => unsub();
-  }, [creatorId, isOwner]);
 
   const submitPostReport = async (reason: string) => {
     try {
@@ -420,50 +340,92 @@ const PostCard: React.FC<PostCardProps> = ({
           activeIndex={activeIndex}
           onScroll={onScroll}
           onMediaPress={(index) => {
-            if (isLocked) return;
-            setShowFullScreen(index);
+            if (post?.taggedUsers && post.taggedUsers.length > 0) {
+              setShowTagsOverlay(!showTagsOverlay);
+            } else {
+              setShowFullScreen(index);
+            }
           }}
           onDoubleTap={() => {
-            if (isLocked) return;
             if (!isLiked) handleLike();
             Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
           }}
           isMuted={isMuted}
-          toggleMute={() => {
-            if (isLocked) return;
-            setIsMuted(!isMuted);
-          }}
+          toggleMute={() => setIsMuted(!isMuted)}
           videoRef={videoRef}
-          isLocked={isLocked}
         />
-        {isLocked && (
-          <View style={postStyles.lockedOverlay}>
-            <LinearGradient
-              colors={['rgba(0,0,0,0.8)', 'rgba(0,0,0,0.95)']}
-              style={StyleSheet.absoluteFill}
-            />
-            <View style={postStyles.lockedContent}>
-              <View style={postStyles.lockBadge}>
-                <Ionicons name="lock-closed" size={32} color="#FFD60A" />
-              </View>
-              <Text style={postStyles.lockedTitle}>🌟 Subscribers Only</Text>
-              <Text style={postStyles.lockedDesc}>
-                Subscribe to @{postUserName} to unlock this post and support their work.
-              </Text>
-              
-              <TouchableOpacity 
-                activeOpacity={0.8}
-                style={postStyles.lockedSubscribeBtn}
-                onPress={() => {
-                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
-                  setSubModalVisible(true);
-                }}
-              >
-                <Text style={postStyles.lockedSubscribeText}>
-                  Subscribe to Unlock ${creatorPrice}/mo
-                </Text>
-              </TouchableOpacity>
-            </View>
+
+        {/* Small silhouette person icon overlay at bottom-left, exactly like Instagram */}
+        {post?.taggedUsers && post.taggedUsers.length > 0 && (
+          <TouchableOpacity
+            onPress={() => setShowTagsOverlay(!showTagsOverlay)}
+            activeOpacity={0.8}
+            style={{
+              position: 'absolute',
+              bottom: 12,
+              left: 12,
+              backgroundColor: 'rgba(0, 0, 0, 0.65)',
+              width: 32,
+              height: 32,
+              borderRadius: 16,
+              justifyContent: 'center',
+              alignItems: 'center',
+              zIndex: 50,
+            }}
+          >
+            <Ionicons name="person-outline" size={16} color="#fff" />
+          </TouchableOpacity>
+        )}
+
+        {/* Staggered absolute-positioned Instagram-style tag overlays */}
+        {showTagsOverlay && post?.taggedUsers && post.taggedUsers.length > 0 && (
+          <View style={[StyleSheet.absoluteFill, { zIndex: 40 }]}>
+            {post.taggedUsers.map((taggedUser: any, idx: number) => {
+              const uId = taggedUser._id || taggedUser.id || taggedUser.uid;
+              const positions = [
+                { top: '30%', left: '20%' },
+                { top: '60%', left: '45%' },
+                { top: '40%', left: '55%' },
+                { top: '20%', left: '50%' },
+                { top: '50%', left: '15%' },
+              ];
+              const pos = positions[idx % positions.length];
+              return (
+                <TouchableOpacity
+                  key={idx}
+                  activeOpacity={0.9}
+                  onPress={() => {
+                    if (uId) {
+                      setShowTagsOverlay(false);
+                      router.push(`/user-profile?uid=${uId}` as any);
+                    }
+                  }}
+                  style={{
+                    position: 'absolute',
+                    top: pos.top as any,
+                    left: pos.left as any,
+                    backgroundColor: 'rgba(0, 0, 0, 0.75)',
+                    paddingHorizontal: 12,
+                    paddingVertical: 6,
+                    borderRadius: 16,
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    borderWidth: 0.5,
+                    borderColor: 'rgba(255, 255, 255, 0.2)',
+                    shadowColor: '#000',
+                    shadowOffset: { width: 0, height: 2 },
+                    shadowOpacity: 0.3,
+                    shadowRadius: 3,
+                    elevation: 4,
+                  }}
+                >
+                  <Ionicons name="person" size={10} color="#fff" style={{ marginRight: 4 }} />
+                  <Text style={{ color: '#fff', fontSize: 11, fontWeight: '600' }}>
+                    {taggedUser.username || taggedUser.displayName || 'user'}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
           </View>
         )}
       </View>
@@ -472,15 +434,15 @@ const PostCard: React.FC<PostCardProps> = ({
       <View style={{ backgroundColor: '#fff' }}>
         <PostActions 
           isLiked={isLiked}
-          onLikePress={isLocked ? () => setSubModalVisible(true) : handleLike}
-          onCommentPress={isLocked ? () => setSubModalVisible(true) : () => setShowComments('comment')}
-          onReactionPress={isLocked ? () => setSubModalVisible(true) : () => setShowComments('reactions')}
+          onLikePress={handleLike}
+          onCommentPress={() => setShowComments('comment')}
+          onReactionPress={() => setShowComments('reactions')}
           onSharePress={() => setShowShare(true)}
-          post={post}
+          post={{ ...post, shareCount: localShareCount }}
           likeCount={likeCount}
           commentCount={localCommentCount}
           reactions={localReactions}
-          currentUserId={currentUser?._id || currentUser?.id || currentUser?.uid || user?._id || user?.id || user?.uid}
+          currentUserId={currentUser?._id || currentUser?.id || currentUser?.uid || (typeof currentUser === 'string' ? currentUser : '') || user?._id || user?.id || user?.uid}
         />
 
         <PostCaption 
@@ -524,7 +486,12 @@ const PostCard: React.FC<PostCardProps> = ({
                 style={{ flexDirection: 'row', alignItems: 'center', padding: 18 }}
                 onPress={() => {
                   setShowPostMenu(false);
-                  router.push(`/create-post?editPostId=${post._id}&initialData=${encodeURIComponent(JSON.stringify(post))}`);
+                  setTimeout(() => {
+                    feedEventEmitter.emit('closePostViewer');
+                    setTimeout(() => {
+                      router.push(`/create-post?editPostId=${post._id || post.id}`);
+                    }, 500);
+                  }, 250);
                 }}
               >
                 <Feather name="edit-3" size={22} color="#333" />
@@ -535,13 +502,24 @@ const PostCard: React.FC<PostCardProps> = ({
                 style={{ flexDirection: 'row', alignItems: 'center', padding: 18 }}
                 onPress={() => {
                   setShowPostMenu(false);
-                  Alert.alert("Delete", "Are you sure?", [
-                    { text: "Cancel" },
-                    { text: "Delete", style: "destructive", onPress: async () => {
-                       await apiService.delete(`/posts/${post._id}`);
-                       feedEventEmitter.emitFeedUpdate({ type: 'POST_DELETED', postId: post._id });
-                    }}
-                  ]);
+                  setTimeout(() => {
+                    Alert.alert("Delete", "Are you sure?", [
+                      { text: "Cancel" },
+                      { text: "Delete", style: "destructive", onPress: async () => {
+                         try {
+                           const res = await apiService.delete(`/posts/${post._id || post.id}`);
+                           if (res && res.success) {
+                             feedEventEmitter.emitFeedUpdate({ type: 'POST_DELETED', postId: post._id || post.id });
+                             Alert.alert("Success", "Post deleted successfully.");
+                           } else {
+                             Alert.alert("Error", res?.error || "Failed to delete post.");
+                           }
+                         } catch (err: any) {
+                           Alert.alert("Error", err.response?.data?.error || err.message || "Failed to delete post.");
+                         }
+                      }}
+                    ]);
+                  }, 300);
                 }}
               >
                 <Feather name="trash-2" size={22} color="#ff4d4d" />
@@ -554,7 +532,9 @@ const PostCard: React.FC<PostCardProps> = ({
                 style={{ flexDirection: 'row', alignItems: 'center', padding: 18 }}
                 onPress={() => {
                   setShowPostMenu(false);
-                  setShowShare(true);
+                  setTimeout(() => {
+                    setShowShare(true);
+                  }, 650); // Increased from 300ms to 650ms to ensure full options modal dismissal transition
                 }}
               >
                 <Feather name="share-2" size={22} color="#333" />
@@ -565,16 +545,18 @@ const PostCard: React.FC<PostCardProps> = ({
                 style={{ flexDirection: 'row', alignItems: 'center', padding: 18 }}
                 onPress={() => {
                   setShowPostMenu(false);
-                  Alert.alert(
-                    "Report Post",
-                    "Why are you reporting this post?",
-                    [
-                      { text: "Spam", onPress: () => submitPostReport('spam') },
-                      { text: "Inappropriate", onPress: () => submitPostReport('inappropriate') },
-                      { text: "Harassment", onPress: () => submitPostReport('harassment') },
-                      { text: "Cancel", style: "cancel" }
-                    ]
-                  );
+                  setTimeout(() => {
+                    Alert.alert(
+                      "Report Post",
+                      "Why are you reporting this post?",
+                      [
+                        { text: "Spam", onPress: () => submitPostReport('spam') },
+                        { text: "Inappropriate", onPress: () => submitPostReport('inappropriate') },
+                        { text: "Harassment", onPress: () => submitPostReport('harassment') },
+                        { text: "Cancel", style: "cancel" }
+                      ]
+                    );
+                  }, 300);
                 }}
               >
                 <Feather name="flag" size={22} color="#ff4d4d" />
@@ -585,30 +567,32 @@ const PostCard: React.FC<PostCardProps> = ({
                 style={{ flexDirection: 'row', alignItems: 'center', padding: 18 }}
                 onPress={() => {
                   setShowPostMenu(false);
-                  Alert.alert(
-                    "Block User",
-                    `Are you sure you want to block ${postUserName}? You won't see their posts anymore.`,
-                    [
-                      { text: "Cancel", style: "cancel" },
-                      { 
-                        text: "Block", 
-                        style: "destructive", 
-                        onPress: async () => {
-                          try {
-                            const myId = currentUser?._id || currentUser?.id || currentUser?.uid;
-                            const targetId = post?.userId?._id || post?.userId;
-                            if (myId && targetId) {
-                              await apiService.blockUser(String(myId), String(targetId));
-                              Alert.alert("Blocked", "You will no longer see posts from this user.");
-                              feedEventEmitter.emitFeedUpdate({ type: 'USER_BLOCKED', userId: targetId });
+                  setTimeout(() => {
+                    Alert.alert(
+                      "Block User",
+                      `Are you sure you want to block ${postUserName}? You won't see their posts anymore.`,
+                      [
+                        { text: "Cancel", style: "cancel" },
+                        { 
+                          text: "Block", 
+                          style: "destructive", 
+                          onPress: async () => {
+                            try {
+                              const myId = currentUser?._id || currentUser?.id || currentUser?.uid || (typeof currentUser === 'string' ? currentUser : '') || user?._id || user?.id || user?.uid;
+                              const targetId = post?.userId?._id || post?.userId;
+                              if (myId && targetId) {
+                                await apiService.blockUser(String(myId), String(targetId));
+                                Alert.alert("Blocked", "You will no longer see posts from this user.");
+                                feedEventEmitter.emitFeedUpdate({ type: 'USER_BLOCKED', userId: targetId });
+                              }
+                            } catch (err) {
+                              Alert.alert("Error", "Failed to block user.");
                             }
-                          } catch (err) {
-                            Alert.alert("Error", "Failed to block user.");
-                          }
-                        } 
-                      }
-                    ]
-                  );
+                          } 
+                        }
+                      ]
+                    );
+                  }, 300);
                 }}
               >
                 <Feather name="slash" size={22} color="#ff4d4d" />
@@ -630,47 +614,64 @@ const PostCard: React.FC<PostCardProps> = ({
         visible={!!showComments}
         animationType="slide"
         transparent={true}
-        onRequestClose={() => setShowComments(false)}
+        statusBarTranslucent={true}
+        onRequestClose={() => { Keyboard.dismiss(); setShowComments(false); }}
       >
-        <Pressable 
-          style={{ flex: 1, backgroundColor: 'transparent' }} 
-          onPress={() => setShowComments(false)} 
+        {/* Backdrop covers full screen */}
+        <Pressable
+          style={StyleSheet.absoluteFill}
+          onPress={() => { Keyboard.dismiss(); setShowComments(false); }}
         />
-        <Animated.View 
-          style={{ 
-            height: '85%', 
-            backgroundColor: '#fff', 
-            borderTopLeftRadius: 30, 
-            borderTopRightRadius: 30, 
+
+        {/* Sheet: position absolute, bottom & height both animated so top stays fixed */}
+        <Animated.View
+          style={{
+            position: 'absolute',
+            left: 0,
+            right: 0,
+            bottom: keyboardAnim,
+            // height shrinks by same amount as bottom rises → top edge stays fixed on screen
+            height: Animated.subtract(
+              Dimensions.get('window').height * 0.85,
+              keyboardAnim
+            ),
+            backgroundColor: '#fff',
+            borderTopLeftRadius: 30,
+            borderTopRightRadius: 30,
             overflow: 'hidden',
-            marginTop: 'auto',
             transform: [{ translateY }],
-            elevation: 0,
-            shadowOpacity: 0
           }}
         >
-          {/* Drag Handle */}
-          <View 
-            {...panResponder.panHandlers}
-            style={{ 
-              height: 40, 
-              width: '100%', 
-              alignItems: 'center', 
-              justifyContent: 'center',
-              backgroundColor: '#fff' 
-            }}
+          {/* keyboardShouldPersistTaps=always ensures Post tap fires immediately */}
+          <ScrollView
+            style={{ flex: 1 }}
+            scrollEnabled={false}
+            keyboardShouldPersistTaps="always"
+            contentContainerStyle={{ flex: 1 }}
           >
-            <View style={{ height: 5, width: 40, backgroundColor: '#ddd', borderRadius: 3 }} />
-          </View>
-          
-          <CommentSection 
-            postId={post._id || post.id}
-            postOwnerId={post?.userId?._id || post?.userId}
-            currentAvatar={currentUser?.avatar || currentUser?.photoURL || ''}
-            currentUser={currentUser}
-            maxHeight={Dimensions.get('window').height * 0.8}
-            initialTab={showComments === 'reactions' ? 'reactions' : 'comment'}
-          />
+            {/* Drag Handle */}
+            <View
+              {...panResponder.panHandlers}
+              style={{
+                height: 40,
+                width: '100%',
+                alignItems: 'center',
+                justifyContent: 'center',
+                backgroundColor: '#fff',
+              }}
+            >
+              <View style={{ height: 5, width: 40, backgroundColor: '#ddd', borderRadius: 3 }} />
+            </View>
+
+            <CommentSection
+              postId={post._id || post.id}
+              postOwnerId={post?.userId?._id || post?.userId}
+              currentAvatar={currentUser?.avatar || currentUser?.photoURL || ''}
+              currentUser={currentUser}
+              maxHeight={Dimensions.get('window').height * 0.8}
+              initialTab={showComments === 'reactions' ? 'reactions' : 'comment'}
+            />
+          </ScrollView>
         </Animated.View>
       </Modal>
 
@@ -703,42 +704,20 @@ const PostCard: React.FC<PostCardProps> = ({
           visible={showShare}
           onClose={() => setShowShare(false)}
           onSend={async (userIds) => {
-            try {
-              const activeUserId = currentUser?._id || currentUser?.id || currentUser?.uid || currentUser?.firebaseUid;
-              if (!activeUserId) return;
-              
-              for (const recipientId of userIds) {
-                // Determine conversation ID (consistent with backend logic)
-                const participants = [String(activeUserId), String(recipientId)].sort();
-                const convoId = `${participants[0]}_${participants[1]}`;
-                
-                await sendPostMessage(convoId, String(activeUserId), post, {
-                  recipientId: String(recipientId)
-                });
-              }
-              // Removed success alert as requested
-
-            } catch (err) {
-              console.error('[PostCard] Share error:', err);
-              Alert.alert('Error', 'Failed to share post');
-            }
+            setShowShare(false);
           }}
-          currentUserId={currentUser?._id || currentUser?.id || currentUser?.uid}
+          currentUserId={currentUser?._id || currentUser?.id || currentUser?.uid || (typeof currentUser === 'string' ? currentUser : '') || user?._id || user?.id || user?.uid}
           sharePayload={post}
           modalVariant="home"
-        />
-      )}
-
-      {subModalVisible && (
-        <SubscriptionModal
-          visible={subModalVisible}
-          onClose={async () => {
-            setSubModalVisible(false);
-            await checkSubscriptionStatus();
+          onAddToStory={() => {
+            router.push({
+              pathname: '/story-creator',
+              params: {
+                sharePostId: post._id || post.id || '',
+                sharePostData: encodeURIComponent(JSON.stringify(post))
+              }
+            } as any);
           }}
-          isOwnProfile={isOwner}
-          creatorId={creatorId}
-          onSubscriptionChange={(subscribed) => setIsSubscribed(subscribed)}
         />
       )}
     </View>

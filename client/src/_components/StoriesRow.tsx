@@ -13,6 +13,7 @@ import { ActivityIndicator, Alert, Dimensions, Image, Keyboard, KeyboardAvoiding
 import { SafeAreaView } from 'react-native-safe-area-context';
 // import {} from "../../lib/firebaseHelpers";
 import { createStory, getAllStoriesForFeed, getUserProfile } from "../../lib/firebaseHelpers/index";
+import { feedEventEmitter } from '../../lib/feedEventEmitter';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
@@ -51,6 +52,7 @@ interface StoryUser {
   hasUnseen?: boolean;
   bubblePreviewUrl?: string;
   bubbleMediaType?: 'image' | 'video';
+  latestLocation?: string;
 }
 
 function isRecord(value: any): value is Record<string, any> {
@@ -195,6 +197,14 @@ function StoriesRowComponent({ onStoryPress, onStoryViewerClose, refreshTrigger,
   }, [refreshTrigger]);
 
   useEffect(() => {
+    const sub = feedEventEmitter.addListener('feedUpdated', () => {
+      lastStoriesLoadAtRef.current = 0;
+      loadStories();
+    });
+    return () => sub.remove();
+  }, []);
+
+  useEffect(() => {
     if (!authUser?.uid) return;
     loadCurrentUserAvatar();
   }, [authUser?.uid]);
@@ -250,29 +260,16 @@ function StoriesRowComponent({ onStoryPress, onStoryViewerClose, refreshTrigger,
     } catch { }
   }, []);
 
-  const refreshSeenStoriesFromStorage = useCallback(async () => {
-    try {
-      const raw = await AsyncStorage.getItem('seenStoryIds');
-      const arr = raw ? JSON.parse(raw) : [];
-      const seenSet = new Set<string>(Array.isArray(arr) ? arr.map((x: any) => String(x)) : []);
-      
-      setStoryUsers(prev => prev.map(u => {
-        const hasUnseen = u.stories.some((s: any) => !seenSet.has(String(s.id || s._id || '')));
-        return { ...u, hasUnseen };
-      }));
-    } catch (e) {
-      console.warn('[StoriesRow] Failed to refresh seen stories from storage:', e);
-    }
-  }, []);
-
   // Reset state when StoriesViewer closes
   useEffect(() => {
     const resetViewerState = () => {
-      console.log('[StoriesRow] 🔄 Resetting viewer state from parent signal');
+      console.log('[StoriesRow] ðŸ”„ Resetting viewer state from parent signal');
       setIsViewingStories(false);
       pickerBlockedRef.current = false;
     };
 
+    // If callback is provided, we can use it to know when viewer closes
+    // For now, we reset based on state changes
     return () => {
       resetViewerState();
     };
@@ -281,12 +278,11 @@ function StoriesRowComponent({ onStoryPress, onStoryViewerClose, refreshTrigger,
   // Listen for reset trigger from parent (when StoriesViewer closes)
   useEffect(() => {
     if (resetTrigger && resetTrigger > 0) {
-      console.log('[StoriesRow] 🔄 Reset trigger received:', resetTrigger);
+      console.log('[StoriesRow] ðŸ”„ Reset trigger received:', resetTrigger);
       setIsViewingStories(false);
       pickerBlockedRef.current = false;
-      refreshSeenStoriesFromStorage();
     }
-  }, [resetTrigger, refreshSeenStoriesFromStorage]);
+  }, [resetTrigger]);
 
   // Fetch location suggestions from Google Places API
   useEffect(() => {
@@ -443,7 +439,9 @@ function StoriesRowComponent({ onStoryPress, onStoryViewerClose, refreshTrigger,
             imageUrl: normalizeStoryMediaUrl(story.image || story.imageUrl || story.mediaUrl),
             videoUrl: normalizeStoryMediaUrl(story.video || story.videoUrl),
             thumbnailUrl: normalizeStoryMediaUrl(story.thumbnail || story.thumbnailUrl),
-            mediaType: (story.video || story.videoUrl || story.mediaType === 'video') ? 'video' : 'image'
+            mediaType: (story.video || story.videoUrl || story.mediaType === 'video') ? 'video' : 'image',
+            postMetadata: story.postMetadata || undefined,
+            isPostShare: !!(story.isPostShare || story.postMetadata?.postId),
           }));
           const hasUnseen = transformedStories.some((s: any) => !seenSet.has(String(s.id)));
 
@@ -459,6 +457,7 @@ function StoriesRowComponent({ onStoryPress, onStoryViewerClose, refreshTrigger,
           const bubblePreviewUrl = bubbleMediaType === 'video'
             ? (previewStory?.thumbnailUrl || previewStory?.imageUrl || '')
             : (previewStory?.imageUrl || previewStory?.thumbnailUrl || '');
+          const latestLocation = latest?.locationData?.name || latest?.location || (typeof latest?.locationData === 'string' ? latest.locationData : '');
 
           users.push({
             userId: userId,
@@ -467,7 +466,8 @@ function StoriesRowComponent({ onStoryPress, onStoryViewerClose, refreshTrigger,
             stories: transformedStories as any[],
             hasUnseen,
             bubblePreviewUrl,
-            bubbleMediaType
+            bubbleMediaType,
+            latestLocation: latestLocation || undefined
           });
         }
 
@@ -613,7 +613,12 @@ function StoriesRowComponent({ onStoryPress, onStoryViewerClose, refreshTrigger,
               <Feather name="plus" size={10} color="#fff" />
             </TouchableOpacity>
           </View>
-          <Text style={[styles.userName, !hasMyStory && styles.userNameCta]} numberOfLines={hasMyStory ? 1 : 2}>
+          {hasMyStory && myUser && myUser.latestLocation ? (
+            <Text style={styles.storyLocation} numberOfLines={1} ellipsizeMode="tail">
+              {myUser.latestLocation}
+            </Text>
+          ) : null}
+          <Text style={[styles.userName, !hasMyStory && styles.userNameCta, (hasMyStory && myUser && myUser.latestLocation) ? { marginTop: 1 } : null]} numberOfLines={hasMyStory ? 1 : 2}>
             {hasMyStory ? 'Your story' : 'Add story'}
           </Text>
         </View>
@@ -661,7 +666,14 @@ function StoriesRowComponent({ onStoryPress, onStoryViewerClose, refreshTrigger,
                   ) : null}
                 </LinearGradient>
             </TouchableOpacity>
-            <Text style={styles.userName} numberOfLines={1}>{user.userName}</Text>
+            {user.latestLocation ? (
+              <Text style={styles.storyLocation} numberOfLines={1} ellipsizeMode="tail">
+                {user.latestLocation}
+              </Text>
+            ) : null}
+            <Text style={[styles.userName, user.latestLocation ? { marginTop: 1 } : null]} numberOfLines={1}>
+              {user.userName}
+            </Text>
           </View>
         )) : null}
       </ScrollView>
@@ -680,7 +692,7 @@ function StoriesRowComponent({ onStoryPress, onStoryViewerClose, refreshTrigger,
         <SafeAreaView style={{ flex: 1, backgroundColor: '#fff' }} edges={['top', 'bottom']}>
           <KeyboardAvoidingView
             style={{ flex: 1 }}
-            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+            behavior={Platform.OS === 'ios' ? 'padding' : undefined}
             keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 0}
           >
             <View style={{ flex: 1 }}>
@@ -803,7 +815,7 @@ function StoriesRowComponent({ onStoryPress, onStoryViewerClose, refreshTrigger,
                         }
                       }}
                     >
-                      <Feather name="edit-2" size={16} color="#007aff" />
+                      <Feather name="edit-2" size={16} color="#FF8D00" />
                       <Text style={styles.changeMediaText}>Change</Text>
                     </TouchableOpacity>
                   </View>
@@ -829,7 +841,7 @@ function StoriesRowComponent({ onStoryPress, onStoryViewerClose, refreshTrigger,
                       }
                     }}
                   >
-                    <Feather name="image" size={48} color="#007aff" />
+                    <Feather name="image" size={48} color="#FF8D00" />
                     <Text style={styles.imagePickerText}>Select Photo or Video</Text>
                   </TouchableOpacity>
                 )}
@@ -890,7 +902,7 @@ function StoriesRowComponent({ onStoryPress, onStoryViewerClose, refreshTrigger,
                                 setLocationSuggestions([]);
                               }}
                             >
-                              <Feather name="map-pin" size={16} color="#007aff" style={{ marginRight: 8 }} />
+                              <Feather name="map-pin" size={16} color="#FF8D00" style={{ marginRight: 8 }} />
                               <View style={{ flex: 1 }}>
                                 <Text style={styles.locationName}>{item.name}</Text>
                                 <Text style={styles.locationAddress} numberOfLines={1}>{item.address}</Text>
@@ -902,7 +914,7 @@ function StoriesRowComponent({ onStoryPress, onStoryViewerClose, refreshTrigger,
                     )}
                     {loadingLocations && (
                       <View style={styles.locationLoading}>
-                        <ActivityIndicator size="small" color="#007aff" />
+                        <ActivityIndicator size="small" color="#FF8D00" />
                       </View>
                     )}
                   </View>
@@ -911,7 +923,7 @@ function StoriesRowComponent({ onStoryPress, onStoryViewerClose, refreshTrigger,
                 {/* Upload Progress */}
                 {uploading && (
                   <View style={styles.uploadingArea}>
-                    <ActivityIndicator size="small" color="#007aff" style={{ marginBottom: 8 }} />
+                    <ActivityIndicator size="small" color="#FF8D00" style={{ marginBottom: 8 }} />
                     <Text style={styles.uploadingText}>Uploading {uploadProgress}%</Text>
                     <View style={styles.uploadingBarBg}>
                       <View style={[styles.uploadingBar, { width: `${uploadProgress}%` }]} />
@@ -1011,11 +1023,7 @@ function StoriesRowComponent({ onStoryPress, onStoryViewerClose, refreshTrigger,
 }
 
 export default React.memo(StoriesRowComponent, (prevProps, nextProps) => {
-  return (
-    prevProps.refreshTrigger === nextProps.refreshTrigger &&
-    prevProps.resetTrigger === nextProps.resetTrigger &&
-    prevProps.incomingMedia?.uri === nextProps.incomingMedia?.uri
-  );
+  return prevProps.refreshTrigger === nextProps.refreshTrigger;
 });
 
 const styles = StyleSheet.create({
@@ -1045,7 +1053,7 @@ const styles = StyleSheet.create({
     position: 'absolute',
     bottom: -2,
     right: -2,
-    backgroundColor: '#007aff',
+    backgroundColor: '#FF8D00',
     borderRadius: 8.5,
     width: 17,
     height: 17,
@@ -1139,6 +1147,15 @@ const styles = StyleSheet.create({
     height: '100%',
     borderRadius: 14,
   },
+  storyLocation: {
+    fontSize: STORY_ROW_NAME_FONT_SIZE,
+    fontWeight: '400',
+    color: '#666',
+    width: 58,
+    textAlign: 'center',
+    marginTop: 4,
+    marginBottom: -1,
+  },
   userName: {
     fontSize: STORY_ROW_NAME_FONT_SIZE,
     fontWeight: '400',
@@ -1148,7 +1165,7 @@ const styles = StyleSheet.create({
     marginTop: 5,
   },
   userNameCta: {
-    color: '#007aff',
+    color: '#FF8D00',
     fontWeight: '400',
   },
   uploadModalCard: {
@@ -1197,7 +1214,7 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   changeMediaText: {
-    color: '#007aff',
+    color: '#FF8D00',
     fontSize: 15,
     fontWeight: '600',
   },
@@ -1215,7 +1232,7 @@ const styles = StyleSheet.create({
     marginBottom: responsiveValues.spacingLarge,
   },
   imagePickerText: {
-    color: '#007aff',
+    color: '#FF8D00',
     marginTop: 12,
     fontWeight: '600',
     fontSize: responsiveValues.inputSize,
@@ -1282,12 +1299,12 @@ const styles = StyleSheet.create({
   },
   uploadingBar: {
     height: 6,
-    backgroundColor: '#007aff',
+    backgroundColor: '#FF8D00',
     borderRadius: 3,
   },
   shareButton: {
     width: '100%',
-    backgroundColor: '#007aff',
+    backgroundColor: '#FF8D00',
     paddingVertical: 16,
     borderRadius: 12,
     alignItems: 'center',

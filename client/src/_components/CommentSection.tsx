@@ -14,6 +14,7 @@ import {
   TouchableOpacity,
   View,
   KeyboardAvoidingView,
+  Keyboard,
 } from "react-native";
 import { FlashList } from "@shopify/flash-list";
 import {
@@ -61,6 +62,7 @@ export interface CommentSectionProps {
   maxHeight?: number;
   showInput?: boolean;
   initialTab?: 'comment' | 'reactions';
+  isStory?: boolean;
 }
 
 export const CommentSection: React.FC<CommentSectionProps> = ({
@@ -70,8 +72,9 @@ export const CommentSection: React.FC<CommentSectionProps> = ({
   currentUser: userProp,
   showInput = true,
   initialTab = 'comment',
+  isStory = false,
 }) => {
-  const [activeTab, setActiveTab] = useState<'comment' | 'reactions'>(initialTab);
+  const [activeTab, setActiveTab] = useState<'comment' | 'reactions'>(isStory ? 'comment' : initialTab);
   const [comments, setComments] = useState<Comment[]>([]);
   const [reactions, setReactions] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -83,6 +86,21 @@ export const CommentSection: React.FC<CommentSectionProps> = ({
   const [showOptions, setShowOptions] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [editValue, setEditValue] = useState("");
+  const [keyboardHeight, setKeyboardHeight] = useState(0);
+
+  useEffect(() => {
+    if (Platform.OS !== 'ios') return;
+    const showSub = Keyboard.addListener('keyboardWillShow', (e) => {
+      setKeyboardHeight(e.endCoordinates.height);
+    });
+    const hideSub = Keyboard.addListener('keyboardWillHide', () => {
+      setKeyboardHeight(0);
+    });
+    return () => {
+      showSub.remove();
+      hideSub.remove();
+    };
+  }, []);
 
   const userFromContext = useUser();
   const currentUser = userProp || userFromContext;
@@ -99,13 +117,14 @@ export const CommentSection: React.FC<CommentSectionProps> = ({
   };
 
   const loadData = useCallback(async () => {
-    if (!postId || postId === "undefined" || postId === "null") {
-      setLoading(false);
-      return;
-    }
     try {
       setLoading(true);
-      const res = await getPostComments(postId);
+      let res;
+      if (isStory) {
+        res = await apiService.get(`/stories/${postId}/comments`);
+      } else {
+        res = await getPostComments(postId);
+      }
       const raw = Array.isArray(res) ? res : (res?.data ?? []);
       
       const mapComment = (c: any): Comment => ({
@@ -128,43 +147,110 @@ export const CommentSection: React.FC<CommentSectionProps> = ({
       const actualCount = mappedComments.reduce((acc: number, c: Comment) => acc + 1 + (c.replies?.length || 0), 0);
       feedEventEmitter.emit("commentCountUpdated", { postId, count: actualCount });
 
-      const postRes: any = await apiService.get(`/posts/${postId}`);
-      if (postRes?.success && postRes.data?.reactions) {
-        setReactions(postRes.data.reactions);
+      if (!isStory) {
+        try {
+          const postRes: any = await apiService.get(`/posts/${postId}`);
+          if (postRes?.success && postRes.data?.reactions) {
+            setReactions(postRes.data.reactions);
+          }
+        } catch (postErr: any) {
+          console.log("[CommentSection] Skipped loading post reactions (ID is likely a story or highlight):", postErr.message);
+        }
       }
     } catch (err) {
       console.error("[CommentSection] Load error:", err);
     } finally {
       setLoading(false);
     }
-  }, [postId]);
+  }, [postId, isStory]);
 
   useEffect(() => { loadData(); }, [loadData]);
 
   const handleAddComment = async () => {
     if (!newComment.trim() || isSubmitting) return;
     setIsSubmitting(true);
+
+    const trimmedText = newComment.trim();
+    const optimisticId = `optimistic-${Date.now()}`;
+
     try {
-      if (replyTo) {
+      if (isStory) {
+        await apiService.post(`/stories/${postId}/comments`, {
+          text: trimmedText,
+          userName: currentUser?.displayName || 'User'
+        });
+        setNewComment('');
+        setReplyTo(null);
+        await loadData();
+      } else if (replyTo) {
+        // Optimistically insert reply immediately
+        const optimisticReply: Comment = {
+          id: optimisticId,
+          text: trimmedText,
+          userId: currentUserId,
+          userName: currentUser?.displayName || 'User',
+          userAvatar: resolvedCurrentAvatar,
+          createdAt: new Date().toISOString(),
+          likes: [],
+          likesCount: 0,
+          replies: [],
+          reactions: {},
+        };
+
+        setComments(prev =>
+          prev.map(c =>
+            c.id === replyTo.id
+              ? { ...c, replies: [...(c.replies || []), optimisticReply] }
+              : c
+          )
+        );
+        setNewComment('');
+        setReplyTo(null);
+
+        // Send to server and reconcile in background
         await addCommentReply(postId, replyTo.id, {
           userId: currentUserId,
           userName: currentUser?.displayName || 'User',
           userAvatar: resolvedCurrentAvatar,
-          text: newComment.trim()
+          text: trimmedText,
         });
+        // Sync real data silently
+        loadData().catch(() => {});
       } else {
-        await addComment(postId, currentUserId, currentUser?.displayName || 'User', resolvedCurrentAvatar, newComment.trim());
+        // Optimistically insert top-level comment immediately
+        const optimisticComment: Comment = {
+          id: optimisticId,
+          text: trimmedText,
+          userId: currentUserId,
+          userName: currentUser?.displayName || 'User',
+          userAvatar: resolvedCurrentAvatar,
+          createdAt: new Date().toISOString(),
+          likes: [],
+          likesCount: 0,
+          replies: [],
+          reactions: {},
+        };
+        setComments(prev => [optimisticComment, ...prev]);
+        setNewComment('');
+        setReplyTo(null);
+
+        await addComment(postId, currentUserId, currentUser?.displayName || 'User', resolvedCurrentAvatar, trimmedText);
+        feedEventEmitter.emit('commentAdded', { postId });
+        // Sync real data silently
+        loadData().catch(() => {});
       }
-      setNewComment("");
-      setReplyTo(null);
-      await loadData();
-      feedEventEmitter.emit("commentAdded", { postId });
     } catch (e) {
       console.error(e);
+      // Rollback optimistic update on error
+      setComments(prev => prev.filter(c => {
+        if (c.id === optimisticId) return false;
+        return { ...c, replies: (c.replies || []).filter(r => r.id !== optimisticId) };
+      }));
     } finally {
       setIsSubmitting(false);
     }
   };
+
 
   const handleLikeComment = async (commentId: string, isReply: boolean, parentId?: string) => {
     const originalComments = [...comments];
@@ -218,6 +304,11 @@ export const CommentSection: React.FC<CommentSectionProps> = ({
       const postRes: any = await apiService.get(`/posts/${postId}`);
       if (postRes?.success && postRes.data?.reactions) {
         setReactions(postRes.data.reactions);
+        try {
+          feedEventEmitter.emitPostUpdated(postId, { reactions: postRes.data.reactions });
+        } catch (err) {
+          console.warn('[CommentSection] failed to emit reactions update:', err);
+        }
       }
       setShowEmojiPicker(false);
     } catch (e) { 
@@ -319,7 +410,7 @@ export const CommentSection: React.FC<CommentSectionProps> = ({
 
       {/* Edit Modal */}
       <Modal visible={isEditing} transparent animationType="fade">
-        <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} style={styles.editContainer}>
+        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.editContainer}>
           <View style={styles.editBox}>
             <Text style={styles.editTitle}>Edit Comment</Text>
             <TextInput style={styles.editInput} multiline value={editValue} onChangeText={setEditValue} autoFocus />
@@ -331,19 +422,21 @@ export const CommentSection: React.FC<CommentSectionProps> = ({
         </KeyboardAvoidingView>
       </Modal>
 
-      <View style={styles.tabHeader}>
-        <View style={styles.tabContainer}>
-          <TouchableOpacity style={[styles.tabButton, activeTab === 'comment' && styles.tabButtonActive]} onPress={() => setActiveTab('comment')}>
-            <Text style={[styles.tabText, activeTab === 'comment' && styles.tabTextActive]}>Comments {totalCommentCount}</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={[styles.tabButton, activeTab === 'reactions' && styles.tabButtonActive]} onPress={() => setActiveTab('reactions')}>
-            <Text style={[styles.tabText, activeTab === 'reactions' && styles.tabTextActive]}>Reactions</Text>
-          </TouchableOpacity>
+      {!isStory && (
+        <View style={styles.tabHeader}>
+          <View style={styles.tabContainer}>
+            <TouchableOpacity style={[styles.tabButton, activeTab === 'comment' && styles.tabButtonActive]} onPress={() => setActiveTab('comment')}>
+              <Text style={[styles.tabText, activeTab === 'comment' && styles.tabTextActive]}>Comments {totalCommentCount}</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={[styles.tabButton, activeTab === 'reactions' && styles.tabButtonActive]} onPress={() => setActiveTab('reactions')}>
+              <Text style={[styles.tabText, activeTab === 'reactions' && styles.tabTextActive]}>Reactions</Text>
+            </TouchableOpacity>
+          </View>
         </View>
-      </View>
+      )}
 
       {activeTab === 'comment' ? (
-        <View style={{ flex: 1, minHeight: 2 }}>
+        <View style={{ flex: 1, minHeight: 2, paddingBottom: keyboardHeight }}>
           <FlashList
             data={comments}
             keyExtractor={(item) => item.id}
@@ -355,6 +448,7 @@ export const CommentSection: React.FC<CommentSectionProps> = ({
                 onReply={(id, name) => { setReplyTo({ id, userName: name }); setNewComment(`@${name} `); }}
                 onLike={handleLikeComment}
                 onLongPress={(c, r, p) => { setSelectedComment({ ...c, isReply: r, parentId: p } as any); setShowOptions(true); }}
+                isStory={isStory}
               />
             )}
             contentContainerStyle={{ paddingBottom: 20 }}
@@ -379,7 +473,7 @@ export const CommentSection: React.FC<CommentSectionProps> = ({
           />
         </View>
       ) : (
-        <View style={{ flex: 1, minHeight: 2 }}>
+        <View style={{ flex: 1, minHeight: 2, paddingBottom: keyboardHeight }}>
           <FlashList
             data={reactions}
             keyExtractor={(item, index) => `${item.userId}-${index}`}

@@ -29,21 +29,45 @@ export function useDMMedia() {
   }, [recording]);
 
   const handlePickImage = useCallback(async () => {
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (status !== 'granted') {
+      Alert.alert('Permission needed', 'Please allow photo library access to send images.');
+      return null;
+    }
     const res = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.All,
       allowsEditing: false,
       quality: 0.7,
+      videoExportPreset: ImagePicker.VideoExportPreset.H264_1280x720,
     });
-    return res.canceled ? null : res.assets[0];
+    if (res.canceled) return null;
+    const asset = res.assets[0];
+    if (asset.fileSize && asset.fileSize > 100 * 1024 * 1024) {
+      Alert.alert('File Too Large', 'Please select an image or video smaller than 100MB.');
+      return null;
+    }
+    return asset;
   }, []);
 
   const handleLaunchCamera = useCallback(async () => {
+    const { status } = await ImagePicker.requestCameraPermissionsAsync();
+    if (status !== 'granted') {
+      Alert.alert('Permission needed', 'Please allow camera access to take and send photos.');
+      return null;
+    }
     const res = await ImagePicker.launchCameraAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.All,
       allowsEditing: false,
       quality: 0.7,
+      videoExportPreset: ImagePicker.VideoExportPreset.H264_1280x720,
     });
-    return res.canceled ? null : res.assets[0];
+    if (res.canceled) return null;
+    const asset = res.assets[0];
+    if (asset.fileSize && asset.fileSize > 100 * 1024 * 1024) {
+      Alert.alert('File Too Large', 'Please select an image or video smaller than 100MB.');
+      return null;
+    }
+    return asset;
   }, []);
 
   const startRecording = useCallback(async () => {

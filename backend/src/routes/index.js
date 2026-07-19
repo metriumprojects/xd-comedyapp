@@ -23,7 +23,6 @@ const gdprRoutes = require('../../routes/gdpr');
 const conversationRoutes = require('./conversations');
 
 // Register routes
-router.use('/conversations', messageRoutes);
 router.use('/conversations', conversationRoutes);
 router.use('/posts', postRoutes);
 router.use('/posts', commentRoutes);

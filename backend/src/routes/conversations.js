@@ -38,7 +38,7 @@ const normalizeParticipantIds = async (ids) => {
   const User = mongoose.model('User');
   const out = new Set();
   const rawIds = (Array.isArray(ids) ? ids : []).map(id => String(id || '').trim()).filter(Boolean);
-  
+
   const objectIds = rawIds.filter(id => mongoose.Types.ObjectId.isValid(id));
   const otherIds = rawIds.filter(id => !mongoose.Types.ObjectId.isValid(id));
 
@@ -49,7 +49,7 @@ const normalizeParticipantIds = async (ids) => {
     const users = await User.find({
       $or: [{ firebaseUid: { $in: otherIds } }, { uid: { $in: otherIds } }]
     }).select('_id firebaseUid uid').lean();
-    
+
     users.forEach(u => out.add(String(u._id)));
     // Keep track of IDs that weren't found as canonical IDs
     const foundAltIds = new Set([...users.map(u => String(u.firebaseUid)), ...users.map(u => String(u.uid))]);
@@ -119,7 +119,7 @@ router.get('/', verifyToken, async (req, res) => {
       ],
       deletedBy: { $nin: idsToMatch }
     }).sort({ lastMessageAt: -1 }).skip(skip).limit(limit).lean();
-    
+
     logger.info('[GET] /conversations - Found %d conversations for user: %s', conversations.length, userId);
 
     // Populate participant data
@@ -127,7 +127,7 @@ router.get('/', verifyToken, async (req, res) => {
     const usersCollection = db.collection('users');
 
     const conversationIdStrArray = conversations.map(c => String(c.conversationId || c._id));
-    
+
     // 1. Fetch only unread candidates to avoid loading the entire message history into memory
     const groupConvoIds = conversations.filter(c => c.isGroup).map(c => String(c.conversationId || c._id));
     const directConvoIds = conversations.filter(c => !c.isGroup).map(c => String(c.conversationId || c._id));
@@ -138,7 +138,7 @@ router.get('/', verifyToken, async (req, res) => {
         { conversationId: { $in: groupConvoIds }, readBy: { $nin: idsToMatch } }
       ]
     }).select('conversationId senderId recipientId read readBy timestamp createdAt text mediaUrl videoUrl sharedPost').lean().catch(() => []);
-    
+
     const unreadMap = {};
     allUnreadCandidates.forEach(m => {
       const cid = String(m.conversationId);
@@ -183,7 +183,16 @@ router.get('/', verifyToken, async (req, res) => {
       let lastCleared = 0;
       const clearedMap = convObj?.clearedBy || {};
       for (const uid of idsToMatch) {
-        const timeVal = clearedMap instanceof Map ? clearedMap.get(uid) : clearedMap[uid];
+        let timeVal = undefined;
+        if (typeof clearedMap.get === 'function') {
+          timeVal = clearedMap.get(uid);
+        }
+        if (timeVal === undefined) {
+          timeVal = clearedMap[uid];
+        }
+        if (timeVal === undefined && typeof clearedMap.toObject === 'function') {
+          try { timeVal = clearedMap.toObject()[uid]; } catch {}
+        }
         if (timeVal) {
           const t = new Date(timeVal).getTime();
           if (t > lastCleared) lastCleared = t;
@@ -217,9 +226,9 @@ router.get('/', verifyToken, async (req, res) => {
           const m = candidates[candidates.length - 1];
           let preview = m.text || '';
           if (!preview) {
-             if (m.mediaUrl || m.mediaType === 'image') preview = '[Photo]';
-             else if (m.videoUrl || m.mediaType === 'video') preview = '[Video]';
-             else if (m.sharedPost || m.postId) preview = '[Shared Post]';
+            if (m.mediaUrl || m.mediaType === 'image') preview = '[Photo]';
+            else if (m.videoUrl || m.mediaType === 'video') preview = '[Video]';
+            else if (m.sharedPost || m.postId) preview = '[Shared Post]';
           }
           convObj.lastMessage = preview;
         }
@@ -277,13 +286,13 @@ router.get('/resolve/messages', verifyToken, async (req, res) => {
   try {
     const actorId = req.userId;
     const { otherUserId } = req.query;
-    
+
     if (!otherUserId) {
       return res.status(400).json({ success: false, error: 'Missing otherUserId' });
     }
 
     const actorVariants = await resolveUserIdVariants(actorId);
-    
+
     // Find conversation between these two
     const convo = await Conversation.findOne({
       isGroup: { $ne: true },
@@ -633,7 +642,7 @@ router.post('/:id/clear', verifyToken, async (req, res) => {
 
     // Use current time as the clear timestamp
     const now = new Date();
-    
+
     // Support all variants of the user's ID
     const variants = await resolveUserIdVariants(userId);
     const convoIds = (await findThreadConversations(conversation)).map(c => c._id);
@@ -643,7 +652,7 @@ router.post('/:id/clear', verifyToken, async (req, res) => {
     for (const vid of variants) {
       update.$set[`clearedBy.${vid}`] = now;
     }
-    
+
     await Conversation.updateMany({ _id: { $in: convoIds } }, update);
 
     return res.json({ success: true, clearedAt: now });
@@ -672,9 +681,9 @@ router.get('/:id/messages', verifyToken, async (req, res) => {
       const [p1, p2] = conversationId.split('_');
       const p1Ids = await resolveUserIdVariants(p1);
       const p2Ids = await resolveUserIdVariants(p2);
-      
+
       logger.info(`[GET] /messages - Smart lookup for pair: ${p1} and ${p2}`);
-      
+
       convos = await Conversation.find({
         $and: [
           { isGroup: { $ne: true } },
@@ -714,11 +723,11 @@ router.get('/:id/messages', verifyToken, async (req, res) => {
       if (c.conversationId) convoIdsArray.push(String(c.conversationId));
       if (c._id) convoIdsArray.push(String(c._id));
     });
-    
+
     // Pagination
     const limit = parseInt(req.query.limit) || 50;
     const skip = parseInt(req.query.skip) || 0;
-    
+
     // Optimization: Fetch only required messages sorted from DB
     const queryLimit = limit === 0 ? 1000 : skip + limit + 20;
 
@@ -741,10 +750,10 @@ router.get('/:id/messages', verifyToken, async (req, res) => {
             { senderId: p2, recipientId: p1 }
           ]
         })
-        .sort({ timestamp: -1, createdAt: -1 })
-        .limit(queryLimit)
-        .maxTimeMS(5000)
-        .lean();
+          .sort({ timestamp: -1, createdAt: -1 })
+          .limit(queryLimit)
+          .maxTimeMS(5000)
+          .lean();
       }
     }
 
@@ -752,7 +761,7 @@ router.get('/:id/messages', verifyToken, async (req, res) => {
 
     const merged = [];
     const seen = new Set();
-    
+
     // rawMsgs are descending (newest first). Filter out cleared ones.
     for (const m of rawMsgs) {
       const mid = String(m._id || m.id);
@@ -765,7 +774,16 @@ router.get('/:id/messages', verifyToken, async (req, res) => {
         const clearedMap = c.clearedBy;
         if (clearedMap) {
           for (const uid of idsToMatch) {
-            const timeVal = clearedMap instanceof Map ? clearedMap.get(uid) : clearedMap[uid];
+            let timeVal = undefined;
+            if (typeof clearedMap.get === 'function') {
+              timeVal = clearedMap.get(uid);
+            }
+            if (timeVal === undefined) {
+              timeVal = clearedMap[uid];
+            }
+            if (timeVal === undefined && typeof clearedMap.toObject === 'function') {
+              try { timeVal = clearedMap.toObject()[uid]; } catch {}
+            }
             if (timeVal) {
               const t = new Date(timeVal).getTime();
               if (t > lastCleared) lastCleared = t;
@@ -784,8 +802,8 @@ router.get('/:id/messages', verifyToken, async (req, res) => {
     const pagedDesc = merged.slice(skip, skip + limit);
     const result = pagedDesc.reverse();
 
-    res.json({ 
-      success: true, 
+    res.json({
+      success: true,
       messages: result,
       pagination: {
         total: merged.length + skip, // estimate
@@ -871,7 +889,7 @@ router.patch('/:id/read', verifyToken, async (req, res) => {
     for (const c of convos) {
       let changed = false;
       const msgs = await Message.find({ conversationId: String(c.conversationId || c._id) });
-      
+
       for (const m of msgs) {
         if (isGroup || c?.isGroup) {
           const senderId = String(m?.senderId || '');
@@ -916,13 +934,13 @@ router.post('/:id/messages', verifyToken, validate(sendMessageSchema), async (re
   try {
     const conversationId = req.params.id;
     const { senderId, sender, text, recipientId, replyTo, read } = req.body;
-    
+
     // Sender must be the authenticated user
     const actualSenderId = String(req.userId || senderId || sender || '');
-    
+
     // Check if there is ANY content (text OR media OR shared stuff)
     const hasContent = text || req.body.mediaUrl || req.body.audioUrl || req.body.videoUrl || req.body.sharedPost || req.body.sharedStory;
-    
+
     if (!actualSenderId || !hasContent) {
       return res.status(400).json({ success: false, error: 'Message must contain text, media, or shared content' });
     }
@@ -954,12 +972,12 @@ router.post('/:id/messages', verifyToken, validate(sendMessageSchema), async (re
         // Only match non-group 1:1 chats when using participant fallback.
         normalizedRecipientId
           ? {
-              $and: [
-                { isGroup: { $ne: true } },
-                { participants: { $all: [normalizedSenderId, normalizedRecipientId] } },
-                { $expr: { $eq: [{ $size: '$participants' }, 2] } }
-              ]
-            }
+            $and: [
+              { isGroup: { $ne: true } },
+              { participants: { $all: [normalizedSenderId, normalizedRecipientId] } },
+              { $expr: { $eq: [{ $size: '$participants' }, 2] } }
+            ]
+          }
           : null
       ].filter(Boolean)
     });
@@ -967,7 +985,7 @@ router.post('/:id/messages', verifyToken, validate(sendMessageSchema), async (re
     // Always calculate standardConversationId for consistency
     const participants = [normalizedSenderId, normalizedRecipientId].filter(Boolean);
     const sortedParticipants = participants.sort();
-    const standardConversationId = sortedParticipants.length >= 2 
+    const standardConversationId = sortedParticipants.length >= 2
       ? `${sortedParticipants[0]}_${sortedParticipants[1]}`
       : null;
 
@@ -1003,28 +1021,28 @@ router.post('/:id/messages', verifyToken, validate(sendMessageSchema), async (re
     if (!isGroupConversation && !normalizedRecipientId) {
       return res.status(400).json({ success: false, error: 'Requires recipientId' });
     }
-    
+
     // Create the message in the standalone Message collection
     const storyPointerMatch = String(text || '').match(/story:\/\/([A-Za-z0-9_-]+)/i);
     const storyIdFromText = storyPointerMatch?.[1] || null;
 
-    const { 
-      mediaType, 
-      mediaUrl, 
-      audioUrl, 
-      audioDuration, 
-      videoUrl, 
-      thumbnailUrl, 
-      sharedPost, 
+    const {
+      mediaType,
+      mediaUrl,
+      audioUrl,
+      audioDuration,
+      videoUrl,
+      thumbnailUrl,
+      sharedPost,
       sharedStory,
-      tempId 
+      tempId
     } = req.body;
 
-    const messageData = { 
+    const messageData = {
       conversationId: String(convo.conversationId || standardConversationId || convo._id),
-      senderId: normalizedSenderId, 
+      senderId: normalizedSenderId,
       text,
-      mediaType: mediaType || (storyIdFromText ? 'story' : 'text'),
+      mediaType: mediaType || (storyIdFromText ? 'story' : (req.body.sharedPost ? 'post' : (req.body.sharedStory ? 'story' : 'text'))),
       mediaUrl,
       audioUrl,
       audioDuration,
@@ -1047,24 +1065,24 @@ router.post('/:id/messages', verifyToken, validate(sendMessageSchema), async (re
         userId: normalizedSenderId,
       };
     }
-    
+
     // Add recipientId if provided
     if (normalizedRecipientId) {
       messageData.recipientId = normalizedRecipientId;
     }
-    
+
     // Add replyTo if replying to a message
     if (replyTo) {
       messageData.replyTo = replyTo;
     }
-    
+
     // Add an ID to the message for easier deletion/editing
     messageData.id = new mongoose.Types.ObjectId().toString();
 
     const newMessage = new Message(messageData);
     await newMessage.save();
     const message = newMessage.toObject(); // for sending back in response
-    
+
     // Determine preview text
     let previewText = text || '';
     if (!previewText) {
@@ -1089,16 +1107,16 @@ router.post('/:id/messages', verifyToken, validate(sendMessageSchema), async (re
       },
       { new: true }
     );
-    
+
     if (!updatedConvo) {
-       await convo.save();
+      await convo.save();
     }
 
     // Best-effort: create notification for recipient
     try {
       if (!isGroupConversation && normalizedRecipientId && normalizedRecipientId !== normalizedSenderId) {
         const User = mongoose.model('User');
-        const senderUser = await User.findOne({ 
+        const senderUser = await User.findOne({
           $or: [
             { _id: mongoose.Types.ObjectId.isValid(normalizedSenderId) ? new mongoose.Types.ObjectId(normalizedSenderId) : null },
             { firebaseUid: normalizedSenderId },
@@ -1116,13 +1134,13 @@ router.post('/:id/messages', verifyToken, validate(sendMessageSchema), async (re
           senderId: normalizedSenderId,
           title: senderName,
           body: text || 'Sent you a message',
-          data: { 
-            type: 'message', 
-            conversationId: convId, 
+          data: {
+            type: 'message',
+            conversationId: convId,
             senderId: normalizedSenderId,
             screen: 'dm'
           }
-        }).catch(() => {});
+        }).catch(() => { });
       }
     } catch (e) {
       logger.warn('[POST] /:id/messages - Notification skipped:', e.message);
@@ -1161,7 +1179,7 @@ router.post('/:id/messages', verifyToken, validate(sendMessageSchema), async (re
           timestamp: typeof message.timestamp?.getTime === 'function' ? message.timestamp.getTime() : (message.timestamp || Date.now()),
           conversationId: actualConversationId
         };
-        
+
         io.to(actualConversationId).emit('newMessage', socketPayload);
         logger.info('[Socket] ✅ Emitted message to conversation room:', actualConversationId);
 
@@ -1479,7 +1497,7 @@ router.post('/:conversationId/messages/:messageId/reactions', verifyToken, async
     // Toggle reaction (Instagram style - add if not present, remove if present)
     const reactionsArray = message.reactions instanceof Map ? message.reactions.get(actualReaction) : message.reactions[actualReaction];
     const userIndex = reactionsArray.indexOf(userId);
-    
+
     if (userIndex === -1) {
       reactionsArray.push(userId);
       logger.info('[POST] Added reaction:', actualReaction, 'from user:', userId);
@@ -1550,18 +1568,18 @@ router.post('/upload-media', verifyToken, async (req, res) => {
 router.post('/:conversationId/messages/media', verifyToken, validate(sendMessageSchema), async (req, res) => {
   try {
     const { conversationId } = req.params;
-    const { 
-      senderId, 
-      recipientId, 
-      mediaUrl, 
-      mediaType, 
-      audioUrl, 
-      audioDuration, 
-      text, 
-      thumbnailUrl, 
-      sharedPost, 
+    const {
+      senderId,
+      recipientId,
+      mediaUrl,
+      mediaType,
+      audioUrl,
+      audioDuration,
+      text,
+      thumbnailUrl,
+      sharedPost,
       sharedStory,
-      tempId 
+      tempId
     } = req.body;
 
     const actualSenderId = String(req.userId || senderId || '');
@@ -1674,12 +1692,12 @@ router.post('/:conversationId/messages/media', verifyToken, validate(sendMessage
     conversation.lastMessage = mediaType === 'story' ? (text || '[STORY]') : (text || `[${mediaType.toUpperCase()}]`);
     conversation.lastMessageAt = new Date();
     conversation.updatedAt = new Date();
-    
+
     // Also keep in embedded array for legacy support if needed, but the Message collection is the source of truth now
     if (!Array.isArray(conversation.messages)) conversation.messages = [];
     conversation.messages.push(message);
     conversation.markModified('messages');
-    
+
     await conversation.save();
 
     logger.info('[POST] Media message saved:', message.id);
@@ -1690,7 +1708,7 @@ router.post('/:conversationId/messages/media', verifyToken, validate(sendMessage
       if (io) {
         const actualConversationId = conversation.conversationId;
         const isGroupConversation = !!conversation?.isGroup;
-        
+
         // Emit to conversation room
         const socketPayload = {
           ...message,
@@ -1698,7 +1716,7 @@ router.post('/:conversationId/messages/media', verifyToken, validate(sendMessage
           timestamp: typeof message.timestamp?.getTime === 'function' ? message.timestamp.getTime() : (message.timestamp || Date.now()),
           conversationId: actualConversationId
         };
-        
+
         io.to(actualConversationId).emit('newMessage', socketPayload);
         logger.info('[Socket] ✅ Emitted media message to conversation room:', actualConversationId);
 

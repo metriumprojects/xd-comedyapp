@@ -13,6 +13,7 @@ import { DEFAULT_AVATAR_URL } from '@/lib/api';
 import { hapticLight, hapticMedium } from '@/lib/haptics';
 import { useAppDialog } from '@/src/_components/AppDialogProvider';
 import { safeRouterBack } from '@/lib/safeRouterBack';
+import { feedEventEmitter } from '../lib/feedEventEmitter';
 
 
 const DEFAULT_AVATAR = DEFAULT_AVATAR_URL;
@@ -160,6 +161,10 @@ export default function FriendsScreen() {
           return prev;
         }
       });
+
+      // Emit follow changes to update counts and feed screens
+      feedEventEmitter.emitUserFollowChanged(targetUserId, !isCurrentlyFollowing);
+      feedEventEmitter.emit('feedUpdated');
 
     } catch (error) {
       console.error('Error toggling follow:', error);

@@ -121,8 +121,42 @@ router.get('/:userId/sections', async (req, res) => {
       if (u.firebaseUid) collabCache[u.firebaseUid] = u;
     });
 
+    // 6. Populate post documents inside each section (BATCHED)
+    const Post = mongoose.models.Post || mongoose.model('Post');
+    
+    const allPostIds = new Set();
+    filteredSections.forEach(s => {
+      if (Array.isArray(s.postIds)) {
+        s.postIds.forEach(id => {
+          if (id) allPostIds.add(String(id));
+        });
+      }
+    });
+
+    const postIdsArray = Array.from(allPostIds);
+    const postsData = await Post.find({
+      $or: [
+        { _id: { $in: postIdsArray.filter(id => mongoose.Types.ObjectId.isValid(id)).map(id => new mongoose.Types.ObjectId(id)) } },
+        { id: { $in: postIdsArray } }
+      ]
+    }).lean();
+
+    const postCache = {};
+    postsData.forEach(p => {
+      if (p._id) postCache[String(p._id)] = p;
+      if (p.id) postCache[String(p.id)] = p;
+    });
+
     const populatedSections = filteredSections.map((section) => {
       const s = section.toObject ? section.toObject() : section;
+      
+      // Populate posts
+      if (Array.isArray(s.postIds)) {
+        s.posts = s.postIds.map(id => postCache[String(id)]).filter(Boolean);
+      } else {
+        s.posts = [];
+      }
+
       if (Array.isArray(s.collaborators)) {
         s.collaborators = s.collaborators.map(entry => {
           const idStr = entry && typeof entry === 'object'

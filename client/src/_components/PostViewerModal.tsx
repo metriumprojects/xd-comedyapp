@@ -3,6 +3,7 @@ import * as Haptics from 'expo-haptics';
 import React, { useEffect, useRef } from 'react';
 import { Dimensions, Modal, Platform, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { FlashList } from '@shopify/flash-list';
+import { feedEventEmitter } from '../../lib/feedEventEmitter';
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -99,6 +100,13 @@ export default function PostViewerModal({
 
     return () => clearTimeout(timer);
   }, [visible, selectedPostIndex]);
+
+  useEffect(() => {
+    const subscription = feedEventEmitter.addListener('closePostViewer', () => {
+      onClose();
+    });
+    return () => subscription.remove();
+  }, [onClose]);
 
   return (
     <Modal

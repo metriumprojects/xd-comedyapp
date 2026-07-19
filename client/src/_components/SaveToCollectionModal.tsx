@@ -4,8 +4,10 @@ import {
     Animated,
     Dimensions,
     Keyboard,
+    KeyboardAvoidingView,
     Modal,
     PanResponder,
+    Platform,
     StyleSheet,
     Text,
     TextInput,
@@ -45,8 +47,19 @@ export default function SaveToCollectionModal({
 }: Props) {
     const insets = useSafeAreaInsets();
     const sheetTranslateY = useRef(new Animated.Value(0)).current;
-    const [currentUid, setCurrentUid] = useState<string | null>(null);
+    const [currentUid, setCurrentUid] = useState<string | null>(currentUserId || null);
     const [screen, setScreen] = useState<Screen>('list');
+
+    // Resolve currentUid from prop or resolveCanonicalUserId
+    useEffect(() => {
+        if (currentUserId) {
+            setCurrentUid(currentUserId);
+        } else {
+            resolveCanonicalUserId().then((uid) => {
+                if (uid) setCurrentUid(uid);
+            }).catch(() => {});
+        }
+    }, [currentUserId]);
 
     // Logic Hook
     const {
@@ -78,12 +91,35 @@ export default function SaveToCollectionModal({
     const toastAnim = useRef(new Animated.Value(0)).current;
     const nameInputRef = useRef<TextInput>(null);
 
+    const keyboardOffsetAnim = useRef(new Animated.Value(0)).current;
+
+    // Slide the sheet up by keyboard height — keeps content visible without squishing
     useEffect(() => {
-        (async () => {
-            const resolved = await (currentUserId ? Promise.resolve(currentUserId) : resolveCanonicalUserId());
-            setCurrentUid(resolved);
-        })();
-    }, [currentUserId]);
+        const showSub = Keyboard.addListener(
+            Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow',
+            (e) => {
+                Animated.timing(keyboardOffsetAnim, {
+                    toValue: -(e.endCoordinates?.height || 0),
+                    duration: Platform.OS === 'ios' ? (e.duration || 250) : 200,
+                    useNativeDriver: true,
+                }).start();
+            }
+        );
+        const hideSub = Keyboard.addListener(
+            Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide',
+            (e) => {
+                Animated.timing(keyboardOffsetAnim, {
+                    toValue: 0,
+                    duration: Platform.OS === 'ios' ? (e.duration || 250) : 200,
+                    useNativeDriver: true,
+                }).start();
+            }
+        );
+        return () => {
+            showSub.remove();
+            hideSub.remove();
+        };
+    }, [keyboardOffsetAnim]);
 
     const showToast = useCallback((message: string) => {
         setToast({ visible: true, message });
@@ -114,6 +150,41 @@ export default function SaveToCollectionModal({
         }
     }, [visible, initialScreen, initialGloballySaved, loadCollections, sheetTranslateY]);
 
+    // If currentUid was not available when modal first opened, reload collections when it becomes available
+    useEffect(() => {
+        if (visible && currentUid) {
+            loadCollections();
+        }
+    }, [currentUid]);
+
+    // Search users for collection collaboration
+    useEffect(() => {
+        const delayDebounceFn = setTimeout(async () => {
+            if (followerSearch.trim().length > 1 && currentUid) {
+                setSearching(true);
+                try {
+                    const res = await apiService.get(`/users/search?q=${encodeURIComponent(followerSearch)}&requesterUserId=${currentUid}`);
+                    const list = Array.isArray(res) ? res : (res?.data || []);
+                    const normalized = list.map((u: any) => ({
+                        ...u,
+                        uid: u._id || u.firebaseUid,
+                        name: u.displayName || u.name || 'User',
+                        avatar: u.avatar || u.photoURL || u.profilePicture || ''
+                    }));
+                    setSearchResults(normalized);
+                } catch (e) {
+                    console.error('search users error', e);
+                } finally {
+                    setSearching(false);
+                }
+            } else {
+                setSearchResults([]);
+            }
+        }, 500);
+
+        return () => clearTimeout(delayDebounceFn);
+    }, [followerSearch, currentUid]);
+
     const handleGlobalToggle = async () => {
         if (!currentUid || isUpdating) return;
         const nextState = !isGloballySaved;
@@ -121,6 +192,16 @@ export default function SaveToCollectionModal({
         try {
             if (nextState) await apiService.post(`/users/${currentUid}/saved`, { postId });
             else await apiService.delete(`/users/${currentUid}/saved/${postId}`);
+            
+            // Emit update to sync all UI states
+            try {
+                const { feedEventEmitter } = require('../../lib/feedEventEmitter');
+                feedEventEmitter.emitPostUpdated(postId, { isSaved: nextState });
+                feedEventEmitter.emit('feedUpdated');
+            } catch (err) {
+                console.warn('[SaveToCollectionModal] failed to emit global toggle update:', err);
+            }
+
             showToast(nextState ? 'Saved to All' : 'Removed from Saved');
         } catch { setIsGloballySaved(!nextState); }
     };
@@ -150,14 +231,30 @@ export default function SaveToCollectionModal({
     })).current;
 
     return (
-        <Modal visible={visible} transparent animationType="none" onRequestClose={() => handleModalClose()}>
+        <Modal visible={visible} transparent animationType="none" onRequestClose={() => { Keyboard.dismiss(); handleModalClose(); }}>
             <View style={styles.backdrop}>
-                <TouchableOpacity style={StyleSheet.absoluteFill} activeOpacity={1} onPress={() => handleModalClose()} />
+                {/* Flex spacer — only covers the dark area ABOVE the sheet. Does NOT overlap the sheet. */}
+                <TouchableOpacity
+                    style={{ flex: 1 }}
+                    activeOpacity={1}
+                    onPress={() => { Keyboard.dismiss(); handleModalClose(); }}
+                />
                 <Animated.View 
-                    style={[styles.sheet, { transform: [{ translateY: sheetTranslateY }], paddingBottom: insets.bottom || 20 }]}
-                    {...sheetPanResponder.panHandlers}
+                    style={[
+                        styles.sheet,
+                        {
+                            transform: [
+                                { translateY: sheetTranslateY },
+                                { translateY: (screen === 'invite' || screen === 'visibility') ? 0 : keyboardOffsetAnim },
+                            ],
+                            paddingBottom: screen === 'new' ? (insets.bottom || 8) : (insets.bottom || 20),
+                            minHeight: screen === 'new' ? undefined : SCREEN_H * 0.75,
+                        }
+                    ]}
                 >
-                    <View style={styles.dragBar} />
+                    <View style={styles.dragBarContainer} {...sheetPanResponder.panHandlers}>
+                        <View style={styles.dragBar} />
+                    </View>
                     {screen === 'list' && (
                         <CollectionListScreen
                             collections={collections} loading={loadingCollections} postId={postId}
@@ -173,61 +270,71 @@ export default function SaveToCollectionModal({
                             newVisibility={newVisibility} newCollaborators={newCollaborators}
                             tempSelectedGroups={tempSelectedGroups} groups={groups}
                             onGoToVisibility={async () => {
-                                setScreen('visibility');
-                                if (groups.length === 0) {
-                                    setLoadingGroups(true);
-                                    const res = await apiService.get(`/groups?userId=${currentUid}`);
-                                    if (res?.success) setGroups(res.data);
-                                    setLoadingGroups(false);
-                                }
-                            }}
-                            onGoToInvite={async () => {
-                                setScreen('invite');
-                                setTempSelectedCollaborators([...newCollaborators]);
-                                if (followers.length === 0) {
-                                    setLoadingFollowers(true);
-                                    const res = await apiService.get(`/users/${currentUid}/followers`);
-                                    setFollowers(res?.data || []);
-                                    setLoadingFollowers(false);
-                                }
-                            }}
-                            onCreateCollection={async () => {
-                                const created = await createCollection({
-                                    name: newName, visibility: newVisibility, coverImage: postImageUrl,
-                                    collaborators: newCollaborators.map(u => u._id || u.firebaseUid),
-                                    allowedGroups: tempSelectedGroups
-                                });
-                                if (created) {
-                                    onCollectionCreated?.(created);
-                                    handleModalClose(true);
-                                }
-                            }}
-                            onGoBack={() => setScreen('list')} saving={saving} nameInputRef={nameInputRef} Header={Header}
-                        />
-                    )}
-                    {screen === 'visibility' && (
-                        <VisibilitySettingsScreen
-                            currentVisibility={newVisibility} onConfirm={(v) => { setNewVisibility(v); if (v !== 'specific') setScreen('new'); }}
-                            groups={groups} tempSelectedGroups={tempSelectedGroups} loadingGroups={loadingGroups}
-                            onToggleGroup={(g) => {
-                                setTempSelectedGroups(prev => prev.includes(g._id) ? prev.filter(id => id !== g._id) : [...prev, g._id]);
-                            }}
-                            onGoBack={() => setScreen('new')} Header={Header}
-                        />
-                    )}
-                    {screen === 'invite' && (
-                        <InviteCollaboratorsScreen
-                            followerSearch={followerSearch} setFollowerSearch={setFollowerSearch}
-                            followers={followers} searchResults={searchResults} searching={searching}
-                            loadingFollowers={loadingFollowers} tempSelectedCollaborators={tempSelectedCollaborators}
-                            onToggleCollaborator={(u) => {
-                                setTempSelectedCollaborators(prev => prev.some(su => (su._id || su.firebaseUid) === (u._id || u.firebaseUid))
-                                    ? prev.filter(su => (su._id || su.firebaseUid) !== (u._id || u.firebaseUid)) : [...prev, u]);
-                            }}
-                            onConfirm={() => { setNewCollaborators(tempSelectedCollaborators); setScreen('new'); }}
-                            onGoBack={() => setScreen('new')} Header={Header}
-                        />
-                    )}
+                                  setScreen('visibility');
+                                  if (groups.length === 0) {
+                                      setLoadingGroups(true);
+                                      const res = await apiService.get(`/groups?userId=${currentUid}`);
+                                      if (res?.success) setGroups(res.data);
+                                      setLoadingGroups(false);
+                                  }
+                              }}
+                              onGoToInvite={async () => {
+                                  setScreen('invite');
+                                  setTempSelectedCollaborators([...newCollaborators]);
+                                  if (followers.length === 0) {
+                                      setLoadingFollowers(true);
+                                      const res = await apiService.get(`/follow/users/${currentUid}/followers`);
+                                      setFollowers(res?.data || []);
+                                      setLoadingFollowers(false);
+                                  }
+                              }}
+                              onCreateCollection={async () => {
+                                  const created = await createCollection({
+                                      name: newName, visibility: newVisibility, coverImage: postImageUrl,
+                                      collaborators: newCollaborators.map(u => u._id || u.firebaseUid),
+                                      allowedGroups: tempSelectedGroups
+                                  });
+                                  if (created) {
+                                      onCollectionCreated?.(created);
+                                      handleModalClose(true);
+                                  }
+                              }}
+                              onGoBack={() => setScreen('list')} saving={saving} nameInputRef={nameInputRef} Header={Header}
+                          />
+                      )}
+                      {screen === 'visibility' && (
+                          <VisibilitySettingsScreen
+                              currentVisibility={newVisibility} onConfirm={(v) => { setNewVisibility(v); if (v !== 'specific') setScreen('new'); }}
+                              groups={groups} tempSelectedGroups={tempSelectedGroups} loadingGroups={loadingGroups}
+                              onToggleGroup={(g) => {
+                                  setTempSelectedGroups(prev => prev.includes(g._id) ? prev.filter(id => id !== g._id) : [...prev, g._id]);
+                              }}
+                              onGoBack={() => setScreen('new')} Header={Header}
+                          />
+                      )}
+                      {screen === 'invite' && (
+                          <InviteCollaboratorsScreen
+                              followerSearch={followerSearch} setFollowerSearch={setFollowerSearch}
+                              followers={followers} searchResults={searchResults} searching={searching}
+                              loadingFollowers={loadingFollowers} tempSelectedCollaborators={tempSelectedCollaborators}
+                              onToggleCollaborator={(u) => {
+                                  setTempSelectedCollaborators(prev => prev.some(su => (su._id || su.firebaseUid) === (u._id || u.firebaseUid))
+                                      ? prev.filter(su => (su._id || su.firebaseUid) !== (u._id || u.firebaseUid)) : [...prev, u]);
+                              }}
+                              onConfirm={() => { setNewCollaborators(tempSelectedCollaborators); setScreen('new'); }}
+                              onGoBack={() => setScreen('new')} Header={Header}
+                          />
+                      )}
+                      {/* White filler below the sheet to cover keyboard corners/bottom safe area */}
+                      <View style={{
+                          position: 'absolute',
+                          left: 0,
+                          right: 0,
+                          bottom: -1000,
+                          height: 1000,
+                          backgroundColor: '#fff',
+                          zIndex: -1,
+                      }} />
                 </Animated.View>
 
                 {toast.visible && (
@@ -237,20 +344,21 @@ export default function SaveToCollectionModal({
                 )}
             </View>
         </Modal>
-    );
-}
-
-const styles = StyleSheet.create({
-    backdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
-    sheet: { backgroundColor: '#fff', borderTopLeftRadius: 20, borderTopRightRadius: 20, minHeight: 400, maxHeight: SCREEN_H * 0.9 },
-    dragBar: { width: 40, height: 5, backgroundColor: '#ddd', borderRadius: 3, alignSelf: 'center', marginTop: 10, marginBottom: 5 },
-    header: { flexDirection: 'row', alignItems: 'center', height: 56 },
-    headerBtn: { width: 100, paddingHorizontal: 16, justifyContent: 'center' },
-    headerLeft: { fontSize: 15, color: '#666' },
-    headerRight: { fontSize: 15, color: '#FF8D00', fontWeight: '700', textAlign: 'right' },
-    headerRightDisabled: { color: '#ccc' },
-    headerTitleWrap: { flex: 1, alignItems: 'center' },
-    headerTitle: { fontSize: 17, fontWeight: '800', color: '#111' },
-    toast: { position: 'absolute', bottom: 100, alignSelf: 'center', backgroundColor: 'rgba(0,0,0,0.8)', paddingHorizontal: 20, paddingVertical: 10, borderRadius: 20 },
-    toastText: { color: '#fff', fontSize: 14, fontWeight: '600' },
-});
+      );
+  }
+  
+  const styles = StyleSheet.create({
+      backdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end', overflow: 'visible' },
+      sheet: { backgroundColor: '#fff', borderTopLeftRadius: 20, borderTopRightRadius: 20, minHeight: SCREEN_H * 0.75, maxHeight: SCREEN_H * 0.92 },
+      dragBarContainer: { width: '100%', height: 30, alignItems: 'center', justifyContent: 'center' },
+      dragBar: { width: 40, height: 5, backgroundColor: '#ddd', borderRadius: 3, alignSelf: 'center' },
+      header: { flexDirection: 'row', alignItems: 'center', height: 56 },
+      headerBtn: { width: 130, paddingHorizontal: 16, justifyContent: 'center' },
+      headerLeft: { fontSize: 15, color: '#666' },
+      headerRight: { fontSize: 15, color: '#FF8D00', fontWeight: '700', textAlign: 'right' },
+      headerRightDisabled: { color: '#ccc' },
+      headerTitleWrap: { flex: 1, alignItems: 'center' },
+      headerTitle: { fontSize: 17, fontWeight: '800', color: '#111' },
+      toast: { position: 'absolute', bottom: 100, alignSelf: 'center', backgroundColor: 'rgba(0,0,0,0.8)', paddingHorizontal: 20, paddingVertical: 10, borderRadius: 20 },
+      toastText: { color: '#fff', fontSize: 14, fontWeight: '600' },
+  });

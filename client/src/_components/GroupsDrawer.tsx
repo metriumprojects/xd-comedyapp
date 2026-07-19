@@ -207,7 +207,7 @@ function GroupCard({ group, onGroupUpdated, onGroupDeleted }: { group: Group; on
     const [memberProfiles, setMemberProfiles] = useState<any[]>([]);
     const [showAddModal, setShowAddModal] = useState(false);
     const [loadingMembers, setLoadingMembers] = useState(false);
-    const [expanded, setExpanded] = useState(true);
+    const [expanded, setExpanded] = useState(false);
 
     const color = COLORS[group.type] || COLORS.custom;
     const icon: any = group.type === 'friends' ? 'users' : group.type === 'family' ? 'home' : 'layers';

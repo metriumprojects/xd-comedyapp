@@ -7,6 +7,7 @@ import { userService } from '@/lib/userService';
 import { safeRouterBack } from '@/lib/safeRouterBack';
 import { likePost, unlikePost } from '@/lib/firebaseHelpers/post';
 import { sharePost } from '@/lib/postShare';
+import { feedEventEmitter } from '@/lib/feedEventEmitter';
 
 interface UseProfileActionsProps {
   currentUserId: string | null;
@@ -60,6 +61,7 @@ export const useProfileActions = ({
           setApprovedFollower(false);
           if (res.success) {
             setIsFollowing(false);
+            feedEventEmitter.emitUserFollowChanged(viewedUserId, false);
             // Fetch updated profile with aggregated counts
             const profileRes = await apiService.get(`/users/${viewedUserId}/aggregated`, { 
               requesterUserId: currentUserId 
@@ -72,6 +74,7 @@ export const useProfileActions = ({
           const res = await followUser(currentUserId, viewedUserId);
           if (res.success) {
             setIsFollowing(true);
+            feedEventEmitter.emitUserFollowChanged(viewedUserId, true);
             // Fetch updated profile with aggregated counts
             const profileRes = await apiService.get(`/users/${viewedUserId}/aggregated`, { 
               requesterUserId: currentUserId 

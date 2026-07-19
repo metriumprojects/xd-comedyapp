@@ -2,6 +2,7 @@ import { Feather } from '@expo/vector-icons';
 import { useFocusEffect, useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ActivityIndicator, Alert, KeyboardAvoidingView, Modal, Platform, Pressable, RefreshControl, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
+import * as ImagePicker from 'expo-image-picker';
 import { FlashList } from "@shopify/flash-list";
 import AsyncStorage from '@/lib/storage';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -37,6 +38,82 @@ function Inbox() {
   }, [profilesById]);
   // Bump cache version to avoid legacy cached placeholder "User" profiles.
   const profilesCacheKey = 'inboxProfilesCache_v2';
+  const [sendingMediaConvoId, setSendingMediaConvoId] = useState<string | null>(null);
+
+  const handleCameraSend = async (convo: any) => {
+    if (sendingMediaConvoId) return;
+    try {
+      const cameraPerm = await ImagePicker.requestCameraPermissionsAsync();
+      if (cameraPerm.status !== 'granted') {
+        Alert.alert('Permission needed', 'Please allow camera access to take a photo.');
+        return;
+      }
+
+      const result = await ImagePicker.launchCameraAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.All,
+        allowsEditing: false,
+        quality: 0.7,
+      });
+
+      if (result.canceled || !result.assets?.[0]) return;
+      const asset = result.assets[0];
+
+      const conversationId = convo.conversationId || convo.id || convo._id;
+      if (!conversationId || !userId) return;
+
+      setSendingMediaConvoId(conversationId);
+
+      const mType = (asset.type === 'video' || (asset as any).mediaType === 'video') ? 'video' : 'image';
+
+      let finalUri = asset.uri;
+      try {
+        const { compressVideoSafe, compressImageSafe } = require('../lib/mediaUtils');
+        if (mType === 'video') {
+          if (__DEV__) console.log('[Inbox] Compressing camera video:', asset.uri);
+          finalUri = await compressVideoSafe(asset.uri);
+        } else if (mType === 'image') {
+          if (__DEV__) console.log('[Inbox] Compressing camera image:', asset.uri);
+          finalUri = await compressImageSafe(asset.uri);
+        }
+      } catch (compressErr) {
+        console.warn('[Inbox] Media compression failed:', compressErr);
+      }
+
+      const { uploadMedia, sendMediaMessage } = require('../lib/firebaseHelpers/messages');
+
+      const uploadRes = await uploadMedia(finalUri, mType);
+      if (!uploadRes?.success || !uploadRes?.url) {
+        throw new Error(uploadRes?.error || 'Media upload failed');
+      }
+
+      const sendRes = await sendMediaMessage(
+        conversationId,
+        userId,
+        uploadRes.url,
+        mType,
+        convo.otherUserId
+          ? {
+              recipientId: convo.otherUserId,
+              thumbnailUrl: uploadRes?.thumbnailUrl || uploadRes?.data?.thumbnailUrl
+            }
+          : {
+              thumbnailUrl: uploadRes?.thumbnailUrl || uploadRes?.data?.thumbnailUrl
+            }
+      );
+
+      if (!sendRes?.success) {
+        throw new Error(sendRes?.error || 'Failed to send message');
+      }
+
+      Alert.alert('Sent', 'Media message shared successfully!');
+      await refreshInbox();
+    } catch (err: any) {
+      console.error('[Inbox] handleCameraSend error:', err);
+      Alert.alert('Error', err?.message || 'Failed to send picture.');
+    } finally {
+      setSendingMediaConvoId(null);
+    }
+  };
 
   const coerceToEpochMs = useCallback((value: any): number => {
     if (!value) return 0;
@@ -358,26 +435,13 @@ function Inbox() {
       if (!Array.isArray(convos)) convos = [];
       setConversations(normalizeConversations(convos));
 
-      // 2. Fetch Following & Suggested for the horizontal list
+      // 2. Fetch Following users for the horizontal list (No global discover/suggested)
       setFollowingLoading(true);
-      const [followRes, discoverRes] = await Promise.all([
-        apiService.get(`/follow/users/${userId}/following`),
-        apiService.get(`/follow/discover`)
-      ]);
+      const followRes = await apiService.get(`/follow/users/${userId}/following`);
 
       let mergedUsers: any[] = [];
       if (followRes?.success && Array.isArray(followRes.data)) {
         mergedUsers = [...followRes.data];
-      }
-      if (discoverRes?.success && Array.isArray(discoverRes.data)) {
-        // Append suggested users who aren't already in the list
-        const existingIds = new Set(mergedUsers.map(u => String(u.uid || u.id || u.firebaseUid)));
-        for (const u of discoverRes.data) {
-          const id = String(u.uid || u.id || u.firebaseUid);
-          if (!existingIds.has(id)) {
-            mergedUsers.push({ ...u, isSuggested: true });
-          }
-        }
       }
       setFollowingUsers(mergedUsers);
     } catch (err: any) {
@@ -998,13 +1062,15 @@ function Inbox() {
               router.push({
                 pathname: '/dm',
                 params: {
-                  conversationId: it.conversationId || it.id,
+                  conversationId: it.conversationId || it.id || it._id,
                   otherUserId: it.otherUserId || it.id,
                   user: it.displayName || 'User',
                   isGroup: it.isGroup ? '1' : '0'
                 }
               });
             }}
+            onCameraPress={handleCameraSend}
+            isSendingMedia={sendingMediaConvoId === (item.conversationId || item.id || item._id)}
           />
         )}
         ListEmptyComponent={

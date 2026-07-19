@@ -1,9 +1,9 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
-import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { handleSocialAuthResult, signInWithApple, signInWithGoogle, signInWithSnapchat, signInWithTikTok } from '../../services/socialAuthService';
+import { handleSocialAuthResult, signInWithApple, signInWithGoogle } from '../../services/socialAuthService';
 import { AuthBrandHeader } from '@/src/_components/auth/AuthBrandHeader';
 import CustomButton from '@/src/_components/auth/CustomButton';
 import SocialButton from '@/src/_components/auth/SocialButton';
@@ -12,6 +12,7 @@ import { safeRouterBack } from '@/lib/safeRouterBack';
 export default function SignUpOptionsScreen() {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
+  const [email, setEmail] = useState('');
 
   const handleGoogleSignIn = async () => {
     setLoading(true);
@@ -23,20 +24,6 @@ export default function SignUpOptionsScreen() {
   const handleAppleSignIn = async () => {
     setLoading(true);
     const result = await signInWithApple();
-    await handleSocialAuthResult(result, router);
-    setLoading(false);
-  };
-
-  const handleTikTokSignIn = async () => {
-    setLoading(true);
-    const result = await signInWithTikTok();
-    await handleSocialAuthResult(result, router);
-    setLoading(false);
-  };
-
-  const handleSnapchatSignIn = async () => {
-    setLoading(true);
-    const result = await signInWithSnapchat();
     await handleSocialAuthResult(result, router);
     setLoading(false);
   };
@@ -65,58 +52,30 @@ export default function SignUpOptionsScreen() {
 
           {/* Method Selection */}
           <View style={styles.methodContainer}>
-            <Text style={styles.methodLabel}>By Email</Text>
+            {/* Email Input */}
+            <TextInput
+              style={styles.emailInput}
+              placeholder="Please enter your email"
+              placeholderTextColor="#999"
+              value={email}
+              onChangeText={setEmail}
+              keyboardType="email-address"
+              autoCapitalize="none"
+              autoCorrect={false}
+              spellCheck={false}
+            />
+
             <CustomButton
-              title="Email"
-              onPress={() => router.push('/auth/email-signup')}
+              title="Next"
+              onPress={() => router.push({ pathname: '/auth/email-signup', params: { prefillEmail: email } })}
               variant="primary"
               style={styles.methodButton}
               textStyle={styles.methodButtonText}
             />
 
-            <Text style={styles.methodLabel}>By phone number</Text>
-            <CustomButton
-              title="Phone"
-              onPress={() => router.push('/auth/phone-signup')}
-              variant="primary"
-              style={styles.methodButton}
-              textStyle={styles.methodButtonText}
-            />
-
-            <Text style={styles.methodLabel}>By username</Text>
-            <CustomButton
-              title="Username"
-              onPress={() => router.push('/auth/username-signup')}
-              variant="secondary"
-              style={styles.methodButton}
-              textStyle={styles.methodButtonText}
-            />
-          </View>
-
-          {/* Social Login Options */}
-          <View style={styles.socialContainer}>
-            <SocialButton
-              provider="google"
-              onPress={handleGoogleSignIn}
-            />
-            <SocialButton
-              provider="apple"
-              onPress={handleAppleSignIn}
-            />
-            <SocialButton
-              provider="tiktok"
-              onPress={handleTikTokSignIn}
-            />
-            <SocialButton
-              provider="snapchat"
-              onPress={handleSnapchatSignIn}
-            />
-          </View>
-
-          {/* Footer */}
-          <View style={styles.footer}>
-            <Text style={styles.footerText}>
-              You have an account?{' '}
+            {/* Already have an account */}
+            <Text style={styles.noAccountText}>
+              Already have an account?{' '}
               <Text
                 style={styles.footerLink}
                 onPress={() => router.push('/auth/login-options')}
@@ -125,6 +84,21 @@ export default function SignUpOptionsScreen() {
               </Text>
             </Text>
           </View>
+
+          {/* Social Login Options */}
+          <View style={styles.socialContainer}>
+            <SocialButton
+              provider="google"
+              onPress={handleGoogleSignIn}
+              style={styles.socialButton}
+            />
+            <SocialButton
+              provider="apple"
+              onPress={handleAppleSignIn}
+              style={styles.socialButton}
+            />
+          </View>
+
         </View>
       </ScrollView>
     </SafeAreaView>
@@ -158,15 +132,16 @@ const styles = StyleSheet.create({
   methodContainer: {
     marginBottom: 15,
   },
-  methodLabel: {
-    fontSize: 14,
-    fontWeight: '600',
+  emailInput: {
+    backgroundColor: '#f5f5f5',
+    borderRadius: 8,
+    padding: 16,
+    fontSize: 16,
     color: '#000',
-    marginBottom: 6,
-    marginTop: 8,
+    marginBottom: 10,
   },
   methodButton: {
-    marginBottom: 4,
+    marginBottom: 8,
   },
   methodButtonText: {
     fontSize: 15,
@@ -174,10 +149,14 @@ const styles = StyleSheet.create({
   socialContainer: {
     marginBottom: 15,
   },
-  footer: {
-    alignItems: 'center',
-    marginTop: 'auto',
-    paddingBottom: 10,
+  socialButton: {
+    marginBottom: 8,
+  },
+  noAccountText: {
+    fontSize: 14,
+    color: '#666',
+    textAlign: 'center',
+    marginTop: 10,
   },
   footerText: {
     fontSize: 14,

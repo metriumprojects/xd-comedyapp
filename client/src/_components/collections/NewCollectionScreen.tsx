@@ -45,7 +45,7 @@ export const NewCollectionScreen: React.FC<NewCollectionScreenProps> = ({
         rightDisabled={saving || !newName.trim()}
         rightLabel={saving ? '...' : 'Save'}
       />
-      <ScrollView keyboardShouldPersistTaps="handled" style={{ flex: 1 }} contentContainerStyle={{ paddingBottom: 20 }}>
+      <ScrollView keyboardShouldPersistTaps="handled" style={styles.scrollView} contentContainerStyle={styles.scrollViewContent}>
         {postImageUrl ? (
           <View style={styles.newPostThumbContainer}>
             <ExpoImage source={{ uri: postImageUrl }} style={styles.newPostThumb} contentFit="cover" />
@@ -142,4 +142,6 @@ const styles = StyleSheet.create({
   optionValue: { fontSize: 14, color: '#666', marginRight: 6 },
   collabInfo: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, marginTop: 12 },
   collabChips: { flex: 1, fontSize: 13, color: '#FF8D00', marginLeft: 8, fontWeight: '600' },
+  scrollView: { flexGrow: 0, flexShrink: 1 },
+  scrollViewContent: { paddingBottom: 6 },
 });

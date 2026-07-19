@@ -92,6 +92,24 @@ export async function signInWithEmailPassword(
     const userCredential = await signInWithEmailAndPassword(firebaseAuth, email, password);
     const firebaseUser = userCredential.user;
 
+    // Check if email is verified (skip for mock phone emails)
+    const isMockEmail = firebaseUser.email?.toLowerCase().endsWith('@comedyapp.com');
+    if (!isMockEmail && !firebaseUser.emailVerified) {
+      try {
+        const { sendEmailVerification: fbSendVerification } = require('firebase/auth');
+        await fbSendVerification(firebaseUser);
+      } catch (err) {
+        console.warn('[signInWithEmailPassword] Failed to send verification email:', err);
+      }
+      try { await signOut(firebaseAuth); } catch (e) { }
+      await AsyncStorage.multiRemove(['token', 'userId', 'userEmail', 'userAvatar', 'uid', 'firebaseUid']);
+      
+      return {
+        success: false,
+        error: 'Please verify your email before logging in. We have sent a verification link to your email.'
+      };
+    }
+
     // Step 2: Sync with backend (save to MongoDB)
     const idToken = await firebaseUser.getIdToken();
     const response = await apiService.post('/auth/login-firebase', {
@@ -166,8 +184,10 @@ export async function signInWithEmailPassword(
 export async function registerWithEmailPassword(
   email: string,
   password: string,
-  displayName?: string
-): Promise<{ success: boolean; user?: any; error?: any }> {
+  displayName?: string,
+  username?: string,
+  verifyEmail: boolean = false
+): Promise<{ success: boolean; user?: any; error?: any; needsVerification?: boolean }> {
   try {
     console.log('[registerWithEmailPassword] Firebase register:', email);
     const firebaseAuth = getRequiredAuth();
@@ -188,7 +208,8 @@ export async function registerWithEmailPassword(
       firebaseUid: firebaseUser.uid,
       email: firebaseUser.email,
       displayName: displayName || email.split('@')[0],
-      avatar: firebaseUser.photoURL
+      avatar: firebaseUser.photoURL,
+      username: username || undefined
     });
 
     if (!response.success) {
@@ -197,7 +218,8 @@ export async function registerWithEmailPassword(
         firebaseUid: firebaseUser.uid,
         email: firebaseUser.email,
         displayName: displayName || email.split('@')[0],
-        avatar: firebaseUser.photoURL
+        avatar: firebaseUser.photoURL,
+        username: username || undefined
       });
     }
 
@@ -208,6 +230,23 @@ export async function registerWithEmailPassword(
       // iOS Fix: Store all avatar variants from backend response
       const avatarToStore = response.user?.avatar || response.user?.photoURL || response.user?.profilePicture || firebaseUser.photoURL || '';
       
+      if (verifyEmail) {
+        // Send email verification
+        try {
+          const { sendEmailVerification: fbSendVerification } = require('firebase/auth');
+          await fbSendVerification(firebaseUser);
+        } catch (e) {
+          console.warn('[registerWithEmailPassword] Failed to send verification email:', e);
+        }
+
+        // Clean up AsyncStorage and Firebase Auth to force verification on login
+        await AsyncStorage.multiRemove(['token', 'userId', 'userEmail', 'userAvatar', 'uid', 'firebaseUid']);
+        try { await signOut(firebaseAuth); } catch (e) { }
+
+        console.log('[registerWithEmailPassword] ✅ Registration successful, verification required');
+        return { success: true, user: null, needsVerification: true };
+      }
+
       await AsyncStorage.multiSet([
         ['token', response.token],
         ['userId', canonicalUserId],
@@ -225,7 +264,7 @@ export async function registerWithEmailPassword(
       } catch (e) {
         console.warn('[registerWithEmailPassword] Zustand setUserId warning:', e);
       }
-      return { success: true, user: firebaseUser };
+      return { success: true, user: firebaseUser, needsVerification: false };
     } else {
       console.error('[registerWithEmailPassword] ❌ MongoDB sync failed:', response.error);
       // Still return success since Firebase auth worked
@@ -346,16 +385,16 @@ export async function signInUser(email: string, password: string) {
 /**
  * Sign up new user with Firebase then create in backend
  */
-export async function signUpUser(email: string, password: string, displayName?: string) {
+export async function signUpUser(email: string, password: string, displayName?: string, username?: string, verifyEmail: boolean = false) {
   try {
     console.log('[signUpUser] Attempting to register:', email);
 
     // Use Firebase auth service (which calls backend)
-    const result = await registerWithEmailPassword(email, password, displayName);
+    const result = await registerWithEmailPassword(email, password, displayName, username, verifyEmail);
 
     if (result.success) {
       console.log('[signUpUser] ✅ Registration successful');
-      return { success: true, user: result.user };
+      return { success: true, user: result.user, needsVerification: result.needsVerification };
     } else {
       console.error('[signUpUser] ❌ Registration failed:', result.error);
       return { success: false, error: result.error };
