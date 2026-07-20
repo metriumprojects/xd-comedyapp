@@ -67,6 +67,7 @@ export async function initializeSocket(userId: string): Promise<Socket> {
   });
 
   socket.on('postReactionUpdated', (data: { postId: string; laughCount: number; tomatoCount: number }) => {
+    console.log('[Socket] 🎭 Received postReactionUpdated:', data);
     if (data?.postId) {
       feedEventEmitter.emitPostUpdated(String(data.postId), {
         laughCount: data.laughCount,

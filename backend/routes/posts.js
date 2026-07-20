@@ -889,8 +889,7 @@ router.post('/:postId/rate', verifyToken, async (req, res) => {
 
     // Broadcast reaction update to all connected socket clients in real-time
     try {
-      const { getIO } = require('../src/services/socketService');
-      const io = getIO();
+      const io = req.app ? req.app.get('io') : null;
       if (io) {
         io.emit('postReactionUpdated', {
           postId: String(updatedPost._id),
@@ -898,7 +897,9 @@ router.post('/:postId/rate', verifyToken, async (req, res) => {
           tomatoCount: updatedPost.tomatoCount
         });
       }
-    } catch (_) {}
+    } catch (err) {
+      console.warn('Socket reaction emit error:', err.message);
+    }
 
     res.json({
       success: true,
