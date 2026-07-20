@@ -29,24 +29,39 @@ const CategoryModal: React.FC<CategoryModalProps> = ({
   iosSheetKeyboardOffset,
 }) => {
   const renderCategoryItem = ({ item }: { item: { name: string; image: string } }) => {
-    const isSelected = selectedCategories.some(c => c.name === item.name);
+    const isSelected = selectedCategories.some(c => c.name.toLowerCase() === item.name.toLowerCase());
     return (
       <TouchableOpacity
-        style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: 10, paddingHorizontal: 8, backgroundColor: isSelected ? '#f2f2f2' : 'transparent', borderRadius: 12, marginBottom: 4 }}
+        style={{
+          flexDirection: 'row',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          paddingVertical: 14,
+          paddingHorizontal: 14,
+          backgroundColor: isSelected ? '#FFF8F0' : '#FAFAFA',
+          borderRadius: 12,
+          marginBottom: 8,
+          borderWidth: 1,
+          borderColor: isSelected ? '#FFE0B2' : '#F0F0F0'
+        }}
         onPress={() => {
           hapticLight();
           if (isSelected) {
-            setSelectedCategories(selectedCategories.filter(c => c.name !== item.name));
+            setSelectedCategories(selectedCategories.filter(c => c.name.toLowerCase() !== item.name.toLowerCase()));
           } else {
             setSelectedCategories([...selectedCategories, item]);
           }
         }}
+        activeOpacity={0.7}
       >
-        <Image
-          source={getCategoryImageSource(item.name, item.image)}
-          style={{ width: 56, height: 56, borderRadius: 16, marginRight: 16, backgroundColor: '#f0f0f0' }}
+        <Text style={{ fontSize: 15, fontWeight: isSelected ? '600' : '400', color: isSelected ? '#FF8D00' : '#111', flex: 1 }}>
+          {item.name}
+        </Text>
+        <Ionicons 
+          name={isSelected ? "checkbox" : "square-outline"} 
+          size={22} 
+          color={isSelected ? "#FF8D00" : "#B0B0B0"} 
         />
-        <Text style={{ fontSize: 15, fontWeight: '400', color: '#111', flex: 1 }}>{item.name}</Text>
       </TouchableOpacity>
     );
   };
@@ -101,7 +116,7 @@ const CategoryModal: React.FC<CategoryModalProps> = ({
 
             <View style={{ flex: 1, paddingHorizontal: 20 }}>
               <FlatList
-                data={categories.filter(c => c.name.toLowerCase().includes(categorySearch.toLowerCase()))}
+                data={categories.filter(c => c.name.toLowerCase() !== 'podium' && c.name.toLowerCase().includes(categorySearch.toLowerCase()))}
                 keyExtractor={item => item.name}
                 renderItem={renderCategoryItem}
                 showsVerticalScrollIndicator={false}
