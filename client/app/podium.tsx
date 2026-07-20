@@ -8,7 +8,9 @@ import {
   TextInput,
   ActivityIndicator,
   Dimensions,
-  Platform
+  Platform,
+  Modal,
+  Alert
 } from 'react-native';
 import { Image as ExpoImage } from 'expo-image';
 import { Ionicons, Feather } from '@expo/vector-icons';
@@ -24,6 +26,7 @@ import AsyncStorage from '@/lib/storage';
 import NotificationsModal from '@/src/_components/NotificationsModal';
 import { useNotifications } from '../hooks/useNotifications';
 import * as VideoThumbnails from 'expo-video-thumbnails';
+import { logoutUser } from '@/src/_services/firebaseAuthService';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -207,6 +210,7 @@ export default function PodiumScreen() {
   const insets = useSafeAreaInsets();
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [notificationsModalVisible, setNotificationsModalVisible] = useState(false);
+  const [menuVisible, setMenuVisible] = useState(false);
   const { notifications, unreadCount, fetchNotifications, markAsRead, markAllAsRead } = useNotifications(currentUserId || '', 60000);
 
   useEffect(() => {
@@ -349,7 +353,7 @@ export default function PodiumScreen() {
               </View>
             )}
           </TouchableOpacity>
-          <TouchableOpacity style={styles.headerIcon} onPress={() => {}}>
+          <TouchableOpacity style={styles.headerIcon} onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {}); setMenuVisible(true); }}>
             <Feather name="more-vertical" size={22} color="#000" />
           </TouchableOpacity>
         </View>
@@ -633,6 +637,145 @@ export default function PodiumScreen() {
           } catch { }
         }}
       />
+
+      {/* Modern Top Menu / Settings Modal */}
+      <Modal
+        visible={menuVisible}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setMenuVisible(false)}
+      >
+        <View style={styles.menuOverlay}>
+          <TouchableOpacity
+            style={{ flex: 1, width: '100%' }}
+            activeOpacity={1}
+            onPress={() => setMenuVisible(false)}
+          />
+          <View style={{ width: '100%' }}>
+            <View style={[styles.igSheet, { paddingBottom: Math.max(insets.bottom, 24) + 12 }]}>
+              {/* Handle */}
+              <View style={styles.handleContainer}>
+                <View style={styles.igHandle} />
+              </View>
+
+              {/* Menu Items Container */}
+              <View style={styles.menuItemsContainer}>
+                {/* Settings Group */}
+                <View style={styles.menuGroup}>
+                  <TouchableOpacity
+                    style={styles.igItem}
+                    activeOpacity={0.7}
+                    onPress={() => { setMenuVisible(false); router.push('/settings'); }}
+                  >
+                    <LinearGradient
+                      colors={['rgba(251, 188, 4, 0.15)', 'rgba(255, 141, 0, 0.15)']}
+                      start={{ x: 0, y: 0 }}
+                      end={{ x: 1, y: 0 }}
+                      style={styles.iconContainer}
+                    >
+                      <Feather name="settings" size={20} color="#FF8D00" />
+                    </LinearGradient>
+                    <Text style={styles.igText}>Settings</Text>
+                    <Feather name="chevron-right" size={18} color="#ccc" style={styles.chevron} />
+                  </TouchableOpacity>
+                </View>
+
+                {/* Content Group */}
+                <View style={styles.menuGroup}>
+                  <TouchableOpacity
+                    style={styles.igItem}
+                    activeOpacity={0.7}
+                    onPress={() => { setMenuVisible(false); router.push('/saved'); }}
+                  >
+                    <LinearGradient
+                      colors={['rgba(251, 188, 4, 0.15)', 'rgba(255, 141, 0, 0.15)']}
+                      start={{ x: 0, y: 0 }}
+                      end={{ x: 1, y: 0 }}
+                      style={styles.iconContainer}
+                    >
+                      <Feather name="bookmark" size={20} color="#FF8D00" />
+                    </LinearGradient>
+                    <Text style={styles.igText}>Saved Posts</Text>
+                    <Feather name="chevron-right" size={18} color="#ccc" style={styles.chevron} />
+                  </TouchableOpacity>
+                </View>
+
+                {/* Legal Group */}
+                <View style={styles.menuGroup}>
+                  <TouchableOpacity
+                    style={styles.igItem}
+                    activeOpacity={0.7}
+                    onPress={() => { setMenuVisible(false); router.push('/legal/privacy' as any); }}
+                  >
+                    <LinearGradient
+                      colors={['rgba(251, 188, 4, 0.15)', 'rgba(255, 141, 0, 0.15)']}
+                      start={{ x: 0, y: 0 }}
+                      end={{ x: 1, y: 0 }}
+                      style={styles.iconContainer}
+                    >
+                      <Feather name="shield" size={20} color="#FF8D00" />
+                    </LinearGradient>
+                    <Text style={styles.igText}>Privacy Policy</Text>
+                    <Feather name="chevron-right" size={18} color="#ccc" style={styles.chevron} />
+                  </TouchableOpacity>
+
+                  <View style={styles.separator} />
+
+                  <TouchableOpacity
+                    style={styles.igItem}
+                    activeOpacity={0.7}
+                    onPress={() => { setMenuVisible(false); router.push('/legal/terms' as any); }}
+                  >
+                    <LinearGradient
+                      colors={['rgba(251, 188, 4, 0.15)', 'rgba(255, 141, 0, 0.15)']}
+                      start={{ x: 0, y: 0 }}
+                      end={{ x: 1, y: 0 }}
+                      style={styles.iconContainer}
+                    >
+                      <Feather name="file-text" size={20} color="#FF8D00" />
+                    </LinearGradient>
+                    <Text style={styles.igText}>Terms of Service</Text>
+                    <Feather name="chevron-right" size={18} color="#ccc" style={styles.chevron} />
+                  </TouchableOpacity>
+                </View>
+
+                {/* Logout Button */}
+                <TouchableOpacity
+                  style={styles.igItemLogout}
+                  activeOpacity={0.7}
+                  onPress={async () => {
+                    setMenuVisible(false);
+                    try {
+                      const result = await logoutUser();
+                      if (result.success) {
+                        router.replace('/auth/welcome' as any);
+                      } else {
+                        Alert.alert('Error', 'Logout failed');
+                      }
+                    } catch (error) {
+                      Alert.alert('Error', 'Failed to log out. Please try again.');
+                    }
+                  }}
+                >
+                  <View style={[styles.iconContainer, { backgroundColor: '#fee' }]}>
+                    <Feather name="log-out" size={20} color="#e74c3c" />
+                  </View>
+                  <Text style={styles.igTextLogout}>Log Out</Text>
+                </TouchableOpacity>
+
+                {/* Cancel Button */}
+                <TouchableOpacity
+                  style={styles.cancelButton}
+                  activeOpacity={0.7}
+                  onPress={() => setMenuVisible(false)}
+                >
+                  <Text style={styles.cancelText}>Cancel</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -1029,5 +1172,113 @@ const styles = StyleSheet.create({
   footerCreatorStats: {
     fontSize: 10,
     color: '#666',
+  },
+  menuOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'flex-end',
+    alignItems: 'center',
+  },
+  igSheet: {
+    width: '100%',
+    backgroundColor: '#f8f9fa',
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    paddingTop: 16,
+    shadowColor: '#000',
+    shadowOpacity: 0.2,
+    shadowRadius: 20,
+    shadowOffset: { width: 0, height: -4 },
+    elevation: 20,
+  },
+  handleContainer: {
+    alignItems: 'center',
+    paddingVertical: 8,
+  },
+  igHandle: {
+    width: 36,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: '#d1d5db',
+  },
+  menuItemsContainer: {
+    paddingHorizontal: 16,
+    paddingTop: 8,
+  },
+  menuGroup: {
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    marginBottom: 12,
+    overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOpacity: 0.03,
+    shadowRadius: 4,
+    shadowOffset: { width: 0, height: 1 },
+    elevation: 1,
+  },
+  igItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    backgroundColor: '#fff',
+  },
+  iconContainer: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 12,
+  },
+  igText: {
+    flex: 1,
+    color: '#1f2937',
+    fontSize: 16,
+    fontWeight: '500',
+  },
+  chevron: {
+    marginLeft: 'auto',
+  },
+  separator: {
+    height: 0.5,
+    backgroundColor: '#e5e7eb',
+    marginLeft: 64,
+  },
+  igItemLogout: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    marginBottom: 12,
+    shadowColor: '#e74c3c',
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    shadowOffset: { width: 0, height: 1 },
+    elevation: 1,
+  },
+  igTextLogout: {
+    flex: 1,
+    color: '#e74c3c',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  cancelButton: {
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    paddingVertical: 16,
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOpacity: 0.03,
+    shadowRadius: 4,
+    shadowOffset: { width: 0, height: 1 },
+    elevation: 1,
+  },
+  cancelText: {
+    color: '#6b7280',
+    fontSize: 16,
+    fontWeight: '600',
   },
 });
