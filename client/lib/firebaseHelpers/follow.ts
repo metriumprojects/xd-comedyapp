@@ -1,4 +1,5 @@
 import { apiService } from '@/src/_services/apiService';
+import { feedEventEmitter } from '../feedEventEmitter';
 
 // Check if user is following another user
 export async function checkFollowStatus(followerId: string, followingId: string) {
@@ -20,6 +21,9 @@ export async function followUser(followerId: string, followingId: string) {
     console.log('[followUser] Sending follow request:', { followerId, followingId });
     const res = await apiService.post('/follow', { followerId, followingId });
     console.log('[followUser] Response:', res);
+    if (res?.success !== false) {
+      feedEventEmitter.emitUserFollowChanged(followingId, true);
+    }
     return res;
   } catch (error: any) {
     console.error('[followUser] Error:', error.message);
@@ -32,6 +36,9 @@ export async function unfollowUser(followerId: string, followingId: string) {
     console.log('[unfollowUser] Sending unfollow request:', { followerId, followingId });
     const res = await apiService.delete('/follow', { followerId, followingId });
     console.log('[unfollowUser] Response:', res);
+    if (res?.success !== false) {
+      feedEventEmitter.emitUserFollowChanged(followingId, false);
+    }
     return res;
   } catch (error: any) {
     console.error('[unfollowUser] Error:', error.message);

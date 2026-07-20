@@ -197,11 +197,18 @@ function StoriesRowComponent({ onStoryPress, onStoryViewerClose, refreshTrigger,
   }, [refreshTrigger]);
 
   useEffect(() => {
-    const sub = feedEventEmitter.addListener('feedUpdated', () => {
-      lastStoriesLoadAtRef.current = 0;
-      loadStories();
+    const unsub = feedEventEmitter.onFeedUpdate((event) => {
+      if (
+        event.type === 'USER_FOLLOW_CHANGED' ||
+        event.type === 'POST_CREATED' ||
+        event.type === 'USER_SUBSCRIBED'
+      ) {
+        console.log('[StoriesRow] 🔄 Feed event received:', event.type, '- Reloading stories live');
+        lastStoriesLoadAtRef.current = 0;
+        loadStories({ forceRefresh: true });
+      }
     });
-    return () => sub.remove();
+    return unsub;
   }, []);
 
   useEffect(() => {
@@ -338,11 +345,11 @@ function StoriesRowComponent({ onStoryPress, onStoryViewerClose, refreshTrigger,
     }
   };
 
-  const loadStories = async (opts?: { preferCache?: boolean }) => {
+  const loadStories = async (opts?: { preferCache?: boolean; forceRefresh?: boolean }) => {
     try {
       const now = Date.now();
-      // Throttle: avoid repeated heavy loads when navigating around quickly.
-      if (!opts?.preferCache && now - lastStoriesLoadAtRef.current < 15_000) {
+      // Throttle: avoid repeated heavy loads when navigating around quickly, unless forceRefresh is true.
+      if (!opts?.preferCache && !opts?.forceRefresh && now - lastStoriesLoadAtRef.current < 15_000) {
         return;
       }
       lastStoriesLoadAtRef.current = now;
