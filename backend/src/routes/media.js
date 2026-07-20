@@ -1,67 +1,66 @@
 const express = require('express');
 const router = express.Router();
 const multer = require('multer');
-const cloudinary = require('cloudinary').v2;
+const s3Service = require('../utils/s3Service');
+const { verifyToken } = require('../middleware/authMiddleware');
 
-cloudinary.config({
-  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
-  api_key: process.env.CLOUDINARY_API_KEY,
-  api_secret: process.env.CLOUDINARY_API_SECRET
-});
-
-// Multer for multipart/form-data uploads
 const upload = multer({
   storage: multer.memoryStorage(),
   limits: { fileSize: 50 * 1024 * 1024 } // 50MB limit
 });
 
-const { verifyToken } = require('../middleware/authMiddleware');
+// Helper: base64 helper
+function base64ToBuffer(base64Str) {
+  const matches = base64Str.match(/^data:([A-Za-z-+\/]+);base64,(.+)$/);
+  if (!matches || matches.length !== 3) {
+    return {
+      type: null,
+      buffer: Buffer.from(base64Str, 'base64')
+    };
+  }
+  return {
+    type: matches[1],
+    buffer: Buffer.from(matches[2], 'base64')
+  };
+}
 
 // Upload media (POST /api/media/upload) — JWT required to prevent anonymous abuse
-// Supports BOTH:
-//   1) multipart/form-data with file field (from XHR/FormData)
-//   2) JSON body with { file: "base64...", mediaType: "image" }
 router.post('/upload', verifyToken, upload.single('file'), async (req, res) => {
   try {
     const mediaType = req.body.mediaType || 'auto';
-    const resourceType = mediaType === 'audio' ? 'video' : (mediaType === 'video' ? 'video' : 'auto');
 
-    let uploadSource;
-
+    let finalBuffer;
+    let originalName = 'file';
     if (req.file) {
-      // Multipart upload - file is in memory buffer
-      uploadSource = await new Promise((resolve, reject) => {
-        const stream = cloudinary.uploader.upload_stream(
-          { folder: 'trave-social', resource_type: resourceType },
-          (error, result) => {
-            if (error) reject(error);
-            else resolve(result);
-          }
-        );
-        stream.end(req.file.buffer);
-      });
+      finalBuffer = req.file.buffer;
+      originalName = req.file.originalname || 'file';
     } else {
-      // JSON body - base64 data URI or remote URL
       const file = req.body.file || req.body.image;
       if (!file) {
         return res.status(400).json({ success: false, error: 'No file provided' });
       }
-      uploadSource = await cloudinary.uploader.upload(file, {
-        folder: 'trave-social',
-        resource_type: resourceType
-      });
+      if (file.startsWith('data:') && file.includes(';base64,')) {
+        const parsed = base64ToBuffer(file);
+        finalBuffer = parsed.buffer;
+      } else {
+        finalBuffer = Buffer.from(file.replace(/^data:image\/[a-z]+;base64,/, ''), 'base64');
+      }
     }
 
+    const result = await s3Service.uploadMedia(finalBuffer, 'comedy-app', 'media', mediaType, originalName);
+    
     return res.json({
       success: true,
-      url: uploadSource.secure_url,
-      secureUrl: uploadSource.secure_url,
+      url: result.secure_url,
+      secureUrl: result.secure_url,
+      thumbnailUrl: result.thumbnailUrl,
       data: {
-        url: uploadSource.secure_url,
-        width: uploadSource.width,
-        height: uploadSource.height,
-        format: uploadSource.format,
-        resourceType: uploadSource.resource_type
+        url: result.secure_url,
+        thumbnailUrl: result.thumbnailUrl,
+        width: result.width,
+        height: result.height,
+        format: result.mediaType === 'image' ? 'webp' : 'mp4',
+        resourceType: result.resource_type
       }
     });
   } catch (err) {

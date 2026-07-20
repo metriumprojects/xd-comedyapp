@@ -12,18 +12,12 @@ const upload = multer({
   limits: { fileSize: 10 * 1024 * 1024 } // 10MB limit
 });
 
-// Helper for Cloudinary Upload
-async function uploadToCloudinary(fileBuffer, folder) {
-  return new Promise((resolve, reject) => {
-    const uploadStream = cloudinary.uploader.upload_stream(
-      { folder: folder, resource_type: 'auto' },
-      (error, result) => {
-        if (error) reject(error);
-        else resolve(result.secure_url);
-      }
-    );
-    uploadStream.end(fileBuffer);
-  });
+const s3Service = require('../src/utils/s3Service');
+
+// Helper for S3 Upload
+async function uploadToCloudinary(fileBuffer, folder, originalName = 'image.jpg') {
+  const result = await s3Service.uploadMedia(fileBuffer, folder, 'admin', 'image', originalName);
+  return result.secure_url;
 }
 
 /**

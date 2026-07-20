@@ -1,62 +1,20 @@
 const express = require('express');
 const router = express.Router();
-const cloudinary = require('cloudinary').v2;
 const multer = require('multer');
 const { verifyToken } = require('../middleware/authMiddleware');
 const logger = require('../utils/logger');
+const s3Service = require('../utils/s3Service');
 
-// Configure Cloudinary
-cloudinary.config({
-  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
-  api_key: process.env.CLOUDINARY_API_KEY,
-  api_secret: process.env.CLOUDINARY_API_SECRET
-});
-
-// Configure multer for memory storage with strict limits
+// Configure multer for memory storage with 100MB limit for high-res videos
 const upload = multer({ 
   storage: multer.memoryStorage(),
-  limits: { fileSize: 100 * 1024 * 1024 } // 100MB limit for videos and posts
+  limits: { fileSize: 100 * 1024 * 1024 }
 });
 
 const uploadStory = multer({
   storage: multer.memoryStorage(),
-  limits: { fileSize: 100 * 1024 * 1024 } // 100MB limit
+  limits: { fileSize: 100 * 1024 * 1024 }
 });
-
-/**
- * Upload file to Cloudinary
- */
-async function uploadToCloudinary(fileBuffer, folder, resourceType = 'auto', options = {}) {
-  return new Promise((resolve, reject) => {
-    const isVideo = resourceType === 'video' || resourceType === 'audio';
-    const uploadOptions = {
-      folder: folder,
-      resource_type: resourceType,
-      upload_preset: process.env.CLOUDINARY_UPLOAD_PRESET || undefined,
-    };
-
-    if (!isVideo) {
-      uploadOptions.transformation = [
-        { quality: 'auto' },
-        { fetch_format: 'auto' }
-      ];
-    }
-
-    const uploadStream = cloudinary.uploader.upload_stream(
-      uploadOptions,
-      (error, result) => {
-        if (error) {
-          logger.error('❌ Cloudinary upload error: %O', error);
-          reject(error);
-        } else {
-          logger.info('✅ Cloudinary upload success: %s', result.secure_url);
-          resolve(options.returnResult ? result : result.secure_url);
-        }
-      }
-    );
-    uploadStream.end(fileBuffer);
-  });
-}
 
 // Global Multer Error Handler
 const handleMulterError = (err, req, res, next) => {
@@ -72,8 +30,8 @@ router.post('/avatar', verifyToken, upload.single('file'), handleMulterError, as
   try {
     if (!req.file) return res.status(400).json({ success: false, error: 'No file provided' });
     const userId = req.userId || 'anonymous';
-    const url = await uploadToCloudinary(req.file.buffer, `avatars/${userId}`, 'image');
-    res.json({ success: true, url });
+    const result = await s3Service.uploadMedia(req.file.buffer, `avatars/${userId}`, 'avatar', 'image', req.file.originalname || 'avatar.jpg');
+    res.json({ success: true, url: result.secure_url });
   } catch (err) {
     logger.error('Error uploading avatar: %s', err.message);
     res.status(500).json({ success: false, error: `Upload failed: ${err.message}` });
@@ -86,7 +44,8 @@ router.post('/post', verifyToken, upload.single('file'), handleMulterError, asyn
     if (!req.file) return res.status(400).json({ success: false, error: 'No file provided' });
     const userId = req.userId || 'anonymous';
     const mediaType = req.body.mediaType || 'auto';
-    const result = await uploadToCloudinary(req.file.buffer, `posts/${userId}`, mediaType, { returnResult: true });
+    
+    const result = await s3Service.uploadMedia(req.file.buffer, `posts/${userId}`, 'post', mediaType, req.file.originalname || 'file');
     
     res.json({ 
       success: true, 
@@ -94,7 +53,8 @@ router.post('/post', verifyToken, upload.single('file'), handleMulterError, asyn
       mediaType: result.resource_type,
       width: result.width,
       height: result.height,
-      aspectRatio: result.width && result.height ? result.width / result.height : 1
+      aspectRatio: result.width && result.height ? result.width / result.height : 1,
+      thumbnailUrl: result.thumbnailUrl
     });
   } catch (err) {
     logger.error('Error uploading post media: %s', err.message);
@@ -109,17 +69,9 @@ router.post('/story', verifyToken, uploadStory.single('file'), handleMulterError
     const userId = req.userId || 'anonymous';
     const mediaType = req.body.mediaType || 'auto';
 
-    const result = await uploadToCloudinary(req.file.buffer, `stories/${userId}`, mediaType, { returnResult: true });
+    const result = await s3Service.uploadMedia(req.file.buffer, `stories/${userId}`, 'story', mediaType, req.file.originalname || 'file');
 
-    let thumbnailUrl;
-    if (result.resource_type === 'video') {
-      thumbnailUrl = cloudinary.url(result.public_id, {
-        resource_type: 'video', format: 'jpg', secure: true,
-        transformation: [{ width: 300, height: 300, crop: 'fill' }, { quality: 'auto' }]
-      });
-    }
-
-    res.json({ success: true, url: result.secure_url, mediaType: result.resource_type, thumbnailUrl });
+    res.json({ success: true, url: result.secure_url, mediaType: result.resource_type, thumbnailUrl: result.thumbnailUrl });
   } catch (err) {
     logger.error('Error uploading story media: %s', err.message);
     res.status(500).json({ success: false, error: `Upload failed: ${err.message}` });
@@ -133,15 +85,16 @@ router.post('/upload', verifyToken, upload.single('file'), handleMulterError, as
     
     const userId = req.userId || 'anonymous';
     const folder = req.body.path || `media/${userId}`;
-    const resourceType = req.body.mediaType === 'audio' ? 'video' : (req.body.mediaType || 'auto');
 
-    const result = await uploadToCloudinary(req.file.buffer, folder, resourceType, { returnResult: true });
+    const result = await s3Service.uploadMedia(req.file.buffer, folder, 'media', req.body.mediaType || 'auto', req.file.originalname || 'file');
 
     res.json({ 
       success: true, 
       url: result.secure_url, 
+      thumbnailUrl: result.thumbnailUrl,
       data: { 
         url: result.secure_url,
+        thumbnailUrl: result.thumbnailUrl,
         width: result.width,
         height: result.height,
         aspectRatio: result.width && result.height ? result.width / result.height : 1
