@@ -907,8 +907,8 @@ router.post('/:postId/rate', verifyToken, async (req, res) => {
         _id: updatedPost._id,
         laughCount: updatedPost.laughCount,
         tomatoCount: updatedPost.tomatoCount,
-        hasLaughed: Array.isArray(updatedPost.laughedBy) && updatedPost.laughedBy.includes(userId),
-        hasTomatoed: Array.isArray(updatedPost.tomatoedBy) && updatedPost.tomatoedBy.includes(userId)
+        hasLaughed: Array.isArray(updatedPost.laughedBy) && updatedPost.laughedBy.some(id => String(id) === String(userId)),
+        hasTomatoed: Array.isArray(updatedPost.tomatoedBy) && updatedPost.tomatoedBy.some(id => String(id) === String(userId))
       }
     });
   } catch (err) {
