@@ -887,15 +887,18 @@ router.post('/:postId/rate', verifyToken, async (req, res) => {
     updatedPost.tomatoCount = Array.isArray(updatedPost.tomatoedBy) ? updatedPost.tomatoedBy.length : 0;
     await updatedPost.save();
 
-    // Broadcast real-time reaction update to all connected clients
-    const io = req.app.get('io');
-    if (io) {
-      io.emit('post_updated', {
-        postId: String(updatedPost._id),
-        laughCount: updatedPost.laughCount,
-        tomatoCount: updatedPost.tomatoCount,
-      });
-    }
+    // Broadcast reaction update to all connected socket clients in real-time
+    try {
+      const { getIO } = require('../src/services/socketService');
+      const io = getIO();
+      if (io) {
+        io.emit('postReactionUpdated', {
+          postId: String(updatedPost._id),
+          laughCount: updatedPost.laughCount,
+          tomatoCount: updatedPost.tomatoCount
+        });
+      }
+    } catch (_) {}
 
     res.json({
       success: true,

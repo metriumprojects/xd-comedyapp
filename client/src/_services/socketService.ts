@@ -66,6 +66,15 @@ export async function initializeSocket(userId: string): Promise<Socket> {
     socket?.emit('join', canonicalUserId);
   });
 
+  socket.on('postReactionUpdated', (data: { postId: string; laughCount: number; tomatoCount: number }) => {
+    if (data?.postId) {
+      feedEventEmitter.emitPostUpdated(String(data.postId), {
+        laughCount: data.laughCount,
+        tomatoCount: data.tomatoCount,
+      });
+    }
+  });
+
   socket.on('connect_error', async (error) => {
     console.warn('[Socket] ⚠️ Connection error:', error.message);
     reconnectAttempts++;
@@ -95,12 +104,6 @@ export async function initializeSocket(userId: string): Promise<Socket> {
 
   socket.on('reconnect_attempt', (attempt) => {
     console.log('[Socket] 🔄 Reconnect attempt #%d', attempt);
-  });
-
-  socket.on('post_updated', (data: { postId: string; laughCount?: number; tomatoCount?: number; likeCount?: number }) => {
-    if (data?.postId) {
-      feedEventEmitter.emitPostUpdated(data.postId, data);
-    }
   });
 
   socket.on('socketAuthError', (payload) => {
