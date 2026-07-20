@@ -28,13 +28,16 @@ const PRESET_CATEGORIES = [
   'Stand Up',
   'Pranks',
   'Comics',
-  'Podium',
   'Memes',
   'Vlogs',
   'Improv',
   'Parody',
   'Sketches',
-  'Roasts'
+  'Roasts',
+  'Dark Humor',
+  'Satire',
+  'Reaction',
+  'Slapstick'
 ];
 
 export default function EditProfile() {
@@ -77,10 +80,10 @@ export default function EditProfile() {
   const [isPrivate, setIsPrivate] = useState(false);
   const [interests, setInterests] = useState('');
 
-  // Parse comma-separated interests string into an array
+  // Parse comma-separated interests string into an array cleanly by comma
   const selectedInterests = useMemo(() => {
     if (typeof interests === 'string' && interests.trim()) {
-      return interests.split(/[\s,]+/).map(s => s.trim()).filter(Boolean);
+      return interests.split(',').map(s => s.trim()).filter(Boolean);
     }
     return [];
   }, [interests]);
@@ -88,17 +91,24 @@ export default function EditProfile() {
   // Toggle category selection
   const handleToggleInterest = (category: string) => {
     hapticLight();
-    let current = [...selectedInterests];
-    if (current.includes(category)) {
-      current = current.filter(c => c !== category);
+    const normalized = category.trim();
+    const isAlreadySelected = selectedInterests.some(
+      c => c.toLowerCase() === normalized.toLowerCase()
+    );
+
+    let updated: string[];
+    if (isAlreadySelected) {
+      updated = selectedInterests.filter(
+        c => c.toLowerCase() !== normalized.toLowerCase()
+      );
     } else {
-      if (current.length >= 3) {
+      if (selectedInterests.length >= 3) {
         Alert.alert('Limit Reached', 'You can select a maximum of 3 categories.');
         return;
       }
-      current.push(category);
+      updated = [...selectedInterests, normalized];
     }
-    setInterests(current.join(', '));
+    setInterests(updated.join(', '));
   };
 
   // Load profile whenever userId changes
@@ -419,7 +429,7 @@ export default function EditProfile() {
             <Text style={styles.fieldLabel}>Tags (Choose up to 3)</Text>
             <View style={styles.chipsContainer}>
               {PRESET_CATEGORIES.map((category) => {
-                const isSelected = selectedInterests.includes(category);
+                const isSelected = selectedInterests.some(c => c.toLowerCase() === category.trim().toLowerCase());
                 return (
                   <TouchableOpacity
                     key={category}
