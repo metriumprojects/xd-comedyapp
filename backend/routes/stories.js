@@ -32,8 +32,26 @@ router.get('/active', optionalAuth, async (req, res) => {
       viewerGroupIds = viewerGroups.map(g => String(g._id));
 
       const Follow = mongoose.model('Follow');
-      const follows = await Follow.find({ followerId: requesterUserId }).select('followingId').lean();
-      followingUserIds = follows.map(f => String(f.followingId));
+      const follows = await Follow.find({ followerId: { $in: viewerVariants } }).select('followingId').lean();
+      const rawFollowingIds = follows.map(f => String(f.followingId)).filter(Boolean);
+      
+      const expandedFollowing = new Set(rawFollowingIds);
+      if (rawFollowingIds.length > 0) {
+        const followedUsers = await User.find({
+          $or: [
+            { _id: { $in: rawFollowingIds.filter(id => mongoose.Types.ObjectId.isValid(id)).map(id => new mongoose.Types.ObjectId(id)) } },
+            { firebaseUid: { $in: rawFollowingIds } },
+            { uid: { $in: rawFollowingIds } }
+          ]
+        }).select('_id firebaseUid uid').lean();
+
+        followedUsers.forEach(u => {
+          if (u._id) expandedFollowing.add(String(u._id));
+          if (u.firebaseUid) expandedFollowing.add(String(u.firebaseUid));
+          if (u.uid) expandedFollowing.add(String(u.uid));
+        });
+      }
+      followingUserIds = Array.from(expandedFollowing);
     }
 
     const matchQuery = { expiresAt: { $gt: now } };
@@ -99,8 +117,27 @@ router.get('/', optionalAuth, async (req, res) => {
       viewerGroupIds = viewerGroups.map(g => String(g._id));
 
       const Follow = mongoose.model('Follow');
-      const follows = await Follow.find({ followerId: requesterUserId }).select('followingId').lean();
-      followingUserIds = follows.map(f => String(f.followingId));
+      const User = mongoose.model('User');
+      const follows = await Follow.find({ followerId: { $in: viewerVariants } }).select('followingId').lean();
+      const rawFollowingIds = follows.map(f => String(f.followingId)).filter(Boolean);
+      
+      const expandedFollowing = new Set(rawFollowingIds);
+      if (rawFollowingIds.length > 0) {
+        const followedUsers = await User.find({
+          $or: [
+            { _id: { $in: rawFollowingIds.filter(id => mongoose.Types.ObjectId.isValid(id)).map(id => new mongoose.Types.ObjectId(id)) } },
+            { firebaseUid: { $in: rawFollowingIds } },
+            { uid: { $in: rawFollowingIds } }
+          ]
+        }).select('_id firebaseUid uid').lean();
+
+        followedUsers.forEach(u => {
+          if (u._id) expandedFollowing.add(String(u._id));
+          if (u.firebaseUid) expandedFollowing.add(String(u.firebaseUid));
+          if (u.uid) expandedFollowing.add(String(u.uid));
+        });
+      }
+      followingUserIds = Array.from(expandedFollowing);
     }
 
     const matchQuery = { expiresAt: { $gt: new Date() } };
