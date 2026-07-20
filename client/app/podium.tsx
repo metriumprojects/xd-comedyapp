@@ -287,6 +287,35 @@ export default function PodiumScreen() {
     return '↘';
   };
 
+  // Real-time Search Filtered Rankings
+  const filteredRankings = useMemo(() => {
+    if (!searchQuery || !searchQuery.trim()) return rankings;
+    const q = searchQuery.toLowerCase().trim();
+    return rankings.filter((item: any) => {
+      const creatorName = (
+        item.creator?.name || 
+        item.creator?.displayName || 
+        item.creator?.username || 
+        item.user?.displayName || 
+        item.user?.name || 
+        item.userName || 
+        item.userId?.displayName || 
+        item.userId?.name || 
+        ''
+      ).toLowerCase();
+
+      const caption = (
+        item.funniestVideo?.caption || 
+        item.caption || 
+        item.text || 
+        item.title || 
+        ''
+      ).toLowerCase();
+
+      return creatorName.includes(q) || caption.includes(q);
+    });
+  }, [rankings, searchQuery]);
+
   // Top 3 for the visual podium
   const top1 = rankings.find(r => r.rank === 1);
   const top2 = rankings.find(r => r.rank === 2);
@@ -365,13 +394,22 @@ export default function PodiumScreen() {
           <Ionicons name="search" size={18} color="#666" />
           <TextInput
             style={styles.searchInput}
-            placeholder="Search funny videos"
+            placeholder="Search creators or funny videos..."
             placeholderTextColor="#888"
             value={searchQuery}
             onChangeText={setSearchQuery}
+            returnKeyType="search"
           />
+          {searchQuery.length > 0 && (
+            <TouchableOpacity onPress={() => setSearchQuery('')} style={{ padding: 4 }}>
+              <Ionicons name="close-circle" size={18} color="#888" />
+            </TouchableOpacity>
+          )}
         </View>
-        <TouchableOpacity style={styles.searchBtn} onPress={() => {}}>
+        <TouchableOpacity 
+          style={styles.searchBtn} 
+          onPress={() => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {})}
+        >
           <Text style={styles.searchBtnText}>Search</Text>
         </TouchableOpacity>
       </View>
@@ -547,82 +585,98 @@ export default function PodiumScreen() {
 
           {/* 6. Rankings list below the podium */}
           <View style={styles.listContainer}>
-            {rankings.map((item) => {
-              if (activeType === 'creators') {
-                return (
-                  <TouchableOpacity key={item.creator.id} style={styles.card} activeOpacity={0.8} onPress={() => navigateToCreator(item.creator.id)}>
-                    {/* Main Creator Header */}
-                    <View style={styles.creatorHeader}>
-                      <ExpoImage source={{ uri: normalizeMediaUrl(item.creator.avatar) || DEFAULT_AVATAR_URL }} style={styles.listAvatar} contentFit="cover" transition={200} cachePolicy="memory-disk" />
-                      <View style={styles.creatorInfo}>
-                        <Text style={styles.creatorNameText}>{item.creator.name}</Text>
-                        <Text style={styles.creatorSubText}>
-                          N°{item.rank}  •  😂 Total {formatCount(item.totalLaughs)}  •  {item.totalVideos} videos
-                        </Text>
+            {filteredRankings.length === 0 ? (
+              <View style={{ padding: 40, alignItems: 'center' }}>
+                <Ionicons name="search-outline" size={48} color="#aaa" />
+                <Text style={{ fontSize: 16, fontWeight: '600', color: '#444', marginTop: 12 }}>No matching rankings</Text>
+                <Text style={{ fontSize: 13, color: '#888', textAlign: 'center', marginTop: 4 }}>
+                  No results for "{searchQuery}". Try searching another creator or keyword.
+                </Text>
+                <TouchableOpacity
+                  onPress={() => setSearchQuery('')}
+                  style={{ marginTop: 16, backgroundColor: '#000', paddingHorizontal: 18, paddingVertical: 10, borderRadius: 20 }}
+                >
+                  <Text style={{ color: '#fff', fontSize: 13, fontWeight: '600' }}>Clear Search</Text>
+                </TouchableOpacity>
+              </View>
+            ) : (
+              filteredRankings.map((item) => {
+                if (activeType === 'creators') {
+                  return (
+                    <TouchableOpacity key={item.creator.id} style={styles.card} activeOpacity={0.8} onPress={() => navigateToCreator(item.creator.id)}>
+                      {/* Main Creator Header */}
+                      <View style={styles.creatorHeader}>
+                        <ExpoImage source={{ uri: normalizeMediaUrl(item.creator.avatar) || DEFAULT_AVATAR_URL }} style={styles.listAvatar} contentFit="cover" transition={200} cachePolicy="memory-disk" />
+                        <View style={styles.creatorInfo}>
+                          <Text style={styles.creatorNameText}>{item.creator.name}</Text>
+                          <Text style={styles.creatorSubText}>
+                            N°{item.rank}  •  😂 Total {formatCount(item.totalLaughs)}  •  {item.totalVideos} videos
+                          </Text>
+                        </View>
                       </View>
-                    </View>
-                    
-                    {/* Nested Funniest Video Box */}
-                    {item.funniestVideo && (
-                      <TouchableOpacity style={styles.funniestVideoContainer} activeOpacity={0.7} onPress={() => navigateToPost(String(item.funniestVideo.id))}>
-                        <View style={styles.videoRow}>
-                          <PodiumMediaImage thumbnailUrl={item.funniestVideo.thumbnailUrl} mediaUrl={item.funniestVideo.mediaUrl} style={styles.nestedThumbnail} contentFit="cover" transition={200} cachePolicy="memory-disk" />
-                          <View style={styles.videoDetails}>
-                            <View style={styles.funniestTitleRow}>
-                              <Text style={styles.funniestLabel}>Funniest video</Text>
-                              <Text style={styles.trendIcon}>{getRankIndicatorSymbol(item.rank)}</Text>
+                      
+                      {/* Nested Funniest Video Box */}
+                      {item.funniestVideo && (
+                        <TouchableOpacity style={styles.funniestVideoContainer} activeOpacity={0.7} onPress={() => navigateToPost(String(item.funniestVideo.id))}>
+                          <View style={styles.videoRow}>
+                            <PodiumMediaImage thumbnailUrl={item.funniestVideo.thumbnailUrl} mediaUrl={item.funniestVideo.mediaUrl} style={styles.nestedThumbnail} contentFit="cover" transition={200} cachePolicy="memory-disk" />
+                            <View style={styles.videoDetails}>
+                              <View style={styles.funniestTitleRow}>
+                                <Text style={styles.funniestLabel}>Funniest video</Text>
+                                <Text style={styles.trendIcon}>{getRankIndicatorSymbol(item.rank)}</Text>
+                              </View>
+                              <Text style={styles.videoCaption} numberOfLines={1}>
+                                {item.funniestVideo.caption}
+                              </Text>
+                              <Text style={styles.videoStats}>
+                                😂 {formatCount(item.funniestVideo.laughCount)}  •  {formatCount(item.funniestVideo.viewsCount)} Views  •  {formatCount(item.funniestVideo.likesCount)} Likes
+                              </Text>
                             </View>
-                            <Text style={styles.videoCaption} numberOfLines={1}>
-                              {item.funniestVideo.caption}
-                            </Text>
-                            <Text style={styles.videoStats}>
-                              😂 {formatCount(item.funniestVideo.laughCount)}  •  {formatCount(item.funniestVideo.viewsCount)} Views  •  {formatCount(item.funniestVideo.likesCount)} Likes
-                            </Text>
+                          </View>
+                        </TouchableOpacity>
+                      )}
+                    </TouchableOpacity>
+                  );
+                } else {
+                  return (
+                    <View key={item.id} style={styles.card}>
+                      {/* Main Video Row — tappable to open video */}
+                      <TouchableOpacity style={styles.videoRow} activeOpacity={0.7} onPress={() => navigateToPost(String(item.id))}>
+                        <View style={styles.thumbnailWrapper}>
+                          <PodiumMediaImage thumbnailUrl={item.thumbnailUrl} mediaUrl={item.mediaUrl} style={styles.listThumbnail} contentFit="cover" transition={200} cachePolicy="memory-disk" />
+                          <View style={styles.playIconOverlay}>
+                            <Ionicons name="play" size={18} color="#fff" />
                           </View>
                         </View>
-                      </TouchableOpacity>
-                    )}
-                  </TouchableOpacity>
-                );
-              } else {
-                return (
-                  <View key={item.id} style={styles.card}>
-                    {/* Main Video Row — tappable to open video */}
-                    <TouchableOpacity style={styles.videoRow} activeOpacity={0.7} onPress={() => navigateToPost(String(item.id))}>
-                      <View style={styles.thumbnailWrapper}>
-                        <PodiumMediaImage thumbnailUrl={item.thumbnailUrl} mediaUrl={item.mediaUrl} style={styles.listThumbnail} contentFit="cover" transition={200} cachePolicy="memory-disk" />
-                        <View style={styles.playIconOverlay}>
-                          <Ionicons name="play" size={18} color="#fff" />
-                        </View>
-                      </View>
-                      <View style={styles.videoDetails}>
-                        <View style={styles.funniestTitleRow}>
-                          <Text style={styles.videoTitleText} numberOfLines={1}>
-                            {item.caption || 'Funny Video'}
+                        <View style={styles.videoDetails}>
+                          <View style={styles.funniestTitleRow}>
+                            <Text style={styles.videoTitleText} numberOfLines={1}>
+                              {item.caption || 'Funny Video'}
+                            </Text>
+                            <Text style={styles.trendIcon}>{getRankIndicatorSymbol(item.rank)}</Text>
+                          </View>
+                          <Text style={styles.videoRankText}>N°{item.rank}</Text>
+                          <Text style={styles.videoStats}>
+                            😂 {formatCount(item.laughCount)}  •  {formatCount(item.viewsCount)} Views  •  {formatCount(item.likesCount)} Likes
                           </Text>
-                          <Text style={styles.trendIcon}>{getRankIndicatorSymbol(item.rank)}</Text>
                         </View>
-                        <Text style={styles.videoRankText}>N°{item.rank}</Text>
-                        <Text style={styles.videoStats}>
-                          😂 {formatCount(item.laughCount)}  •  {formatCount(item.viewsCount)} Views  •  {formatCount(item.likesCount)} Likes
-                        </Text>
-                      </View>
-                    </TouchableOpacity>
+                      </TouchableOpacity>
 
-                    {/* Creator Profile below — tappable to open profile */}
-                    <TouchableOpacity style={styles.videoCreatorFooter} activeOpacity={0.7} onPress={() => navigateToCreator(item.creator.id)}>
-                      <ExpoImage source={{ uri: normalizeMediaUrl(item.creator.avatar) || DEFAULT_AVATAR_URL }} style={styles.footerAvatar} contentFit="cover" transition={200} cachePolicy="memory-disk" />
-                      <View style={styles.footerCreatorInfo}>
-                        <Text style={styles.footerCreatorName}>{item.creator.name}</Text>
-                        <Text style={styles.footerCreatorStats}>
-                          😂 Total {formatCount(item.creator.totalLaughs)}  •  {item.creator.totalVideos} videos
-                        </Text>
-                      </View>
-                    </TouchableOpacity>
-                  </View>
-                );
-              }
-            })}
+                      {/* Creator Profile below — tappable to open profile */}
+                      <TouchableOpacity style={styles.videoCreatorFooter} activeOpacity={0.7} onPress={() => navigateToCreator(item.creator.id)}>
+                        <ExpoImage source={{ uri: normalizeMediaUrl(item.creator.avatar) || DEFAULT_AVATAR_URL }} style={styles.footerAvatar} contentFit="cover" transition={200} cachePolicy="memory-disk" />
+                        <View style={styles.footerCreatorInfo}>
+                          <Text style={styles.footerCreatorName}>{item.creator.name}</Text>
+                          <Text style={styles.footerCreatorStats}>
+                            😂 Total {formatCount(item.creator.totalLaughs)}  •  {item.creator.totalVideos} videos
+                          </Text>
+                        </View>
+                      </TouchableOpacity>
+                    </View>
+                  );
+                }
+              })
+            )}
           </View>
         </ScrollView>
       )}
