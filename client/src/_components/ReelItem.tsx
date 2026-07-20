@@ -233,6 +233,13 @@ export const ReelItem = React.memo<ReelItemProps>(({
     setTomatoCount(post.tomatoCount || 0);
     setShareCount(post.shareCount || 0);
     setIsFollowing(post.isFollowing || false);
+  }, [post, currentUser]);
+
+  // Sync hasLaughed/hasTomatoed ONLY when switching to a different post (post._id changes)
+  // This prevents the parent feed re-render from overwriting the user's local selection state
+  useEffect(() => {
+    if (!post) return;
+    const myId = String(currentUser?._id || currentUser?.id || currentUser?.uid || currentUser?.firebaseUid || '');
 
     if (post.hasLaughed !== undefined) {
       setHasLaughed(!!post.hasLaughed);
@@ -249,7 +256,7 @@ export const ReelItem = React.memo<ReelItemProps>(({
     } else {
       setHasTomatoed(false);
     }
-  }, [post, currentUser]);
+  }, [post?._id]);
 
   // Reset index indicator and loading state ONLY when active post ID changes
   useEffect(() => {
@@ -492,11 +499,10 @@ export const ReelItem = React.memo<ReelItemProps>(({
 
     try {
       const res = await apiService.post(`/posts/${post._id}/rate`, { type: 'laugh', active: newLaughed });
+      // Only sync counts from server — client already knows its own selection state
       if (res?.success && res?.data) {
         if (res.data.laughCount !== undefined) setLaughCount(res.data.laughCount);
         if (res.data.tomatoCount !== undefined) setTomatoCount(res.data.tomatoCount);
-        if (res.data.hasLaughed !== undefined) setHasLaughed(res.data.hasLaughed);
-        if (res.data.hasTomatoed !== undefined) setHasTomatoed(res.data.hasTomatoed);
       }
     } catch (e) {
       console.warn('[ReelItem] Rate laugh failed:', e);
@@ -518,11 +524,10 @@ export const ReelItem = React.memo<ReelItemProps>(({
 
     try {
       const res = await apiService.post(`/posts/${post._id}/rate`, { type: 'tomato', active: newTomatoed });
+      // Only sync counts from server — client already knows its own selection state
       if (res?.success && res?.data) {
         if (res.data.laughCount !== undefined) setLaughCount(res.data.laughCount);
         if (res.data.tomatoCount !== undefined) setTomatoCount(res.data.tomatoCount);
-        if (res.data.hasLaughed !== undefined) setHasLaughed(res.data.hasLaughed);
-        if (res.data.hasTomatoed !== undefined) setHasTomatoed(res.data.hasTomatoed);
       }
     } catch (e) {
       console.warn('[ReelItem] Rate tomato failed:', e);
