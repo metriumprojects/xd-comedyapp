@@ -870,7 +870,7 @@ router.post('/:postId/rate', verifyToken, async (req, res) => {
         update.$addToSet = { tomatoedBy: userId };
         update.$pull = { laughedBy: userId };
       } else {
-        update.$pull = { laughedBy: userId };
+        update.$pull = { tomatoedBy: userId };
       }
     }
 

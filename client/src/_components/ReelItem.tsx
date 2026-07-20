@@ -233,8 +233,22 @@ export const ReelItem = React.memo<ReelItemProps>(({
     setTomatoCount(post.tomatoCount || 0);
     setShareCount(post.shareCount || 0);
     setIsFollowing(post.isFollowing || false);
-    setHasLaughed(post.hasLaughed || false);
-    setHasTomatoed(post.hasTomatoed || false);
+
+    if (post.hasLaughed !== undefined) {
+      setHasLaughed(!!post.hasLaughed);
+    } else if (myId && Array.isArray(post.laughedBy)) {
+      setHasLaughed(post.laughedBy.some((id: any) => String(id?._id || id?.id || id) === myId));
+    } else {
+      setHasLaughed(false);
+    }
+
+    if (post.hasTomatoed !== undefined) {
+      setHasTomatoed(!!post.hasTomatoed);
+    } else if (myId && Array.isArray(post.tomatoedBy)) {
+      setHasTomatoed(post.tomatoedBy.some((id: any) => String(id?._id || id?.id || id) === myId));
+    } else {
+      setHasTomatoed(false);
+    }
   }, [post, currentUser]);
 
   // Reset index indicator and loading state ONLY when active post ID changes
@@ -468,18 +482,24 @@ export const ReelItem = React.memo<ReelItemProps>(({
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => { });
     const newLaughed = !hasLaughed;
     setHasLaughed(newLaughed);
-    setLaughCount((prev: number) => newLaughed ? prev + 1 : prev - 1);
+    setLaughCount((prev: number) => newLaughed ? prev + 1 : Math.max(0, prev - 1));
 
     // Toggle off tomato if user had rated it bad
     if (newLaughed && hasTomatoed) {
       setHasTomatoed(false);
-      setTomatoCount((prev: number) => prev - 1);
+      setTomatoCount((prev: number) => Math.max(0, prev - 1));
     }
 
     try {
-      await apiService.post(`/posts/${post._id}/rate`, { type: 'laugh', active: newLaughed });
+      const res = await apiService.post(`/posts/${post._id}/rate`, { type: 'laugh', active: newLaughed });
+      if (res?.success && res?.data) {
+        if (res.data.laughCount !== undefined) setLaughCount(res.data.laughCount);
+        if (res.data.tomatoCount !== undefined) setTomatoCount(res.data.tomatoCount);
+        if (res.data.hasLaughed !== undefined) setHasLaughed(res.data.hasLaughed);
+        if (res.data.hasTomatoed !== undefined) setHasTomatoed(res.data.hasTomatoed);
+      }
     } catch (e) {
-      // Local state is enough for offline/dev
+      console.warn('[ReelItem] Rate laugh failed:', e);
     }
   }, [hasLaughed, hasTomatoed, post._id]);
 
@@ -488,18 +508,24 @@ export const ReelItem = React.memo<ReelItemProps>(({
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => { });
     const newTomatoed = !hasTomatoed;
     setHasTomatoed(newTomatoed);
-    setTomatoCount((prev: number) => newTomatoed ? prev + 1 : prev - 1);
+    setTomatoCount((prev: number) => newTomatoed ? prev + 1 : Math.max(0, prev - 1));
 
     // Toggle off laugh if user had rated it funny
     if (newTomatoed && hasLaughed) {
       setHasLaughed(false);
-      setLaughCount((prev: number) => prev - 1);
+      setLaughCount((prev: number) => Math.max(0, prev - 1));
     }
 
     try {
-      await apiService.post(`/posts/${post._id}/rate`, { type: 'tomato', active: newTomatoed });
+      const res = await apiService.post(`/posts/${post._id}/rate`, { type: 'tomato', active: newTomatoed });
+      if (res?.success && res?.data) {
+        if (res.data.laughCount !== undefined) setLaughCount(res.data.laughCount);
+        if (res.data.tomatoCount !== undefined) setTomatoCount(res.data.tomatoCount);
+        if (res.data.hasLaughed !== undefined) setHasLaughed(res.data.hasLaughed);
+        if (res.data.hasTomatoed !== undefined) setHasTomatoed(res.data.hasTomatoed);
+      }
     } catch (e) {
-      // Local state is enough for offline/dev
+      console.warn('[ReelItem] Rate tomato failed:', e);
     }
   }, [hasTomatoed, hasLaughed, post._id]);
 
