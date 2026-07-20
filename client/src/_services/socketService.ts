@@ -3,6 +3,7 @@ import { getAPIBaseURL } from '../../config/environment';
 import AsyncStorage from '@/lib/storage';
 import { Platform } from 'react-native';
 import { resolveCanonicalUserId } from '../../lib/currentUser';
+import { feedEventEmitter } from '@/lib/feedEventEmitter';
 
 let socket: Socket | null = null;
 let currentUserId: string | null = null;
@@ -94,6 +95,12 @@ export async function initializeSocket(userId: string): Promise<Socket> {
 
   socket.on('reconnect_attempt', (attempt) => {
     console.log('[Socket] 🔄 Reconnect attempt #%d', attempt);
+  });
+
+  socket.on('post_updated', (data: { postId: string; laughCount?: number; tomatoCount?: number; likeCount?: number }) => {
+    if (data?.postId) {
+      feedEventEmitter.emitPostUpdated(data.postId, data);
+    }
   });
 
   socket.on('socketAuthError', (payload) => {

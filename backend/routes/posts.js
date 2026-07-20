@@ -887,6 +887,16 @@ router.post('/:postId/rate', verifyToken, async (req, res) => {
     updatedPost.tomatoCount = Array.isArray(updatedPost.tomatoedBy) ? updatedPost.tomatoedBy.length : 0;
     await updatedPost.save();
 
+    // Broadcast real-time reaction update to all connected clients
+    const io = req.app.get('io');
+    if (io) {
+      io.emit('post_updated', {
+        postId: String(updatedPost._id),
+        laughCount: updatedPost.laughCount,
+        tomatoCount: updatedPost.tomatoCount,
+      });
+    }
+
     res.json({
       success: true,
       data: {

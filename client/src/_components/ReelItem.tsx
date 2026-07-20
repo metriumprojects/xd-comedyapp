@@ -467,41 +467,73 @@ export const ReelItem = React.memo<ReelItemProps>(({
   const handleLaughPress = useCallback(async () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => { });
     const newLaughed = !hasLaughed;
+    const newLaughCount = newLaughed ? laughCount + 1 : Math.max(0, laughCount - 1);
+    const newTomatoCount = (newLaughed && hasTomatoed) ? Math.max(0, tomatoCount - 1) : tomatoCount;
+
     setHasLaughed(newLaughed);
-    setLaughCount((prev: number) => newLaughed ? prev + 1 : prev - 1);
+    setLaughCount(newLaughCount);
 
     // Toggle off tomato if user had rated it bad
     if (newLaughed && hasTomatoed) {
       setHasTomatoed(false);
-      setTomatoCount((prev: number) => prev - 1);
+      setTomatoCount(newTomatoCount);
     }
 
+    feedEventEmitter.emitPostUpdated(post._id, {
+      laughCount: newLaughCount,
+      tomatoCount: newTomatoCount
+    });
+
     try {
-      await apiService.post(`/posts/${post._id}/rate`, { type: 'laugh', active: newLaughed });
+      const res = await apiService.post(`/posts/${post._id}/rate`, { type: 'laugh', active: newLaughed });
+      if (res?.data) {
+        if (res.data.laughCount !== undefined) setLaughCount(res.data.laughCount);
+        if (res.data.tomatoCount !== undefined) setTomatoCount(res.data.tomatoCount);
+        feedEventEmitter.emitPostUpdated(post._id, {
+          laughCount: res.data.laughCount,
+          tomatoCount: res.data.tomatoCount
+        });
+      }
     } catch (e) {
       // Local state is enough for offline/dev
     }
-  }, [hasLaughed, hasTomatoed, post._id]);
+  }, [hasLaughed, hasTomatoed, laughCount, tomatoCount, post._id]);
 
   // Handle Tomato (🍅) Rating Press
   const handleTomatoPress = useCallback(async () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => { });
     const newTomatoed = !hasTomatoed;
+    const newTomatoCount = newTomatoed ? tomatoCount + 1 : Math.max(0, tomatoCount - 1);
+    const newLaughCount = (newTomatoed && hasLaughed) ? Math.max(0, laughCount - 1) : laughCount;
+
     setHasTomatoed(newTomatoed);
-    setTomatoCount((prev: number) => newTomatoed ? prev + 1 : prev - 1);
+    setTomatoCount(newTomatoCount);
 
     // Toggle off laugh if user had rated it funny
     if (newTomatoed && hasLaughed) {
       setHasLaughed(false);
-      setLaughCount((prev: number) => prev - 1);
+      setLaughCount(newLaughCount);
     }
 
+    feedEventEmitter.emitPostUpdated(post._id, {
+      laughCount: newLaughCount,
+      tomatoCount: newTomatoCount
+    });
+
     try {
-      await apiService.post(`/posts/${post._id}/rate`, { type: 'tomato', active: newTomatoed });
+      const res = await apiService.post(`/posts/${post._id}/rate`, { type: 'tomato', active: newTomatoed });
+      if (res?.data) {
+        if (res.data.laughCount !== undefined) setLaughCount(res.data.laughCount);
+        if (res.data.tomatoCount !== undefined) setTomatoCount(res.data.tomatoCount);
+        feedEventEmitter.emitPostUpdated(post._id, {
+          laughCount: res.data.laughCount,
+          tomatoCount: res.data.tomatoCount
+        });
+      }
     } catch (e) {
       // Local state is enough for offline/dev
     }
-  }, [hasTomatoed, hasLaughed, post._id]);
+  }, [hasTomatoed, hasLaughed, laughCount, tomatoCount, post._id]);
 
   const postUserName = post?.userName || post?.user?.displayName || post?.user?.name || post?.userId?.displayName || post?.userId?.name || 'User';
   const postUserAvatar = normalizeAvatarUrl(
