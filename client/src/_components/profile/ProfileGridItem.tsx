@@ -32,7 +32,7 @@ const ProfileGridItem = React.memo(({
   
   const normalizedUrl = normalizeMediaUrl(mediaUrl) || DEFAULT_IMAGE_URL;
 
-  const views = item.viewsCount || Math.floor((item.laughCount || 0) * 12.4 + (item.tomatoCount || 0) * 4.3 + 12);
+  const views = item.viewsCount || 0;
   const formattedViews = views >= 1000 ? `${(views / 1000).toFixed(1)}K` : views;
 
   return (

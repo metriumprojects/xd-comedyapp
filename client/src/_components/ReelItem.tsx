@@ -131,6 +131,37 @@ export const ReelItem = React.memo<ReelItemProps>(({
   const [hasLaughed, setHasLaughed] = useState(false);
   const [hasTomatoed, setHasTomatoed] = useState(false);
 
+  // Views tracking state & ref
+  const [viewsCount, setViewsCount] = useState(post?.viewsCount || 0);
+  const hasViewedRef = useRef(false);
+
+  // Reset hasViewedRef when active post ID changes
+  useEffect(() => {
+    hasViewedRef.current = false;
+    setViewsCount(post?.viewsCount || 0);
+  }, [post?._id]);
+
+  // Track real view when video has been active on screen for >1.5 seconds
+  useEffect(() => {
+    if (!isActive || !post?._id || hasViewedRef.current) return;
+
+    const timer = setTimeout(async () => {
+      if (hasViewedRef.current) return;
+      hasViewedRef.current = true;
+
+      setViewsCount((prev: number) => prev + 1);
+
+      try {
+        const cleanId = String(post._id).split('-loop')[0];
+        await apiService.post(`/posts/${cleanId}/view`, {});
+      } catch (e) {
+        console.warn('[ReelItem] View tracking failed:', e);
+      }
+    }, 1500);
+
+    return () => clearTimeout(timer);
+  }, [isActive, post?._id]);
+
   // Save Toast & Collection selector states
   const [showSavedToast, setShowSavedToast] = useState(false);
   const [showCollectionModal, setShowCollectionModal] = useState(false);

@@ -354,7 +354,7 @@ export const ProfileStatistics: React.FC<ProfileStatisticsProps> = ({
   // Calculate real stats from posts
   const stats = useMemo(() => {
     const totalViews = creatorPosts.reduce((sum, p) => {
-      const views = p.viewsCount || Math.floor((p.laughCount || 0) * 12.4 + (p.tomatoCount || 0) * 4.3 + 12);
+      const views = p.viewsCount || 0;
       return sum + views;
     }, 0);
 

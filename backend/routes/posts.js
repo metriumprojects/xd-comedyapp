@@ -911,6 +911,48 @@ router.post('/:postId/rate', verifyToken, async (req, res) => {
         hasTomatoed: Array.isArray(updatedPost.tomatoedBy) && updatedPost.tomatoedBy.some(id => String(id) === String(userId))
       }
     });
+// --- In-Memory Smart View Counter Batcher ---
+const pendingViewCounts = new Map(); // postId -> accumulated view increments
+
+// Flush accumulated views to MongoDB in 1 bulk write operation every 5 seconds
+setInterval(async () => {
+  if (pendingViewCounts.size === 0) return;
+
+  const entries = Array.from(pendingViewCounts.entries());
+  pendingViewCounts.clear();
+
+  try {
+    const Post = mongoose.model('Post');
+    const bulkOps = entries.map(([postId, increment]) => ({
+      updateOne: {
+        filter: { _id: postId },
+        update: { $inc: { viewsCount: increment } }
+      }
+    }));
+
+    await Post.bulkWrite(bulkOps, { ordered: false });
+  } catch (err) {
+    console.warn('[ViewBatcher] Error flushing views to DB:', err.message);
+  }
+}, 5000);
+
+/**
+ * POST /api/posts/:id/view
+ * Record a real video/post view (In-Memory Batching)
+ */
+router.post('/:id/view', optionalAuth, async (req, res) => {
+  try {
+    const postId = req.params.id;
+    const cleanId = String(postId).split('-loop')[0];
+    if (!cleanId || !mongoose.Types.ObjectId.isValid(cleanId)) {
+      return res.status(400).json({ success: false, error: 'Invalid post ID' });
+    }
+
+    // Accumulate view in RAM buffer
+    const current = pendingViewCounts.get(cleanId) || 0;
+    pendingViewCounts.set(cleanId, current + 1);
+
+    res.json({ success: true, postId: cleanId });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
   }
