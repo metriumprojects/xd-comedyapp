@@ -190,16 +190,16 @@ export default function EmailLoginScreen() {
                 onPress={() => handleSocialLogin('apple')}
                 style={styles.socialButton}
               />
-              <SocialButton
+              {/* <SocialButton
                 provider="tiktok"
                 onPress={() => handleSocialLogin('tiktok')}
                 style={styles.socialButton}
-              />
-              <SocialButton
+              /> */}
+              {/* <SocialButton
                 provider="snapchat"
                 onPress={() => handleSocialLogin('snapchat')}
                 style={styles.socialButton}
-              />
+              /> */}
             </View>
 
             {/* Footer */}

@@ -911,6 +911,11 @@ router.post('/:postId/rate', verifyToken, async (req, res) => {
         hasTomatoed: Array.isArray(updatedPost.tomatoedBy) && updatedPost.tomatoedBy.some(id => String(id) === String(userId))
       }
     });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
 // --- In-Memory Smart View Counter Batcher ---
 const pendingViewCounts = new Map(); // postId -> accumulated view increments
 

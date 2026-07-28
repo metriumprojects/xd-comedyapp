@@ -154,8 +154,9 @@
       "analyticsEnabled": true,
       "dailyCounterSampleRate": 0.05,
       "eas": {
-        "projectId": "ed1e5ed8-1ac0-470d-89e2-28378e15cfcb"
+        "projectId": "b508c237-967b-4643-b4a5-7a93accfeac7"
       }
-    }
+    },
+    "owner": "hussainjunior2125"
   }
 }
