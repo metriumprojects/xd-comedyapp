@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { View, Dimensions, ScrollView, TouchableOpacity, StyleSheet } from 'react-native';
-import { Video, ResizeMode } from 'expo-av';
+import { useVideoPlayer, VideoView } from 'expo-video';
 import { Image as ExpoImage } from 'expo-image';
 import { Feather, Ionicons } from '@expo/vector-icons';
 import * as VideoThumbnails from 'expo-video-thumbnails';
@@ -15,6 +15,23 @@ interface MediaPreviewProps {
   height: number;
   onRemove?: (index: number) => void;
 }
+
+const PreviewVideoPlayer = React.memo(({ videoUrl, height }: { videoUrl: string; height: number }) => {
+  const player = useVideoPlayer(videoUrl, (p) => {
+    p.loop = true;
+    p.muted = false;
+    p.play();
+  });
+
+  return (
+    <VideoView
+      player={player}
+      style={{ width: windowWidth, height }}
+      contentFit="contain"
+      nativeControls={true}
+    />
+  );
+});
 
 const MediaPreviewItem = React.memo(({
   uri,
@@ -45,8 +62,9 @@ const MediaPreviewItem = React.memo(({
       const assetId = uri.replace('ph://', '').split('/')[0];
       MediaLibrary.getAssetInfoAsync(assetId)
         .then((info) => {
-          if (isMounted && info?.localUri) {
-            setPlayableUri(info.localUri);
+          if (isMounted) {
+            const resolved = info?.localUri || info?.uri;
+            if (resolved) setPlayableUri(resolved);
           }
         })
         .catch(() => {});
@@ -69,15 +87,7 @@ const MediaPreviewItem = React.memo(({
     <View style={{ width: windowWidth, height, backgroundColor: '#000000', justifyContent: 'center', alignItems: 'center' }}>
       {isVideo ? (
         isPlaying ? (
-          <Video
-            source={{ uri: playableUri }}
-            style={{ width: windowWidth, height }}
-            useNativeControls
-            resizeMode={ResizeMode.CONTAIN}
-            isLooping
-            shouldPlay={true}
-            isMuted={false}
-          />
+          <PreviewVideoPlayer videoUrl={playableUri} height={height} />
         ) : (
           <TouchableOpacity
             activeOpacity={0.9}
