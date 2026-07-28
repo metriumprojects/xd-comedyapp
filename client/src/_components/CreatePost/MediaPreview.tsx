@@ -4,7 +4,6 @@ import { useVideoPlayer, VideoView } from 'expo-video';
 import { Image as ExpoImage } from 'expo-image';
 import { Feather, Ionicons } from '@expo/vector-icons';
 import * as VideoThumbnails from 'expo-video-thumbnails';
-import * as MediaLibrary from 'expo-media-library';
 
 const { width: windowWidth } = Dimensions.get('window');
 
@@ -50,47 +49,12 @@ const MediaPreviewItem = React.memo(({
   onRemove?: (index: number) => void;
   urisLength: number;
 }) => {
-  const [playableUri, setPlayableUri] = useState<string>('');
   const [thumbUri, setThumbUri] = useState<string | undefined>(providedThumbnail);
   const [isPlaying, setIsPlaying] = useState(false);
-  const [uriReady, setUriReady] = useState(false);
 
   useEffect(() => {
     let isMounted = true;
     setIsPlaying(false);
-    setUriReady(false);
-    setPlayableUri('');
-
-    const resolveUri = async () => {
-      try {
-        if (uri.startsWith('ph://')) {
-          const assetId = uri.replace('ph://', '').split('/')[0];
-          const info = await MediaLibrary.getAssetInfoAsync(assetId);
-          const resolved = info?.localUri || (info as any)?.uri;
-          if (isMounted && resolved) {
-            setPlayableUri(resolved);
-            setUriReady(true);
-          }
-        } else if (uri.startsWith('file://') || uri.startsWith('/')) {
-          if (isMounted) {
-            setPlayableUri(uri);
-            setUriReady(true);
-          }
-        } else {
-          if (isMounted) {
-            setPlayableUri(uri);
-            setUriReady(true);
-          }
-        }
-      } catch {
-        if (isMounted) {
-          setPlayableUri(uri);
-          setUriReady(true);
-        }
-      }
-    };
-
-    resolveUri();
 
     if (isVideo && !providedThumbnail) {
       VideoThumbnails.getThumbnailAsync(uri, { time: 500 })
@@ -106,12 +70,12 @@ const MediaPreviewItem = React.memo(({
   return (
     <View style={{ width: windowWidth, height, backgroundColor: '#000000', justifyContent: 'center', alignItems: 'center' }}>
       {isVideo ? (
-        isPlaying && uriReady && playableUri ? (
-          <PreviewVideoPlayer videoUrl={playableUri} height={height} />
+        isPlaying ? (
+          <PreviewVideoPlayer videoUrl={uri} height={height} />
         ) : (
           <TouchableOpacity
             activeOpacity={0.9}
-            onPress={() => { if (uriReady) setIsPlaying(true); }}
+            onPress={() => setIsPlaying(true)}
             style={{ width: windowWidth, height, justifyContent: 'center', alignItems: 'center' }}
           >
             <ExpoImage
