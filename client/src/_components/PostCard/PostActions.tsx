@@ -36,9 +36,15 @@ const PostActions: React.FC<PostActionsProps> = ({
     return rId && cId && rId === cId;
   });
 
-  // If user hasn't reacted, show the last reaction as a teaser
-  const lastReaction = reactions && reactions.length > 0 ? reactions[reactions.length - 1] : null;
-  const displayEmoji = myReaction?.emoji || lastReaction?.emoji || null;
+  // Extract unique emojis to display (up to 3)
+  const uniqueEmojis = React.useMemo(() => {
+    if (!reactions || !Array.isArray(reactions)) return [];
+    const set = new Set<string>();
+    for (const r of reactions) {
+      if (r?.emoji) set.add(r.emoji);
+    }
+    return Array.from(set).slice(0, 3);
+  }, [reactions]);
 
   return (
     <View style={styles.iconRow}>
@@ -61,15 +67,24 @@ const PostActions: React.FC<PostActionsProps> = ({
       </View>
 
       <View style={styles.iconRowRightGroup}>
-        <View style={styles.reactionContainer}>
-          {displayEmoji && (
-            <Text style={styles.currentEmoji}>{displayEmoji}</Text>
-          )}
-          <TouchableOpacity onPress={onReactionPress} style={styles.starTrigger}>
-            <Ionicons name="star" size={15} color="#FFD700" />
+        {uniqueEmojis.length > 0 && (
+          <TouchableOpacity onPress={onReactionPress} style={{ flexDirection: 'row', alignItems: 'center', marginRight: 12 }}>
+            <View style={{ flexDirection: 'row-reverse', alignItems: 'center' }}>
+              {uniqueEmojis.map((emoji, index) => (
+                <View 
+                  key={index} 
+                  style={{
+                    marginLeft: index > 0 ? -2 : 0,
+                    zIndex: 3 - index,
+                  }}
+                >
+                  <Text style={{ fontSize: 14, lineHeight: 17 }}>{emoji}</Text>
+                </View>
+              ))}
+            </View>
+            <Text style={{ fontSize: 13, color: '#666', fontWeight: '600', marginLeft: 6 }}>{reactions.length}</Text>
           </TouchableOpacity>
-          <Text style={styles.reactionTotal}>{reactions?.length || 0}</Text>
-        </View>
+        )}
 
         <TouchableOpacity onPress={onSharePress} style={styles.actionItem}>
           <Ionicons name="paper-plane-outline" size={22} color="#222" />

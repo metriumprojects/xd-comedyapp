@@ -116,6 +116,23 @@ export const CommentSection: React.FC<CommentSectionProps> = ({
     return String(val || "");
   };
 
+  const setDeduplicatedReactions = useCallback((rawReactions: any[]) => {
+    if (!Array.isArray(rawReactions)) {
+      setReactions([]);
+      return;
+    }
+    const seen = new Set<string>();
+    const unique: any[] = [];
+    for (const r of rawReactions) {
+      const id = String(r.userId || r.uid || r.id || r._id || '');
+      if (id && !seen.has(id)) {
+        seen.add(id);
+        unique.push(r);
+      }
+    }
+    setReactions(unique);
+  }, []);
+
   const loadData = useCallback(async () => {
     try {
       setLoading(true);
@@ -151,7 +168,7 @@ export const CommentSection: React.FC<CommentSectionProps> = ({
         try {
           const postRes: any = await apiService.get(`/posts/${postId}`);
           if (postRes?.success && postRes.data?.reactions) {
-            setReactions(postRes.data.reactions);
+            setDeduplicatedReactions(postRes.data.reactions);
           }
         } catch (postErr: any) {
           console.log("[CommentSection] Skipped loading post reactions (ID is likely a story or highlight):", postErr.message);
@@ -162,7 +179,7 @@ export const CommentSection: React.FC<CommentSectionProps> = ({
     } finally {
       setLoading(false);
     }
-  }, [postId, isStory]);
+  }, [postId, isStory, setDeduplicatedReactions]);
 
   useEffect(() => { loadData(); }, [loadData]);
 
@@ -303,7 +320,7 @@ export const CommentSection: React.FC<CommentSectionProps> = ({
       // Silent refresh in background
       const postRes: any = await apiService.get(`/posts/${postId}`);
       if (postRes?.success && postRes.data?.reactions) {
-        setReactions(postRes.data.reactions);
+        setDeduplicatedReactions(postRes.data.reactions);
         try {
           feedEventEmitter.emitPostUpdated(postId, { reactions: postRes.data.reactions });
         } catch (err) {
