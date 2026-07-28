@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Dimensions, ScrollView, TouchableOpacity, StyleSheet, ActivityIndicator } from 'react-native';
+import { View, Text, Dimensions, ScrollView, TouchableOpacity, StyleSheet, ActivityIndicator } from 'react-native';
 import { useVideoPlayer, VideoView } from 'expo-video';
 import { Image as ExpoImage } from 'expo-image';
 import { Feather, Ionicons } from '@expo/vector-icons';
@@ -62,16 +62,41 @@ interface MediaPreviewProps {
   onRemove?: (index: number) => void;
 }
 
+const formatTime = (seconds: number) => {
+  if (!seconds || isNaN(seconds) || seconds < 0) return '0:00';
+  const mins = Math.floor(seconds / 60);
+  const secs = Math.floor(seconds % 60);
+  return `${mins}:${secs < 10 ? '0' : ''}${secs}`;
+};
+
 // Video player component using expo-video
 const PreviewVideoPlayer = React.memo(({ videoUrl, height }: { videoUrl: string; height: number }) => {
   const [isPlayingState, setIsPlayingState] = useState(true);
   const [isMuted, setIsMuted] = useState(false);
+  const [progress, setProgress] = useState(0);
+  const [currentTimeStr, setCurrentTimeStr] = useState('0:00');
+  const [durationStr, setDurationStr] = useState('0:00');
+  const barWidthRef = React.useRef<number>(windowWidth - 110);
 
   const player = useVideoPlayer(videoUrl, (p) => {
     p.loop = true;
     p.muted = false;
     p.play();
   });
+
+  useEffect(() => {
+    player.timeUpdateEventInterval = 0.1;
+    const subscription = player.addListener('timeUpdate', (event) => {
+      const dur = player.duration || 1;
+      if (dur > 0) {
+        const current = event.currentTime || player.currentTime || 0;
+        setProgress(Math.min(1, Math.max(0, current / dur)));
+        setCurrentTimeStr(formatTime(current));
+        setDurationStr(formatTime(dur));
+      }
+    });
+    return () => subscription.remove();
+  }, [player]);
 
   const togglePlayPause = () => {
     if (player.playing) {
@@ -88,36 +113,65 @@ const PreviewVideoPlayer = React.memo(({ videoUrl, height }: { videoUrl: string;
     setIsMuted(player.muted);
   };
 
+  const handleSeekTouch = (evt: any) => {
+    const touchX = evt.nativeEvent.locationX;
+    const dur = player.duration || 0;
+    if (barWidthRef.current > 0 && dur > 0) {
+      const ratio = Math.min(1, Math.max(0, touchX / barWidthRef.current));
+      const targetTime = ratio * dur;
+      player.currentTime = targetTime;
+      setProgress(ratio);
+      setCurrentTimeStr(formatTime(targetTime));
+    }
+  };
+
   return (
-    <TouchableOpacity
-      activeOpacity={1}
-      onPress={togglePlayPause}
-      style={{ width: windowWidth, height, justifyContent: 'center', alignItems: 'center' }}
-    >
-      <VideoView
-        player={player}
-        style={{ width: windowWidth, height }}
-        contentFit="contain"
-        nativeControls={false}
-        allowsPictureInPicture={false}
-      />
-
-      {/* Clean Pause icon overlay when user pauses */}
-      {!isPlayingState && (
-        <View pointerEvents="none" style={styles.playButtonOverlay}>
-          <Ionicons name="play" size={28} color="#ffffff" style={{ marginLeft: 3 }} />
-        </View>
-      )}
-
-      {/* Clean Mute / Unmute Button top left */}
+    <View style={{ width: windowWidth, height, backgroundColor: '#000000' }}>
       <TouchableOpacity
-        onPress={toggleMute}
-        style={styles.muteButton}
-        activeOpacity={0.7}
+        activeOpacity={1}
+        onPress={togglePlayPause}
+        style={{ width: windowWidth, height, justifyContent: 'center', alignItems: 'center' }}
       >
-        <Ionicons name={isMuted ? "volume-mute" : "volume-high"} size={18} color="#ffffff" />
+        <VideoView
+          player={player}
+          style={{ width: windowWidth, height }}
+          contentFit="contain"
+          nativeControls={false}
+          allowsPictureInPicture={false}
+        />
+
+        {/* Clean Pause icon overlay when user pauses */}
+        {!isPlayingState && (
+          <View pointerEvents="none" style={styles.playButtonOverlay}>
+            <Ionicons name="play" size={28} color="#ffffff" style={{ marginLeft: 3 }} />
+          </View>
+        )}
+
+        {/* Clean Mute / Unmute Button top left */}
+        <TouchableOpacity
+          onPress={toggleMute}
+          style={styles.muteButton}
+          activeOpacity={0.7}
+        >
+          <Ionicons name={isMuted ? "volume-mute" : "volume-high"} size={18} color="#ffffff" />
+        </TouchableOpacity>
+
+        {/* Clean Bottom Video Length & Progress Seeker Bar */}
+        <View style={styles.seekerContainer}>
+          <Text style={styles.timeText}>{currentTimeStr}</Text>
+          <TouchableOpacity
+            activeOpacity={1}
+            onPress={handleSeekTouch}
+            onLayout={(e) => { barWidthRef.current = e.nativeEvent.layout.width; }}
+            style={styles.seekerTrack}
+          >
+            <View style={[styles.seekerFill, { width: `${progress * 100}%` }]} />
+            <View style={[styles.seekerKnob, { left: `${progress * 100}%` }]} />
+          </TouchableOpacity>
+          <Text style={styles.timeText}>{durationStr}</Text>
+        </View>
       </TouchableOpacity>
-    </TouchableOpacity>
+    </View>
   );
 });
 
@@ -300,6 +354,46 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     zIndex: 10,
+  },
+  seekerContainer: {
+    position: 'absolute',
+    bottom: 12,
+    left: 15,
+    right: 15,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 20,
+    zIndex: 10,
+  },
+  timeText: {
+    color: '#ffffff',
+    fontSize: 11,
+    fontWeight: '600',
+    minWidth: 32,
+    textAlign: 'center',
+  },
+  seekerTrack: {
+    flex: 1,
+    height: 16,
+    justifyContent: 'center',
+    marginHorizontal: 8,
+  },
+  seekerFill: {
+    height: 4,
+    backgroundColor: '#FF8D00',
+    borderRadius: 2,
+  },
+  seekerKnob: {
+    position: 'absolute',
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: '#ffffff',
+    marginLeft: -5,
   }
 });
 
