@@ -251,4 +251,14 @@ if (process.env.NODE_ENV !== 'test') {
   process.on('SIGINT', () => gracefulShutdown('SIGINT'));
 }
 
+// ====== RENDER BACKEND KEEP-ALIVE SCHEDULER ======
+if (process.env.NODE_ENV === 'production' || process.env.RENDER) {
+  const SERVER_URL = process.env.RENDER_EXTERNAL_URL || process.env.SERVER_URL || 'https://travel-social-backend.onrender.com';
+  setInterval(() => {
+    fetch(`${SERVER_URL}/api/health`)
+      .then(() => console.log('🔄 Render Keep-Alive Ping successful'))
+      .catch(err => console.warn('⚠️ Render Keep-Alive Ping warning:', err.message));
+  }, 14 * 60 * 1000); // Self-ping every 14 minutes
+}
+
 module.exports = server || app;
