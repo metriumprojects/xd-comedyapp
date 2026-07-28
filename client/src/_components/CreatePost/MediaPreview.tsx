@@ -1,7 +1,8 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Image, Dimensions, ScrollView, TouchableOpacity, StyleSheet } from 'react-native';
 import { Video, ResizeMode } from 'expo-av';
 import { Feather } from '@expo/vector-icons';
+import * as VideoThumbnails from 'expo-video-thumbnails';
 
 const { width: windowWidth } = Dimensions.get('window');
 
@@ -13,43 +14,88 @@ interface MediaPreviewProps {
   onRemove?: (index: number) => void;
 }
 
+const MediaPreviewItem = React.memo(({
+  uri,
+  index,
+  height,
+  isVideo,
+  providedThumbnail,
+  onRemove,
+  urisLength
+}: {
+  uri: string;
+  index: number;
+  height: number;
+  isVideo: boolean;
+  providedThumbnail?: string;
+  onRemove?: (index: number) => void;
+  urisLength: number;
+}) => {
+  const [posterUri, setPosterUri] = useState<string | undefined>(providedThumbnail);
+
+  useEffect(() => {
+    let isMounted = true;
+    if (isVideo && !providedThumbnail) {
+      VideoThumbnails.getThumbnailAsync(uri, { time: 500 })
+        .then(({ uri: thumb }) => {
+          if (isMounted && thumb) setPosterUri(thumb);
+        })
+        .catch(() => {});
+    }
+    return () => { isMounted = false; };
+  }, [uri, isVideo, providedThumbnail]);
+
+  return (
+    <View style={{ width: windowWidth, height, backgroundColor: '#000000' }}>
+      {isVideo ? (
+        <Video
+          source={{ uri }}
+          style={{ flex: 1 }}
+          useNativeControls
+          resizeMode={ResizeMode.COVER}
+          isLooping
+          shouldPlay={true}
+          isMuted={true}
+          posterSource={posterUri ? { uri: posterUri } : undefined}
+          usePoster={!!posterUri}
+        />
+      ) : (
+        <Image
+          source={{ uri }}
+          style={{ flex: 1 }}
+          resizeMode="cover"
+        />
+      )}
+
+      {onRemove && urisLength > 1 && (
+        <TouchableOpacity
+          style={styles.removeButton}
+          onPress={() => onRemove(index)}
+        >
+          <Feather name="trash-2" size={18} color="#fff" />
+        </TouchableOpacity>
+      )}
+    </View>
+  );
+});
+
 const MediaPreview: React.FC<MediaPreviewProps> = ({ uris, thumbnails, isVideo, height, onRemove }) => {
   if (uris.length === 0) return null;
 
   return (
-    <View style={{ height, width: windowWidth, backgroundColor: '#f0f0f0' }}>
+    <View style={{ height, width: windowWidth, backgroundColor: '#000000' }}>
       <ScrollView horizontal pagingEnabled showsHorizontalScrollIndicator={false}>
         {uris.map((uri, index) => (
-          <View key={`${uri}-${index}`} style={{ width: windowWidth, height }}>
-            {isVideo(uri) ? (
-              <Video
-                source={{ uri }}
-                style={{ flex: 1 }}
-                useNativeControls
-                resizeMode={ResizeMode.COVER}
-                isLooping
-                shouldPlay={true}
-                isMuted={true}
-                posterSource={thumbnails[uri] ? { uri: thumbnails[uri] } : undefined}
-                usePoster={!!thumbnails[uri]}
-              />
-            ) : (
-              <Image
-                source={{ uri }}
-                style={{ flex: 1 }}
-                resizeMode="cover"
-              />
-            )}
-            
-            {onRemove && uris.length > 1 && (
-              <TouchableOpacity 
-                style={styles.removeButton}
-                onPress={() => onRemove(index)}
-              >
-                <Feather name="trash-2" size={18} color="#fff" />
-              </TouchableOpacity>
-            )}
-          </View>
+          <MediaPreviewItem
+            key={`${uri}-${index}`}
+            uri={uri}
+            index={index}
+            height={height}
+            isVideo={isVideo(uri)}
+            providedThumbnail={thumbnails[uri]}
+            onRemove={onRemove}
+            urisLength={uris.length}
+          />
         ))}
       </ScrollView>
     </View>

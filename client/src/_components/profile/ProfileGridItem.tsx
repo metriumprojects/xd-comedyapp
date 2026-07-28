@@ -16,6 +16,8 @@ interface ProfileGridItemProps {
   DEFAULT_IMAGE_URL: string;
 }
 
+const videoThumbnailCache = new Map<string, string>();
+
 const ProfileGridItem = React.memo(({
   item,
   index,
@@ -26,11 +28,44 @@ const ProfileGridItem = React.memo(({
 }: ProfileGridItemProps) => {
   const mainMediaUrl = item.imageUrl || item.mediaUrl || item.media?.[0]?.url || (Array.isArray(item.mediaUrls) && item.mediaUrls[0]) || '';
   const isVideo = item.mediaType === 'video' || isVideoUrl(mainMediaUrl);
-  const mediaUrl = item.thumbnailUrl || 
-                   (isVideo ? getVideoThumbnailUrl(mainMediaUrl) : mainMediaUrl) || 
-                   '';
   
-  const normalizedUrl = normalizeMediaUrl(mediaUrl) || DEFAULT_IMAGE_URL;
+  const initialMediaUrl = item.thumbnailUrl || (isVideo ? getVideoThumbnailUrl(mainMediaUrl) : mainMediaUrl) || '';
+  const [thumbUrl, setThumbUrl] = React.useState<string>(() => {
+    if (isVideo && mainMediaUrl && videoThumbnailCache.has(mainMediaUrl)) {
+      return videoThumbnailCache.get(mainMediaUrl)!;
+    }
+    return initialMediaUrl;
+  });
+
+  React.useEffect(() => {
+    let isMounted = true;
+    const resolved = item.thumbnailUrl || (isVideo ? getVideoThumbnailUrl(mainMediaUrl) : mainMediaUrl) || '';
+
+    if (isVideo && mainMediaUrl && (isVideoUrl(resolved) || !resolved)) {
+      if (videoThumbnailCache.has(mainMediaUrl)) {
+        setThumbUrl(videoThumbnailCache.get(mainMediaUrl)!);
+      } else {
+        import('expo-video-thumbnails')
+          .then(({ getThumbnailAsync }) => {
+            getThumbnailAsync(mainMediaUrl, { time: 1000 })
+              .then(({ uri }) => {
+                if (uri) {
+                  videoThumbnailCache.set(mainMediaUrl, uri);
+                  if (isMounted) setThumbUrl(uri);
+                }
+              })
+              .catch(() => {});
+          })
+          .catch(() => {});
+      }
+    } else {
+      setThumbUrl(resolved);
+    }
+
+    return () => { isMounted = false; };
+  }, [item.thumbnailUrl, mainMediaUrl, isVideo]);
+
+  const normalizedUrl = normalizeMediaUrl(thumbUrl) || DEFAULT_IMAGE_URL;
 
   const views = item.viewsCount || 0;
   const formattedViews = views >= 1000 ? `${(views / 1000).toFixed(1)}K` : views;
