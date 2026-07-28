@@ -86,22 +86,6 @@ export const CommentSection: React.FC<CommentSectionProps> = ({
   const [showOptions, setShowOptions] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [editValue, setEditValue] = useState("");
-  const [keyboardHeight, setKeyboardHeight] = useState(0);
-
-  useEffect(() => {
-    if (Platform.OS !== 'ios') return;
-    const showSub = Keyboard.addListener('keyboardWillShow', (e) => {
-      setKeyboardHeight(e.endCoordinates.height);
-    });
-    const hideSub = Keyboard.addListener('keyboardWillHide', () => {
-      setKeyboardHeight(0);
-    });
-    return () => {
-      showSub.remove();
-      hideSub.remove();
-    };
-  }, []);
-
   const userFromContext = useUser();
   const currentUser = userProp || userFromContext;
   const currentUserId = currentUser?.uid || currentUser?._id;
@@ -453,7 +437,7 @@ export const CommentSection: React.FC<CommentSectionProps> = ({
       )}
 
       {activeTab === 'comment' ? (
-        <View style={{ flex: 1, minHeight: 2, paddingBottom: keyboardHeight }}>
+        <View style={{ flex: 1, minHeight: 2 }}>
           <FlashList
             data={comments}
             keyExtractor={(item) => item.id}
@@ -490,7 +474,7 @@ export const CommentSection: React.FC<CommentSectionProps> = ({
           />
         </View>
       ) : (
-        <View style={{ flex: 1, minHeight: 2, paddingBottom: keyboardHeight }}>
+        <View style={{ flex: 1, minHeight: 2 }}>
           <FlashList
             data={reactions}
             keyExtractor={(item, index) => `${item.userId}-${index}`}
