@@ -88,6 +88,36 @@ export function useFeedEvents(
           loadInitialFeed(0, { silent: true, _t: Date.now() }).catch(() => {});
         }
       }
+      if (event.type === 'USER_FOLLOW_CHANGED' && event.userId) {
+        const targetUserId = String(event.userId).toLowerCase();
+        const isFollowing = !!event.data?.isFollowing;
+
+        const updateFollow = (p: any) => {
+          if (!p) return p;
+          const creatorIds = [
+            p?.userId?._id,
+            p?.userId?.id,
+            p?.userId?.firebaseUid,
+            p?.userId?.uid,
+            p?.userId,
+            p?.user?._id,
+            p?.user?.id,
+            p?.user?.firebaseUid,
+            p?.user?.uid,
+            p?.creatorId,
+            p?.creator?._id,
+            p?.creator?.id
+          ].filter(Boolean).map(id => String(id).toLowerCase());
+
+          if (creatorIds.includes(targetUserId)) {
+            return { ...p, isFollowing };
+          }
+          return p;
+        };
+
+        setPosts(prev => (Array.isArray(prev) ? prev.map(updateFollow) : prev));
+        setAllLoadedPosts(prev => (Array.isArray(prev) ? prev.map(updateFollow) : prev));
+      }
     });
     return unsub;
   }, [isOnline, loadInitialFeed, setPosts, setAllLoadedPosts]);
