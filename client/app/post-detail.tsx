@@ -189,36 +189,41 @@ export default function PostDetailScreen() {
           setCommentModalVisible(false);
         }}
       >
-        <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' }}>
-          <TouchableOpacity
-            activeOpacity={1}
-            style={{ flex: 1 }}
-            onPress={() => {
-              hapticLight();
-              setCommentModalVisible(false);
-            }}
-          />
-          <View style={{ backgroundColor: '#fff', height: '80%', borderTopLeftRadius: 20, borderTopRightRadius: 20 }}>
-            <View style={{ width: 40, height: 4, backgroundColor: '#eee', borderRadius: 2, alignSelf: 'center', marginVertical: 10 }} />
-            <View style={{ flexDirection: 'row', justifyContent: 'space-between', paddingHorizontal: 16, paddingBottom: 10, borderBottomWidth: 0.5, borderBottomColor: '#eee' }}>
-              <Text style={{ fontWeight: '700', fontSize: 16 }}>Comments</Text>
-              <TouchableOpacity
-                onPress={() => {
-                  hapticLight();
-                  setCommentModalVisible(false);
-                }}
-              >
-                <Ionicons name="close" size={24} color="#333" />
-              </TouchableOpacity>
-            </View>
-            <CommentSection
-              postId={commentModalPostId}
-              postOwnerId={post?.userId || ""}
-              currentAvatar={commentModalAvatar}
-              currentUser={currentUser}
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          style={{ flex: 1 }}
+        >
+          <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' }}>
+            <TouchableOpacity
+              activeOpacity={1}
+              style={{ flex: 1 }}
+              onPress={() => {
+                hapticLight();
+                setCommentModalVisible(false);
+              }}
             />
+            <View style={{ backgroundColor: '#fff', height: '80%', borderTopLeftRadius: 20, borderTopRightRadius: 20 }}>
+              <View style={{ width: 40, height: 4, backgroundColor: '#eee', borderRadius: 2, alignSelf: 'center', marginVertical: 10 }} />
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between', paddingHorizontal: 16, paddingBottom: 10, borderBottomWidth: 0.5, borderBottomColor: '#eee' }}>
+                <Text style={{ fontWeight: '700', fontSize: 16 }}>Comments</Text>
+                <TouchableOpacity
+                  onPress={() => {
+                    hapticLight();
+                    setCommentModalVisible(false);
+                  }}
+                >
+                  <Ionicons name="close" size={24} color="#333" />
+                </TouchableOpacity>
+              </View>
+              <CommentSection
+                postId={commentModalPostId}
+                postOwnerId={post?.userId || ""}
+                currentAvatar={commentModalAvatar}
+                currentUser={currentUser}
+              />
+            </View>
           </View>
-        </View>
+        </KeyboardAvoidingView>
       </Modal>
     </SafeAreaView>
   );

@@ -86,6 +86,22 @@ export const CommentSection: React.FC<CommentSectionProps> = ({
   const [showOptions, setShowOptions] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [editValue, setEditValue] = useState("");
+  const [keyboardHeight, setKeyboardHeight] = useState(0);
+
+  useEffect(() => {
+    if (Platform.OS !== 'ios') return;
+    const showSub = Keyboard.addListener('keyboardWillShow', (e) => {
+      setKeyboardHeight(e.endCoordinates.height);
+    });
+    const hideSub = Keyboard.addListener('keyboardWillHide', () => {
+      setKeyboardHeight(0);
+    });
+    return () => {
+      showSub.remove();
+      hideSub.remove();
+    };
+  }, []);
+
   const userFromContext = useUser();
   const currentUser = userProp || userFromContext;
   const currentUserId = currentUser?.uid || currentUser?._id;
@@ -127,7 +143,7 @@ export const CommentSection: React.FC<CommentSectionProps> = ({
         res = await getPostComments(postId);
       }
       const raw = Array.isArray(res) ? res : (res?.data ?? []);
-      
+
       const mapComment = (c: any): Comment => ({
         id: normalizeId(c._id || c.id),
         text: c.text || "",
@@ -216,7 +232,7 @@ export const CommentSection: React.FC<CommentSectionProps> = ({
           text: trimmedText,
         });
         // Sync real data silently
-        loadData().catch(() => {});
+        loadData().catch(() => { });
       } else {
         // Optimistically insert top-level comment immediately
         const optimisticComment: Comment = {
@@ -238,7 +254,7 @@ export const CommentSection: React.FC<CommentSectionProps> = ({
         await addComment(postId, currentUserId, currentUser?.displayName || 'User', resolvedCurrentAvatar, trimmedText);
         feedEventEmitter.emit('commentAdded', { postId });
         // Sync real data silently
-        loadData().catch(() => {});
+        loadData().catch(() => { });
       }
     } catch (e) {
       console.error(e);
@@ -260,10 +276,10 @@ export const CommentSection: React.FC<CommentSectionProps> = ({
         ? `/posts/${postId}/comments/${parentId}/replies/${commentId}/like`
         : `/posts/${postId}/comments/${commentId}/like`;
 
-      const targetList = isReply && parentId 
-        ? comments.find(c => c.id === parentId)?.replies 
+      const targetList = isReply && parentId
+        ? comments.find(c => c.id === parentId)?.replies
         : comments;
-      
+
       const isCurrentlyLiked = targetList?.find(c => c.id === commentId)?.likes?.includes(currentUserId);
 
       if (isCurrentlyLiked) {
@@ -287,7 +303,7 @@ export const CommentSection: React.FC<CommentSectionProps> = ({
       emoji: emoji,
       isOptimistic: true
     };
-    
+
     setReactions(prev => {
       // Remove any existing reaction from this user first
       const filtered = prev.filter(r => String(r.userId) !== String(currentUserId));
@@ -312,7 +328,7 @@ export const CommentSection: React.FC<CommentSectionProps> = ({
         }
       }
       setShowEmojiPicker(false);
-    } catch (e) { 
+    } catch (e) {
       console.error(e);
       // Rollback on error
       loadData();
@@ -322,17 +338,19 @@ export const CommentSection: React.FC<CommentSectionProps> = ({
   const handleDelete = async (comment: Comment, isReply = false, parentId?: string) => {
     Alert.alert("Delete", "Are you sure?", [
       { text: "Cancel" },
-      { text: "Delete", style: 'destructive', onPress: async () => {
-        if (isReply && parentId) {
-          await deleteCommentReply(postId, parentId, comment.id, currentUserId, postOwnerId);
-        } else {
-          await deleteComment(postId, comment.id, currentUserId, postOwnerId);
+      {
+        text: "Delete", style: 'destructive', onPress: async () => {
+          if (isReply && parentId) {
+            await deleteCommentReply(postId, parentId, comment.id, currentUserId, postOwnerId);
+          } else {
+            await deleteComment(postId, comment.id, currentUserId, postOwnerId);
+          }
+          setShowOptions(false);
+          setSelectedComment(null);
+          await loadData();
+          feedEventEmitter.emit("commentDeleted", { postId });
         }
-        setShowOptions(false);
-        setSelectedComment(null);
-        await loadData();
-        feedEventEmitter.emit("commentDeleted", { postId });
-      }}
+      }
     ]);
   };
 
@@ -442,10 +460,10 @@ export const CommentSection: React.FC<CommentSectionProps> = ({
             data={comments}
             keyExtractor={(item) => item.id}
             renderItem={({ item }) => (
-              <CommentItem 
-                comment={item} 
-                currentUser={currentUser} 
-                currentUserId={currentUserId} 
+              <CommentItem
+                comment={item}
+                currentUser={currentUser}
+                currentUserId={currentUserId}
                 onReply={(id, name) => { setReplyTo({ id, userName: name }); setNewComment(`@${name} `); }}
                 onLike={handleLikeComment}
                 onLongPress={(c, r, p) => { setSelectedComment({ ...c, isReply: r, parentId: p } as any); setShowOptions(true); }}
@@ -457,17 +475,17 @@ export const CommentSection: React.FC<CommentSectionProps> = ({
             estimatedItemSize={80}
           />
           {showInput && (
-            <CommentInput 
-              newComment={newComment} 
-              setNewComment={setNewComment} 
-              replyTo={replyTo} 
-              resolvedCurrentAvatar={resolvedCurrentAvatar} 
-              isSubmitting={isSubmitting} 
-              onAddComment={handleAddComment} 
-              quickEmojis={quickEmojis} 
+            <CommentInput
+              newComment={newComment}
+              setNewComment={setNewComment}
+              replyTo={replyTo}
+              resolvedCurrentAvatar={resolvedCurrentAvatar}
+              isSubmitting={isSubmitting}
+              onAddComment={handleAddComment}
+              quickEmojis={quickEmojis}
             />
           )}
-          <EmojiPicker 
+          <EmojiPicker
             onEmojiSelected={(emoji) => setNewComment(prev => prev + emoji.emoji)}
             open={showEmojiPicker}
             onClose={() => setShowEmojiPicker(false)}
@@ -494,14 +512,14 @@ export const CommentSection: React.FC<CommentSectionProps> = ({
                 <Text style={{ fontSize: 32 }}>{emoji}</Text>
               </TouchableOpacity>
             ))}
-            <TouchableOpacity 
-              style={styles.reactionPlusBtn} 
+            <TouchableOpacity
+              style={styles.reactionPlusBtn}
               onPress={() => setShowEmojiPicker(true)}
             >
               <Ionicons name="add" size={28} color="#000" />
             </TouchableOpacity>
           </View>
-          <EmojiPicker 
+          <EmojiPicker
             onEmojiSelected={(emoji) => {
               handleReaction(emoji.emoji);
               setShowEmojiPicker(false);
@@ -540,23 +558,23 @@ const styles = StyleSheet.create({
   cancelText: { color: '#666', fontWeight: '600', padding: 10 },
   saveBtn: { backgroundColor: '#000', paddingHorizontal: 20, paddingVertical: 10, borderRadius: 20 },
   saveBtnText: { color: '#fff', fontWeight: '600' },
-  reactionEmojiBar: { 
-    flexDirection: 'row', 
-    justifyContent: 'space-around', 
+  reactionEmojiBar: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
     alignItems: 'center',
-    paddingVertical: 15, 
+    paddingVertical: 15,
     paddingHorizontal: 10,
-    borderTopWidth: 1, 
+    borderTopWidth: 1,
     borderTopColor: '#eee',
     backgroundColor: '#fff'
   },
-  reactionPlusBtn: { 
-    width: 44, 
-    height: 44, 
-    borderRadius: 22, 
-    backgroundColor: '#f0f0f0', 
-    alignItems: 'center', 
-    justifyContent: 'center' 
+  reactionPlusBtn: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: '#f0f0f0',
+    alignItems: 'center',
+    justifyContent: 'center'
   },
   emptyReactionContainer: { flex: 1, alignItems: 'center', justifyContent: 'center', marginTop: 80 },
   emptyReactionTitle: { fontSize: 18, fontWeight: '700', color: '#666', marginTop: 15 },

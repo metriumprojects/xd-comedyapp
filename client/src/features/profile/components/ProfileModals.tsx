@@ -190,27 +190,32 @@ const ProfileModals: React.FC<ProfileModalsProps> = (props) => {
       </Modal>
 
       <Modal visible={commentModalVisible} animationType="slide" transparent={true} onRequestClose={() => setCommentModalVisible(false)}>
-        <View style={styles.commentModalContainer}>
-          <TouchableOpacity
-            style={{ flex: 1 }}
-            activeOpacity={1}
-            onPress={() => setCommentModalVisible(false)}
-          />
-          <View style={[styles.commentSheet, { maxHeight: getModalHeight(0.9) }]}>
-            <View style={styles.commentHandleContainer}>
-              <View style={styles.commentHandle} />
-              <Text style={styles.commentTitle}>Comments</Text>
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          style={{ flex: 1 }}
+        >
+          <View style={styles.commentModalContainer}>
+            <TouchableOpacity
+              style={{ flex: 1 }}
+              activeOpacity={1}
+              onPress={() => setCommentModalVisible(false)}
+            />
+            <View style={[styles.commentSheet, { maxHeight: getModalHeight(0.9) }]}>
+              <View style={styles.commentHandleContainer}>
+                <View style={styles.commentHandle} />
+                <Text style={styles.commentTitle}>Comments</Text>
+              </View>
+              {!!commentModalPostId && (
+                <CommentSection
+                  postId={commentModalPostId}
+                  postOwnerId={posts.find((p: any) => (p.id || p._id) === commentModalPostId)?.userId || ''}
+                  currentAvatar={commentModalAvatar}
+                  currentUser={currentUserId ? { uid: currentUserId } : undefined}
+                />
+              )}
             </View>
-            {!!commentModalPostId && (
-              <CommentSection
-                postId={commentModalPostId}
-                postOwnerId={posts.find((p: any) => (p.id || p._id) === commentModalPostId)?.userId || ''}
-                currentAvatar={commentModalAvatar}
-                currentUser={currentUserId ? { uid: currentUserId } : undefined}
-              />
-            )}
           </View>
-        </View>
+        </KeyboardAvoidingView>
       </Modal>
 
       {/* Edit sections modal */}

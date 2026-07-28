@@ -642,13 +642,7 @@ const PostCard: React.FC<PostCardProps> = ({
             transform: [{ translateY }],
           }}
         >
-          {/* keyboardShouldPersistTaps=always ensures Post tap fires immediately */}
-          <ScrollView
-            style={{ flex: 1 }}
-            scrollEnabled={false}
-            keyboardShouldPersistTaps="always"
-            contentContainerStyle={{ flex: 1 }}
-          >
+          <View style={{ flex: 1 }}>
             {/* Drag Handle */}
             <View
               {...panResponder.panHandlers}
@@ -671,7 +665,7 @@ const PostCard: React.FC<PostCardProps> = ({
               maxHeight={Dimensions.get('window').height * 0.8}
               initialTab={showComments === 'reactions' ? 'reactions' : 'comment'}
             />
-          </ScrollView>
+          </View>
         </Animated.View>
       </Modal>
 
