@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { View, Image, Dimensions, ScrollView, TouchableOpacity, StyleSheet } from 'react-native';
+import { View, Dimensions, ScrollView, TouchableOpacity, StyleSheet } from 'react-native';
 import { Video, ResizeMode } from 'expo-av';
+import { Image as ExpoImage } from 'expo-image';
 import { Feather } from '@expo/vector-icons';
 import * as VideoThumbnails from 'expo-video-thumbnails';
+import * as MediaLibrary from 'expo-media-library';
 
 const { width: windowWidth } = Dimensions.get('window');
 
@@ -31,37 +33,56 @@ const MediaPreviewItem = React.memo(({
   onRemove?: (index: number) => void;
   urisLength: number;
 }) => {
-  const [posterUri, setPosterUri] = useState<string | undefined>(providedThumbnail);
+  const [playableUri, setPlayableUri] = useState<string>(uri);
+  const [thumbUri, setThumbUri] = useState<string | undefined>(providedThumbnail);
+  const [hasError, setHasError] = useState(false);
 
   useEffect(() => {
     let isMounted = true;
+    setHasError(false);
+
+    if (uri.startsWith('ph://')) {
+      const assetId = uri.replace('ph://', '').split('/')[0];
+      MediaLibrary.getAssetInfoAsync(assetId)
+        .then((info) => {
+          if (isMounted && info?.localUri) {
+            setPlayableUri(info.localUri);
+          }
+        })
+        .catch(() => {});
+    } else {
+      setPlayableUri(uri);
+    }
+
     if (isVideo && !providedThumbnail) {
       VideoThumbnails.getThumbnailAsync(uri, { time: 500 })
-        .then(({ uri: thumb }) => {
-          if (isMounted && thumb) setPosterUri(thumb);
+        .then(({ uri: generated }) => {
+          if (isMounted && generated) setThumbUri(generated);
         })
         .catch(() => {});
     }
+
     return () => { isMounted = false; };
   }, [uri, isVideo, providedThumbnail]);
 
   return (
-    <View style={{ width: windowWidth, height, backgroundColor: '#000000' }}>
-      {isVideo ? (
+    <View style={{ width: windowWidth, height, backgroundColor: '#000000', justifyContent: 'center', alignItems: 'center' }}>
+      {isVideo && !hasError ? (
         <Video
-          source={{ uri }}
-          style={{ flex: 1 }}
+          source={{ uri: playableUri }}
+          style={{ width: windowWidth, height }}
           useNativeControls
           resizeMode={ResizeMode.CONTAIN}
           isLooping
           shouldPlay={true}
           isMuted={true}
+          onError={() => setHasError(true)}
         />
       ) : (
-        <Image
-          source={{ uri }}
-          style={{ flex: 1 }}
-          resizeMode="cover"
+        <ExpoImage
+          source={{ uri: thumbUri || uri }}
+          style={{ width: windowWidth, height }}
+          contentFit="contain"
         />
       )}
 
