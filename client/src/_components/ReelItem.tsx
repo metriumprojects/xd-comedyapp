@@ -12,7 +12,8 @@ import {
   Animated,
   PanResponder,
   FlatList,
-  ScrollView
+  ScrollView,
+  KeyboardAvoidingView
 } from 'react-native';
 import { Video, ResizeMode } from 'expo-av';
 import { useVideoPlayer, VideoView } from 'expo-video';
@@ -1100,33 +1101,40 @@ export const ReelItem = React.memo<ReelItemProps>(({
         transparent={true}
         onRequestClose={() => setShowComments(false)}
       >
-        <Pressable
-          style={{ flex: 1, backgroundColor: 'transparent' }}
-          onPress={() => setShowComments(false)}
-        />
-        <Animated.View
-          style={[
-            styles.commentsSheet,
-            { transform: [{ translateY }] }
-          ]}
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          style={{ flex: 1 }}
         >
-          {/* Drag Handle */}
-          <View
-            {...panResponder.panHandlers}
-            style={styles.commentsHandleContainer}
-          >
-            <View style={styles.commentsHandle} />
-          </View>
+          <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' }}>
+            <Pressable
+              style={{ flex: 1 }}
+              onPress={() => setShowComments(false)}
+            />
+            <Animated.View
+              style={[
+                styles.commentsSheet,
+                { transform: [{ translateY }] }
+              ]}
+            >
+              {/* Drag Handle */}
+              <View
+                {...panResponder.panHandlers}
+                style={styles.commentsHandleContainer}
+              >
+                <View style={styles.commentsHandle} />
+              </View>
 
-          <CommentSection
-            postId={post._id || post.id}
-            postOwnerId={post?.userId?._id || post?.userId}
-            currentAvatar={currentUser?.avatar || currentUser?.photoURL || ''}
-            currentUser={currentUser}
-            maxHeight={containerHeight * 0.8}
-            initialTab="comment"
-          />
-        </Animated.View>
+              <CommentSection
+                postId={post._id || post.id}
+                postOwnerId={post?.userId?._id || post?.userId}
+                currentAvatar={currentUser?.avatar || currentUser?.photoURL || ''}
+                currentUser={currentUser}
+                maxHeight={containerHeight * 0.8}
+                initialTab="comment"
+              />
+            </Animated.View>
+          </View>
+        </KeyboardAvoidingView>
       </Modal>
 
       {/* Share Modal */}
