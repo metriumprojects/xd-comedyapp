@@ -76,6 +76,7 @@ const PreviewVideoPlayer = React.memo(({ videoUrl, height }: { videoUrl: string;
       style={{ width: windowWidth, height }}
       contentFit="contain"
       nativeControls={true}
+      allowsPictureInPicture={false}
     />
   );
 });
