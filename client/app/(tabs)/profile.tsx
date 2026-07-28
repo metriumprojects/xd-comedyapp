@@ -1153,8 +1153,6 @@ const styles = StyleSheet.create({
   followingText: { color: '#333' },
   customProfileTabBar: {
     flexDirection: 'row',
-    borderBottomWidth: 1,
-    borderBottomColor: '#f0f0f0',
     marginTop: 12,
     marginBottom: 10,
     backgroundColor: '#fff',

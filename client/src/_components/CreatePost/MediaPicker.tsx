@@ -70,7 +70,7 @@ const MediaPicker: React.FC<MediaPickerProps> = ({
 
   return (
     <View style={{ flex: 1, backgroundColor: '#fff' }}>
-      <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 15, borderBottomWidth: 0.5, borderBottomColor: '#efefef' }}>
+      <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 15 }}>
         <TouchableOpacity onPress={onBack} style={{ backgroundColor: '#f0f0f0', padding: 8, borderRadius: 20 }}>
           <Feather name="x" size={20} color="#000" />
         </TouchableOpacity>

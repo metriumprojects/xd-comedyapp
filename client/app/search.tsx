@@ -86,7 +86,7 @@ export default function SearchScreen() {
 
   return (
     <View style={{ flex: 1, backgroundColor: '#fff', paddingTop: Math.max(insets.top, 12) }}>
-      <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingBottom: 16, borderBottomWidth: 1, borderBottomColor: '#eee' }}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingBottom: 16 }}>
         <TextInput
           ref={inputRef}
           autoFocus={true}
