@@ -282,17 +282,25 @@ export default function CreateHighlightModal({
 
   return (
     <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
-      <KeyboardAvoidingView
-        style={{ flex: 1 }}
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        keyboardVerticalOffset={getKeyboardOffset()}
-      >
-        <View style={styles.overlay}>
+      <View style={styles.modalRoot}>
+        {/* Full-screen dark backdrop that never shrinks */}
+        <TouchableOpacity
+          style={styles.backdrop}
+          activeOpacity={1}
+          onPress={onClose}
+        />
+
+        <KeyboardAvoidingView
+          style={styles.keyboardAvoidingView}
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        >
           <TouchableOpacity style={styles.dismissArea} activeOpacity={1} onPress={onClose} />
-          
+
           <View style={[styles.container, { paddingBottom: Math.max(insets.bottom, 20) }]}>
+            {/* Solid white background extension below container to cover screen area when pushed up by keyboard */}
+            <View style={styles.bottomSolidExtension} />
             <View style={styles.handle} />
-            
+
             {/* Custom Header from Screenshot */}
             <View style={styles.header}>
               <TouchableOpacity onPress={onClose} disabled={loading}>
@@ -351,16 +359,23 @@ export default function CreateHighlightModal({
               {renderStoriesGrid()}
             </ScrollView>
           </View>
-        </View>
-      </KeyboardAvoidingView>
+        </KeyboardAvoidingView>
+      </View>
     </Modal>
   );
 }
 
 const styles = StyleSheet.create({
-  overlay: {
+  modalRoot: {
     flex: 1,
+    backgroundColor: 'transparent',
+  },
+  backdrop: {
+    ...StyleSheet.absoluteFillObject,
     backgroundColor: 'rgba(0,0,0,0.5)',
+  },
+  keyboardAvoidingView: {
+    flex: 1,
     justifyContent: 'flex-end',
   },
   dismissArea: {
@@ -372,6 +387,15 @@ const styles = StyleSheet.create({
     borderTopRightRadius: 30,
     maxHeight: SCREEN_HEIGHT * 0.9,
     minHeight: 420,
+    position: 'relative',
+  },
+  bottomSolidExtension: {
+    position: 'absolute',
+    top: '100%',
+    left: 0,
+    right: 0,
+    height: 600,
+    backgroundColor: '#ffffff',
   },
   handle: {
     width: 40,
