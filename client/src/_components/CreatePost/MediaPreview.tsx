@@ -52,12 +52,10 @@ const MediaPreviewItem = React.memo(({
           source={{ uri }}
           style={{ flex: 1 }}
           useNativeControls
-          resizeMode={ResizeMode.COVER}
+          resizeMode={ResizeMode.CONTAIN}
           isLooping
           shouldPlay={true}
           isMuted={true}
-          posterSource={posterUri ? { uri: posterUri } : undefined}
-          usePoster={!!posterUri}
         />
       ) : (
         <Image

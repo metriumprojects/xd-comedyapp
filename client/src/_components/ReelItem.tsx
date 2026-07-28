@@ -780,6 +780,7 @@ export const ReelItem = React.memo<ReelItemProps>(({
             storiesViewerVisible={storiesViewerVisible}
             setIsLoaded={setIsLoaded}
             setIsBuffering={setIsBuffering}
+            aspectRatio={post?.aspectRatio}
           />
         ) : (
           <ExpoImage
@@ -1345,6 +1346,7 @@ interface ReelVideoPlayerProps {
   storiesViewerVisible: boolean;
   setIsLoaded: (val: boolean) => void;
   setIsBuffering: (val: boolean) => void;
+  aspectRatio?: number;
 }
 
 const ReelVideoPlayer: React.FC<ReelVideoPlayerProps> = ({
@@ -1356,6 +1358,7 @@ const ReelVideoPlayer: React.FC<ReelVideoPlayerProps> = ({
   storiesViewerVisible,
   setIsLoaded,
   setIsBuffering,
+  aspectRatio,
 }) => {
   const shouldPlay = isActive && isPlaying && !isLocked && !storiesViewerVisible;
 
@@ -1411,11 +1414,13 @@ const ReelVideoPlayer: React.FC<ReelVideoPlayerProps> = ({
     };
   }, [player, setIsLoaded, setIsBuffering]);
 
+  const isLandscape = typeof aspectRatio === 'number' && aspectRatio > 1.1;
+
   return (
     <VideoView
       player={player}
       style={StyleSheet.absoluteFill}
-      contentFit="cover"
+      contentFit={isLandscape ? "contain" : "cover"}
       nativeControls={false}
     />
   );
