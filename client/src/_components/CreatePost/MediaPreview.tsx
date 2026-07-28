@@ -50,27 +50,47 @@ const MediaPreviewItem = React.memo(({
   onRemove?: (index: number) => void;
   urisLength: number;
 }) => {
-  const [playableUri, setPlayableUri] = useState<string>(uri);
+  const [playableUri, setPlayableUri] = useState<string>('');
   const [thumbUri, setThumbUri] = useState<string | undefined>(providedThumbnail);
   const [isPlaying, setIsPlaying] = useState(false);
+  const [uriReady, setUriReady] = useState(false);
 
   useEffect(() => {
     let isMounted = true;
     setIsPlaying(false);
+    setUriReady(false);
+    setPlayableUri('');
 
-    if (uri.startsWith('ph://')) {
-      const assetId = uri.replace('ph://', '').split('/')[0];
-      MediaLibrary.getAssetInfoAsync(assetId)
-        .then((info) => {
-          if (isMounted) {
-            const resolved = info?.localUri || info?.uri;
-            if (resolved) setPlayableUri(resolved);
+    const resolveUri = async () => {
+      try {
+        if (uri.startsWith('ph://')) {
+          const assetId = uri.replace('ph://', '').split('/')[0];
+          const info = await MediaLibrary.getAssetInfoAsync(assetId);
+          const resolved = info?.localUri || (info as any)?.uri;
+          if (isMounted && resolved) {
+            setPlayableUri(resolved);
+            setUriReady(true);
           }
-        })
-        .catch(() => {});
-    } else {
-      setPlayableUri(uri);
-    }
+        } else if (uri.startsWith('file://') || uri.startsWith('/')) {
+          if (isMounted) {
+            setPlayableUri(uri);
+            setUriReady(true);
+          }
+        } else {
+          if (isMounted) {
+            setPlayableUri(uri);
+            setUriReady(true);
+          }
+        }
+      } catch {
+        if (isMounted) {
+          setPlayableUri(uri);
+          setUriReady(true);
+        }
+      }
+    };
+
+    resolveUri();
 
     if (isVideo && !providedThumbnail) {
       VideoThumbnails.getThumbnailAsync(uri, { time: 500 })
@@ -86,16 +106,16 @@ const MediaPreviewItem = React.memo(({
   return (
     <View style={{ width: windowWidth, height, backgroundColor: '#000000', justifyContent: 'center', alignItems: 'center' }}>
       {isVideo ? (
-        isPlaying ? (
+        isPlaying && uriReady && playableUri ? (
           <PreviewVideoPlayer videoUrl={playableUri} height={height} />
         ) : (
           <TouchableOpacity
             activeOpacity={0.9}
-            onPress={() => setIsPlaying(true)}
+            onPress={() => { if (uriReady) setIsPlaying(true); }}
             style={{ width: windowWidth, height, justifyContent: 'center', alignItems: 'center' }}
           >
             <ExpoImage
-              source={{ uri: thumbUri || playableUri || uri }}
+              source={{ uri: thumbUri || uri }}
               style={{ width: windowWidth, height }}
               contentFit="contain"
             />
