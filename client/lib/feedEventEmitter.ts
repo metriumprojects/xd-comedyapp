@@ -102,8 +102,12 @@ class FeedEventEmitter extends EventEmitter {
     this.emitFeedUpdate({ type: 'USER_SUBSCRIBED', userId: creatorId, data });
   }
 
-  emitUserFollowChanged(userId: string, isFollowing: boolean) {
-    this.emitFeedUpdate({ type: 'USER_FOLLOW_CHANGED', userId, data: { isFollowing } });
+  emitUserFollowChanged(userId: string, isFollowing: boolean, targetUserIds?: string[]) {
+    this.emitFeedUpdate({
+      type: 'USER_FOLLOW_CHANGED',
+      userId,
+      data: { isFollowing, targetUserIds }
+    });
   }
 }
 

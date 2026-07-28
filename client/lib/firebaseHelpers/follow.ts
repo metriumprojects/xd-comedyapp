@@ -22,7 +22,17 @@ export async function followUser(followerId: string, followingId: string) {
     const res = await apiService.post('/follow', { followerId, followingId });
     console.log('[followUser] Response:', res);
     if (res?.success !== false) {
-      feedEventEmitter.emitUserFollowChanged(followingId, true);
+      const targetUserIds = [
+        followingId,
+        res?.data?.followingId,
+        res?.data?.following?._id,
+        res?.data?.following?.id,
+        res?.data?.following?.firebaseUid,
+        res?.data?.following?.uid,
+        res?.data?._id,
+        res?.data?.id
+      ].filter(Boolean).map(String);
+      feedEventEmitter.emitUserFollowChanged(followingId, true, targetUserIds);
     }
     return res;
   } catch (error: any) {
@@ -37,7 +47,17 @@ export async function unfollowUser(followerId: string, followingId: string) {
     const res = await apiService.delete('/follow', { followerId, followingId });
     console.log('[unfollowUser] Response:', res);
     if (res?.success !== false) {
-      feedEventEmitter.emitUserFollowChanged(followingId, false);
+      const targetUserIds = [
+        followingId,
+        res?.data?.followingId,
+        res?.data?.following?._id,
+        res?.data?.following?.id,
+        res?.data?.following?.firebaseUid,
+        res?.data?.following?.uid,
+        res?.data?._id,
+        res?.data?.id
+      ].filter(Boolean).map(String);
+      feedEventEmitter.emitUserFollowChanged(followingId, false, targetUserIds);
     }
     return res;
   } catch (error: any) {

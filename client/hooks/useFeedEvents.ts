@@ -90,6 +90,10 @@ export function useFeedEvents(
       }
       if (event.type === 'USER_FOLLOW_CHANGED' && event.userId) {
         const targetUserId = String(event.userId).toLowerCase();
+        const extraTargetIds = Array.isArray(event.data?.targetUserIds)
+          ? event.data.targetUserIds.map((id: any) => String(id).toLowerCase())
+          : [];
+        const allTargetIds = [targetUserId, ...extraTargetIds];
         const isFollowing = !!event.data?.isFollowing;
 
         const updateFollow = (p: any) => {
@@ -109,7 +113,8 @@ export function useFeedEvents(
             p?.creator?.id
           ].filter(Boolean).map(id => String(id).toLowerCase());
 
-          if (creatorIds.includes(targetUserId)) {
+          const matches = creatorIds.some(cid => allTargetIds.includes(cid));
+          if (matches) {
             return { ...p, isFollowing };
           }
           return p;

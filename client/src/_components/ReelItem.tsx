@@ -333,7 +333,12 @@ export const ReelItem = React.memo<ReelItemProps>(({
 
     const unsubFollow = feedEventEmitter.onFeedUpdate((event) => {
       if (event.type === 'USER_FOLLOW_CHANGED' && event.userId) {
-        const targetId = String(event.userId).toLowerCase();
+        const targetUserId = String(event.userId).toLowerCase();
+        const extraTargetIds = Array.isArray(event.data?.targetUserIds)
+          ? event.data.targetUserIds.map((id: any) => String(id).toLowerCase())
+          : [];
+        const allTargetIds = [targetUserId, ...extraTargetIds];
+
         const creatorIds = [
           post?.userId?._id,
           post?.userId?.id,
@@ -349,7 +354,8 @@ export const ReelItem = React.memo<ReelItemProps>(({
           post?.creator?.id
         ].filter(Boolean).map(id => String(id).toLowerCase());
 
-        if (creatorIds.includes(targetId)) {
+        const matches = creatorIds.some(cid => allTargetIds.includes(cid));
+        if (matches) {
           setIsFollowing(!!event.data?.isFollowing);
         }
       }
