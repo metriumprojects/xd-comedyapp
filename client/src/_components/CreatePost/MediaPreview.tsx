@@ -64,20 +64,60 @@ interface MediaPreviewProps {
 
 // Video player component using expo-video
 const PreviewVideoPlayer = React.memo(({ videoUrl, height }: { videoUrl: string; height: number }) => {
+  const [isPlayingState, setIsPlayingState] = useState(true);
+  const [isMuted, setIsMuted] = useState(false);
+
   const player = useVideoPlayer(videoUrl, (p) => {
     p.loop = true;
     p.muted = false;
     p.play();
   });
 
+  const togglePlayPause = () => {
+    if (player.playing) {
+      player.pause();
+      setIsPlayingState(false);
+    } else {
+      player.play();
+      setIsPlayingState(true);
+    }
+  };
+
+  const toggleMute = () => {
+    player.muted = !player.muted;
+    setIsMuted(player.muted);
+  };
+
   return (
-    <VideoView
-      player={player}
-      style={{ width: windowWidth, height }}
-      contentFit="contain"
-      nativeControls={true}
-      allowsPictureInPicture={false}
-    />
+    <TouchableOpacity
+      activeOpacity={1}
+      onPress={togglePlayPause}
+      style={{ width: windowWidth, height, justifyContent: 'center', alignItems: 'center' }}
+    >
+      <VideoView
+        player={player}
+        style={{ width: windowWidth, height }}
+        contentFit="contain"
+        nativeControls={false}
+        allowsPictureInPicture={false}
+      />
+
+      {/* Clean Pause icon overlay when user pauses */}
+      {!isPlayingState && (
+        <View pointerEvents="none" style={styles.playButtonOverlay}>
+          <Ionicons name="play" size={28} color="#ffffff" style={{ marginLeft: 3 }} />
+        </View>
+      )}
+
+      {/* Clean Mute / Unmute Button top left */}
+      <TouchableOpacity
+        onPress={toggleMute}
+        style={styles.muteButton}
+        activeOpacity={0.7}
+      >
+        <Ionicons name={isMuted ? "volume-mute" : "volume-high"} size={18} color="#ffffff" />
+      </TouchableOpacity>
+    </TouchableOpacity>
   );
 });
 
@@ -248,6 +288,18 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.3,
     shadowRadius: 4,
     elevation: 4
+  },
+  muteButton: {
+    position: 'absolute',
+    top: 15,
+    left: 15,
+    backgroundColor: 'rgba(0,0,0,0.6)',
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 10,
   }
 });
 
