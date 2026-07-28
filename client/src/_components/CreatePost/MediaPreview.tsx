@@ -1,11 +1,58 @@
 import React, { useState, useEffect } from 'react';
-import { View, Dimensions, ScrollView, TouchableOpacity, StyleSheet } from 'react-native';
+import { View, Dimensions, ScrollView, TouchableOpacity, StyleSheet, ActivityIndicator } from 'react-native';
 import { useVideoPlayer, VideoView } from 'expo-video';
 import { Image as ExpoImage } from 'expo-image';
 import { Feather, Ionicons } from '@expo/vector-icons';
 import * as VideoThumbnails from 'expo-video-thumbnails';
+import * as MediaLibrary from 'expo-media-library';
+import * as FileSystem from 'expo-file-system';
 
 const { width: windowWidth } = Dimensions.get('window');
+
+/**
+ * Copies a native video URI (ph://, content://, assets-library://) to the
+ * app cache directory so expo-video can access it.
+ * Returns a file:// URI.
+ */
+async function copyVideoToCache(nativeUri: string): Promise<string> {
+  const hash = nativeUri.replace(/[^a-zA-Z0-9]/g, '_').slice(-60);
+  const dest = `${FileSystem.cacheDirectory}vidcache_${hash}.mp4`;
+
+  const info = await FileSystem.getInfoAsync(dest);
+  if (info.exists) return dest;
+
+  // Try FileSystem.copyAsync first
+  try {
+    await FileSystem.copyAsync({ from: nativeUri, to: dest });
+    const check = await FileSystem.getInfoAsync(dest);
+    if (check.exists) return dest;
+  } catch (_) {
+    // fall through to MediaLibrary path
+  }
+
+  // Fallback: use MediaLibrary to get a localUri, then copy that
+  try {
+    const assetId = nativeUri.startsWith('ph://')
+      ? nativeUri.replace('ph://', '').split('/')[0]
+      : nativeUri;
+    const assetInfo = await MediaLibrary.getAssetInfoAsync(assetId, { copyToLocalContainer: true } as any);
+    const localUri = assetInfo?.localUri;
+    if (localUri) {
+      await FileSystem.copyAsync({ from: localUri, to: dest });
+      const check2 = await FileSystem.getInfoAsync(dest);
+      if (check2.exists) return dest;
+      return localUri;
+    }
+  } catch (_) {
+    // fall through
+  }
+
+  return nativeUri;
+}
+
+function isNativeUri(uri: string): boolean {
+  return uri.startsWith('ph://') || uri.startsWith('assets-library://') || uri.startsWith('content://');
+}
 
 interface MediaPreviewProps {
   uris: string[];
@@ -15,6 +62,7 @@ interface MediaPreviewProps {
   onRemove?: (index: number) => void;
 }
 
+// Video player component using expo-video
 const PreviewVideoPlayer = React.memo(({ videoUrl, height }: { videoUrl: string; height: number }) => {
   const player = useVideoPlayer(videoUrl, (p) => {
     p.loop = true;
@@ -49,33 +97,69 @@ const MediaPreviewItem = React.memo(({
   onRemove?: (index: number) => void;
   urisLength: number;
 }) => {
+  const [playableUri, setPlayableUri] = useState<string>('');
   const [thumbUri, setThumbUri] = useState<string | undefined>(providedThumbnail);
   const [isPlaying, setIsPlaying] = useState(false);
+  const [resolving, setResolving] = useState(false);
 
   useEffect(() => {
-    let isMounted = true;
+    let active = true;
     setIsPlaying(false);
+    setPlayableUri('');
 
+    (async () => {
+      if (!isVideo) {
+        if (active) setPlayableUri(uri);
+        return;
+      }
+
+      if (isNativeUri(uri)) {
+        if (active) setResolving(true);
+        try {
+          const cached = await copyVideoToCache(uri);
+          if (active) {
+            setPlayableUri(cached);
+            setResolving(false);
+          }
+        } catch {
+          if (active) {
+            setPlayableUri(uri);
+            setResolving(false);
+          }
+        }
+      } else {
+        if (active) {
+          setPlayableUri(uri);
+          setResolving(false);
+        }
+      }
+    })();
+
+    // Generate thumbnail
     if (isVideo && !providedThumbnail) {
       VideoThumbnails.getThumbnailAsync(uri, { time: 500 })
         .then(({ uri: generated }) => {
-          if (isMounted && generated) setThumbUri(generated);
+          if (active && generated) setThumbUri(generated);
         })
         .catch(() => {});
     }
 
-    return () => { isMounted = false; };
+    return () => { active = false; };
   }, [uri, isVideo, providedThumbnail]);
 
   return (
     <View style={{ width: windowWidth, height, backgroundColor: '#000000', justifyContent: 'center', alignItems: 'center' }}>
       {isVideo ? (
-        isPlaying ? (
-          <PreviewVideoPlayer videoUrl={uri} height={height} />
+        isPlaying && playableUri && !isNativeUri(playableUri) ? (
+          <PreviewVideoPlayer videoUrl={playableUri} height={height} />
         ) : (
           <TouchableOpacity
             activeOpacity={0.9}
-            onPress={() => setIsPlaying(true)}
+            onPress={() => {
+              if (playableUri && !isNativeUri(playableUri) && !resolving) {
+                setIsPlaying(true);
+              }
+            }}
             style={{ width: windowWidth, height, justifyContent: 'center', alignItems: 'center' }}
           >
             <ExpoImage
@@ -83,9 +167,13 @@ const MediaPreviewItem = React.memo(({
               style={{ width: windowWidth, height }}
               contentFit="contain"
             />
-            {/* Play Button Overlay */}
+            {/* Play Button or Loading Overlay */}
             <View style={styles.playButtonOverlay}>
-              <Ionicons name="play" size={28} color="#ffffff" style={{ marginLeft: 3 }} />
+              {resolving ? (
+                <ActivityIndicator size="small" color="#ffffff" />
+              ) : (
+                <Ionicons name="play" size={28} color="#ffffff" style={{ marginLeft: 3 }} />
+              )}
             </View>
           </TouchableOpacity>
         )

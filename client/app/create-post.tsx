@@ -19,7 +19,6 @@ import VisibilityModal from '@/src/_components/CreatePost/VisibilityModal';
 
 import { DEFAULT_CATEGORIES } from '../lib/firebaseHelpers/index';
 import { hapticLight } from '../lib/haptics';
-import * as MediaLibrary from 'expo-media-library';
 
 export default function CreatePostScreen() {
   const params = useLocalSearchParams();
@@ -64,7 +63,7 @@ export default function CreatePostScreen() {
         <MediaPicker
           assets={galleryAssets || []}
           selectedImages={selectedImages || []}
-          onSelect={async (uri) => {
+          onSelect={(uri) => {
             hapticLight();
             if (selectedImages.includes(uri)) {
               setSelectedImages(selectedImages.filter(i => i !== uri));
@@ -81,17 +80,7 @@ export default function CreatePostScreen() {
                   return;
                 }
               }
-              // Resolve ph:// URIs to file:// for video playback
-              let resolvedUri = uri;
-              if (asset && asset.mediaType === 'video' && uri.startsWith('ph://')) {
-                try {
-                  const info = await MediaLibrary.getAssetInfoAsync(asset.id);
-                  if (info?.localUri) {
-                    resolvedUri = info.localUri;
-                  }
-                } catch {}
-              }
-              setSelectedImages([...(selectedImages || []), resolvedUri]);
+              setSelectedImages([...(selectedImages || []), uri]);
             }
           }}
           onCamera={handleCamera} 
