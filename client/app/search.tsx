@@ -36,6 +36,8 @@ export default function SearchScreen() {
   );
   const insets = useSafeAreaInsets();
 
+  const inputRef = useRef<TextInput>(null);
+
   useEffect(() => {
     resolveCanonicalUserId().then(setCurrentUserId).catch(() => {});
   }, []);
@@ -43,6 +45,10 @@ export default function SearchScreen() {
   useFocusEffect(
     useCallback(() => {
       setQuery('');
+      const timer = setTimeout(() => {
+        inputRef.current?.focus();
+      }, 100);
+      return () => clearTimeout(timer);
     }, [])
   );
 
@@ -82,6 +88,8 @@ export default function SearchScreen() {
     <View style={{ flex: 1, backgroundColor: '#fff', paddingTop: Math.max(insets.top, 12) }}>
       <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingBottom: 16, borderBottomWidth: 1, borderBottomColor: '#eee' }}>
         <TextInput
+          ref={inputRef}
+          autoFocus={true}
           style={{ flex: 1, fontSize: 16, backgroundColor: '#f7f7f7', borderRadius: 8, padding: 10 }}
           placeholder={activeTab === 'users' ? 'Search users...' : activeTab === 'hashtags' ? 'Search hashtags...' : 'Search posts...'}
           value={query}

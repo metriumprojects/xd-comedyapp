@@ -48,6 +48,16 @@ export default function SearchModal() {
 
   const [q, setQ] = useState<string>('');
   const [filter, setFilter] = useState<SearchFilter>('videos');
+  const inputRef = useRef<TextInput>(null);
+
+  useFocusEffect(
+    useCallback(() => {
+      const timer = setTimeout(() => {
+        inputRef.current?.focus();
+      }, 100);
+      return () => clearTimeout(timer);
+    }, [])
+  );
   const [hasSearched, setHasSearched] = useState<boolean>(false);
   const [history, setHistory] = useState<string[]>([]);
   const [loading, setLoading] = useState<boolean>(false);
@@ -254,6 +264,8 @@ export default function SearchModal() {
             <View style={styles.searchBarContainer}>
               <Feather name="search" size={18} color="#666" style={styles.searchIcon} />
               <TextInput
+                ref={inputRef}
+                autoFocus={true}
                 style={styles.searchInput}
                 placeholder="Search"
                 placeholderTextColor="#999"
