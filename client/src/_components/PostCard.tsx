@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { View, Dimensions, StyleSheet, InteractionManager, Alert, Modal, Pressable, Platform, Text, Animated, PanResponder, TouchableOpacity, Keyboard, ScrollView } from "react-native";
+import { View, Dimensions, StyleSheet, InteractionManager, Alert, Modal, Pressable, Platform, Text, Animated, PanResponder, TouchableOpacity, Keyboard, ScrollView, KeyboardAvoidingView } from "react-native";
 import { Ionicons, Feather } from "@expo/vector-icons";
 import { useRouter } from 'expo-router';
 import * as Haptics from 'expo-haptics';
@@ -617,56 +617,54 @@ const PostCard: React.FC<PostCardProps> = ({
         statusBarTranslucent={true}
         onRequestClose={() => { Keyboard.dismiss(); setShowComments(false); }}
       >
-        {/* Backdrop covers full screen */}
-        <Pressable
-          style={StyleSheet.absoluteFill}
-          onPress={() => { Keyboard.dismiss(); setShowComments(false); }}
-        />
-
-        {/* Sheet: position absolute, bottom & height both animated so top stays fixed */}
-        <Animated.View
-          style={{
-            position: 'absolute',
-            left: 0,
-            right: 0,
-            bottom: keyboardAnim,
-            // height shrinks by same amount as bottom rises → top edge stays fixed on screen
-            height: Animated.subtract(
-              Dimensions.get('window').height * 0.85,
-              keyboardAnim
-            ),
-            backgroundColor: '#fff',
-            borderTopLeftRadius: 30,
-            borderTopRightRadius: 30,
-            overflow: 'hidden',
-            transform: [{ translateY }],
-          }}
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          style={{ flex: 1 }}
         >
-          <View style={{ flex: 1 }}>
-            {/* Drag Handle */}
-            <View
-              {...panResponder.panHandlers}
+          <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' }}>
+            {/* Backdrop area on top to dismiss modal */}
+            <TouchableOpacity
+              style={{ flex: 1 }}
+              activeOpacity={1}
+              onPress={() => { Keyboard.dismiss(); setShowComments(false); }}
+            />
+
+            {/* Sheet */}
+            <Animated.View
               style={{
-                height: 40,
-                width: '100%',
-                alignItems: 'center',
-                justifyContent: 'center',
+                height: '80%',
                 backgroundColor: '#fff',
+                borderTopLeftRadius: 30,
+                borderTopRightRadius: 30,
+                overflow: 'hidden',
+                transform: [{ translateY }],
               }}
             >
-              <View style={{ height: 5, width: 40, backgroundColor: '#ddd', borderRadius: 3 }} />
-            </View>
+              {/* Drag Handle */}
+              <View
+                {...panResponder.panHandlers}
+                style={{
+                  height: 40,
+                  width: '100%',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  backgroundColor: '#fff',
+                }}
+              >
+                <View style={{ height: 5, width: 40, backgroundColor: '#ddd', borderRadius: 3 }} />
+              </View>
 
-            <CommentSection
-              postId={post._id || post.id}
-              postOwnerId={post?.userId?._id || post?.userId}
-              currentAvatar={currentUser?.avatar || currentUser?.photoURL || ''}
-              currentUser={currentUser}
-              maxHeight={Dimensions.get('window').height * 0.8}
-              initialTab={showComments === 'reactions' ? 'reactions' : 'comment'}
-            />
+              <CommentSection
+                postId={post._id || post.id}
+                postOwnerId={post?.userId?._id || post?.userId}
+                currentAvatar={currentUser?.avatar || currentUser?.photoURL || ''}
+                currentUser={currentUser}
+                maxHeight={Dimensions.get('window').height * 0.8}
+                initialTab={showComments === 'reactions' ? 'reactions' : 'comment'}
+              />
+            </Animated.View>
           </View>
-        </Animated.View>
+        </KeyboardAvoidingView>
       </Modal>
 
       <Modal
