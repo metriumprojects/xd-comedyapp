@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, Dimensions, ScrollView, TouchableOpacity, StyleSheet, ActivityIndicator } from 'react-native';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import { View, Text, Dimensions, ScrollView, TouchableOpacity, StyleSheet, ActivityIndicator, PanResponder, GestureResponderEvent } from 'react-native';
 import { useVideoPlayer, VideoView } from 'expo-video';
 import { Image as ExpoImage } from 'expo-image';
 import { Feather, Ionicons } from '@expo/vector-icons';
@@ -76,7 +76,10 @@ const PreviewVideoPlayer = React.memo(({ videoUrl, height }: { videoUrl: string;
   const [progress, setProgress] = useState(0);
   const [currentTimeStr, setCurrentTimeStr] = useState('0:00');
   const [durationStr, setDurationStr] = useState('0:00');
-  const barWidthRef = React.useRef<number>(windowWidth - 110);
+  const [isScrubbing, setIsScrubbing] = useState(false);
+
+  const barWidthRef = useRef<number>(windowWidth - 110);
+  const isScrubbingRef = useRef(false);
 
   const player = useVideoPlayer(videoUrl, (p) => {
     p.loop = true;
@@ -84,9 +87,51 @@ const PreviewVideoPlayer = React.memo(({ videoUrl, height }: { videoUrl: string;
     p.play();
   });
 
+  const playerRef = useRef(player);
+  playerRef.current = player;
+
+  const seekToRatio = useCallback((ratio: number) => {
+    const dur = playerRef.current.duration || 0;
+    const clampedRatio = Math.min(1, Math.max(0, ratio));
+    const targetTime = clampedRatio * dur;
+    playerRef.current.currentTime = targetTime;
+    setProgress(clampedRatio);
+    setCurrentTimeStr(formatTime(targetTime));
+  }, []);
+
+  const panResponder = useMemo(() => PanResponder.create({
+    onStartShouldSetPanResponder: () => true,
+    onStartShouldSetPanResponderCapture: () => true,
+    onMoveShouldSetPanResponder: () => true,
+    onMoveShouldSetPanResponderCapture: () => true,
+    onPanResponderGrant: (evt: GestureResponderEvent) => {
+      isScrubbingRef.current = true;
+      setIsScrubbing(true);
+      const touchX = evt.nativeEvent.locationX;
+      if (barWidthRef.current > 0) {
+        seekToRatio(touchX / barWidthRef.current);
+      }
+    },
+    onPanResponderMove: (evt: GestureResponderEvent) => {
+      const touchX = evt.nativeEvent.locationX;
+      if (barWidthRef.current > 0) {
+        seekToRatio(touchX / barWidthRef.current);
+      }
+    },
+    onPanResponderRelease: () => {
+      isScrubbingRef.current = false;
+      setIsScrubbing(false);
+    },
+    onPanResponderTerminate: () => {
+      isScrubbingRef.current = false;
+      setIsScrubbing(false);
+    },
+  }), [seekToRatio]);
+
   useEffect(() => {
-    player.timeUpdateEventInterval = 0.1;
+    player.timeUpdateEventInterval = 0.05;
     const subscription = player.addListener('timeUpdate', (event) => {
+      if (isScrubbingRef.current) return;
       const dur = player.duration || 1;
       if (dur > 0) {
         const current = event.currentTime || player.currentTime || 0;
@@ -111,18 +156,6 @@ const PreviewVideoPlayer = React.memo(({ videoUrl, height }: { videoUrl: string;
   const toggleMute = () => {
     player.muted = !player.muted;
     setIsMuted(player.muted);
-  };
-
-  const handleSeekTouch = (evt: any) => {
-    const touchX = evt.nativeEvent.locationX;
-    const dur = player.duration || 0;
-    if (barWidthRef.current > 0 && dur > 0) {
-      const ratio = Math.min(1, Math.max(0, touchX / barWidthRef.current));
-      const targetTime = ratio * dur;
-      player.currentTime = targetTime;
-      setProgress(ratio);
-      setCurrentTimeStr(formatTime(targetTime));
-    }
   };
 
   return (
@@ -156,18 +189,22 @@ const PreviewVideoPlayer = React.memo(({ videoUrl, height }: { videoUrl: string;
           <Ionicons name={isMuted ? "volume-mute" : "volume-high"} size={18} color="#ffffff" />
         </TouchableOpacity>
 
-        {/* Clean Bottom Video Length & Progress Seeker Bar */}
+        {/* Clean Bottom Video Length & Native Pan Progress Seeker Bar */}
         <View style={styles.seekerContainer}>
           <Text style={styles.timeText}>{currentTimeStr}</Text>
-          <TouchableOpacity
-            activeOpacity={1}
-            onPress={handleSeekTouch}
+          <View
+            {...panResponder.panHandlers}
             onLayout={(e) => { barWidthRef.current = e.nativeEvent.layout.width; }}
             style={styles.seekerTrack}
           >
-            <View style={[styles.seekerFill, { width: `${progress * 100}%` }]} />
-            <View style={[styles.seekerKnob, { left: `${progress * 100}%` }]} />
-          </TouchableOpacity>
+            <View style={[styles.seekerTrackBg, isScrubbing && { height: 6, borderRadius: 3 }]} />
+            <View style={[styles.seekerFill, { width: `${progress * 100}%` }, isScrubbing && { height: 6, borderRadius: 3 }]} />
+            <View style={[
+              styles.seekerKnob,
+              { left: `${progress * 100}%` },
+              isScrubbing && styles.seekerKnobActive
+            ]} />
+          </View>
           <Text style={styles.timeText}>{durationStr}</Text>
         </View>
       </TouchableOpacity>
@@ -236,7 +273,7 @@ const MediaPreviewItem = React.memo(({
         .then(({ uri: generated }) => {
           if (active && generated) setThumbUri(generated);
         })
-        .catch(() => {});
+        .catch(() => { });
     }
 
     return () => { active = false; };
@@ -378,22 +415,44 @@ const styles = StyleSheet.create({
   },
   seekerTrack: {
     flex: 1,
-    height: 16,
+    height: 32,
     justifyContent: 'center',
     marginHorizontal: 8,
   },
+  seekerTrackBg: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: 'rgba(255, 255, 255, 0.3)',
+  },
   seekerFill: {
+    position: 'absolute',
+    left: 0,
     height: 4,
     backgroundColor: '#FF8D00',
     borderRadius: 2,
   },
   seekerKnob: {
     position: 'absolute',
-    width: 10,
-    height: 10,
-    borderRadius: 5,
+    width: 12,
+    height: 12,
+    borderRadius: 6,
     backgroundColor: '#ffffff',
-    marginLeft: -5,
+    marginLeft: -6,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.4,
+    shadowRadius: 2,
+    elevation: 3,
+  },
+  seekerKnobActive: {
+    width: 18,
+    height: 18,
+    borderRadius: 9,
+    marginLeft: -9,
+    backgroundColor: '#ffffff',
   }
 });
 
