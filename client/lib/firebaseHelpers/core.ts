@@ -629,7 +629,7 @@ export async function toggleUserPrivacy(uid: string, isPrivate: boolean) {
 }
 
 // ============= MEDIA =============
-export async function uploadMedia(uri: string, mediaType: 'image' | 'video' = 'image', path?: string): Promise<{ success: boolean; url?: string; error?: string }> {
+export async function uploadMedia(uri: string, mediaType: 'image' | 'video' = 'image', path?: string): Promise<{ success: boolean; url?: string; error?: string; thumbnailUrl?: string }> {
   try {
     console.log(`[uploadMedia] 📤 Starting ${mediaType} upload from URI:`, uri);
 
@@ -706,7 +706,7 @@ async function uploadWithMultipart(
   uri: string,
   mediaType: 'image' | 'video',
   path?: string
-): Promise<{ success: boolean; url?: string; error?: string }> {
+): Promise<{ success: boolean; url?: string; error?: string; thumbnailUrl?: string }> {
   try {
     const token = await AsyncStorage.getItem('token');
     const endpointUrl = `${API_BASE_URL}/upload/upload`;
@@ -768,11 +768,12 @@ async function uploadWithMultipart(
     }
 
     const url = response?.data?.url || response?.url || response?.secureUrl;
+    const thumbnailUrl = response?.data?.thumbnailUrl || response?.thumbnailUrl;
     if (!url) {
       return { success: false, error: 'No URL returned from multipart upload' };
     }
 
-    return { success: true, url };
+    return { success: true, url, thumbnailUrl };
   } catch (err: any) {
     return { success: false, error: err?.message || 'Multipart upload failed' };
   }
