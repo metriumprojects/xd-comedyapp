@@ -41,7 +41,6 @@ export {
   getActiveStories,
   getUserStories,
   createStory,
-  resolveNativeUri,
   addLikedStatusToPosts,
   getRegions,
   fetchMessages,

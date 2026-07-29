@@ -329,13 +329,18 @@ export function pickStoryMedia(flat: any): { imageUrl: string; videoUrl?: string
 
   if (looksVideo) {
     const video = firstHttpString(videoDirect, mediaUrl, imageDirect) || '';
-    const thumb = firstHttpString(
+    let thumb = firstHttpString(
       flat?.thumbnailUrl,
       flat?.thumbUrl,
-      flat?.imageUrl,
-      flat?.image,
       flat?.coverImage
     );
+    if (!thumb && flat?.imageUrl && !VIDEO_EXT.test(String(flat.imageUrl))) {
+      thumb = flat.imageUrl;
+    }
+    if (!thumb && video) {
+      const { getVideoThumbnailUrl } = require('./imageHelpers');
+      thumb = getVideoThumbnailUrl(video);
+    }
     return {
       imageUrl: thumb || '',
       videoUrl: video || undefined,

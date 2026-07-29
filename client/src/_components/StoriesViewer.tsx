@@ -714,8 +714,8 @@ export default function StoriesViewer({ stories, onClose, initialIndex = 0, isHi
                       shouldPlay={!isPaused && !showComments}
                       isMuted={isMuted}
                       isLooping={false}
-                      usePoster={true}
-                      posterSource={currentStoryImageUrl ? { uri: currentStoryImageUrl } : undefined}
+                      usePoster={!!(currentStoryImageUrl && !currentStoryImageUrl.endsWith('.mp4') && !currentStoryImageUrl.endsWith('.mov'))}
+                      posterSource={(currentStoryImageUrl && !currentStoryImageUrl.endsWith('.mp4') && !currentStoryImageUrl.endsWith('.mov')) ? { uri: currentStoryImageUrl } : undefined}
                       posterStyle={{ resizeMode: 'contain' }}
                       onLoadStart={() => setImageLoading(true)}
                       onLoad={status => {

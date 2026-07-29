@@ -137,11 +137,10 @@ async function generateVideoThumbnail(videoBuffer) {
  * @param {Buffer} videoBuffer - Video file buffer
  * @returns {Promise<Buffer>} Optimized MP4 video buffer
  */
-async function compressVideo(videoBuffer) {
-  // Performance optimization: Skip CPU-heavy compression if video is already pre-optimized on device (under 20MB)
-  // or explicitly bypassed via environment variable.
-  if (process.env.SKIP_BACKEND_VIDEO_COMPRESSION === 'true' || videoBuffer.length < 20 * 1024 * 1024) {
-    logger.info(`⚡ Skipping backend video compression (Buffer size: ${(videoBuffer.length / 1024 / 1024).toFixed(2)}MB is under 20MB threshold).`);
+async function compressVideo(videoBuffer, context) {
+  // Performance optimization: Skip CPU-heavy compression for stories or videos pre-optimized on device
+  if (context === 'story' || process.env.SKIP_BACKEND_VIDEO_COMPRESSION === 'true' || videoBuffer.length < 20 * 1024 * 1024) {
+    logger.info(`⚡ Skipping backend video compression (Context: ${context || 'general'}, Buffer size: ${(videoBuffer.length / 1024 / 1024).toFixed(2)}MB).`);
     return videoBuffer;
   }
 
@@ -236,16 +235,12 @@ async function uploadMedia(fileBuffer, folder, context, mediaType = 'auto', orig
       logger.warn(`Could not generate thumbnail for video: ${err.message}`);
     }
 
-    if (context !== 'story') {
-      try {
-        logger.info('🎬 Compressing video before uploading to S3...');
-        finalBuffer = await compressVideo(fileBuffer);
-        logger.info('✅ Video compression complete');
-      } catch (err) {
-        logger.warn(`Video compression failed, using original file buffer: ${err.message}`);
-      }
-    } else {
-      logger.info('⚡ Story upload detected: Skipping backend video re-encoding for instant upload.');
+    try {
+      logger.info('🎬 Compressing video before uploading to S3...');
+      finalBuffer = await compressVideo(fileBuffer, context);
+      logger.info('✅ Video compression complete');
+    } catch (err) {
+      logger.warn(`Video compression failed, using original file buffer: ${err.message}`);
     }
   }
 

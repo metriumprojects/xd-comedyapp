@@ -1,6 +1,5 @@
 import AsyncStorage from '@/lib/storage';
 import * as MediaLibrary from 'expo-media-library';
-import * as FileSystem from 'expo-file-system';
 import { apiService } from '@/src/_services/apiService';
 import { useAppStore } from '@/store/useAppStore';
 import { API_BASE_URL } from '../api';
@@ -786,52 +785,22 @@ export async function uploadImage(uri: string, path?: string) {
 
 
 
-export async function resolveNativeUri(nativeUri: string): Promise<string> {
-  if (!nativeUri) return nativeUri;
-  const isNative = nativeUri.startsWith('ph://') || nativeUri.startsWith('assets-library://') || nativeUri.startsWith('content://');
-  if (!isNative) return nativeUri;
-
-  const ext = nativeUri.toLowerCase().includes('video') || nativeUri.toLowerCase().includes('.mp4') || nativeUri.toLowerCase().includes('.mov') ? 'mp4' : 'jpg';
-  const filename = `resolved_${Date.now()}_${Math.random().toString(36).substring(7)}.${ext}`;
-  const dest = `${FileSystem.cacheDirectory}${filename}`;
-
-  try {
-    const info = await FileSystem.getInfoAsync(nativeUri);
-    if (info.exists && info.uri) {
-      await FileSystem.copyAsync({ from: info.uri, to: dest });
-      const check = await FileSystem.getInfoAsync(dest);
-      if (check.exists) return dest;
-    }
-  } catch (_) {
-    // fall through to MediaLibrary path
-  }
-
-  // Fallback: use MediaLibrary to get a localUri, then copy that
-  try {
-    const assetId = nativeUri.startsWith('ph://')
-      ? nativeUri.replace('ph://', '').split('/')[0]
-      : nativeUri;
-    const assetInfo = await MediaLibrary.getAssetInfoAsync(assetId, { copyToLocalContainer: true } as any);
-    const localUri = assetInfo?.localUri || assetInfo?.uri;
-    if (localUri) {
-      if (localUri.startsWith('file://')) {
-        await FileSystem.copyAsync({ from: localUri, to: dest });
-        const check2 = await FileSystem.getInfoAsync(dest);
-        if (check2.exists) return dest;
-        return localUri;
-      }
-      return localUri;
-    }
-  } catch (_) {
-    // fall through
-  }
-
-  return nativeUri;
-}
-
 async function uploadStoryMedia(uri: string, userId: string, mediaType: 'image' | 'video', onProgress?: (percent: number) => void): Promise<{ success: boolean; url?: string; error?: string; mediaType?: string; thumbnailUrl?: string }> {
   try {
-    const finalUri = await resolveNativeUri(uri);
+    let finalUri = uri;
+
+    // Handle iOS ph:// or assets-library:// URIs
+    if (uri.startsWith('ph://') || uri.startsWith('assets-library://')) {
+      try {
+        const assetId = uri.startsWith('ph://') 
+          ? uri.replace('ph://', '').split('/')[0] 
+          : uri;
+        const assetInfo = await MediaLibrary.getAssetInfoAsync(assetId);
+        finalUri = assetInfo.localUri || assetInfo.uri || uri;
+      } catch (err) {
+        console.warn('[uploadStoryMedia] Failed to resolve iOS asset:', err);
+      }
+    }
 
     const endpointUrl = `${API_BASE_URL}/upload/story`;
     const token = await AsyncStorage.getItem('token');
@@ -848,7 +817,6 @@ async function uploadStoryMedia(uri: string, userId: string, mediaType: 'image' 
     return await new Promise((resolve, reject) => {
       const xhr = new XMLHttpRequest();
       xhr.open('POST', endpointUrl);
-      xhr.timeout = 120000; // 2 minute client timeout safety net
 
       xhr.setRequestHeader('Accept', 'application/json');
       if (token) {
@@ -885,10 +853,6 @@ async function uploadStoryMedia(uri: string, userId: string, mediaType: 'image' 
 
       xhr.onerror = () => {
         reject(new Error('Upload failed'));
-      };
-
-      xhr.ontimeout = () => {
-        resolve({ success: false, error: 'Upload timed out. Please check your network connection.' });
       };
 
       xhr.send(formData as any);
