@@ -68,8 +68,21 @@ export default function CreatePostScreen() {
             if (selectedImages.includes(uri)) {
               setSelectedImages(selectedImages.filter(i => i !== uri));
             } else {
+              const isTargetVideo = isVideoUri(uri, galleryAssets);
+              const hasExistingVideo = selectedImages.some(i => isVideoUri(i, galleryAssets));
+
+              if (isTargetVideo) {
+                if (selectedImages.length > 0) {
+                  Alert.alert('Single Video Limit', 'Only 1 video can be selected per post.');
+                  return;
+                }
+              } else if (hasExistingVideo) {
+                Alert.alert('Single Video Limit', 'Only 1 video can be selected per post.');
+                return;
+              }
+
               if ((selectedImages || []).length >= 25) {
-                Alert.alert('Limit Reached', 'You can select up to 25 photos or videos.');
+                Alert.alert('Limit Reached', 'You can select up to 25 photos.');
                 return;
               }
               const asset = (galleryAssets || []).find(a => a.uri === uri);

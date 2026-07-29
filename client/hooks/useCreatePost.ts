@@ -430,6 +430,11 @@ export const useCreatePost = (params: any = {}) => {
       });
 
       if (!result.canceled && result.assets && result.assets.length > 0) {
+        const videoAssets = result.assets.filter(a => a.type === 'video' || isVideoUri(a.uri));
+        if (videoAssets.length > 1 || (videoAssets.length === 1 && result.assets.length > 1)) {
+          Alert.alert('Single Video Limit', 'Only 1 video can be selected per post.');
+          return;
+        }
         const tooLongVideo = result.assets.find(
           asset => {
             if (!isVideoUri(asset.uri) || !asset.duration) return false;
