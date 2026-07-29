@@ -38,7 +38,6 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import AsyncStorage from '@/lib/storage';
 import { SubscriptionModal } from './profile/SubscriptionModal';
 import { subscriptionService } from '@/src/_services/subscriptionService';
-import PostMedia from './PostCard/PostMedia';
 import { resolveCanonicalUserId } from '@/lib/currentUser';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
@@ -619,29 +618,6 @@ export const ReelItem = React.memo<ReelItemProps>(({
     }).filter(Boolean);
   }, [post]);
 
-  const [showFullScreenIndex, setShowFullScreenIndex] = useState<number | null>(null);
-
-  const reelMediaData = useMemo(() => {
-    if (Array.isArray(post?.media) && post.media.length > 0) {
-      return post.media.map((m: any, idx: number) => ({
-        url: m.url || m.uri || m,
-        type: m.type || (isVideoUrl(m.url || m.uri || m) ? 'video' : 'image'),
-        thumbnailUrl: m.thumbnailUrl || (idx === 0 ? (post?.thumbnailUrl || post?.imageUrl) : undefined),
-        aspectRatio: m.aspectRatio || post?.aspectRatio
-      }));
-    }
-    const rawUrls = Array.isArray(post?.mediaUrls) && post.mediaUrls.length > 0
-      ? [...post.mediaUrls]
-      : [post?.videoUrl || post?.imageUrl || ''].filter(Boolean);
-    
-    return rawUrls.map((url: string, idx: number) => ({
-      url,
-      type: isVideoUrl(url) ? 'video' : 'image',
-      thumbnailUrl: idx === 0 ? (post?.thumbnailUrl || (isVideoUrl(url) ? undefined : url)) : undefined,
-      aspectRatio: post?.aspectRatio
-    }));
-  }, [post]);
-
   const isImagePost = useMemo(() => {
     if (post?.mediaType === 'video') return false;
     if (post?.mediaType === 'image') return true;
@@ -773,23 +749,8 @@ export const ReelItem = React.memo<ReelItemProps>(({
 
   return (
     <View style={{ width: SCREEN_WIDTH, height: containerHeight, backgroundColor: '#000' }}>
-      {/* Media elements: Image, Video, or Multi-Media Carousel */}
-      {reelMediaData.length > 1 ? (
-        <PostMedia
-          media={reelMediaData}
-          mediaHeight={containerHeight}
-          activeIndex={currentImageIndex}
-          onScroll={(e) => {
-            const x = e.nativeEvent.contentOffset.x;
-            const index = Math.round(x / SCREEN_WIDTH);
-            if (index !== currentImageIndex) setCurrentImageIndex(index);
-          }}
-          onMediaPress={(index) => setShowFullScreenIndex(index)}
-          isMuted={isMuted}
-          toggleMute={toggleMute}
-          videoRef={undefined}
-        />
-      ) : isImagePost ? (
+      {/* Media elements: Image or Video */}
+      {isImagePost ? (
         imageUrls.length > 0 ? (
           <FlatList
             data={imageUrls}
@@ -840,37 +801,6 @@ export const ReelItem = React.memo<ReelItemProps>(({
           <Text style={{ color: '#fff' }}>No Video Available</Text>
         </View>
       )}
-
-      {/* Fullscreen Carousel Modal for Multi-Media */}
-      <Modal
-        visible={showFullScreenIndex !== null}
-        transparent={true}
-        animationType="fade"
-        onRequestClose={() => setShowFullScreenIndex(null)}
-      >
-        <View style={{ flex: 1, backgroundColor: '#000', justifyContent: 'center' }}>
-          <Pressable style={{ position: 'absolute', top: 50, right: 20, zIndex: 30 }} onPress={() => setShowFullScreenIndex(null)}>
-            <Ionicons name="close-circle" size={40} color="#fff" />
-          </Pressable>
-          {showFullScreenIndex !== null && (
-            <PostMedia
-              media={reelMediaData}
-              activeIndex={showFullScreenIndex}
-              onScroll={(e) => {
-                const x = e.nativeEvent.contentOffset.x;
-                const index = Math.round(x / SCREEN_WIDTH);
-                if (index !== showFullScreenIndex) {
-                  setShowFullScreenIndex(index);
-                }
-              }}
-              onMediaPress={() => setShowFullScreenIndex(null)}
-              isMuted={isMuted}
-              toggleMute={toggleMute}
-              videoRef={undefined}
-            />
-          )}
-        </View>
-      </Modal>
 
       {/* Centered Buffering Spinner (Overlay) */}
       {(isBuffering || !isLoaded) && (
