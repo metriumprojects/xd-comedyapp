@@ -291,8 +291,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 12,
     backgroundColor: '#f0f8ff',
-    borderTopWidth: 1,
-    borderTopColor: '#e0e0e0',
   },
   selectionText: {
     fontSize: 14,
@@ -303,8 +301,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     padding: 16,
     gap: 12,
-    borderTopWidth: 1,
-    borderTopColor: '#e0e0e0',
   },
   button: {
     flex: 1,

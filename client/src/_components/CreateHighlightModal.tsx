@@ -214,7 +214,7 @@ export default function CreateHighlightModal({
     }
     if (stories.length === 0) {
       return (
-        <View style={{ alignItems: 'center', paddingVertical: 35, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: '#f0f0f0', marginTop: 20 }}>
+        <View style={{ alignItems: 'center', paddingVertical: 35, marginTop: 20 }}>
           <Ionicons name="images-outline" size={40} color="#ccc" />
           <Text style={{ color: '#999', fontSize: 14, marginTop: 10, textAlign: 'center' }}>No stories available to add to highlights.</Text>
           <Text style={{ color: '#bbb', fontSize: 12, marginTop: 4, textAlign: 'center', paddingHorizontal: 20 }}>Only uploaded stories can be saved to your highlights.</Text>
@@ -224,7 +224,7 @@ export default function CreateHighlightModal({
 
     const itemWidth = (SCREEN_WIDTH - 40 - 16) / 3; // 40 horizontal padding, 16 gap
     return (
-      <View style={{ marginTop: 24, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: '#eee', paddingTop: 20 }}>
+      <View style={{ marginTop: 24, paddingTop: 20 }}>
         <Text style={{ fontSize: 15, fontWeight: '700', color: '#111', marginBottom: 12 }}>Select Stories</Text>
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
           {stories.map((story) => {
