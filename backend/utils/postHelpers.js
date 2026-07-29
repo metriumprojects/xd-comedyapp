@@ -159,7 +159,16 @@ async function enrichPostsWithUserData(posts, viewerId = null) {
 
           if (!seenUrls.has(url)) {
             seenUrls.add(url);
-            const isVideo = url.toLowerCase().includes('.mp4') || url.toLowerCase().includes('.mov') || url.toLowerCase().includes('video/upload') || m.type === 'video' || m.mediaType === 'video';
+            const lowerUrl = url.toLowerCase();
+            const isVideo = m.type === 'video' 
+              || m.mediaType === 'video' 
+              || lowerUrl.includes('.mp4') 
+              || lowerUrl.includes('.mov') 
+              || lowerUrl.includes('.m4v') 
+              || lowerUrl.includes('.webm') 
+              || lowerUrl.includes('video/upload') 
+              || lowerUrl.includes('/video/') 
+              || lowerUrl.includes('video-');
             
             mediaList.push({
               url,

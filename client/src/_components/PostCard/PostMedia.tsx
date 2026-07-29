@@ -224,6 +224,7 @@ interface PostMediaProps {
 const PostMedia: React.FC<PostMediaProps> = ({
   media,
   mediaHeight,
+  activeIndex,
   onScroll,
   onMediaPress,
   isMuted,
@@ -262,10 +263,16 @@ const PostMedia: React.FC<PostMediaProps> = ({
   const displayHeight = mediaHeight || (SCREEN_WIDTH / displayRatio);
 
   const renderItem = useCallback(({ item, index }: { item: MediaItem; index: number }) => {
+    const lowerUrl = item.url?.toLowerCase() || '';
     const isVideo = item.type === 'video'
-      || item.url?.toLowerCase().includes('.mp4')
-      || item.url?.toLowerCase().includes('.mov')
-      || item.url?.includes('video/upload');
+      || (item as any).mediaType === 'video'
+      || lowerUrl.includes('.mp4')
+      || lowerUrl.includes('.mov')
+      || lowerUrl.includes('.m4v')
+      || lowerUrl.includes('.webm')
+      || lowerUrl.includes('video/upload')
+      || lowerUrl.includes('/video/')
+      || lowerUrl.includes('video-');
 
     const containerHeight = mediaHeight || getMediaHeight(media[0]?.aspectRatio);
     const normalizedIndex = index % media.length;
@@ -306,15 +313,17 @@ const PostMedia: React.FC<PostMediaProps> = ({
 
   useEffect(() => {
     if (media.length > 1 && flatListRef.current && !isInitialScrollDone) {
+      const initialOffsetIndex = (activeIndex && activeIndex > 0 && activeIndex < media.length) ? activeIndex : 0;
+      if (initialOffsetIndex > 0) setLocalActiveIndex(initialOffsetIndex);
       setTimeout(() => {
         flatListRef.current?.scrollToOffset({
-          offset: media.length * SCREEN_WIDTH,
+          offset: (media.length + initialOffsetIndex) * SCREEN_WIDTH,
           animated: false,
         });
         setIsInitialScrollDone(true);
       }, 50);
     }
-  }, [media.length, isInitialScrollDone]);
+  }, [media.length, activeIndex, isInitialScrollDone]);
 
   const handleScroll = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
     const x = event.nativeEvent.contentOffset.x;
