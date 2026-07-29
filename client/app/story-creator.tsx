@@ -1149,8 +1149,6 @@ const styles = StyleSheet.create({
         justifyContent: 'space-between',
         paddingHorizontal: 16,
         paddingVertical: 12,
-        borderBottomWidth: StyleSheet.hairlineWidth,
-        borderBottomColor: '#f0f0f0',
         backgroundColor: '#fff',
     },
     headerBtn: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center' },

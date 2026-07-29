@@ -261,8 +261,6 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingVertical: responsiveValues.spacing,
     paddingHorizontal: responsiveValues.modalPadding,
-    borderBottomWidth: 1,
-    borderBottomColor: '#f0f0f0',
     backgroundColor: '#fff',
   },
   modalTitle: {
