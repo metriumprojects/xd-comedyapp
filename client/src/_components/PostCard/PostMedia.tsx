@@ -211,13 +211,13 @@ const ImageItem: React.FC<ImageItemProps> = ({ url, containerHeight, onPress, pr
 interface PostMediaProps {
   media: MediaItem[];
   mediaHeight?: number;
-  activeIndex: number;
+  activeIndex?: number;
   onScroll: (event: NativeSyntheticEvent<NativeScrollEvent>) => void;
   onMediaPress: (index: number) => void;
   onDoubleTap?: () => void;
   isMuted: boolean;
   toggleMute: () => void;
-  videoRef: React.RefObject<Video>;
+  videoRef?: React.RefObject<Video>;
   isLocked?: boolean;
 }
 
@@ -235,12 +235,18 @@ const PostMedia: React.FC<PostMediaProps> = ({
 }) => {
   const isFocused = useIsFocused();
   const [isPlaying, setIsPlaying] = useState(true);
-  const [localActiveIndex, setLocalActiveIndex] = useState(0);
+  const [localActiveIndex, setLocalActiveIndex] = useState(activeIndex || 0);
   const [detectedRatio, setDetectedRatio] = useState<number | null>(null);
   const [isInitialScrollDone, setIsInitialScrollDone] = useState(false);
   
   const lastTap = useRef<number>(0);
   const flatListRef = useRef<FlatList>(null);
+
+  useEffect(() => {
+    if (activeIndex !== undefined && activeIndex !== localActiveIndex) {
+      setLocalActiveIndex(activeIndex);
+    }
+  }, [activeIndex]);
 
   // Auto-pause when screen loses focus
   useEffect(() => {
@@ -263,7 +269,7 @@ const PostMedia: React.FC<PostMediaProps> = ({
   const displayHeight = mediaHeight || (SCREEN_WIDTH / displayRatio);
 
   const renderItem = useCallback(({ item, index }: { item: MediaItem; index: number }) => {
-    const lowerUrl = item.url?.toLowerCase() || '';
+    const lowerUrl = (item.url || '').toLowerCase();
     const isVideo = item.type === 'video'
       || (item as any).mediaType === 'video'
       || lowerUrl.includes('.mp4')
@@ -272,7 +278,7 @@ const PostMedia: React.FC<PostMediaProps> = ({
       || lowerUrl.includes('.webm')
       || lowerUrl.includes('video/upload')
       || lowerUrl.includes('/video/')
-      || lowerUrl.includes('video-');
+      || lowerUrl.includes('media/video');
 
     const containerHeight = mediaHeight || getMediaHeight(media[0]?.aspectRatio);
     const normalizedIndex = index % media.length;
@@ -313,17 +319,16 @@ const PostMedia: React.FC<PostMediaProps> = ({
 
   useEffect(() => {
     if (media.length > 1 && flatListRef.current && !isInitialScrollDone) {
-      const initialOffsetIndex = (activeIndex && activeIndex > 0 && activeIndex < media.length) ? activeIndex : 0;
-      if (initialOffsetIndex > 0) setLocalActiveIndex(initialOffsetIndex);
       setTimeout(() => {
+        const initialOffset = ((activeIndex || 0) + media.length) * SCREEN_WIDTH;
         flatListRef.current?.scrollToOffset({
-          offset: (media.length + initialOffsetIndex) * SCREEN_WIDTH,
+          offset: initialOffset,
           animated: false,
         });
         setIsInitialScrollDone(true);
       }, 50);
     }
-  }, [media.length, activeIndex, isInitialScrollDone]);
+  }, [media.length, isInitialScrollDone, activeIndex]);
 
   const handleScroll = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
     const x = event.nativeEvent.contentOffset.x;
@@ -344,10 +349,16 @@ const PostMedia: React.FC<PostMediaProps> = ({
 
   if (media.length === 1) {
     const item = firstItem;
+    const lowerUrl = (item.url || '').toLowerCase();
     const isVideo = item.type === 'video'
-      || item.url?.toLowerCase().includes('.mp4')
-      || item.url?.toLowerCase().includes('.mov')
-      || item.url?.includes('video/upload');
+      || (item as any).mediaType === 'video'
+      || lowerUrl.includes('.mp4')
+      || lowerUrl.includes('.mov')
+      || lowerUrl.includes('.m4v')
+      || lowerUrl.includes('.webm')
+      || lowerUrl.includes('video/upload')
+      || lowerUrl.includes('/video/')
+      || lowerUrl.includes('media/video');
 
     if (isVideo) {
       return (

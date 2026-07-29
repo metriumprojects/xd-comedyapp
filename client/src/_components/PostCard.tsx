@@ -68,7 +68,6 @@ const PostCard: React.FC<PostCardProps> = ({
   const [showComments, setShowComments] = useState<false | 'comment' | 'reactions'>(false);
   const [showShare, setShowShare] = useState(false);
   const [showFullScreen, setShowFullScreen] = useState<number | null>(null);
-  const [fullScreenIndex, setFullScreenIndex] = useState<number>(0);
   const [showPostMenu, setShowPostMenu] = useState(false);
   const [showTagsOverlay, setShowTagsOverlay] = useState(false);
   const [localReactions, setLocalReactions] = useState<any[]>(post?.reactions || []);
@@ -261,27 +260,11 @@ const PostCard: React.FC<PostCardProps> = ({
 
   const mediaData = useMemo(() => {
     const rawMedia = Array.isArray(post?.media) ? post.media : [];
-    return rawMedia.map((m: any, idx: number) => {
-      const url = typeof m === 'string' ? m : (m?.url || m?.uri || '');
-      const lowerUrl = url.toLowerCase();
-      const isVideo = m?.type === 'video' 
-        || m?.mediaType === 'video' 
-        || lowerUrl.includes('.mp4') 
-        || lowerUrl.includes('.mov') 
-        || lowerUrl.includes('.m4v') 
-        || lowerUrl.includes('.webm') 
-        || lowerUrl.includes('video/upload') 
-        || lowerUrl.includes('/video/') 
-        || lowerUrl.includes('video-');
-
-      return {
-        ...m,
-        url,
-        type: isVideo ? 'video' : 'image',
-        // Pass the grid thumbnail to the first item so it loads instantly from cache
-        thumbnailUrl: m?.thumbnailUrl || (idx === 0 ? (post?.thumbnailUrl || post?.imageUrl) : undefined)
-      };
-    });
+    return rawMedia.map((m: any, idx: number) => ({
+      ...m,
+      // Pass the grid thumbnail to the first item so it loads instantly from cache
+      thumbnailUrl: m.thumbnailUrl || (idx === 0 ? (post?.thumbnailUrl || post?.imageUrl) : undefined)
+    }));
   }, [post]);
 
   const isOwner = useMemo(() => {
@@ -361,7 +344,6 @@ const PostCard: React.FC<PostCardProps> = ({
               setShowTagsOverlay(!showTagsOverlay);
             } else {
               setShowFullScreen(index);
-              setFullScreenIndex(index);
             }
           }}
           onDoubleTap={() => {
@@ -697,15 +679,8 @@ const PostCard: React.FC<PostCardProps> = ({
           {showFullScreen !== null && (
             <PostMedia 
               media={mediaData}
-              activeIndex={fullScreenIndex}
-              onScroll={(event) => {
-                const x = event.nativeEvent.contentOffset.x;
-                const totalContentWidth = mediaData.length * SCREEN_WIDTH;
-                const idx = Math.round((x % totalContentWidth) / SCREEN_WIDTH) % mediaData.length;
-                if (idx >= 0 && idx < mediaData.length && idx !== fullScreenIndex) {
-                  setFullScreenIndex(idx);
-                }
-              }}
+              activeIndex={showFullScreen}
+              onScroll={() => {}}
               onMediaPress={() => setShowFullScreen(null)}
               isMuted={isMuted}
               toggleMute={() => setIsMuted(!isMuted)}
