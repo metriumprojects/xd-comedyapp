@@ -793,7 +793,7 @@ export const ReelItem = React.memo<ReelItemProps>(({
           <ExpoImage
             source={thumbUrl ? { uri: thumbUrl } : undefined}
             style={StyleSheet.absoluteFill}
-            contentFit="cover"
+            contentFit="contain"
           />
         )
       ) : (
@@ -1428,13 +1428,11 @@ const ReelVideoPlayer: React.FC<ReelVideoPlayerProps> = ({
     };
   }, [player, setIsLoaded, setIsBuffering]);
 
-  const isLandscape = typeof aspectRatio === 'number' && aspectRatio > 1.1;
-
   return (
     <VideoView
       player={player}
       style={StyleSheet.absoluteFill}
-      contentFit={isLandscape ? "contain" : "cover"}
+      contentFit="contain"
       nativeControls={false}
     />
   );
