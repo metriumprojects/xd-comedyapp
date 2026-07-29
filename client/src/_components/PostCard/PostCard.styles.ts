@@ -211,6 +211,9 @@ export const styles = StyleSheet.create({
     top: 10,
     right: 10,
     zIndex: 20,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
   },
   videoProgressBarContainer: {
     position: 'absolute',

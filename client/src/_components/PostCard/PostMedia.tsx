@@ -65,9 +65,15 @@ const VideoItem: React.FC<VideoItemProps> = ({
   onRatioDetected,
   thumbnailUrl
 }) => {
+  const localVideoRef = useRef<Video>(null);
+  const activeVideoRef = videoRef || localVideoRef;
   const [isLoaded, setIsLoaded] = useState(false);
   const mediaUri = getMediaUrl(url);
   const thumbUri = thumbnailUrl ? getMediaUrl(thumbnailUrl) : undefined;
+
+  const handleFullscreen = () => {
+    activeVideoRef.current?.presentFullscreenPlayer();
+  };
 
   return (
     <TouchableOpacity
@@ -89,7 +95,7 @@ const VideoItem: React.FC<VideoItemProps> = ({
         />
       )}
       <Video
-        ref={videoRef}
+        ref={activeVideoRef}
         source={{ uri: mediaUri }}
         style={{ width: SCREEN_WIDTH, height: containerHeight }}
         resizeMode={resizeMode}
@@ -144,6 +150,17 @@ const VideoItem: React.FC<VideoItemProps> = ({
         >
           <Ionicons
             name={isMuted ? "volume-mute" : "volume-high"}
+            size={16}
+            color="#fff"
+          />
+        </TouchableOpacity>
+        <TouchableOpacity
+          activeOpacity={0.7}
+          style={styles.muteButtonMini}
+          onPress={handleFullscreen}
+        >
+          <Ionicons
+            name="expand"
             size={16}
             color="#fff"
           />
