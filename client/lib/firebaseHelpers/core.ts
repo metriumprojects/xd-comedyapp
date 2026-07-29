@@ -817,6 +817,7 @@ async function uploadStoryMedia(uri: string, userId: string, mediaType: 'image' 
     return await new Promise((resolve, reject) => {
       const xhr = new XMLHttpRequest();
       xhr.open('POST', endpointUrl);
+      xhr.timeout = 120000; // 2 minute client timeout safety net
 
       xhr.setRequestHeader('Accept', 'application/json');
       if (token) {
@@ -853,6 +854,10 @@ async function uploadStoryMedia(uri: string, userId: string, mediaType: 'image' 
 
       xhr.onerror = () => {
         reject(new Error('Upload failed'));
+      };
+
+      xhr.ontimeout = () => {
+        resolve({ success: false, error: 'Upload timed out. Please check your network connection.' });
       };
 
       xhr.send(formData as any);

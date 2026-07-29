@@ -236,12 +236,16 @@ async function uploadMedia(fileBuffer, folder, context, mediaType = 'auto', orig
       logger.warn(`Could not generate thumbnail for video: ${err.message}`);
     }
 
-    try {
-      logger.info('🎬 Compressing video before uploading to S3...');
-      finalBuffer = await compressVideo(fileBuffer);
-      logger.info('✅ Video compression complete');
-    } catch (err) {
-      logger.warn(`Video compression failed, using original file buffer: ${err.message}`);
+    if (context !== 'story') {
+      try {
+        logger.info('🎬 Compressing video before uploading to S3...');
+        finalBuffer = await compressVideo(fileBuffer);
+        logger.info('✅ Video compression complete');
+      } catch (err) {
+        logger.warn(`Video compression failed, using original file buffer: ${err.message}`);
+      }
+    } else {
+      logger.info('⚡ Story upload detected: Skipping backend video re-encoding for instant upload.');
     }
   }
 
