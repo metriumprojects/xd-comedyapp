@@ -22,13 +22,18 @@ interface PostDetailsFormProps {
   visibility: string;
   subscriptionTierId?: string | null;
   onOpenVisibility: () => void;
+  hasVideo?: boolean;
+  customThumbnailUri?: string | null;
+  onSelectCustomThumbnail?: () => void;
+  onRemoveCustomThumbnail?: () => void;
 }
 
 const PostDetailsForm: React.FC<PostDetailsFormProps> = ({
   caption, setCaption, hashtags, hashtagInput, onHashtagInputChange, onHashtagCommit, onRemoveTag,
   selectedCategories, onOpenCategories, onRemoveCategory, locationName, onOpenLocation,
   taggedUsers, onOpenTagPeople, onRemoveTaggedUser,
-  visibility, subscriptionTierId, onOpenVisibility
+  visibility, subscriptionTierId, onOpenVisibility,
+  hasVideo, customThumbnailUri, onSelectCustomThumbnail, onRemoveCustomThumbnail
 }) => {
   return (
     <View style={{ flex: 1, backgroundColor: '#fff' }}>
@@ -45,6 +50,39 @@ const PostDetailsForm: React.FC<PostDetailsFormProps> = ({
             multiline={false}
           />
         </View>
+
+        {/* Video Cover / Thumbnail Row (TikTok Style) */}
+        {hasVideo && (
+          <View style={{ paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: '#f5f5f5' }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
+                <Feather name="image" size={18} color="#FF8D00" style={{ marginRight: 15 }} />
+                <View>
+                  <Text style={{ fontSize: 14, fontWeight: '600', color: '#000' }}>Video Cover / Thumbnail</Text>
+                  <Text style={{ fontSize: 12, color: '#666', marginTop: 2 }}>
+                    {customThumbnailUri ? 'Custom cover selected' : 'Auto cover (from video frame)'}
+                  </Text>
+                </View>
+              </View>
+
+              {customThumbnailUri ? (
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                  <Image source={{ uri: customThumbnailUri }} style={{ width: 36, height: 36, borderRadius: 6, borderWidth: 1, borderColor: '#e0e0e0' }} />
+                  <TouchableOpacity onPress={onSelectCustomThumbnail} style={{ backgroundColor: '#f0f0f0', paddingHorizontal: 10, paddingVertical: 6, borderRadius: 16 }}>
+                    <Text style={{ fontSize: 12, fontWeight: '600', color: '#333' }}>Change</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity onPress={onRemoveCustomThumbnail} style={{ backgroundColor: '#ffebee', paddingHorizontal: 8, paddingVertical: 6, borderRadius: 16 }}>
+                    <Feather name="trash-2" size={14} color="#d32f2f" />
+                  </TouchableOpacity>
+                </View>
+              ) : (
+                <TouchableOpacity onPress={onSelectCustomThumbnail} style={{ backgroundColor: '#FF8D00', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 16 }}>
+                  <Text style={{ fontSize: 12, fontWeight: '700', color: '#fff' }}>+ Select Cover</Text>
+                </TouchableOpacity>
+              )}
+            </View>
+          </View>
+        )}
 
         {/* Tags Row */}
         <View>

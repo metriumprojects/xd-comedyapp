@@ -156,6 +156,29 @@ export const useCreatePost = (params: any = {}) => {
   const [taggedUsers, setTaggedUsers] = useState<UserType[]>([]);
   const [postType, setPostType] = useState(params.postType || 'POST');
   const [selectedCategories, setSelectedCategories] = useState<any[]>([]);
+  const [customThumbnailUri, setCustomThumbnailUri] = useState<string | null>(null);
+
+  const handleSelectCustomThumbnail = async () => {
+    try {
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        quality: 0.85,
+      });
+
+      if (!result.canceled && result.assets && result.assets.length > 0) {
+        setCustomThumbnailUri(result.assets[0].uri);
+        hapticLight();
+      }
+    } catch (e) {
+      console.error('[handleSelectCustomThumbnail] Error:', e);
+    }
+  };
+
+  const handleRemoveCustomThumbnail = () => {
+    setCustomThumbnailUri(null);
+    hapticLight();
+  };
   
   // --- MODAL & SEARCH STATES ---
   const [locationSearch, setLocationSearch] = useState('');
@@ -487,7 +510,7 @@ export const useCreatePost = (params: any = {}) => {
           visibility,
           selectedGroupId ? [selectedGroupId] : [],
           postType === 'STORY' ? 'story' : 'post',
-          undefined,
+          customThumbnailUri || undefined,
           undefined,
           subscriptionTierId
         );
@@ -707,6 +730,7 @@ export const useCreatePost = (params: any = {}) => {
     categorySearch, setCategorySearch, categories, setCategories,
     galleryAssets, loadingGallery, hasMoreGallery, galleryEndCursor, loadGalleryAssets,
     handleShare, handleHashtagCommit, handleCamera, handleLaunchImageLibrary, handleVerifiedSearch, isEditMode: !!params.editPostId,
-    fetchNearbyVerifiedLocations
+    fetchNearbyVerifiedLocations, customThumbnailUri, setCustomThumbnailUri,
+    handleSelectCustomThumbnail, handleRemoveCustomThumbnail
   };
 };

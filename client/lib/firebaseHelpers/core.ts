@@ -1018,6 +1018,7 @@ export async function createPost(
       return uniqueLocationKeys(normalized);
     };
 
+    let autoThumbnailUrl = '';
     const mediaUrls = [];
     for (const uri of mediaUris || []) {
       // If it's already an uploaded image from our server/cloudinary, don't re-upload
@@ -1028,17 +1029,22 @@ export async function createPost(
       const upload = await uploadMedia(uri, mediaType);
       if (!upload?.url) throw new Error(upload?.error || 'Upload failed');
       mediaUrls.push(upload.url);
+      if (mediaType === 'video' && upload.thumbnailUrl && !autoThumbnailUrl) {
+        autoThumbnailUrl = upload.thumbnailUrl;
+      }
     }
 
     const locationKeys = buildLocationKeys();
 
-    let uploadedThumbnailUrl = '';
+    let uploadedThumbnailUrl = autoThumbnailUrl;
     if (thumbnailUrlRaw) {
       try {
         const thumbUpload = await uploadMedia(thumbnailUrlRaw, 'image');
-        uploadedThumbnailUrl = thumbUpload?.url || '';
+        if (thumbUpload?.url) {
+          uploadedThumbnailUrl = thumbUpload.url;
+        }
       } catch (e) {
-        console.warn('Failed to upload thumbnail:', e);
+        console.warn('Failed to upload custom thumbnail:', e);
       }
     }
 

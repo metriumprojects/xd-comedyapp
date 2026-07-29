@@ -38,7 +38,7 @@ export default function CreatePostScreen() {
     userSearch, userResults, loadingUserResults, handleUserSearch,
     categorySearch, setCategorySearch, isEditMode,
     galleryEndCursor, handleCamera, handleLaunchImageLibrary, loadGalleryAssets, handleVerifiedSearch,
-    fetchNearbyVerifiedLocations
+    fetchNearbyVerifiedLocations, customThumbnailUri, handleSelectCustomThumbnail, handleRemoveCustomThumbnail
   } = useCreatePost(params);
 
   // Modal visibility states
@@ -140,6 +140,10 @@ export default function CreatePostScreen() {
                 visibility={visibility}
                 subscriptionTierId={subscriptionTierId}
                 onOpenVisibility={() => setShowVisibilityModal(true)}
+                hasVideo={(selectedImages || []).some(uri => isVideoUri(uri, galleryAssets))}
+                customThumbnailUri={customThumbnailUri}
+                onSelectCustomThumbnail={handleSelectCustomThumbnail}
+                onRemoveCustomThumbnail={handleRemoveCustomThumbnail}
               />
             </ScrollView>
 
