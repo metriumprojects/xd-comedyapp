@@ -397,7 +397,7 @@ const PostMedia: React.FC<PostMediaProps> = ({
         <View style={{
           position: 'absolute',
           bottom: 12,
-          right: 50,
+          right: 58,
           backgroundColor: 'rgba(0,0,0,0.6)',
           paddingHorizontal: 10,
           paddingVertical: 4,
