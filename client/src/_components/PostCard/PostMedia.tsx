@@ -142,6 +142,7 @@ const VideoItem: React.FC<VideoItemProps> = ({
         </View>
       )}
 
+      {/* Top Right: Mute button */}
       <View style={styles.videoOverlay} pointerEvents="box-none">
         <TouchableOpacity
           activeOpacity={0.7}
@@ -154,6 +155,10 @@ const VideoItem: React.FC<VideoItemProps> = ({
             color="#fff"
           />
         </TouchableOpacity>
+      </View>
+
+      {/* Bottom Right: Fullscreen button */}
+      <View style={styles.videoBottomOverlay} pointerEvents="box-none">
         <TouchableOpacity
           activeOpacity={0.7}
           style={styles.muteButtonMini}
@@ -386,20 +391,22 @@ const PostMedia: React.FC<PostMediaProps> = ({
           index,
         })}
       />
-      <View style={{
-        position: 'absolute',
-        bottom: 12,
-        right: 12,
-        backgroundColor: 'rgba(0,0,0,0.6)',
-        paddingHorizontal: 10,
-        paddingVertical: 4,
-        borderRadius: 12,
-        zIndex: 10,
-      }}>
-        <Text style={{ color: '#fff', fontSize: 12, fontWeight: '600' }}>
-          {localActiveIndex + 1}/{media.length}
-        </Text>
-      </View>
+      {media.length > 1 && (
+        <View style={{
+          position: 'absolute',
+          bottom: 12,
+          right: 50,
+          backgroundColor: 'rgba(0,0,0,0.6)',
+          paddingHorizontal: 10,
+          paddingVertical: 4,
+          borderRadius: 12,
+          zIndex: 10,
+        }}>
+          <Text style={{ color: '#fff', fontSize: 12, fontWeight: '600' }}>
+            {localActiveIndex + 1}/{media.length}
+          </Text>
+        </View>
+      )}
     </View>
   );
 };

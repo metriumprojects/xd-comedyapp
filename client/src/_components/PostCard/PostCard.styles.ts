@@ -211,9 +211,12 @@ export const styles = StyleSheet.create({
     top: 10,
     right: 10,
     zIndex: 20,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
+  },
+  videoBottomOverlay: {
+    position: 'absolute',
+    bottom: 12,
+    right: 12,
+    zIndex: 20,
   },
   videoProgressBarContainer: {
     position: 'absolute',
