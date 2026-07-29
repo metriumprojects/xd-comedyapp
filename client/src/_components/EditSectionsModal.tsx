@@ -4,7 +4,7 @@ import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, Keyboard, KeyboardAvoidingView, Modal, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import DraggableFlatList, { RenderItemParams, ScaleDecorator } from 'react-native-draggable-flatlist';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import AsyncStorage from '@/lib/storage';
 import { apiService } from '../_services/apiService';
 import { getUserSectionsSorted } from '../../lib/firebaseHelpers/getUserSectionsSorted';
@@ -49,6 +49,7 @@ export default function EditSectionsModal({
   posts,
   onSectionsUpdate,
 }: EditSectionsModalProps) {
+  const insets = useSafeAreaInsets();
   const [selectedSectionForEdit, setSelectedSectionForEdit] = useState<string | null>(null);
   const [sectionMode, setSectionMode] = useState<'select' | 'cover' | 'visibility' | 'collaborators'>('select');
   const [newSectionName, setNewSectionName] = useState('');
@@ -521,7 +522,7 @@ export default function EditSectionsModal({
           style={{ flex: 1 }}
           behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         >
-          <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
+          <View style={[styles.container, { paddingTop: Platform.OS === 'ios' ? Math.max(insets.top, 44) : Math.max(insets.top, 12) }]}>
             {/* Header */}
             <View style={styles.header}>
               <TouchableOpacity onPress={onClose} style={styles.closeBtn}>
@@ -531,7 +532,7 @@ export default function EditSectionsModal({
               <View style={{ width: 40 }} />
             </View>
 
-            <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+            <ScrollView contentContainerStyle={[styles.content, { paddingBottom: Math.max(insets.bottom, 20) }]} keyboardShouldPersistTaps="handled">
               {/* Create new section button */}
               {!showCreateInput && isOwner ? (
                 <TouchableOpacity
@@ -739,7 +740,7 @@ export default function EditSectionsModal({
             </View>
           )}
             </ScrollView>
-          </SafeAreaView>
+          </View>
         </KeyboardAvoidingView>
       </GestureHandlerRootView>
     </Modal>
