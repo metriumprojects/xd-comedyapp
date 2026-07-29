@@ -28,7 +28,7 @@ import {
 import { safeRouterBack } from '@/lib/safeRouterBack';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Video, ResizeMode } from 'expo-av';
-import { createStory } from '@/lib/firebaseHelpers/index';
+import { createStory, resolveNativeUri } from '@/lib/firebaseHelpers/index';
 import { getAuthenticatedUserId } from '@/lib/currentUser';
 import { apiService } from '@/src/_services/apiService';
 import { hapticLight, hapticMedium, hapticSuccess } from '@/lib/haptics';
@@ -371,10 +371,11 @@ export default function StoryCreatorScreen() {
             });
             if (!result.canceled && result.assets?.[0]) {
                 const asset = result.assets[0];
-                setSelectedUri(asset.uri);
+                const resolvedUri = await resolveNativeUri(asset.uri);
+                setSelectedUri(resolvedUri);
                 setSelectedAsset({
                     id: 'camera',
-                    uri: asset.uri,
+                    uri: resolvedUri,
                     mediaType: asset.type === 'video' ? 'video' : 'photo',
                 });
                 setStep('editor');
@@ -521,20 +522,7 @@ export default function StoryCreatorScreen() {
                 <TouchableOpacity
                     activeOpacity={0.85}
                     onPress={async () => {
-                        let targetUri = item.uri;
-                        if (item.uri.startsWith('ph://') || item.uri.startsWith('assets-library://')) {
-                            try {
-                                const assetId = item.uri.startsWith('ph://')
-                                    ? item.uri.replace('ph://', '').split('/')[0]
-                                    : item.uri;
-                                const assetInfo = await MediaLibrary.getAssetInfoAsync(assetId, { copyToLocalContainer: true } as any);
-                                if (assetInfo) {
-                                    targetUri = assetInfo.localUri || assetInfo.uri || item.uri;
-                                }
-                            } catch (e) {
-                                console.warn('[story-creator] Failed to resolve iOS local URI for preview:', e);
-                            }
-                        }
+                        const targetUri = await resolveNativeUri(item.uri);
                         setSelectedUri(targetUri);
                         setSelectedAsset(item);
                         setStep('editor');
