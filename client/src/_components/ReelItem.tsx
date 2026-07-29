@@ -595,38 +595,44 @@ export const ReelItem = React.memo<ReelItemProps>(({
     post?.userAvatar || post?.user?.profilePicture || post?.user?.avatar || post?.user?.photoURL || post?.userId?.avatar || post?.userId?.profilePicture
   );
 
-  const videoUrl = useMemo(() => {
-    const media = Array.isArray(post?.media) ? post.media[0] : null;
-    let url = media?.url || post?.mediaUrls?.[0] || post?.imageUrl || '';
-    return getOptimizedMediaUrl(url);
-  }, [post]);
-
-  const imageUrls = useMemo(() => {
-    const urls = Array.isArray(post?.mediaUrls) ? [...post.mediaUrls] : [];
-    if (urls.length === 0 && post?.imageUrl) {
-      urls.push(post.imageUrl);
+  const mediaList = useMemo(() => {
+    if (Array.isArray(post?.media) && post.media.length > 0) {
+      return post.media.map((item: any) => {
+        const rawUrl = typeof item === 'string' ? item : (item?.url || item?.uri || '');
+        const optUrl = getOptimizedMediaUrl(rawUrl);
+        const itemType: 'image' | 'video' = (typeof item === 'object' && item?.type === 'video')
+          || (typeof item === 'object' && item?.type === 'image' ? false : isVideoUrl(rawUrl))
+            ? 'video'
+            : 'image';
+        const thumb = typeof item === 'object' ? item?.thumbnailUrl : undefined;
+        return { url: optUrl, type: itemType, thumbnailUrl: thumb };
+      }).filter((m: any) => !!m.url);
     }
-    return urls.map((url: string) => {
-      if (!url) return '';
-      if (url.startsWith('http') || url.startsWith('data:') || url.startsWith('file:')) {
-        return url;
-      }
-      const baseUrl = apiService.getBaseUrl ? apiService.getBaseUrl() : 'http://localhost:5000/api';
-      const cleanBaseUrl = baseUrl.replace('/api', '');
-      const path = url.startsWith('/') ? url : `/${url}`;
-      return `${cleanBaseUrl}${path}`;
-    }).filter(Boolean);
-  }, [post]);
 
-  const isImagePost = useMemo(() => {
-    if (post?.mediaType === 'video') return false;
-    if (post?.mediaType === 'image') return true;
-    const media = Array.isArray(post?.media) ? post.media[0] : null;
-    let url = media?.url || post?.mediaUrls?.[0] || post?.imageUrl || '';
-    return !url || !isVideoUrl(url);
+    if (Array.isArray(post?.mediaUrls) && post.mediaUrls.length > 0) {
+      return post.mediaUrls.map((url: string) => {
+        const optUrl = getOptimizedMediaUrl(url);
+        return {
+          url: optUrl,
+          type: isVideoUrl(url) ? 'video' : 'image',
+        };
+      }).filter((m: any) => !!m.url);
+    }
+
+    const singleUrl = post?.videoUrl || post?.imageUrl || '';
+    if (singleUrl) {
+      const optUrl = getOptimizedMediaUrl(singleUrl);
+      const isVid = post?.mediaType === 'video' || isVideoUrl(singleUrl);
+      return [{ url: optUrl, type: isVid ? ('video' as const) : ('image' as const) }];
+    }
+
+    return [];
   }, [post]);
 
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
+
+  const activeMediaItem = mediaList[currentImageIndex] || mediaList[0];
+  const isCurrentItemVideo = activeMediaItem?.type === 'video';
 
   const handleScroll = useCallback((event: any) => {
     const contentOffsetX = event.nativeEvent.contentOffset.x;
@@ -639,8 +645,9 @@ export const ReelItem = React.memo<ReelItemProps>(({
     if (rawThumb && isVideoUrl(rawThumb)) {
       rawThumb = '';
     }
-    return getVideoThumbnailUrl(videoUrl, rawThumb);
-  }, [post, videoUrl]);
+    const firstVidUrl = mediaList.find((m: any) => m.type === 'video')?.url || '';
+    return getVideoThumbnailUrl(firstVidUrl, rawThumb);
+  }, [post, mediaList]);
 
   const isOwner = useMemo(() => {
     // Build all possible author IDs
@@ -749,56 +756,58 @@ export const ReelItem = React.memo<ReelItemProps>(({
 
   return (
     <View style={{ width: SCREEN_WIDTH, height: containerHeight, backgroundColor: '#000' }}>
-      {/* Media elements: Image or Video */}
-      {isImagePost ? (
-        imageUrls.length > 0 ? (
-          <FlatList
-            data={imageUrls}
-            horizontal
-            pagingEnabled
-            showsHorizontalScrollIndicator={false}
-            keyExtractor={(item, index) => index.toString()}
-            style={StyleSheet.absoluteFill}
-            onScroll={handleScroll}
-            scrollEventThrottle={16}
-            renderItem={({ item }) => (
+      {/* Media elements: Unified Image, Video, or Mixed Carousel */}
+      {mediaList.length > 0 ? (
+        <FlatList
+          data={mediaList}
+          horizontal
+          pagingEnabled
+          showsHorizontalScrollIndicator={false}
+          keyExtractor={(_, idx) => idx.toString()}
+          style={StyleSheet.absoluteFill}
+          onScroll={handleScroll}
+          scrollEventThrottle={16}
+          renderItem={({ item, index }) => {
+            if (item.type === 'video') {
+              return (
+                <View style={{ width: SCREEN_WIDTH, height: containerHeight }}>
+                  {shouldLoad ? (
+                    <ReelVideoPlayer
+                      videoUrl={item.url}
+                      isActive={isActive && currentImageIndex === index}
+                      isPlaying={isPlaying && currentImageIndex === index}
+                      isMuted={isMuted}
+                      isLocked={isLocked}
+                      storiesViewerVisible={storiesViewerVisible}
+                      setIsLoaded={setIsLoaded}
+                      setIsBuffering={setIsBuffering}
+                      aspectRatio={post?.aspectRatio}
+                    />
+                  ) : (
+                    <ExpoImage
+                      source={item.thumbnailUrl || thumbUrl ? { uri: item.thumbnailUrl || thumbUrl } : undefined}
+                      style={StyleSheet.absoluteFill}
+                      contentFit="contain"
+                    />
+                  )}
+                </View>
+              );
+            }
+
+            return (
               <ExpoImage
-                source={{ uri: item }}
+                source={{ uri: item.url }}
                 style={{ width: SCREEN_WIDTH, height: containerHeight }}
                 contentFit="contain"
                 onLoad={() => setIsLoaded(true)}
                 onError={() => setIsLoaded(true)}
               />
-            )}
-          />
-        ) : (
-          <View style={[StyleSheet.absoluteFill, { justifyContent: 'center', alignItems: 'center', backgroundColor: '#000' }]}>
-            <Text style={{ color: '#fff' }}>No Image Available</Text>
-          </View>
-        )
-      ) : videoUrl ? (
-        shouldLoad ? (
-          <ReelVideoPlayer
-            videoUrl={videoUrl}
-            isActive={isActive}
-            isPlaying={isPlaying}
-            isMuted={isMuted}
-            isLocked={isLocked}
-            storiesViewerVisible={storiesViewerVisible}
-            setIsLoaded={setIsLoaded}
-            setIsBuffering={setIsBuffering}
-            aspectRatio={post?.aspectRatio}
-          />
-        ) : (
-          <ExpoImage
-            source={thumbUrl ? { uri: thumbUrl } : undefined}
-            style={StyleSheet.absoluteFill}
-            contentFit="contain"
-          />
-        )
+            );
+          }}
+        />
       ) : (
         <View style={[StyleSheet.absoluteFill, { justifyContent: 'center', alignItems: 'center', backgroundColor: '#000' }]}>
-          <Text style={{ color: '#fff' }}>No Video Available</Text>
+          <Text style={{ color: '#fff' }}>No Media Available</Text>
         </View>
       )}
 
@@ -808,13 +817,13 @@ export const ReelItem = React.memo<ReelItemProps>(({
       )}
 
       {/* Tap overlay to play/pause or exit fullscreen */}
-      {(!isImagePost || isFullscreenMode) && (
+      {(isCurrentItemVideo || isFullscreenMode) && (
         <TouchableOpacity
           activeOpacity={1}
           onPress={() => {
             if (isFullscreenMode) {
               onToggleFullscreen();
-            } else if (!isImagePost) {
+            } else if (isCurrentItemVideo) {
               setIsPlaying(!isPlaying);
             }
           }}
@@ -823,7 +832,7 @@ export const ReelItem = React.memo<ReelItemProps>(({
       )}
 
       {/* Double Tap or Single Tap Pause icon overlay */}
-      {!isPlaying && isLoaded && !isImagePost && (
+      {!isPlaying && isLoaded && isCurrentItemVideo && (
         <View pointerEvents="none" style={styles.playPauseContainer}>
           <View style={styles.playPauseIcon}>
             <Ionicons name="play" size={36} color="#fff" />
@@ -832,7 +841,7 @@ export const ReelItem = React.memo<ReelItemProps>(({
       )}
 
       {/* Center Mute Button Overlay (shown only when paused/with play button) */}
-      {!isPlaying && isLoaded && !isImagePost && (
+      {!isPlaying && isLoaded && isCurrentItemVideo && (
         <TouchableOpacity
           activeOpacity={0.7}
           style={styles.centerMuteBtn}
@@ -1039,9 +1048,9 @@ export const ReelItem = React.memo<ReelItemProps>(({
       {/* Bottom Uploader details & Captions overlay */}
       {!isFullscreenMode && (
         <View style={styles.bottomOverlay} pointerEvents="box-none">
-          {isImagePost && imageUrls.length > 1 && (
+          {mediaList.length > 1 && (
             <View style={styles.carouselIndicator}>
-              {imageUrls.map((_, index) => (
+              {mediaList.map((_: any, index: number) => (
                 <View
                   key={index}
                   style={[
