@@ -74,6 +74,78 @@ interface SavedPost {
   thumbnailUrl?: string;
 }
 
+const videoThumbnailCache = new Map<string, string>();
+
+const SavedGridItem = React.memo(({
+  item,
+  index,
+  onPress,
+}: {
+  item: SavedPost;
+  index: number;
+  onPress: () => void;
+}) => {
+  const mainMediaUrl = item.mediaUrl || item.imageUrl || (Array.isArray(item.mediaUrls) && item.mediaUrls[0]) || '';
+  const isVideo = item.mediaType === 'video' || isVideoUrl(mainMediaUrl) || isVideoUrl(item.imageUrl);
+
+  const initialMediaUrl = item.gridThumb || item.thumbnailUrl || (isVideo ? getVideoThumbnailUrl(mainMediaUrl) : mainMediaUrl) || '';
+  const [thumbUrl, setThumbUrl] = useState<string>(() => {
+    if (isVideo && mainMediaUrl && videoThumbnailCache.has(mainMediaUrl)) {
+      return videoThumbnailCache.get(mainMediaUrl)!;
+    }
+    return initialMediaUrl;
+  });
+
+  useEffect(() => {
+    let isMounted = true;
+    const resolved = item.gridThumb || item.thumbnailUrl || (isVideo ? getVideoThumbnailUrl(mainMediaUrl) : mainMediaUrl) || '';
+
+    if (isVideo && mainMediaUrl && (isVideoUrl(resolved) || !resolved || resolved.endsWith('.mp4') || resolved.endsWith('.mov'))) {
+      if (videoThumbnailCache.has(mainMediaUrl)) {
+        setThumbUrl(videoThumbnailCache.get(mainMediaUrl)!);
+      } else {
+        import('expo-video-thumbnails')
+          .then(({ getThumbnailAsync }) => {
+            getThumbnailAsync(mainMediaUrl, { time: 1000 })
+              .then(({ uri }) => {
+                if (uri) {
+                  videoThumbnailCache.set(mainMediaUrl, uri);
+                  if (isMounted) setThumbUrl(uri);
+                }
+              })
+              .catch(() => {});
+          });
+      }
+    } else {
+      setThumbUrl(resolved);
+    }
+    return () => { isMounted = false; };
+  }, [item, isVideo, mainMediaUrl]);
+
+  const finalUri = normalizeMediaUrl(thumbUrl || mainMediaUrl);
+
+  return (
+    <TouchableOpacity
+      style={styles.gridItem}
+      onPress={onPress}
+      activeOpacity={0.8}
+    >
+      <ExpoImage
+        source={{ uri: finalUri }}
+        style={styles.gridImg}
+        contentFit="cover"
+        cachePolicy="memory-disk"
+        transition={150}
+      />
+      {isVideo && (
+        <View style={styles.playIconOverlay}>
+          <Ionicons name="play" size={16} color="#fff" />
+        </View>
+      )}
+    </TouchableOpacity>
+  );
+});
+
 // ─── Screen ───────────────────────────────────────────────────────────────────
 export default function SavedScreen() {
   const router = useRouter();
@@ -784,35 +856,17 @@ export default function SavedScreen() {
         maxToRenderPerBatch={12}
         windowSize={5}
         removeClippedSubviews={Platform.OS === 'android'}
-        renderItem={({ item, index }) => {
-          const gridUri = normalizeMediaUrl(item.gridThumb || item.imageUrl);
-          const isVideo = item.mediaType === 'video' || isVideoUrl(item.imageUrl);
-          
-          return (
-            <TouchableOpacity
-              style={styles.gridItem}
-              onPress={() => {
-                hapticLight();
-                setSelectedPostIndex(index);
-                setPostViewerVisible(true);
-              }}
-              activeOpacity={0.8}
-            >
-              <ExpoImage 
-                source={{ uri: gridUri }} 
-                style={styles.gridImg} 
-                contentFit="cover"
-                cachePolicy="memory-disk"
-                transition={200}
-              />
-              {isVideo && (
-                <View style={styles.playIconOverlay}>
-                  <Ionicons name="play" size={16} color="#fff" />
-                </View>
-              )}
-            </TouchableOpacity>
-          );
-        }}
+        renderItem={({ item, index }) => (
+          <SavedGridItem
+            item={item}
+            index={index}
+            onPress={() => {
+              hapticLight();
+              setSelectedPostIndex(index);
+              setPostViewerVisible(true);
+            }}
+          />
+        )}
       />
     );
   };
