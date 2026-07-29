@@ -512,7 +512,8 @@ export const useCreatePost = (params: any = {}) => {
           postType === 'STORY' ? 'story' : 'post',
           customThumbnailUri || undefined,
           undefined,
-          subscriptionTierId
+          subscriptionTierId,
+          galleryAssets
         );
       }
 

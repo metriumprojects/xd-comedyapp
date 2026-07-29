@@ -973,7 +973,8 @@ export async function createPost(
   postType: string = 'post',
   thumbnailUrlRaw?: string,
   aspectRatio?: number,
-  subscriptionTierId?: string | null
+  subscriptionTierId?: string | null,
+  galleryAssets?: any[]
 ) {
   try {
     const normalizeLocationKey = (val: any) => String(val || '').trim().toLowerCase();
@@ -1022,15 +1023,23 @@ export async function createPost(
     let autoThumbnailUrl = '';
     const mediaUrls = [];
     for (const uri of mediaUris || []) {
-      // If it's already an uploaded image from our server/cloudinary, don't re-upload
+      // If it's already an uploaded image/video from our server/cloudinary, don't re-upload
       if (uri.startsWith('http') && (uri.includes('cloudinary.com') || uri.includes(API_BASE_URL.replace('/api', '')))) {
         mediaUrls.push(uri);
         continue;
       }
-      const upload = await uploadMedia(uri, mediaType);
+      
+      const lower = String(uri || '').toLowerCase();
+      const assetMatch = galleryAssets?.find((a: any) => a.uri === uri);
+      const isItemVideo = assetMatch 
+        ? assetMatch.mediaType === 'video'
+        : (lower.endsWith('.mp4') || lower.endsWith('.mov') || lower.endsWith('.m4v') || lower.endsWith('.avi') || lower.includes('video'));
+      const itemType: 'image' | 'video' = isItemVideo ? 'video' : 'image';
+
+      const upload = await uploadMedia(uri, itemType);
       if (!upload?.url) throw new Error(upload?.error || 'Upload failed');
       mediaUrls.push(upload.url);
-      if (mediaType === 'video' && upload.thumbnailUrl && !autoThumbnailUrl) {
+      if (itemType === 'video' && upload.thumbnailUrl && !autoThumbnailUrl) {
         autoThumbnailUrl = upload.thumbnailUrl;
       }
     }
