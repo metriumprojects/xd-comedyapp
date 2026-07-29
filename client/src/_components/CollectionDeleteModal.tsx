@@ -269,8 +269,6 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         paddingVertical: 10,
         paddingHorizontal: 4,
-        borderBottomWidth: StyleSheet.hairlineWidth,
-        borderBottomColor: '#f0f0f0',
     },
     collRowSelected: { backgroundColor: '#F0F7FF' },
     collThumb: {
