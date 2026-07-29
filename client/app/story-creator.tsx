@@ -912,7 +912,27 @@ export default function StoryCreatorScreen() {
                     keyboardVerticalOffset={0}
                 >
                     <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
-                        <View style={styles.textEditorBg}>
+                        <View style={{ flex: 1, backgroundColor: '#000' }}>
+                            {/* Render selected media as background inside the modal */}
+                            {selectedUri && (
+                                <View style={StyleSheet.absoluteFillObject}>
+                                    {selectedAsset?.mediaType === 'video' ? (
+                                        <Video
+                                            source={{ uri: selectedUri }}
+                                            style={{ width: '100%', height: '100%' }}
+                                            resizeMode={ResizeMode.COVER}
+                                            shouldPlay={true}
+                                            isLooping={true}
+                                            isMuted={true}
+                                            useNativeControls={false}
+                                        />
+                                    ) : (
+                                        <Image source={{ uri: selectedUri }} style={{ width: '100%', height: '100%' }} resizeMode="cover" />
+                                    )}
+                                </View>
+                            )}
+                            {/* Dark overlay on top of the media */}
+                            <View style={[StyleSheet.absoluteFillObject, { backgroundColor: 'rgba(0,0,0,0.55)' }]} />
                             {/* Header */}
                             <View style={[styles.textEditorHeader, { paddingTop: insets.top + 8 }]}>
                                 <TouchableOpacity
@@ -946,7 +966,6 @@ export default function StoryCreatorScreen() {
 
                             {/* Text Input area */}
                             <View style={styles.textEditorPreview}>
-                                <View style={styles.textEditorOverlay} />
                                 <TextInput
                                     style={[
                                         styles.textInput,
