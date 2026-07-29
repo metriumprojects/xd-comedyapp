@@ -377,8 +377,10 @@ const PostMedia: React.FC<PostMediaProps> = ({
         data={loopedMedia}
         renderItem={renderItem}
         horizontal
-        pagingEnabled={false}
-        decelerationRate="normal"
+        pagingEnabled
+        decelerationRate="fast"
+        snapToInterval={SCREEN_WIDTH}
+        snapToAlignment="center"
         showsHorizontalScrollIndicator={false}
         onScroll={handleScroll}
         scrollEventThrottle={16}
