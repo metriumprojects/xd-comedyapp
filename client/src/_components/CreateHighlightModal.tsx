@@ -467,8 +467,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingVertical: 18,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: '#f0f0f0',
   },
   settingLeft: {
     flexDirection: 'row',
