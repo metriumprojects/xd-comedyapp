@@ -508,6 +508,7 @@ export default function DM() {
 
   const handleClearChat = async () => {
     if (!conversationId) return;
+    setShowOptionsModal(false);
     Alert.alert("Clear Chat?", "Wipe message history for you?", [
       { text: "Cancel", style: "cancel" },
       { text: "Clear", style: "destructive", onPress: async () => {
