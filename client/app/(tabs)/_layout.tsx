@@ -615,39 +615,38 @@ function TopMenu({ setMenuVisible, setGroupsDrawerVisible }: { setMenuVisible: (
   // Get notifications from hook
   // 60s poll — frequent polling causes re-renders that stutter the scroll
   const { notifications, unreadCount, fetchNotifications, markAsRead, markAllAsRead } = useNotifications(currentUserId || '', 60000);
-
   const renderCountBadge = useCallback((count: number, bgColor: string, top: number, right: number) => {
     if (!count || count <= 0) return null;
     const display = count > 99 ? '99+' : String(count);
-    const isWide = display.length >= 3;
-    const height = isSmallDevice ? 14 : 16;
-    const minWidth = isWide ? (isSmallDevice ? 20 : 22) : (isSmallDevice ? 14 : 16);
+    const len = display.length;
+    const height = isSmallDevice ? 16 : 18;
+    const minWidth = len >= 3 ? (isSmallDevice ? 24 : 26) : (len === 2 ? (isSmallDevice ? 20 : 22) : (isSmallDevice ? 16 : 18));
+    const paddingHorizontal = len >= 3 ? 5 : (len === 2 ? 4 : 2);
+    const fontSize = isSmallDevice ? 9 : 10;
 
     return (
       <View
         style={{
           position: 'absolute',
-          top,
-          right,
+          top: top - 2,
+          right: len >= 3 ? right - 4 : right,
           backgroundColor: bgColor,
           height,
           minWidth,
-          paddingHorizontal: isWide ? 4 : 3,
+          paddingHorizontal,
           borderRadius: height / 2,
           alignItems: 'center',
           justifyContent: 'center',
           zIndex: 200,
-          borderWidth: 1,
-          borderColor: '#fff',
+          borderWidth: 1.5,
+          borderColor: '#ffffff',
         }}
-        pointerEvents="none"
       >
         <Text
           style={{
             color: '#fff',
             fontWeight: '800',
-            fontSize: isSmallDevice ? (isWide ? 8 : 9) : (isWide ? 9 : 10),
-            lineHeight: height - 2,
+            fontSize,
             textAlign: 'center',
             textAlignVertical: 'center',
             includeFontPadding: false,

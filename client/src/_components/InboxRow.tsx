@@ -146,7 +146,11 @@ export default function InboxRow({ item, router, unread, formatTime, DEFAULT_AVA
             />
           </View>
           {unread > 0 ? (
-            <View style={{ backgroundColor: '#e0245e', minWidth: 22, height: 22, borderRadius: 11, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 6 }}><Text style={{ color: '#fff', fontWeight: '700', fontSize: 12 }}>{unread > 9 ? '9+' : unread}</Text></View>
+            <View style={{ backgroundColor: '#e0245e', minWidth: 20, height: 20, borderRadius: 10, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 5 }}>
+              <Text style={{ color: '#fff', fontWeight: '800', fontSize: 11, textAlign: 'center', includeFontPadding: false }}>
+                {unread > 99 ? '99+' : unread}
+              </Text>
+            </View>
           ) : (
             <Feather name="chevron-right" size={18} color="#ccc" />
           )}
