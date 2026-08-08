@@ -23,14 +23,14 @@ export function buildPostDeepLink(postId: string): string {
   const scheme =
     typeof rawScheme === 'string'
       ? rawScheme
-      : (Array.isArray(rawScheme) && typeof rawScheme[0] === 'string' ? rawScheme[0] : 'trave-social');
+      : (Array.isArray(rawScheme) && typeof rawScheme[0] === 'string' ? rawScheme[0] : 'comedy-app');
   return `${scheme}://post-detail?id=${encodeURIComponent(postId)}`;
 }
 
 export function buildPostWebLink(postId: string): string {
-  const base = getEnvValue('EXPO_PUBLIC_WEB_BASE_URL');
-  if (!base) return '';
-  return `${normalizeBaseUrl(base)}/post-detail?id=${encodeURIComponent(postId)}`;
+  const apiBase = getEnvValue('EXPO_PUBLIC_API_BASE_URL') || 'http://192.168.100.50:5000/api';
+  const serverBase = apiBase.replace(/\/api\/?$/, '');
+  return `${normalizeBaseUrl(serverBase)}/share/post/${encodeURIComponent(postId)}`;
 }
 
 export function buildProfileDeepLink(userId: string): string {
@@ -38,14 +38,14 @@ export function buildProfileDeepLink(userId: string): string {
   const scheme =
     typeof rawScheme === 'string'
       ? rawScheme
-      : (Array.isArray(rawScheme) && typeof rawScheme[0] === 'string' ? rawScheme[0] : 'trave-social');
+      : (Array.isArray(rawScheme) && typeof rawScheme[0] === 'string' ? rawScheme[0] : 'comedy-app');
   return `${scheme}://user-profile?id=${encodeURIComponent(userId)}`;
 }
 
 export function buildProfileWebLink(userId: string): string {
-  const base = getEnvValue('EXPO_PUBLIC_WEB_BASE_URL');
-  if (!base) return '';
-  return `${normalizeBaseUrl(base)}/user-profile?id=${encodeURIComponent(userId)}`;
+  const apiBase = getEnvValue('EXPO_PUBLIC_API_BASE_URL') || 'http://192.168.100.50:5000/api';
+  const serverBase = apiBase.replace(/\/api\/?$/, '');
+  return `${normalizeBaseUrl(serverBase)}/share/profile/${encodeURIComponent(userId)}`;
 }
 
 export async function shareProfile(input: { userId: string; name?: string; username?: string } | string): Promise<void> {
@@ -63,7 +63,7 @@ export async function shareProfile(input: { userId: string; name?: string; usern
   const username = typeof input === 'string' ? '' : (typeof input?.username === 'string' ? input.username.trim() : '');
   const label = name || username || 'this user';
 
-  const message = `Check out ${label}'s profile on Trips!\n\n${bestLink}`;
+  const message = `Check out ${label}'s profile on Comedy App!\n\n${bestLink}`;
   await Share.share({ message, url: bestLink, title: 'Share Profile' });
 }
 

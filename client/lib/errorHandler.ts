@@ -282,11 +282,21 @@ export class ErrorHandler {
       };
     }
 
+    if (message.toLowerCase().includes('verify') || message.toLowerCase().includes('verification')) {
+      return {
+        code: 'EMAIL_NOT_VERIFIED',
+        message,
+        userMessage: message || 'Please verify your email address before logging in. Check your inbox for the verification link.',
+        severity: 'warning',
+        retryable: false,
+      };
+    }
+
     logger.error('🔴 Unhandled Error', message);
     return {
       code: 'UNKNOWN_ERROR',
       message,
-      userMessage: 'Something went wrong. Please try again.',
+      userMessage: message && !message.startsWith('auth/') && !message.includes('Error:') ? message : 'Something went wrong. Please try again.',
       severity: 'error',
       retryable: true,
     };
@@ -331,6 +341,14 @@ export function isRetryable(error: any): boolean {
  * Get user-friendly error message (safe to show in UI)
  */
 export function getUserErrorMessage(error: any): string {
+  if (typeof error === 'string' && error.trim().length > 0) {
+    if (error.toLowerCase().includes('verify') || error.toLowerCase().includes('verification')) {
+      return error;
+    }
+    if (!error.startsWith('auth/') && !error.includes('FirebaseError:')) {
+      return error;
+    }
+  }
   const appError = ErrorHandler.handleError(error);
   ErrorHandler.log(appError);
   return appError.userMessage;

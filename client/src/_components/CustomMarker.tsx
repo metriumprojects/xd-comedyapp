@@ -1,5 +1,6 @@
 import React from 'react';
 import { Image, View } from 'react-native';
+import COLORS from '@/src/theme/colors';
 
 interface CustomMarkerProps {
   imageUrl: string;
@@ -18,7 +19,7 @@ export const CustomMarker: React.FC<CustomMarkerProps> = ({ imageUrl, size = 70 
           width: size,
           height: size,
           borderRadius: size / 6,
-          backgroundColor: '#FF8D00',
+          backgroundColor: COLORS.primary,
           justifyContent: 'center',
           alignItems: 'center',
           overflow: 'hidden',
@@ -31,7 +32,7 @@ export const CustomMarker: React.FC<CustomMarkerProps> = ({ imageUrl, size = 70 
             height: innerSize,
             borderRadius: innerSize / 6,
             overflow: 'hidden',
-            backgroundColor: '#fff',
+            backgroundColor: COLORS.background,
           }}
         >
           {/* Image */}
@@ -53,7 +54,7 @@ export const CustomMarker: React.FC<CustomMarkerProps> = ({ imageUrl, size = 70 
           borderTopWidth: pointerSize,
           borderLeftColor: 'transparent',
           borderRightColor: 'transparent',
-          borderTopColor: '#FF8D00',
+          borderTopColor: COLORS.primary,
           marginTop: -2,
         }}
       />

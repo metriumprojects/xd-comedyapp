@@ -10,6 +10,7 @@ import { DEFAULT_AVATAR_URL } from '@/lib/api';
 import { hapticLight, hapticMedium } from '@/lib/haptics';
 import { safeRouterBack } from '@/lib/safeRouterBack';
 import { resolveCanonicalUserId } from '@/lib/currentUser';
+import COLORS from '@/src/theme/colors';
 
 
 export default function Archive() {
@@ -101,8 +102,8 @@ export default function Archive() {
   );
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: '#fff' }}>
-      <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingTop: 12, paddingBottom: 12, borderBottomWidth: 1, borderBottomColor: '#f5f5f5', backgroundColor: '#fff' }}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: COLORS.background }}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingTop: 12, paddingBottom: 12, borderBottomWidth: 1, borderBottomColor: COLORS.surface, backgroundColor: COLORS.background }}>
         <TouchableOpacity
           onPress={() => {
             hapticLight();
@@ -112,7 +113,7 @@ export default function Archive() {
         >
           <Feather name="x" size={22} color="#FF8800" />
         </TouchableOpacity>
-        <Text style={{ flex: 1, textAlign: 'center', fontSize: 20, fontWeight: '700', color: '#111', marginLeft: -22 }}>Archive Chats</Text>
+        <Text style={{ flex: 1, textAlign: 'center', fontSize: 20, fontWeight: '700', color: COLORS.textPrimary, marginLeft: -22 }}>Archive Chats</Text>
         <View style={{ width: 28 }} />
       </View>
       {loading ? (
@@ -121,11 +122,11 @@ export default function Archive() {
         </View>
       ) : !uid ? (
         <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', padding: 20 }}>
-          <Text style={{ color: '#999', fontSize: 16, textAlign: 'center' }}>Please sign in to view archived chats</Text>
+          <Text style={{ color: COLORS.textMuted, fontSize: 16, textAlign: 'center' }}>Please sign in to view archived chats</Text>
         </View>
       ) : archived.length === 0 ? (
         <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', padding: 20 }}>
-          <Text style={{ color: '#999', fontSize: 16, textAlign: 'center' }}>No archived chats yet</Text>
+          <Text style={{ color: COLORS.textMuted, fontSize: 16, textAlign: 'center' }}>No archived chats yet</Text>
         </View>
       ) : (
         <FlatList
@@ -146,12 +147,12 @@ export default function Archive() {
                     setArchived((prev) => prev.filter(c => c.id !== item.id));
                   }}
                 >
-                  <Text style={{ color: '#fff', fontWeight: 'bold', fontSize: 16 }}>Unarchive</Text>
+                  <Text style={{ color: COLORS.textLight, fontWeight: 'bold', fontSize: 16 }}>Unarchive</Text>
                 </TouchableOpacity>
               )}
             >
               <TouchableOpacity
-                style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: 12, paddingHorizontal: 16, borderBottomWidth: 1, borderBottomColor: '#eee' }}
+                style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: 12, paddingHorizontal: 16, borderBottomWidth: 1, borderBottomColor: COLORS.border }}
                 onPress={() => {
                   hapticLight();
                   const otherId = typeof item?.otherUser?.id === 'string'
@@ -179,11 +180,11 @@ export default function Archive() {
                 }}
               >
                 <View style={{ width: 56, height: 56, borderRadius: 28, alignItems: 'center', justifyContent: 'center', marginRight: 12 }}>
-                  <Image source={{ uri: (item.otherUser && item.otherUser.avatar) ? item.otherUser.avatar : DEFAULT_AVATAR_URL }} style={{ width: 48, height: 48, borderRadius: 24, backgroundColor: '#eee' }} />
+                  <Image source={{ uri: (item.otherUser && item.otherUser.avatar) ? item.otherUser.avatar : DEFAULT_AVATAR_URL }} style={{ width: 48, height: 48, borderRadius: 24, backgroundColor: COLORS.border }} />
                 </View>
                 <View style={{ flex: 1 }}>
-                  <Text style={{ fontSize: 16, fontWeight: '600', color: '#222' }}>{item.otherUser && (item.otherUser.displayName || item.otherUser.name) ? (item.otherUser.displayName || item.otherUser.name) : 'Unknown User'}</Text>
-                  <Text style={{ fontSize: 14, color: '#666' }} numberOfLines={1}>{item.lastMessage}</Text>
+                  <Text style={{ fontSize: 16, fontWeight: '600', color: COLORS.textPrimary }}>{item.otherUser && (item.otherUser.displayName || item.otherUser.name) ? (item.otherUser.displayName || item.otherUser.name) : 'Unknown User'}</Text>
+                  <Text style={{ fontSize: 14, color: COLORS.textSecondary }} numberOfLines={1}>{item.lastMessage}</Text>
                 </View>
               </TouchableOpacity>
             </Swipeable>
@@ -197,7 +198,7 @@ export default function Archive() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#fff',
+    backgroundColor: COLORS.background,
   },
   header: {
     flexDirection: 'row',
@@ -206,7 +207,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 12,
     borderBottomWidth: 0.5,
-    borderBottomColor: '#dbdbdb',
+    borderBottomColor: COLORS.border,
   },
   backBtn: {
     padding: 6,
@@ -215,7 +216,7 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontWeight: '700',
     textAlign: 'center',
-    color: '#000',
+    color: COLORS.textPrimary,
     flex: 1,
   },
   row: {
@@ -224,7 +225,7 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     paddingHorizontal: 16,
     borderBottomWidth: 1,
-    borderBottomColor: '#eee',
+    borderBottomColor: COLORS.border,
   },
   avatarRing: {
     width: 64,
@@ -236,31 +237,31 @@ const styles = StyleSheet.create({
   },
   avatarRingUnread: {
     borderWidth: 2,
-    borderColor: '#FF8D00',
+    borderColor: COLORS.primary,
   },
   avatar: {
     width: 56,
     height: 56,
     borderRadius: 28,
-    backgroundColor: '#eee',
+    backgroundColor: COLORS.inputBg,
   },
   name: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#222',
+    color: COLORS.textPrimary,
   },
   lastMsg: {
     fontSize: 14,
-    color: '#666',
+    color: COLORS.textSecondary,
     marginTop: 2,
   },
   time: {
     fontSize: 12,
-    color: '#aaa',
+    color: COLORS.textMuted,
     marginLeft: 8,
   },
   unarchiveBtn: {
-    backgroundColor: '#007aff',
+    backgroundColor: COLORS.info,
     justifyContent: 'center',
     alignItems: 'center',
     width: 100,
@@ -268,7 +269,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
   },
   unarchiveText: {
-    color: '#fff',
+    color: COLORS.textLight,
     fontWeight: 'bold',
     fontSize: 16,
   },

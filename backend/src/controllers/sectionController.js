@@ -20,6 +20,22 @@ function isCollaborator(section, uid) {
   return section.collaborators && section.collaborators.some(c => c.userId === uid);
 }
 
+const mongoose = require('mongoose');
+
+async function findSectionByIdOrName(sectionId, uid) {
+  const isObjId = mongoose.Types.ObjectId.isValid(sectionId);
+  const query = {
+    $or: [
+      ...(isObjId ? [{ _id: new mongoose.Types.ObjectId(sectionId) }] : []),
+      { name: sectionId }
+    ]
+  };
+  if (uid) {
+    query.userId = uid;
+  }
+  return await Section.findOne(query);
+}
+
 // ─── GET /api/sections?userId=... ───────────────────────────────────────────
 exports.getSectionsByUser = async (req, res) => {
   try {
@@ -86,7 +102,7 @@ exports.updateSection = async (req, res) => {
     const { uid, sectionId } = req.params;
     const { name, postIds, coverImage, visibility, specificUsers, collaborators, addPostId, removePostId } = req.body;
 
-    const section = await Section.findOne({ _id: sectionId });
+    const section = await findSectionByIdOrName(sectionId, uid);
     if (!section) return res.status(404).json({ success: false, error: 'Section not found' });
 
     const owns = isOwner(section, uid);
@@ -129,7 +145,7 @@ exports.deleteSection = async (req, res) => {
     const { uid, sectionId } = req.params;
     const { migrateToSectionId } = req.body || {};
 
-    const section = await Section.findOne({ _id: sectionId });
+    const section = await findSectionByIdOrName(sectionId, uid);
     if (!section) return res.status(404).json({ success: false, error: 'Section not found' });
 
     if (!isOwner(section, uid)) {
@@ -147,7 +163,15 @@ exports.deleteSection = async (req, res) => {
       }
     }
 
-    await Section.findByIdAndDelete(sectionId);
+    const isObjId = mongoose.Types.ObjectId.isValid(sectionId);
+    await Section.deleteMany({
+      userId: uid,
+      $or: [
+        ...(isObjId ? [{ _id: new mongoose.Types.ObjectId(sectionId) }] : []),
+        { name: section.name },
+        { name: sectionId }
+      ]
+    });
     res.json({ success: true, data: { deletedId: sectionId } });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });

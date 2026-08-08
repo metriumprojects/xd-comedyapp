@@ -4,6 +4,7 @@ import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-nati
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { safeRouterBack } from '@/lib/safeRouterBack';
+import COLORS from '@/src/theme/colors';
 
 export default function TermsOfServiceScreen() {
   const router = useRouter();
@@ -12,7 +13,7 @@ export default function TermsOfServiceScreen() {
     <SafeAreaView style={styles.container} edges={['top']}>
       <View style={styles.header}>
         <TouchableOpacity onPress={() => safeRouterBack()} style={styles.backButton}>
-          <Ionicons name="arrow-back" size={24} color="#000" />
+          <Ionicons name="arrow-back" size={24} color={COLORS.black} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Terms of Service</Text>
         <View style={{ width: 40 }} />
@@ -120,7 +121,7 @@ export default function TermsOfServiceScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#fff',
+    backgroundColor: COLORS.background,
   },
   header: {
     flexDirection: 'row',
@@ -135,7 +136,7 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontSize: 18,
     fontWeight: '600',
-    color: '#000',
+    color: COLORS.black,
   },
   content: {
     flex: 1,
@@ -145,27 +146,27 @@ const styles = StyleSheet.create({
   },
   lastUpdated: {
     fontSize: 12,
-    color: '#666',
+    color: COLORS.textSecondary,
     marginBottom: 20,
     fontStyle: 'italic',
   },
   sectionTitle: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: '#000',
+    color: COLORS.black,
     marginTop: 20,
     marginBottom: 10,
   },
   subTitle: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#333',
+    color: COLORS.textPrimary,
     marginTop: 12,
     marginBottom: 8,
   },
   paragraph: {
     fontSize: 14,
-    color: '#333',
+    color: COLORS.textPrimary,
     lineHeight: 22,
     marginBottom: 12,
   },
@@ -173,13 +174,13 @@ const styles = StyleSheet.create({
     marginTop: 20,
     marginBottom: 40,
     padding: 16,
-    backgroundColor: '#f0f0f0',
+    backgroundColor: COLORS.inputBg,
     borderRadius: 8,
     alignItems: 'center',
   },
   linkText: {
     fontSize: 16,
-    color: '#007AFF',
+    color: COLORS.info,
     fontWeight: '600',
   },
 });

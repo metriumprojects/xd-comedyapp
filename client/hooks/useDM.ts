@@ -145,7 +145,9 @@ export function useDM(conversationIdParam: string | null, otherUserId: string | 
     // If we have preloaded messages (either in memory or loaded from disk), don't show the initial spinner
     const hasCache = (messageCache[cid] !== undefined) || hasPreloadedMessagesRef.current;
     if (!hasCache) {
-      setLoading(true);
+      queueMicrotask(() => {
+        if (!cancelled) setLoading(true);
+      });
     }
 
     // Ensure socket is active for real-time sync

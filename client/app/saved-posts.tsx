@@ -9,6 +9,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { API_BASE_URL } from '../lib/api';
 import { useAppDialog } from '@/src/_components/AppDialogProvider';
 import { safeRouterBack } from '@/lib/safeRouterBack';
+import COLORS from '@/src/theme/colors';
 
 export default function SavedPostsScreen() {
   const router = useRouter();
@@ -164,7 +165,7 @@ export default function SavedPostsScreen() {
               ]);
             }}
           >
-            <Ionicons name="bookmark" size={20} color="#007aff" />
+            <Ionicons name="bookmark" size={20} color={COLORS.info} />
           </TouchableOpacity>
         )}
       </TouchableOpacity>
@@ -175,15 +176,15 @@ export default function SavedPostsScreen() {
         </Text>
         <View style={styles.postStats}>
           <View style={styles.stat}>
-            <Ionicons name="heart" size={14} color="#ff3b30" />
+            <Ionicons name="heart" size={14} color={COLORS.danger} />
             <Text style={styles.statText}>{item.likesCount || 0}</Text>
           </View>
           <View style={styles.stat}>
-            <Ionicons name="chatbubble" size={14} color="#007aff" />
+            <Ionicons name="chatbubble" size={14} color={COLORS.info} />
             <Text style={styles.statText}>{item.commentsCount || 0}</Text>
           </View>
           <View style={styles.stat}>
-            <Ionicons name="bookmark" size={14} color="#34c759" />
+            <Ionicons name="bookmark" size={14} color={COLORS.success} />
             <Text style={styles.statText}>{item.savesCount || 0}</Text>
           </View>
         </View>
@@ -195,7 +196,7 @@ export default function SavedPostsScreen() {
     return (
       <SafeAreaView style={styles.container}>
         <View style={styles.centerContainer}>
-          <ActivityIndicator size="large" color="#007aff" />
+          <ActivityIndicator size="large" color={COLORS.info} />
           <Text style={styles.loadingText}>Loading saved posts...</Text>
         </View>
       </SafeAreaView>
@@ -206,17 +207,17 @@ export default function SavedPostsScreen() {
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
         <TouchableOpacity onPress={() => safeRouterBack()}>
-          <Ionicons name="chevron-back" size={28} color="#222" />
+          <Ionicons name="chevron-back" size={28} color={COLORS.textPrimary} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Saved Posts</Text>
         <TouchableOpacity onPress={handleRefresh}>
-          <Ionicons name="refresh" size={24} color="#222" />
+          <Ionicons name="refresh" size={24} color={COLORS.textPrimary} />
         </TouchableOpacity>
       </View>
 
       {savedPosts.length === 0 ? (
         <ScrollView contentContainerStyle={styles.emptyContainer}>
-          <Ionicons name="bookmark-outline" size={64} color="#ccc" />
+          <Ionicons name="bookmark-outline" size={64} color={COLORS.border} />
           <Text style={styles.emptyTitle}>No Saved Posts</Text>
           <Text style={styles.emptySubtitle}>Save posts to view them later</Text>
         </ScrollView>
@@ -238,7 +239,7 @@ export default function SavedPostsScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#fff',
+    backgroundColor: COLORS.background,
   },
   header: {
     flexDirection: 'row',
@@ -247,12 +248,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: '#f0f0f0',
+    borderBottomColor: COLORS.inputBg,
   },
   headerTitle: {
     fontSize: 18,
     fontWeight: '600',
-    color: '#222',
+    color: COLORS.textPrimary,
   },
   centerContainer: {
     flex: 1,
@@ -262,7 +263,7 @@ const styles = StyleSheet.create({
   loadingText: {
     marginTop: 12,
     fontSize: 14,
-    color: '#666',
+    color: COLORS.textSecondary,
   },
   emptyContainer: {
     flex: 1,
@@ -273,12 +274,12 @@ const styles = StyleSheet.create({
   emptyTitle: {
     fontSize: 18,
     fontWeight: '600',
-    color: '#222',
+    color: COLORS.textPrimary,
     marginTop: 16,
   },
   emptySubtitle: {
     fontSize: 14,
-    color: '#999',
+    color: COLORS.textMuted,
     marginTop: 8,
     textAlign: 'center',
   },
@@ -287,18 +288,18 @@ const styles = StyleSheet.create({
     paddingBottom: 32,
   },
   postCard: {
-    backgroundColor: '#fff',
+    backgroundColor: COLORS.background,
     marginBottom: 12,
     borderRadius: 12,
     overflow: 'hidden',
     borderWidth: 1,
-    borderColor: '#f0f0f0',
+    borderColor: COLORS.inputBg,
   },
   postImageContainer: {
     position: 'relative',
     width: '100%',
     height: 240,
-    backgroundColor: '#f5f5f5',
+    backgroundColor: COLORS.surface,
   },
   postImage: {
     width: '100%',
@@ -307,11 +308,11 @@ const styles = StyleSheet.create({
   emptyImage: {
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#f5f5f5',
+    backgroundColor: COLORS.surface,
   },
   emptyText: {
     fontSize: 14,
-    color: '#999',
+    color: COLORS.textMuted,
     textAlign: 'center',
     paddingHorizontal: 16,
   },
@@ -322,7 +323,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255, 255, 255, 0.9)',
     borderRadius: 20,
     padding: 8,
-    shadowColor: '#000',
+    shadowColor: COLORS.black,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 4,
@@ -333,7 +334,7 @@ const styles = StyleSheet.create({
   },
   caption: {
     fontSize: 14,
-    color: '#222',
+    color: COLORS.textPrimary,
     marginBottom: 8,
     lineHeight: 20,
   },
@@ -349,7 +350,7 @@ const styles = StyleSheet.create({
   },
   statText: {
     fontSize: 12,
-    color: '#666',
+    color: COLORS.textSecondary,
     fontWeight: '500',
   },
 });

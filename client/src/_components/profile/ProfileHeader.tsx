@@ -5,6 +5,7 @@ import { Image as ExpoImage } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import { hapticLight } from '@/lib/haptics';
 import { DEFAULT_AVATAR_URL } from '@/lib/api';
+import COLORS from '@/src/theme/colors';
 
 interface ProfileHeaderProps {
   profile: any;
@@ -194,11 +195,11 @@ const ProfileHeader: React.FC<ProfileHeaderProps> = ({
             </TouchableOpacity>
 
             <TouchableOpacity
-              style={[styles.actionBtnBlack, { backgroundColor: '#FFD60A' }]}
+              style={[styles.actionBtnBlack, { backgroundColor: COLORS.badgeYellow }]}
               onPress={onManageSubscription}
             >
-              <Feather name="star" size={14} color="#000" style={{ marginRight: 6 }} />
-              <Text style={[styles.actionBtnText, { color: '#000' }]}>Manage Subscription</Text>
+              <Feather name="star" size={14} color={COLORS.black} style={{ marginRight: 6 }} />
+              <Text style={[styles.actionBtnText, { color: COLORS.black }]}>Manage Subscription</Text>
             </TouchableOpacity>
           </View>
         ) : (
@@ -206,7 +207,7 @@ const ProfileHeader: React.FC<ProfileHeaderProps> = ({
             <TouchableOpacity
               style={styles.actionBtnBlack}
               onPress={onFollowToggle}
-              disabled={followLoading || followRequestPending}
+              disabled={followRequestPending}
             >
               <Feather
                 name={followRequestPending ? "clock" : (isFollowing ? "check" : "user-plus")}

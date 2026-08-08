@@ -753,10 +753,14 @@ export default function StoryCreatorScreen() {
                     <View style={[styles.header, { backgroundColor: '#000000', borderBottomColor: '#1a1a1a' }]}>
                         <TouchableOpacity 
                             onPress={() => {
-                                setStep('picker');
-                                setTextOverlays([]);
-                                setLocationQuery('');
-                                setSelectedLocation(null);
+                                if (sharedPostMetadata || sharePostId) {
+                                    safeRouterBack();
+                                } else {
+                                    setStep('picker');
+                                    setTextOverlays([]);
+                                    setLocationQuery('');
+                                    setSelectedLocation(null);
+                                }
                             }} 
                             style={styles.headerBtn}
                         >
@@ -781,7 +785,17 @@ export default function StoryCreatorScreen() {
                         {/* Preview */}
                         <TouchableWithoutFeedback onPress={openTextEditor}>
                             <View ref={previewRef} collapsable={false} style={styles.preview}>
-                                {selectedUri ? (
+                                {sharedPostMetadata ? (
+                                    <>
+                                        <Image 
+                                            source={{ uri: selectedUri }} 
+                                            style={styles.previewImg} 
+                                            resizeMode="cover"
+                                            blurRadius={Platform.OS === 'ios' ? 25 : 15} 
+                                        />
+                                        <View style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(0,0,0,0.45)' }]} />
+                                    </>
+                                ) : selectedUri ? (
                                     selectedAsset?.mediaType === 'video' ? (
                                         <AutoplayVideoPreview uri={selectedUri} rawUri={selectedAsset?.uri} style={styles.previewImg} />
                                     ) : (
@@ -1312,6 +1326,8 @@ const styles = StyleSheet.create({
         top: 0,
         maxWidth: SCREEN_W - 60,
         padding: 6,
+        zIndex: 100,
+        elevation: 20,
     },
     textOverlaySelected: {
         borderWidth: 1.5,

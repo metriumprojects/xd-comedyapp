@@ -28,6 +28,7 @@ import { DEFAULT_AVATAR_URL, API_BASE_URL } from '../../lib/api';
 import AsyncStorage from '@/lib/storage';
 import { deleteStory } from '../../lib/firebaseHelpers/deleteStory';
 import { addCommentReply, addStoryToHighlight } from '../../lib/firebaseHelpers/index';
+import COLORS from '@/src/theme/colors';
 import { getUserHighlights } from '../../lib/firebaseHelpers/core';
 import { getKeyboardOffset } from '../../utils/responsive';
 import { useUser } from './UserContext';
@@ -107,8 +108,8 @@ function StoryTextOverlays({ postMetadata, mediaLoaded }: { postMetadata?: any; 
               left: o.x * width,
               top: o.y * STORY_MEDIA_H,
               maxWidth: width - 60,
-              zIndex: 20,
-              elevation: 20,
+              zIndex: 100,
+              elevation: 100,
             }}
           >
             <Text
@@ -323,7 +324,7 @@ export default function StoriesViewer({ stories, onClose, initialIndex = 0, isHi
     try {
       const toBePrefetched = localStories.slice(currentIndex, currentIndex + 4);
       const urls = toBePrefetched
-        .map((s: any) => String(s?.imageUrl || s?.thumbnailUrl || ''))
+        .map((s: any) => String(s?.imageUrl || s?.postMetadata?.imageUrl || s?.thumbnailUrl || ''))
         .filter((u) => typeof u === 'string' && u.startsWith('http'));
       // expo-image prefetch writes to disk cache — subsequent loads are near-instant
       ExpoImage.prefetch(urls).catch(() => {});
@@ -443,6 +444,13 @@ export default function StoriesViewer({ stories, onClose, initialIndex = 0, isHi
     else if (currentIndex >= localStories.length) setCurrentIndex(localStories.length - 1);
   }, [localStories, localStories.length, currentIndex]);
 
+  // Ensure shared post stories automatically start the progress bar timer
+  useEffect(() => {
+    if (currentStory?.isPostShare || currentStory?.postMetadata) {
+      setImageLoading(false);
+    }
+  }, [currentIndex, currentStory?.id, currentStory?.isPostShare, currentStory?.postMetadata, setImageLoading]);
+
 
   // Filter out stories from blocked users
   useEffect(() => {
@@ -509,9 +517,9 @@ export default function StoriesViewer({ stories, onClose, initialIndex = 0, isHi
 
   if (!currentStory) {
     return (
-      <SafeAreaView style={{ flex: 1, backgroundColor: '#000' }}>
+      <SafeAreaView style={{ flex: 1, backgroundColor: COLORS.black }}>
         <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-          <ActivityIndicator size="large" color="#fff" />
+          <ActivityIndicator size="large" color={COLORS.textLight} />
         </View>
       </SafeAreaView>
     );
@@ -611,7 +619,7 @@ export default function StoriesViewer({ stories, onClose, initialIndex = 0, isHi
   // Navigation is handled by useStories hook
 
   return (
-    <View style={{ flex: 1, backgroundColor: '#000' }}>
+    <View style={{ flex: 1, backgroundColor: COLORS.black }}>
       <KeyboardAvoidingView
         style={{ flex: 1 }}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
@@ -628,12 +636,13 @@ export default function StoriesViewer({ stories, onClose, initialIndex = 0, isHi
           }}
           style={{ flex: 1 }}
         >
-          <View style={{ flex: 1, backgroundColor: '#000', position: 'relative' }}>
+          <View key={currentStory.id} style={{ flex: 1, backgroundColor: COLORS.black, position: 'relative' }}>
             {/* Instagram-like: never show a spinner/skeleton in viewer.
                 Show an instant blurred placeholder while media decodes. */}
             {imageLoading && (
               <View style={StyleSheet.absoluteFill} pointerEvents="none">
-                <Image
+                <ExpoImage
+                  key={'blur_' + currentStory.id}
                   source={{
                     uri:
                       currentStory?.imageUrl ||
@@ -644,7 +653,8 @@ export default function StoriesViewer({ stories, onClose, initialIndex = 0, isHi
                   }}
                   style={[StyleSheet.absoluteFill, { opacity: 0.55, transform: [{ scale: 1.05 }] }]}
                   blurRadius={Platform.OS === 'ios' ? 22 : 14}
-                  resizeMode="cover"
+                  contentFit="cover"
+                  cachePolicy="memory-disk"
                 />
                 <View style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(0,0,0,0.35)' }]} />
               </View>
@@ -653,10 +663,13 @@ export default function StoriesViewer({ stories, onClose, initialIndex = 0, isHi
             {/* Background for Card Mode (Blurred) */}
             {currentStory.isPostShare && (
               <View style={StyleSheet.absoluteFill}>
-                <Image
+                <ExpoImage
+                  key={'bg_shared_' + currentStory.id}
                   source={{ uri: currentStoryImageUrl }}
                   style={StyleSheet.absoluteFill}
                   blurRadius={Platform.OS === 'ios' ? 25 : 15}
+                  contentFit="cover"
+                  cachePolicy="memory-disk"
                 />
                 <View style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(0,0,0,0.45)' }]} />
               </View>
@@ -677,28 +690,34 @@ export default function StoriesViewer({ stories, onClose, initialIndex = 0, isHi
                    style={viewerStyles.postCard}
                 >
                    <View style={viewerStyles.postCardHeader}>
-                      <Image 
+                      <ExpoImage 
+                        key={'avatar_' + currentStory.id}
                         source={{ uri: currentStory.postMetadata?.userAvatar || DEFAULT_AVATAR_URL }} 
-                        style={viewerStyles.postCardAvatar} 
+                        style={viewerStyles.postCardAvatar}
+                        contentFit="cover"
+                        cachePolicy="memory-disk"
                       />
                       <Text style={viewerStyles.postCardUsername} numberOfLines={1}>{currentStory.postMetadata?.userName || 'User'}</Text>
-                      <Feather name="more-horizontal" size={16} color="#333" style={{ marginLeft: 'auto' }} />
+                      <Feather name="more-horizontal" size={16} color={COLORS.textPrimary} style={{ marginLeft: 'auto' }} />
                    </View>
-                   <Image 
+                   <ExpoImage 
+                      key={'card_img_' + currentStory.id}
                       source={{ uri: currentStoryImageUrl }} 
                       style={viewerStyles.postCardImage}
-                      resizeMode="cover"
+                      contentFit="cover"
+                      cachePolicy="memory-disk"
+                      onLoadEnd={() => setImageLoading(false)}
                    />
                    {currentStory.postMetadata?.caption ? (
                      <View style={viewerStyles.postCardFooter}>
                         <Text style={viewerStyles.postCardCaption} numberOfLines={2}>
-                           <Text style={{ fontWeight: '700', color: '#111' }}>{currentStory.postMetadata?.userName} </Text>
+                           <Text style={{ fontWeight: '700', color: COLORS.textPrimary }}>{currentStory.postMetadata?.userName} </Text>
                            {currentStory.postMetadata?.caption}
                         </Text>
                      </View>
                    ) : (
                      <View style={{ padding: 10 }}>
-                        <Text style={{ fontSize: 12, color: '#666' }}>View post</Text>
+                        <Text style={{ fontSize: 12, color: COLORS.textSecondary }}>View post</Text>
                      </View>
                    )}
                 </TouchableOpacity>
@@ -751,18 +770,19 @@ export default function StoriesViewer({ stories, onClose, initialIndex = 0, isHi
                     />
                   ) : currentStoryImageUrl ? (
                     <ExpoImage
+                      key={'media_' + currentStory.id}
                       source={{ uri: currentStoryImageUrl }}
                       style={viewerStyles.fullScreenMedia}
                       contentFit="contain"
                       cachePolicy="memory-disk"
-                      transition={120}
+                      transition={0}
                       onLoadStart={() => setImageLoading(true)}
                       onLoad={() => setImageLoading(false)}
                       onError={() => setImageLoading(false)}
                     />
                   ) : (
                     <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-                      <Text style={{ color: '#fff', fontSize: 14 }}>Story media unavailable</Text>
+                      <Text style={{ color: COLORS.textLight, fontSize: 14 }}>Story media unavailable</Text>
                     </View>
                   )}
                 </View>
@@ -814,14 +834,14 @@ export default function StoriesViewer({ stories, onClose, initialIndex = 0, isHi
             <View style={viewerStyles.headerActions}>
               {(currentStory.videoUrl || currentStory.mediaType === 'video') && (
                 <TouchableOpacity onPress={() => setIsMuted(m => !m)} style={viewerStyles.headerIcon}>
-                  <Feather name={isMuted ? 'volume-x' : 'volume-2'} size={20} color="#fff" />
+                  <Feather name={isMuted ? 'volume-x' : 'volume-2'} size={20} color={COLORS.textLight} />
                 </TouchableOpacity>
               )}
               <TouchableOpacity onPress={() => setIsPaused(!isPaused)} style={viewerStyles.headerIcon}>
-                <Feather name={isPaused ? "play" : "pause"} size={20} color="#fff" />
+                <Feather name={isPaused ? "play" : "pause"} size={20} color={COLORS.textLight} />
               </TouchableOpacity>
               <TouchableOpacity onPress={onClose} style={viewerStyles.headerIcon}>
-                <Feather name="x" size={26} color="#fff" />
+                <Feather name="x" size={26} color={COLORS.textLight} />
               </TouchableOpacity>
             </View>
           </View>
@@ -840,17 +860,6 @@ export default function StoriesViewer({ stories, onClose, initialIndex = 0, isHi
           <LinearGradient colors={['transparent', 'rgba(0,0,0,0.85)']} style={StyleSheet.absoluteFillObject} pointerEvents="none" />
           
           <View style={viewerStyles.footerIconsRow}>
-             <View style={viewerStyles.footerIconBtnRow}>
-                <Feather name="film" size={22} color="#fff" />
-                <Text style={viewerStyles.footerIconText}>
-                  {(() => {
-                    const durationMilli = videoDuration || 5000;
-                    const mins = Math.floor(durationMilli / 60000);
-                    const secs = Math.floor((durationMilli % 60000) / 1000);
-                    return `${mins}:${secs.toString().padStart(2, '0')}`;
-                  })()}
-                </Text>
-             </View>
 
              {isOwnCurrentStory && (
                 <TouchableOpacity 
@@ -901,23 +910,23 @@ export default function StoriesViewer({ stories, onClose, initialIndex = 0, isHi
                    }}
                    style={viewerStyles.footerIconBtn}
                 >
-                   <Feather name="trash-2" size={24} color="#fff" />
+                   <Feather name="trash-2" size={24} color={COLORS.textLight} />
                 </TouchableOpacity>
              )}
 
              {isOwnCurrentStory && !isHighlight && (
                 <TouchableOpacity onPress={handleOpenHighlightModal} style={viewerStyles.footerIconBtn} accessibilityLabel="Add to highlight">
-                   <Feather name="chevrons-up" size={24} color="#fff" />
+                   <Feather name="chevrons-up" size={24} color={COLORS.textLight} />
                 </TouchableOpacity>
              )}
 
              <View style={viewerStyles.footerIconBtnRow}>
-                <Feather name="image" size={22} color="#fff" />
+                <Feather name="image" size={22} color={COLORS.textLight} />
                 <Text style={viewerStyles.footerIconText}>{`${currentIndex + 1}/${localStories.length}`}</Text>
              </View>
 
              <TouchableOpacity onPress={() => { setIsPaused(true); setShowComments(true); }} style={viewerStyles.footerIconBtnRow}>
-                <MaterialCommunityIcons name="comment-outline" size={24} color="#fff" />
+                <MaterialCommunityIcons name="comment-outline" size={24} color={COLORS.textLight} />
                 <Text style={viewerStyles.footerIconText}>{currentStory.comments?.length || 0}</Text>
              </TouchableOpacity>
 
@@ -925,13 +934,13 @@ export default function StoriesViewer({ stories, onClose, initialIndex = 0, isHi
                 {isLiked ? (
                   <Ionicons name="heart" size={24} color="#e74c3c" />
                 ) : (
-                  <Feather name="heart" size={24} color="#fff" strokeWidth={2.5} />
+                  <Feather name="heart" size={24} color={COLORS.textLight} strokeWidth={2.5} />
                 )}
                 <Text style={viewerStyles.footerIconText}>{likesCount}</Text>
              </TouchableOpacity>
 
              <TouchableOpacity onPress={() => setShowShareModal(true)} style={viewerStyles.footerIconBtn}>
-                <Feather name="send" size={24} color="#fff" />
+                <Feather name="send" size={24} color={COLORS.textLight} />
              </TouchableOpacity>
           </View>
         </View>
@@ -943,15 +952,18 @@ export default function StoriesViewer({ stories, onClose, initialIndex = 0, isHi
               activeOpacity={1} 
               onPress={() => { setShowComments(false); setIsPaused(false); }}
             />
-            <View style={{ flex: 1, justifyContent: 'flex-end' }}>
-              <View style={{ width: '100%', height: '70%', backgroundColor: '#fff', borderTopLeftRadius: 20, borderTopRightRadius: 20, overflow: 'hidden' }}>
-                <View style={{ height: 50, alignItems: 'center', justifyContent: 'center', borderBottomWidth: 0.5, borderBottomColor: '#eee' }}>
-                  <View style={{ width: 40, height: 5, backgroundColor: '#ddd', borderRadius: 2.5 }} />
+            <KeyboardAvoidingView 
+              behavior={Platform.OS === 'ios' ? 'padding' : undefined} 
+              style={{ flex: 1, justifyContent: 'flex-end' }}
+            >
+              <View style={{ width: '100%', height: '70%', backgroundColor: COLORS.card, borderTopLeftRadius: 20, borderTopRightRadius: 20, overflow: 'hidden' }}>
+                <View style={{ height: 50, alignItems: 'center', justifyContent: 'center', borderBottomWidth: 0.5, borderBottomColor: COLORS.border }}>
+                  <View style={{ width: 40, height: 5, backgroundColor: COLORS.border, borderRadius: 2.5 }} />
                   <TouchableOpacity 
                     style={{ position: 'absolute', right: 15, top: 10 }}
                     onPress={() => { setShowComments(false); setIsPaused(false); }}
                   >
-                    <Ionicons name="close" size={24} color="#000" />
+                    <Ionicons name="close" size={24} color={COLORS.textPrimary} />
                   </TouchableOpacity>
                 </View>
                 
@@ -965,7 +977,7 @@ export default function StoriesViewer({ stories, onClose, initialIndex = 0, isHi
                   />
                 </View>
               </View>
-            </View>
+            </KeyboardAvoidingView>
           </View>
         )}
 
@@ -994,23 +1006,23 @@ export default function StoriesViewer({ stories, onClose, initialIndex = 0, isHi
               <KeyboardAvoidingView 
                 behavior={Platform.OS === 'ios' ? 'padding' : undefined} 
                 enabled={Platform.OS === 'ios'}
-                style={{ backgroundColor: '#fff' }}
+                style={{ backgroundColor: COLORS.card }}
               >
-                <SafeAreaView style={{ backgroundColor: '#fff', borderTopLeftRadius: 20, borderTopRightRadius: 20, maxHeight: height * 0.9, minHeight: 420, overflow: 'hidden' }}>
-                  <View style={{ width: 36, height: 4, borderRadius: 2, backgroundColor: '#ddd', alignSelf: 'center', marginTop: 10, marginBottom: 2 }} />
+                <SafeAreaView style={{ backgroundColor: COLORS.card, borderTopLeftRadius: 20, borderTopRightRadius: 20, maxHeight: height * 0.9, minHeight: 420, overflow: 'hidden' }}>
+                  <View style={{ width: 36, height: 4, borderRadius: 2, backgroundColor: COLORS.border, alignSelf: 'center', marginTop: 10, marginBottom: 2 }} />
 
-                  <View style={{ height: 52, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: '#eee' }}>
+                  <View style={{ height: 52, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: COLORS.border }}>
                     <TouchableOpacity
                       onPress={() => { setShowNewHighlightModal(false); setIsPaused(false); }}
                       activeOpacity={0.7}
                       hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
                       style={{ minWidth: 80, alignItems: 'flex-start' }}
                     >
-                      <Text style={{ fontSize: 15, color: '#111', fontWeight: '500' }}>Cancel</Text>
+                      <Text style={{ fontSize: 15, color: COLORS.textPrimary, fontWeight: '500' }}>Cancel</Text>
                     </TouchableOpacity>
 
                     <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
-                      <Text style={{ fontSize: 16, fontWeight: '700', color: '#111' }}>New highlight</Text>
+                      <Text style={{ fontSize: 16, fontWeight: '700', color: COLORS.textPrimary }}>New highlight</Text>
                     </View>
 
                     <TouchableOpacity
@@ -1020,12 +1032,12 @@ export default function StoriesViewer({ stories, onClose, initialIndex = 0, isHi
                       hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
                       style={{ minWidth: 80, alignItems: 'flex-end' }}
                     >
-                      <Text style={{ fontSize: 15, color: newHighlightName.trim() ? '#007aff' : '#bbb', fontWeight: '700' }}>Save</Text>
+                      <Text style={{ fontSize: 15, color: newHighlightName.trim() ? COLORS.info : COLORS.textMuted, fontWeight: '700' }}>Save</Text>
                     </TouchableOpacity>
                   </View>
 
                   <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={{ paddingBottom: Math.max(insets.bottom, 16) }}>
-                    <View style={{ width: 140, height: 140, borderRadius: 16, alignSelf: 'center', marginTop: 22, marginBottom: 16, backgroundColor: '#f4f4f4', overflow: 'hidden' }}>
+                    <View style={{ width: 140, height: 140, borderRadius: 16, alignSelf: 'center', marginTop: 22, marginBottom: 16, backgroundColor: COLORS.surface, overflow: 'hidden' }}>
                       <Image
                         source={{ uri: String(currentStory?.imageUrl || currentStory?.videoUrl || '') }}
                         style={{ width: '100%', height: '100%' }}
@@ -1033,20 +1045,20 @@ export default function StoriesViewer({ stories, onClose, initialIndex = 0, isHi
                       />
                     </View>
 
-                    <View style={{ marginHorizontal: 16, borderWidth: 1, borderColor: '#e9ecef', borderRadius: 12, paddingHorizontal: 14, paddingVertical: 6, backgroundColor: '#fff' }}>
+                    <View style={{ marginHorizontal: 16, borderWidth: 1, borderColor: COLORS.border, borderRadius: 12, paddingHorizontal: 14, paddingVertical: 6, backgroundColor: COLORS.card }}>
                       <TextInput
                         value={newHighlightName}
                         onChangeText={setNewHighlightName}
                         placeholder="Highlight name"
-                        placeholderTextColor="#999"
+                        placeholderTextColor={COLORS.textMuted}
                         autoCapitalize="words"
                         returnKeyType="done"
-                        style={{ height: 44, color: '#111', fontSize: 16 }}
+                        style={{ height: 44, color: COLORS.textPrimary, fontSize: 16 }}
                       />
                     </View>
 
                     <TouchableOpacity
-                      style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 18, gap: 12, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: '#f0f0f0', marginTop: 14 }}
+                      style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 18, gap: 12, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: COLORS.border, marginTop: 14 }}
                       onPress={() => {
                         Alert.alert('Visibility', 'Who can see this highlight?', [
                           { text: 'Public', onPress: () => setNewHighlightVisibility('Public') },
@@ -1055,11 +1067,11 @@ export default function StoriesViewer({ stories, onClose, initialIndex = 0, isHi
                         ]);
                       }}
                     >
-                      <Ionicons name="eye-outline" size={20} color="#444" />
-                      <Text style={{ flex: 1, fontSize: 15, color: '#000', fontWeight: '500' }}>Visibility</Text>
+                      <Ionicons name="eye-outline" size={20} color={COLORS.textSecondary} />
+                      <Text style={{ flex: 1, fontSize: 15, color: COLORS.textPrimary, fontWeight: '500' }}>Visibility</Text>
                       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-                        <Text style={{ fontSize: 13, color: '#888' }}>{newHighlightVisibility}</Text>
-                        <Feather name="chevron-right" size={18} color="#aaa" />
+                        <Text style={{ fontSize: 13, color: COLORS.textMuted }}>{newHighlightVisibility}</Text>
+                        <Feather name="chevron-right" size={18} color={COLORS.textMuted} />
                       </View>
                     </TouchableOpacity>
                   </ScrollView>
@@ -1071,7 +1083,7 @@ export default function StoriesViewer({ stories, onClose, initialIndex = 0, isHi
                     right: 0,
                     bottom: -1000,
                     height: 1000,
-                    backgroundColor: '#fff',
+                    backgroundColor: COLORS.background,
                     zIndex: -1,
                 }} />
               </KeyboardAvoidingView>
@@ -1123,13 +1135,14 @@ const viewerStyles = StyleSheet.create({
   fullScreenMedia: {
     width: width,
     height: '100%',
+    backgroundColor: COLORS.black,
   },
   postCard: {
     width: width * 0.85,
-    backgroundColor: '#fff',
+    backgroundColor: COLORS.card,
     borderRadius: 12,
     overflow: 'hidden',
-    shadowColor: '#000',
+    shadowColor: COLORS.black,
     shadowOpacity: 0.3,
     shadowRadius: 15,
     elevation: 20,
@@ -1139,29 +1152,31 @@ const viewerStyles = StyleSheet.create({
     alignItems: 'center',
     padding: 10,
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: '#eee',
+    borderBottomColor: COLORS.border,
   },
   postCardAvatar: {
     width: 28,
     height: 28,
     borderRadius: 14,
     marginRight: 8,
+    backgroundColor: '#2c2c2e',
   },
   postCardUsername: {
     fontSize: 13,
     fontWeight: '700',
-    color: '#111',
+    color: COLORS.textPrimary,
   },
   postCardImage: {
     width: '100%',
     aspectRatio: 1,
+    backgroundColor: '#1c1c1e',
   },
   postCardFooter: {
     padding: 12,
   },
   postCardCaption: {
     fontSize: 13,
-    color: '#333',
+    color: COLORS.textSecondary,
     lineHeight: 18,
   },
   topOverlay: {
@@ -1187,7 +1202,7 @@ const viewerStyles = StyleSheet.create({
   },
   progressBarFill: {
     height: '100%',
-    backgroundColor: '#fff',
+    backgroundColor: COLORS.textLight,
   },
   header: {
     flexDirection: 'row',
@@ -1205,10 +1220,10 @@ const viewerStyles = StyleSheet.create({
     borderRadius: 19,
     marginRight: 10,
     borderWidth: 1.5,
-    borderColor: '#fff',
+    borderColor: COLORS.textLight,
   },
   headerLocation: {
-    color: '#FF8D00',
+    color: COLORS.primary,
     fontWeight: '700',
     fontSize: 10,
     textTransform: 'uppercase',
@@ -1218,14 +1233,14 @@ const viewerStyles = StyleSheet.create({
     marginBottom: 2,
   },
   headerName: {
-    color: '#fff',
+    color: COLORS.textLight,
     fontWeight: '700',
     fontSize: 14,
     textShadowColor: 'rgba(0,0,0,0.5)',
     textShadowRadius: 3,
   },
   headerTime: {
-    color: '#eee',
+    color: COLORS.surface,
     fontSize: 12,
     textShadowColor: 'rgba(0,0,0,0.5)',
     textShadowRadius: 2,
@@ -1273,15 +1288,14 @@ const viewerStyles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    marginRight: 12,
   },
   footerIconText: {
-    color: '#fff',
+    color: COLORS.textLight,
     fontSize: 12,
     fontWeight: '600',
   },
   commentsModal: {
-    backgroundColor: '#fff',
+    backgroundColor: COLORS.card,
     borderTopLeftRadius: 25,
     borderTopRightRadius: 25,
     height: height * 0.7,
@@ -1290,7 +1304,7 @@ const viewerStyles = StyleSheet.create({
   modalHandle: {
     width: 40,
     height: 4,
-    backgroundColor: '#eee',
+    backgroundColor: COLORS.border,
     borderRadius: 2,
     alignSelf: 'center',
     marginBottom: 10,
@@ -1318,12 +1332,12 @@ const viewerStyles = StyleSheet.create({
   },
   commentText: {
     fontSize: 14,
-    color: '#333',
+    color: COLORS.textSecondary,
     lineHeight: 18,
   },
   commentMeta: {
     fontSize: 11,
-    color: '#999',
+    color: COLORS.textMuted,
     marginTop: 4,
   },
   inputArea: {
@@ -1331,12 +1345,12 @@ const viewerStyles = StyleSheet.create({
     padding: 16,
     alignItems: 'center',
     borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: '#eee',
+    borderTopColor: COLORS.border,
   },
   textInput: {
     flex: 1,
     height: 40,
-    backgroundColor: '#f5f5f5',
+    backgroundColor: COLORS.inputBg,
     borderRadius: 20,
     paddingHorizontal: 15,
     marginRight: 12,
@@ -1344,7 +1358,7 @@ const viewerStyles = StyleSheet.create({
   },
   emptyText: {
     textAlign: 'center',
-    color: '#999',
+    color: COLORS.textMuted,
     marginTop: 30,
   },
   centeredModal: {

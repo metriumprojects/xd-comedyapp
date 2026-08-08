@@ -1,6 +1,7 @@
 import React from 'react';
 import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator, StyleSheet } from 'react-native';
 import { Feather, Ionicons } from '@expo/vector-icons';
+import COLORS from '@/src/theme/colors';
 
 interface VisibilitySettingsScreenProps {
   currentVisibility: 'public' | 'private' | 'specific';
@@ -44,7 +45,7 @@ export const VisibilitySettingsScreen: React.FC<VisibilitySettingsScreenProps> =
                 <Text style={styles.visSub}>{opt.sub}</Text>
               </View>
               {currentVisibility === opt.key && (
-                <Ionicons name="checkmark" size={20} color="#FF8D00" />
+                <Ionicons name="checkmark" size={20} color={COLORS.primary} />
               )}
             </TouchableOpacity>
             <View style={styles.divider} />
@@ -61,7 +62,7 @@ export const VisibilitySettingsScreen: React.FC<VisibilitySettingsScreenProps> =
             <Text style={styles.visSub}>Only members of selected groups can see</Text>
           </View>
           {currentVisibility === 'specific' && (
-            <Ionicons name="checkmark" size={20} color="#FF8D00" />
+            <Ionicons name="checkmark" size={20} color={COLORS.primary} />
           )}
         </TouchableOpacity>
 
@@ -69,7 +70,7 @@ export const VisibilitySettingsScreen: React.FC<VisibilitySettingsScreenProps> =
           <View style={styles.groupsContainer}>
             <Text style={styles.groupsLabel}>Select Groups</Text>
             {loadingGroups ? (
-              <ActivityIndicator color="#FF8D00" style={{ marginVertical: 20 }} />
+              <ActivityIndicator color={COLORS.primary} style={{ marginVertical: 20 }} />
             ) : groups.length === 0 ? (
               <Text style={styles.noGroupsText}>No groups found</Text>
             ) : (
@@ -85,7 +86,7 @@ export const VisibilitySettingsScreen: React.FC<VisibilitySettingsScreenProps> =
                     <Ionicons
                       name={isSelected ? "checkbox" : "square-outline"}
                       size={20}
-                      color={isSelected ? "#FF8D00" : "#ccc"}
+                      color={isSelected ? COLORS.primary : COLORS.textMuted}
                     />
                   </TouchableOpacity>
                 );
@@ -100,12 +101,12 @@ export const VisibilitySettingsScreen: React.FC<VisibilitySettingsScreenProps> =
 
 const styles = StyleSheet.create({
   visRow: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 16 },
-  visLabel: { fontSize: 16, fontWeight: '700', color: '#111' },
-  visSub: { fontSize: 13, color: '#666', marginTop: 2 },
-  divider: { height: 1, backgroundColor: '#f0f0f0', marginLeft: 16 },
-  groupsContainer: { backgroundColor: '#f9f9f9', paddingHorizontal: 16, paddingVertical: 12 },
-  groupsLabel: { fontSize: 13, fontWeight: '800', color: '#666', textTransform: 'uppercase', marginBottom: 12 },
-  noGroupsText: { fontSize: 14, color: '#999', textAlign: 'center', marginVertical: 12 },
+  visLabel: { fontSize: 16, fontWeight: '700', color: COLORS.textPrimary },
+  visSub: { fontSize: 13, color: COLORS.textSecondary, marginTop: 2 },
+  divider: { height: 1, backgroundColor: COLORS.border, marginLeft: 16 },
+  groupsContainer: { backgroundColor: COLORS.surface, paddingHorizontal: 16, paddingVertical: 12 },
+  groupsLabel: { fontSize: 13, fontWeight: '800', color: COLORS.textSecondary, textTransform: 'uppercase', marginBottom: 12 },
+  noGroupsText: { fontSize: 14, color: COLORS.textMuted, textAlign: 'center', marginVertical: 12 },
   groupItem: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 10 },
-  groupName: { fontSize: 15, color: '#111', fontWeight: '500' },
+  groupName: { fontSize: 15, color: COLORS.textPrimary, fontWeight: '500' },
 });

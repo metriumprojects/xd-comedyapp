@@ -1,6 +1,7 @@
 import React, { useEffect, useRef } from 'react';
 import { View, Animated, StyleSheet, Dimensions } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import COLORS from '@/src/theme/colors';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -99,11 +100,11 @@ export function ReelBufferSkeleton() {
 const styles = StyleSheet.create({
   container: {
     width: SCREEN_WIDTH,
-    backgroundColor: '#000000',
+    backgroundColor: COLORS.black,
     overflow: 'hidden',
   },
   block: {
-    backgroundColor: '#2c2c2e',
+    backgroundColor: COLORS.card,
   },
   rightCol: {
     position: 'absolute',
@@ -123,7 +124,7 @@ const styles = StyleSheet.create({
     zIndex: 2,
   },
   bufferOverlay: {
-    backgroundColor: '#2c2c2e',
+    backgroundColor: COLORS.card,
     zIndex: 10,
   },
 });

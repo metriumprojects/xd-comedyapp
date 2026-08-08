@@ -352,7 +352,8 @@ router.patch('/:postId/comments/:commentId', verifyToken, async (req, res) => {
     if (!comment) return res.status(404).json({ success: false, error: 'Comment not found' });
     
     // Check if any of the user's ID candidates matches the comment author's ID
-    const isAuthor = candidates.some(id => String(id) === String(comment.userId));
+    const commentUserId = String(comment.userId || comment.authorId || comment.uid || '');
+    const isAuthor = candidates.some(id => String(id) === commentUserId) || String(userId) === commentUserId;
     if (!isAuthor) return res.status(403).json({ success: false, error: 'Unauthorized' });
 
     comment.text = text;

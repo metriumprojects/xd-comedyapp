@@ -1,6 +1,7 @@
 // Fallback component for video rendering issues
 import React from 'react';
 import { View, ActivityIndicator, Text, TouchableOpacity } from 'react-native';
+import COLORS from '@/src/theme/colors';
 
 type VideoFallbackProps = {
   connectionStatus: string;
@@ -18,17 +19,17 @@ export default function VideoFallback({ connectionStatus, initializeViewer, reco
   }, []);
 
   return (
-    <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#000' }}>
-      <ActivityIndicator size="large" color="#fff" style={{ marginBottom: 10 }} />
-      <Text style={{ color: '#fff', fontSize: 16 }}>
+    <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: COLORS.black }}>
+      <ActivityIndicator size="large" color={COLORS.textLight} style={{ marginBottom: 10 }} />
+      <Text style={{ color: COLORS.textLight, fontSize: 16 }}>
         {connectionStatus === 'reconnecting' ? 'Reconnecting...' : 'Connecting to live stream...'}
       </Text>
-      <Text style={{ color: '#aaa', fontSize: 12, marginTop: 5 }}>
+      <Text style={{ color: COLORS.textMuted, fontSize: 12, marginTop: 5 }}>
         {connectionStatus === 'reconnecting' ? 'Attempting reconnect...' : 'Please wait'}
       </Text>
       {showError && (
-        <View style={{ marginTop: 20, padding: 16, backgroundColor: '#ff6b6b', borderRadius: 8 }}>
-          <Text style={{ color: '#fff', fontWeight: 'bold', textAlign: 'center' }}>
+        <View style={{ marginTop: 20, padding: 16, backgroundColor: COLORS.danger, borderRadius: 8 }}>
+          <Text style={{ color: COLORS.textLight, fontWeight: 'bold', textAlign: 'center' }}>
             Video not rendering. This is usually a device or system issue. Try:
             {'\n'}- Restarting the app
             {'\n'}- Switching WiFi/data
@@ -40,13 +41,13 @@ export default function VideoFallback({ connectionStatus, initializeViewer, reco
       )}
       {connectionStatus === 'disconnected' && (
         <TouchableOpacity 
-          style={{ marginTop: 20, paddingHorizontal: 20, paddingVertical: 10, backgroundColor: '#ff6b6b', borderRadius: 8 }}
+          style={{ marginTop: 20, paddingHorizontal: 20, paddingVertical: 10, backgroundColor: COLORS.danger, borderRadius: 8 }}
           onPress={() => {
             if (typeof reconnectAttemptsRef !== 'undefined' && reconnectAttemptsRef.current) reconnectAttemptsRef.current = 0;
             initializeViewer();
           }}
         >
-          <Text style={{ color: '#fff', fontWeight: 'bold' }}>Try Again</Text>
+          <Text style={{ color: COLORS.textLight, fontWeight: 'bold' }}>Try Again</Text>
         </TouchableOpacity>
       )}
     </View>

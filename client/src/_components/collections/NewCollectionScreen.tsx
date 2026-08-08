@@ -2,6 +2,7 @@ import React from 'react';
 import { View, Text, TextInput, ScrollView, TouchableOpacity, StyleSheet } from 'react-native';
 import { Feather, Ionicons } from '@expo/vector-icons';
 import { Image as ExpoImage } from 'expo-image';
+import COLORS from '@/src/theme/colors';
 
 interface NewCollectionScreenProps {
   postImageUrl?: string;
@@ -52,7 +53,7 @@ export const NewCollectionScreen: React.FC<NewCollectionScreenProps> = ({
           </View>
         ) : (
           <View style={[styles.newPostThumbContainer, styles.collThumbPlaceholder]}>
-            <Feather name="image" size={40} color="#ccc" />
+            <Feather name="image" size={40} color={COLORS.textMuted} />
           </View>
         )}
 
@@ -61,43 +62,43 @@ export const NewCollectionScreen: React.FC<NewCollectionScreenProps> = ({
             ref={nameInputRef}
             style={styles.newNameInput}
             placeholder="Collection name"
-            placeholderTextColor="#999"
+            placeholderTextColor={COLORS.textMuted}
             value={newName}
             onChangeText={setNewName}
             returnKeyType="done"
           />
           {newName.length > 0 && (
             <TouchableOpacity onPress={() => setNewName('')} style={styles.clearInput}>
-              <Ionicons name="close-circle" size={18} color="#ccc" />
+              <Ionicons name="close-circle" size={18} color={COLORS.border} />
             </TouchableOpacity>
           )}
         </View>
 
         <TouchableOpacity style={styles.newOptionRow} onPress={onGoToVisibility}>
-          <Ionicons name="eye-outline" size={20} color="#444" />
+          <Ionicons name="eye-outline" size={20} color={COLORS.textSecondary} />
           <Text style={styles.newOptionLabel}>Visibility</Text>
           <View style={styles.optionRight}>
             <Text style={styles.optionValue}>
               {newVisibility === 'public' ? 'Public' : newVisibility === 'private' ? 'Private' : 'Specific'}
             </Text>
-            <Feather name="chevron-right" size={18} color="#aaa" />
+            <Feather name="chevron-right" size={18} color={COLORS.textMuted} />
           </View>
         </TouchableOpacity>
 
         <TouchableOpacity style={styles.newOptionRow} onPress={onGoToInvite}>
-          <Ionicons name="person-add-outline" size={20} color="#444" />
+          <Ionicons name="person-add-outline" size={20} color={COLORS.textSecondary} />
           <Text style={styles.newOptionLabel}>Add people to collection</Text>
-          <Feather name="chevron-right" size={18} color="#aaa" />
+          <Feather name="chevron-right" size={18} color={COLORS.textMuted} />
         </TouchableOpacity>
 
         {newVisibility === 'specific' && tempSelectedGroups.length > 0 && (
           <View style={{ paddingHorizontal: 16, marginTop: 4 }}>
-            <Text style={{ fontSize: 12, color: '#666', fontWeight: '600', marginBottom: 6 }}>Visible to Groups</Text>
+            <Text style={{ fontSize: 12, color: COLORS.textSecondary, fontWeight: '600', marginBottom: 6 }}>Visible to Groups</Text>
             <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
               {groups.filter(g => tempSelectedGroups.includes(g._id)).map((g, index) => (
-                <View key={index} style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: '#e8f0fe', paddingHorizontal: 10, paddingVertical: 6, borderRadius: 16 }}>
-                  <Ionicons name="people-outline" size={14} color="#FF8D00" style={{ marginRight: 6 }} />
-                  <Text style={{ fontSize: 13, color: '#FF8D00', fontWeight: '600' }}>{g.name}</Text>
+                <View key={index} style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: COLORS.primaryLight, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 16 }}>
+                  <Ionicons name="people-outline" size={14} color={COLORS.primary} style={{ marginRight: 6 }} />
+                  <Text style={{ fontSize: 13, color: COLORS.primary, fontWeight: '600' }}>{g.name}</Text>
                 </View>
               ))}
             </View>
@@ -106,18 +107,18 @@ export const NewCollectionScreen: React.FC<NewCollectionScreenProps> = ({
 
         {newCollaborators.length > 0 && (
           <View style={{ paddingHorizontal: 16, marginTop: 4 }}>
-            <Text style={{ fontSize: 12, color: '#666', fontWeight: '600', marginBottom: 6 }}>Collaborators</Text>
+            <Text style={{ fontSize: 12, color: COLORS.textSecondary, fontWeight: '600', marginBottom: 6 }}>Collaborators</Text>
             <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
               {newCollaborators.map((u, index) => {
                 const name = u.displayName || u.username || 'Collaborator';
                 return (
-                  <View key={index} style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: '#f0f2f5', paddingHorizontal: 10, paddingVertical: 6, borderRadius: 16 }}>
+                  <View key={index} style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: COLORS.inputBg, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 16 }}>
                     {u.avatar ? (
                       <ExpoImage source={{ uri: u.avatar }} style={{ width: 20, height: 20, borderRadius: 10, marginRight: 6 }} />
                     ) : (
-                      <Ionicons name="person-circle" size={20} color="#999" style={{ marginRight: 6 }} />
+                      <Ionicons name="person-circle" size={20} color={COLORS.textMuted} style={{ marginRight: 6 }} />
                     )}
-                    <Text style={{ fontSize: 13, color: '#333', fontWeight: '600' }}>{name}</Text>
+                    <Text style={{ fontSize: 13, color: COLORS.textPrimary, fontWeight: '600' }}>{name}</Text>
                   </View>
                 );
               })}
@@ -130,18 +131,18 @@ export const NewCollectionScreen: React.FC<NewCollectionScreenProps> = ({
 };
 
 const styles = StyleSheet.create({
-  newPostThumbContainer: { width: '100%', height: 180, backgroundColor: '#f5f5f5', marginBottom: 20 },
+  newPostThumbContainer: { width: '100%', height: 180, backgroundColor: COLORS.surface, marginBottom: 20 },
   newPostThumb: { width: '100%', height: '100%' },
-  collThumbPlaceholder: { alignItems: 'center', justifyContent: 'center', backgroundColor: '#f5f5f5' },
+  collThumbPlaceholder: { alignItems: 'center', justifyContent: 'center', backgroundColor: COLORS.surface },
   newInputContainer: { flexDirection: 'row', alignItems: 'center', marginHorizontal: 16, paddingBottom: 8, marginBottom: 20 },
-  newNameInput: { flex: 1, fontSize: 18, fontWeight: '700', color: '#111', paddingVertical: 8 },
+  newNameInput: { flex: 1, fontSize: 18, fontWeight: '700', color: COLORS.textPrimary, paddingVertical: 8 },
   clearInput: { padding: 4 },
   newOptionRow: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 10 },
-  newOptionLabel: { flex: 1, fontSize: 15, color: '#111', marginLeft: 12 },
+  newOptionLabel: { flex: 1, fontSize: 15, color: COLORS.textPrimary, marginLeft: 12 },
   optionRight: { flexDirection: 'row', alignItems: 'center' },
-  optionValue: { fontSize: 14, color: '#666', marginRight: 6 },
+  optionValue: { fontSize: 14, color: COLORS.textSecondary, marginRight: 6 },
   collabInfo: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, marginTop: 12 },
-  collabChips: { flex: 1, fontSize: 13, color: '#FF8D00', marginLeft: 8, fontWeight: '600' },
+  collabChips: { flex: 1, fontSize: 13, color: COLORS.primary, marginLeft: 8, fontWeight: '600' },
   scrollView: { flexGrow: 0, flexShrink: 1 },
   scrollViewContent: { paddingBottom: 6 },
 });

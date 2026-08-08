@@ -1,10 +1,11 @@
-﻿import { Feather } from '@expo/vector-icons';
+import { Feather } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, Dimensions, Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import CountryFlag from './CountryFlag';
 import { getPassportData, Stamp } from '../../lib/firebaseHelpers/passport';
+import COLORS from '@/src/theme/colors';
 
 // Conditionally import location service to avoid native module errors
 let getCurrentLocation: any = null;
@@ -85,7 +86,7 @@ const PassportSection: React.FC<PassportSectionProps> = ({ userId, isOwner }) =>
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#FF8D00" />
+        <ActivityIndicator size="large" color={COLORS.primary} />
         <Text style={styles.loadingText}>Loading your passport...</Text>
       </View>
     );
@@ -102,7 +103,7 @@ const PassportSection: React.FC<PassportSectionProps> = ({ userId, isOwner }) =>
             end={{ x: 1, y: 1 }}
             style={styles.locationGradient}
           >
-            <Feather name="map-pin" size={24} color="#fff" />
+            <Feather name="map-pin" size={24} color={COLORS.textLight} />
             <View style={styles.locationInfo}>
               <Text style={styles.locationLabel}>Current Location</Text>
               <Text style={styles.locationText}>
@@ -134,12 +135,12 @@ const PassportSection: React.FC<PassportSectionProps> = ({ userId, isOwner }) =>
       {/* Passport Stamps Grid */}
       <View style={styles.stampsHeader}>
         <Text style={styles.stampsTitle}>Travel Stamps</Text>
-        <Feather name="award" size={20} color="#FF8D00" />
+        <Feather name="award" size={20} color={COLORS.primary} />
       </View>
 
       {stamps.length === 0 ? (
         <View style={styles.emptyState}>
-          <Feather name="globe" size={64} color="#ddd" />
+          <Feather name="globe" size={64} color={COLORS.textMuted} />
           <Text style={styles.emptyTitle}>No Stamps Yet</Text>
           <Text style={styles.emptyText}>
             Start traveling to collect passport stamps!
@@ -155,7 +156,7 @@ const PassportSection: React.FC<PassportSectionProps> = ({ userId, isOwner }) =>
             >
               <View style={styles.stampCircle}>
                 <LinearGradient
-                  colors={['#FF8D00', '#e74c3c']}
+                  colors={[COLORS.primary, '#e74c3c']}
                   style={styles.stampGrad}
                 >
                   <CountryFlag countryCode={stamp.countryCode || 'XX'} size={30} />
@@ -181,7 +182,7 @@ export default PassportSection;
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f5f5f5',
+    backgroundColor: COLORS.background,
   },
   contentContainer: {
     padding: 16,
@@ -191,19 +192,19 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#f5f5f5',
+    backgroundColor: COLORS.background,
   },
   loadingText: {
     marginTop: 16,
     fontSize: 16,
-    color: '#666',
+    color: COLORS.textSecondary,
     fontWeight: '600',
   },
   currentLocationCard: {
     marginBottom: 20,
     borderRadius: 16,
     overflow: 'hidden',
-    shadowColor: '#000',
+    shadowColor: COLORS.black,
     shadowOpacity: 0.1,
     shadowRadius: 8,
     shadowOffset: { width: 0, height: 4 },
@@ -226,16 +227,16 @@ const styles = StyleSheet.create({
   },
   locationText: {
     fontSize: 18,
-    color: '#fff',
+    color: COLORS.textLight,
     fontWeight: '700',
   },
   statsCard: {
     flexDirection: 'row',
-    backgroundColor: '#fff',
+    backgroundColor: COLORS.card,
     borderRadius: 16,
     padding: 20,
     marginBottom: 24,
-    shadowColor: '#000',
+    shadowColor: COLORS.black,
     shadowOpacity: 0.05,
     shadowRadius: 8,
     shadowOffset: { width: 0, height: 2 },
@@ -248,17 +249,17 @@ const styles = StyleSheet.create({
   statNumber: {
     fontSize: 28,
     fontWeight: '700',
-    color: '#FF8D00',
+    color: COLORS.primary,
     marginBottom: 4,
   },
   statLabel: {
     fontSize: 12,
-    color: '#666',
+    color: COLORS.textSecondary,
     fontWeight: '600',
   },
   statDivider: {
     width: 1,
-    backgroundColor: '#eee',
+    backgroundColor: COLORS.border,
     marginHorizontal: 16,
   },
   stampsHeader: {
@@ -270,7 +271,7 @@ const styles = StyleSheet.create({
   stampsTitle: {
     fontSize: 20,
     fontWeight: '700',
-    color: '#222',
+    color: COLORS.textPrimary,
   },
   emptyState: {
     alignItems: 'center',
@@ -280,13 +281,13 @@ const styles = StyleSheet.create({
   emptyTitle: {
     fontSize: 20,
     fontWeight: '700',
-    color: '#999',
+    color: COLORS.textMuted,
     marginTop: 16,
     marginBottom: 8,
   },
   emptyText: {
     fontSize: 14,
-    color: '#bbb',
+    color: COLORS.textMuted,
     textAlign: 'center',
   },
   stampsGrid: {
@@ -305,9 +306,9 @@ const styles = StyleSheet.create({
     height: 80,
     borderRadius: 40,
     padding: 4,
-    backgroundColor: '#fff',
+    backgroundColor: COLORS.card,
     elevation: 3,
-    shadowColor: '#000',
+    shadowColor: COLORS.black,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 4,
@@ -323,14 +324,14 @@ const styles = StyleSheet.create({
     position: 'absolute',
     bottom: 5,
     right: 5,
-    backgroundColor: '#fff',
+    backgroundColor: COLORS.card,
     borderRadius: 8,
     paddingHorizontal: 4,
     paddingVertical: 1,
   },
-  counterText: { fontSize: 9, fontWeight: '800', color: '#FF8D00' },
-  stampName: { fontSize: 13, fontWeight: '700', color: '#111', marginTop: 6, textAlign: 'center' },
-  stampType: { fontSize: 10, color: '#888', marginTop: 1, textTransform: 'capitalize' },
+  counterText: { fontSize: 9, fontWeight: '800', color: COLORS.primary },
+  stampName: { fontSize: 13, fontWeight: '700', color: COLORS.textPrimary, marginTop: 6, textAlign: 'center' },
+  stampType: { fontSize: 10, color: COLORS.textMuted, marginTop: 1, textTransform: 'capitalize' },
 });
 
 

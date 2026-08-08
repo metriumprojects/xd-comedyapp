@@ -2,6 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import * as AppleAuthentication from 'expo-apple-authentication';
 import React from 'react';
 import { Platform, StyleSheet, Text, TouchableOpacity, View, ViewStyle } from 'react-native';
+import COLORS from '@/src/theme/colors';
 
 interface SocialButtonProps {
 	provider: 'google' | 'apple' | 'tiktok' | 'snapchat';
@@ -14,30 +15,30 @@ const providerConfig = {
 	google: {
 		icon: 'logo-google' as keyof typeof Ionicons.glyphMap,
 		label: 'Continue with Google',
-		bgColor: '#fff',
-		textColor: '#000',
+		bgColor: COLORS.background,
+		textColor: COLORS.black,
 		iconColor: '#DB4437',
 	},
 	apple: {
 		icon: 'logo-apple' as keyof typeof Ionicons.glyphMap,
 		label: 'Continue with Apple',
-		bgColor: '#000',
-		textColor: '#fff',
-		iconColor: '#fff',
+		bgColor: COLORS.black,
+		textColor: COLORS.textLight,
+		iconColor: COLORS.textLight,
 	},
 	tiktok: {
 		icon: 'logo-tiktok' as keyof typeof Ionicons.glyphMap,
 		label: 'Continue with TikTok',
-		bgColor: '#000',
-		textColor: '#fff',
-		iconColor: '#fff',
+		bgColor: COLORS.black,
+		textColor: COLORS.textLight,
+		iconColor: COLORS.textLight,
 	},
 	snapchat: {
 		icon: 'logo-snapchat' as keyof typeof Ionicons.glyphMap,
 		label: 'Continue with Snap',
 		bgColor: '#FFFC00',
-		textColor: '#000',
-		iconColor: '#000',
+		textColor: COLORS.black,
+		iconColor: COLORS.black,
 	},
 };
 

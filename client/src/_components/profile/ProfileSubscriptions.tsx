@@ -6,6 +6,7 @@ import { useRouter } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 import { DEFAULT_AVATAR_URL } from '@/lib/api';
 import { subscriptionService, SubscriptionRecord } from '@/src/_services/subscriptionService';
+import COLORS from '@/src/theme/colors';
 
 interface ProfileSubscriptionsProps {
   currentUserId: string | null;
@@ -56,18 +57,18 @@ export const ProfileSubscriptions: React.FC<ProfileSubscriptionsProps> = ({ curr
     return (
       <Animated.View style={[styles.card, { opacity: skeletonOpacity }]}>
         <View style={styles.cardHeader}>
-          <View style={[styles.avatar, { backgroundColor: '#e5e5ea' }]} />
+          <View style={[styles.avatar, { backgroundColor: COLORS.border }]} />
           <View style={styles.cardHeaderInfo}>
-            <View style={{ width: 120, height: 16, backgroundColor: '#e5e5ea', borderRadius: 4, marginBottom: 6 }} />
-            <View style={{ width: 180, height: 12, backgroundColor: '#e5e5ea', borderRadius: 4, marginBottom: 4 }} />
-            <View style={{ width: 80, height: 12, backgroundColor: '#e5e5ea', borderRadius: 4 }} />
+            <View style={{ width: 120, height: 16, backgroundColor: COLORS.border, borderRadius: 4, marginBottom: 6 }} />
+            <View style={{ width: 180, height: 12, backgroundColor: COLORS.border, borderRadius: 4, marginBottom: 4 }} />
+            <View style={{ width: 80, height: 12, backgroundColor: COLORS.border, borderRadius: 4 }} />
           </View>
         </View>
         <View style={styles.actions}>
-          <View style={[styles.btnSeeProfile, { backgroundColor: '#e5e5ea', width: 90 }]}>
+          <View style={[styles.btnSeeProfile, { backgroundColor: COLORS.border, width: 90 }]}>
             <View style={{ width: 60, height: 12, backgroundColor: '#d1d1d6', borderRadius: 4 }} />
           </View>
-          <View style={[styles.btnCancel, { backgroundColor: '#e5e5ea', width: 130 }]}>
+          <View style={[styles.btnCancel, { backgroundColor: COLORS.border, width: 130 }]}>
             <View style={{ width: 100, height: 12, backgroundColor: '#d1d1d6', borderRadius: 4 }} />
           </View>
         </View>
@@ -161,7 +162,7 @@ export const ProfileSubscriptions: React.FC<ProfileSubscriptionsProps> = ({ curr
           style={[styles.pill, filter === 'recent' && styles.pillActive]}
           onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {}); setFilter('recent'); }}
         >
-          <Feather name="clock" size={14} color={filter === 'recent' ? '#fff' : '#fff'} style={{ marginRight: 6 }} />
+          <Feather name="clock" size={14} color={filter === 'recent' ? COLORS.textLight : COLORS.textLight} style={{ marginRight: 6 }} />
           <Text style={styles.pillText}>Recent subscription</Text>
         </TouchableOpacity>
 
@@ -238,7 +239,7 @@ export const ProfileSubscriptions: React.FC<ProfileSubscriptionsProps> = ({ curr
           ))
         ) : (
           <View style={styles.emptyContainer}>
-            <Ionicons name="star-outline" size={40} color="#bbb" />
+            <Ionicons name="star-outline" size={40} color={COLORS.textMuted} />
             <Text style={styles.emptyText}>No subscriptions found</Text>
           </View>
         )}
@@ -249,7 +250,7 @@ export const ProfileSubscriptions: React.FC<ProfileSubscriptionsProps> = ({ curr
 
 const styles = StyleSheet.create({
   container: {
-    backgroundColor: '#fff',
+    backgroundColor: COLORS.background,
     paddingTop: 10,
     paddingBottom: 20,
   },
@@ -268,34 +269,34 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#00a2ff', // Figma light blue
+    backgroundColor: COLORS.info, // Figma light blue
     paddingVertical: 8,
     paddingHorizontal: 16,
     borderRadius: 20,
   },
   pillBlack: {
-    backgroundColor: '#000', // Black inactive pills
+    backgroundColor: COLORS.black, // Black inactive pills
   },
   pillActive: {
-    backgroundColor: '#007aff', // Active filter highlight blue
+    backgroundColor: COLORS.info, // Active filter highlight blue
     borderWidth: 1,
-    borderColor: '#fff',
+    borderColor: COLORS.textLight,
   },
   pillText: {
     fontSize: 13,
     fontWeight: '700',
-    color: '#fff',
+    color: COLORS.textLight,
   },
   list: {
     paddingHorizontal: 16,
     gap: 12,
   },
   card: {
-    backgroundColor: '#f5f5f7',
+    backgroundColor: COLORS.surface,
     borderRadius: 16,
     padding: 16,
     borderWidth: 1,
-    borderColor: '#e5e5ea',
+    borderColor: COLORS.border,
   },
   cardHeader: {
     flexDirection: 'row',
@@ -305,7 +306,7 @@ const styles = StyleSheet.create({
     width: 48,
     height: 48,
     borderRadius: 24,
-    backgroundColor: '#eee',
+    backgroundColor: COLORS.border,
   },
   cardHeaderInfo: {
     marginLeft: 12,
@@ -315,21 +316,21 @@ const styles = StyleSheet.create({
   displayName: {
     fontSize: 15,
     fontWeight: '700',
-    color: '#000',
+    color: COLORS.black,
   },
   subText: {
     fontSize: 13,
-    color: '#1c1c1e',
+    color: COLORS.textPrimary,
     fontWeight: '500',
   },
   priceText: {
     fontSize: 13,
-    color: '#1c1c1e',
+    color: COLORS.textPrimary,
     fontWeight: '500',
   },
   cancelText: {
     fontSize: 12,
-    color: '#ff3b30',
+    color: COLORS.danger,
     fontWeight: '600',
     marginTop: 2,
   },
@@ -339,7 +340,7 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   btnSeeProfile: {
-    backgroundColor: '#00a2ff',
+    backgroundColor: COLORS.info,
     paddingVertical: 8,
     paddingHorizontal: 18,
     borderRadius: 16,
@@ -347,7 +348,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   btnCancel: {
-    backgroundColor: '#FF5A1F', // Orange Cancel btn
+    backgroundColor: COLORS.accent, // Orange Cancel btn
     paddingVertical: 8,
     paddingHorizontal: 18,
     borderRadius: 16,
@@ -355,7 +356,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   btnText: {
-    color: '#fff',
+    color: COLORS.textLight,
     fontSize: 13,
     fontWeight: '700',
   },
@@ -367,7 +368,7 @@ const styles = StyleSheet.create({
   },
   emptyText: {
     fontSize: 14,
-    color: '#999',
+    color: COLORS.textMuted,
     fontWeight: '600',
   },
 });

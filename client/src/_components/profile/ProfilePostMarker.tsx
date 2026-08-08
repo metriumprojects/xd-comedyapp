@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { View, TouchableOpacity, Platform } from 'react-native';
 import { Image as ExpoImage } from 'expo-image';
 import { getOptimizedImageUrl } from '../../../lib/imageHelpers';
+import COLORS from '@/src/theme/colors';
 
 let Marker: any = null;
 if (Platform.OS !== 'web') {
@@ -51,12 +52,12 @@ export const ProfilePostMarker: React.FC<ProfilePostMarkerProps> = ({
             height: 48, 
             borderRadius: 12, 
             borderWidth: 2, 
-            borderColor: '#ffa726', 
+            borderColor: COLORS.primaryBorder, 
             overflow: 'hidden', 
-            backgroundColor: '#fff', 
+            backgroundColor: COLORS.card, 
             justifyContent: 'center', 
             alignItems: 'center', 
-            shadowColor: '#000', 
+            shadowColor: COLORS.black, 
             shadowOffset: { width: 0, height: 2 }, 
             shadowOpacity: 0.2, 
             shadowRadius: 3, 
@@ -81,11 +82,11 @@ export const ProfilePostMarker: React.FC<ProfilePostMarkerProps> = ({
             height: 20, 
             borderRadius: 10, 
             borderWidth: 2, 
-            borderColor: '#fff', 
-            backgroundColor: '#fff', 
+            borderColor: COLORS.textLight, 
+            backgroundColor: COLORS.textLight, 
             justifyContent: 'center', 
             alignItems: 'center', 
-            shadowColor: '#000', 
+            shadowColor: COLORS.black, 
             shadowOffset: { width: 0, height: 1 }, 
             shadowOpacity: 0.2, 
             shadowRadius: 2, 

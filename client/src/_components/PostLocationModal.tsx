@@ -7,6 +7,7 @@ import { useUser } from '@/src/_components/UserContext';
 import { likePost, unlikePost } from '@/lib/firebaseHelpers';
 import { DEFAULT_AVATAR_URL } from '@/lib/api';
 import VerifiedBadge from './VerifiedBadge';
+import COLORS from '@/src/theme/colors';
 
 // Move context to top-level
 const PostLocationModalContext = React.createContext<{ onImagePress?: (post: PostType) => void }>({});
@@ -100,17 +101,17 @@ const PostItem: React.FC<{ item: PostType }> = ({ item }) => {
       <View style={styles.iconRow}>
         <TouchableOpacity onPress={handleLike} style={{ marginRight: 8, flexDirection: 'row', alignItems: 'center' }}>
           {liked ? (
-            <MaterialCommunityIcons name="heart" size={24} color="#e74c3c" />
+            <MaterialCommunityIcons name="heart" size={24} color={COLORS.danger} />
           ) : (
-            <MaterialCommunityIcons name="heart-outline" size={24} color="#222" />
+            <MaterialCommunityIcons name="heart-outline" size={24} color={COLORS.textPrimary} />
           )}
-          <Text style={{ marginLeft: 6, fontWeight: '700', color: '#222', fontSize: 15 }}>{typeof likesCount === 'number' || typeof likesCount === 'string' ? String(likesCount) : ''}</Text>
+          <Text style={{ marginLeft: 6, fontWeight: '700', color: COLORS.textPrimary, fontSize: 15 }}>{typeof likesCount === 'number' || typeof likesCount === 'string' ? String(likesCount) : ''}</Text>
         </TouchableOpacity>
         <TouchableOpacity onPress={() => setShowCommentsModal(true)} style={{ marginRight: 24 }}>
-          <Feather name="message-circle" size={22} color="#222" />
+          <Feather name="message-circle" size={22} color={COLORS.textPrimary} />
         </TouchableOpacity>
         <TouchableOpacity style={{ marginRight: 24 }} onPress={handleShare}>
-          <Feather name="send" size={22} color="#007aff" />
+          <Feather name="send" size={22} color={COLORS.info} />
         </TouchableOpacity>
         <View style={{ flex: 1 }} />
         <SaveButton post={{ ...item, saved }} />
@@ -154,7 +155,7 @@ export const PostLocationModal: React.FC<PostLocationModalProps> = ({ visible, o
         <View style={styles.modalOverlay}>
           <View style={styles.modalContentFull}>
             <TouchableOpacity style={styles.closeBtn} onPress={onClose}>
-              <Feather name="x" size={24} color="#333" />
+              <Feather name="x" size={24} color={COLORS.textSecondary} />
             </TouchableOpacity>
             <ScrollView showsVerticalScrollIndicator={false}>
               <View style={styles.chipRow}>
@@ -170,7 +171,7 @@ export const PostLocationModal: React.FC<PostLocationModalProps> = ({ visible, o
                   </Text>
                   {(firstPost.locationData?.verified || (typeof firstPost.location === 'object' && firstPost.location.verified)) && (
                     <View style={{ marginLeft: 4 }}>
-                      <VerifiedBadge size={14} color="#000" />
+                      <VerifiedBadge size={14} color={COLORS.textPrimary} />
                     </View>
                   )}
                 </View>
@@ -196,7 +197,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 0,
   },
   modalContentFull: {
-    backgroundColor: '#fff',
+    backgroundColor: COLORS.card,
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     borderBottomLeftRadius: 0,
@@ -208,7 +209,7 @@ const styles = StyleSheet.create({
     maxWidth: undefined,
     minWidth: undefined,
     maxHeight: '90%',
-    shadowColor: '#000',
+    shadowColor: COLORS.black,
     shadowOpacity: 0.08,
     shadowRadius: 12,
     elevation: 8,
@@ -220,13 +221,13 @@ const styles = StyleSheet.create({
     top: 18,
     right: 18,
     zIndex: 10,
-    backgroundColor: '#fff',
+    backgroundColor: COLORS.card,
     borderRadius: 18,
     width: 36,
     height: 36,
     justifyContent: 'center',
     alignItems: 'center',
-    shadowColor: '#000',
+    shadowColor: COLORS.black,
     shadowOpacity: 0.08,
     shadowRadius: 8,
     elevation: 2,
@@ -241,19 +242,19 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   chip: {
-    backgroundColor: '#ffe9c7',
+    backgroundColor: COLORS.primaryLight,
     borderRadius: 16,
     paddingHorizontal: 16,
     paddingVertical: 6,
     marginRight: 8,
     marginBottom: 2,
-    shadowColor: '#FF8D00',
+    shadowColor: COLORS.primary,
     shadowOpacity: 0.08,
     shadowRadius: 2,
     elevation: 1,
   },
   chipText: {
-    color: '#FF8D00',
+    color: COLORS.primary,
     fontWeight: '600',
     fontSize: 15,
     letterSpacing: 0.2,
@@ -262,7 +263,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     fontSize: 16,
     fontWeight: '600',
-    color: '#333',
+    color: COLORS.textPrimary,
     marginBottom: 6,
     marginTop: 2,
   },
@@ -274,18 +275,18 @@ const styles = StyleSheet.create({
   locationName: {
     fontSize: 15,
     fontWeight: '700',
-    color: '#222',
+    color: COLORS.textPrimary,
     marginBottom: 2,
     textAlign: 'center',
   },
   locationAddress: {
     fontSize: 13,
-    color: '#666',
+    color: COLORS.textSecondary,
     marginBottom: 2,
     textAlign: 'center',
   },
   postPreview: {
-    backgroundColor: '#fff',
+    backgroundColor: COLORS.card,
     borderRadius: 0,
     marginHorizontal: 0,
     marginBottom: 0,
@@ -296,7 +297,7 @@ const styles = StyleSheet.create({
   bigImage: {
     width: '100%',
     height: 240,
-    backgroundColor: '#eee',
+    backgroundColor: COLORS.inputBg,
     borderRadius: 0,
     alignSelf: 'center',
     marginBottom: 0,
@@ -316,24 +317,24 @@ const styles = StyleSheet.create({
     fontSize: 15,
     paddingHorizontal: 18,
     paddingTop: 6,
-    color: '#222',
+    color: COLORS.textPrimary,
   },
   userText: {
     fontWeight: '700',
     fontSize: 15,
     paddingHorizontal: 18,
     paddingTop: 2,
-    color: '#222',
+    color: COLORS.textPrimary,
   },
   captionText: {
-    color: '#333',
+    color: COLORS.textPrimary,
     fontSize: 15,
     marginTop: 2,
     paddingHorizontal: 18,
     paddingBottom: 2,
   },
   commentText: {
-    color: '#888',
+    color: COLORS.textMuted,
     fontSize: 14,
     fontWeight: '400',
     paddingHorizontal: 18,

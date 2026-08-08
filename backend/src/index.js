@@ -178,8 +178,230 @@ setupSentryErrorHandler(app);
 const errorAlertMiddleware = require('./middleware/errorAlertMiddleware');
 app.use(errorAlertMiddleware);
 
-app.get('/', (req, res) => {
-  res.json({ message: 'Comedy App API is running', version: '1.2.0' });
+// ============= SHARE PREVIEW ENDPOINTS =============
+app.get('/api/share/post/:id', (req, res) => res.redirect(301, `/share/post/${req.params.id}`));
+app.get('/api/share/story/:id', (req, res) => res.redirect(301, `/share/story/${req.params.id}`));
+app.get('/api/share/profile/:id', (req, res) => res.redirect(301, `/share/profile/${req.params.id}`));
+
+app.get('/share/post/:id', async (req, res) => {
+  const postId = req.params.id;
+  try {
+    const Post = mongoose.model('Post');
+    const User = mongoose.model('User');
+    let post = null;
+    if (mongoose.Types.ObjectId.isValid(postId)) {
+      post = await Post.findById(postId).lean();
+    }
+    let authorName = 'Someone';
+    let imageUrl = '';
+    let caption = '';
+
+    if (post) {
+      caption = post.content || post.caption || '';
+      imageUrl = (post.mediaUrls && post.mediaUrls[0]) || post.mediaUrl || post.imageUrl || '';
+      const author = await User.findById(post.userId).lean();
+      if (author) {
+        authorName = author.displayName || author.username || author.name || 'Someone';
+      }
+    }
+
+    res.send(`
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Check out this post on Comedy App!</title>
+  <meta property="og:title" content="Check out ${authorName}'s post on Comedy App!" />
+  <meta property="og:description" content="${caption ? caption.replace(/"/g, '&quot;') : 'Shared a new comedy moment'}" />
+  ${imageUrl ? `<meta property="og:image" content="${imageUrl}" />` : ''}
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      background-color: #121212;
+      color: #ffffff;
+      margin: 0;
+      padding: 0;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+    }
+    .card {
+      background: #1e1e1e;
+      border: 1px solid #333;
+      border-radius: 16px;
+      max-width: 450px;
+      width: 90%;
+      padding: 24px;
+      text-align: center;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+    }
+    .avatar {
+      width: 64px;
+      height: 64px;
+      border-radius: 50%;
+      object-fit: cover;
+      background: #333;
+      margin-bottom: 12px;
+    }
+    h1 {
+      font-size: 20px;
+      color: #fff;
+      margin: 0 0 8px 0;
+    }
+    p {
+      font-size: 15px;
+      color: #bbb;
+      margin: 0 0 20px 0;
+      line-height: 1.4;
+    }
+    .post-preview {
+      width: 100%;
+      max-height: 320px;
+      border-radius: 12px;
+      object-fit: cover;
+      margin-bottom: 20px;
+    }
+    .btn {
+      display: block;
+      background: #FF8D00;
+      color: #fff;
+      text-decoration: none;
+      padding: 14px 24px;
+      border-radius: 10px;
+      font-weight: bold;
+      font-size: 16px;
+      margin-bottom: 12px;
+      transition: background 0.2s;
+    }
+    .btn:hover {
+      background: #e07b00;
+    }
+  </style>
+  <script>
+    window.onload = function() {
+      var deepLinkUrl = "comedy-app://post-detail?id=${postId}";
+      window.location.href = deepLinkUrl;
+    };
+  </script>
+</head>
+<body>
+  <div class="card">
+    <img class="avatar" src="https://ui-avatars.com/api/?name=${encodeURIComponent(authorName)}&background=FF8D00&color=fff&size=120" alt="Avatar">
+    <h1>Check out ${authorName}'s post on Comedy App!</h1>
+    <p>${caption ? '"' + caption + '"' : 'Shared a new comedy moment'}</p>
+    ${imageUrl ? '<img class="post-preview" src="' + imageUrl + '" alt="Post Media">' : ''}
+    <a href="comedy-app://post-detail?id=${postId}" class="btn">Open in Comedy App</a>
+  </div>
+</body>
+</html>
+    `);
+  } catch (err) {
+    res.status(500).send('Error loading post preview');
+  }
+});
+
+app.get('/share/story/:id', async (req, res) => {
+  const storyId = req.params.id;
+  try {
+    const Story = mongoose.model('Story');
+    const User = mongoose.model('User');
+    let story = null;
+    if (mongoose.Types.ObjectId.isValid(storyId)) {
+      story = await Story.findById(storyId).lean();
+    }
+    let authorName = 'Someone';
+    let imageUrl = '';
+    let caption = '';
+
+    if (story) {
+      caption = story.caption || '';
+      imageUrl = story.mediaUrl || story.image || story.thumbnail || '';
+      const author = await User.findById(story.userId).lean();
+      if (author) {
+        authorName = author.displayName || author.username || author.name || 'Someone';
+      }
+    }
+
+    res.send(`
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Check out this story on Comedy App!</title>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      background-color: #121212;
+      color: #ffffff;
+      margin: 0;
+      padding: 0;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+    }
+    .card {
+      background: #1e1e1e;
+      border: 1px solid #333;
+      border-radius: 16px;
+      max-width: 450px;
+      width: 90%;
+      padding: 24px;
+      text-align: center;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+    }
+    .avatar {
+      width: 64px;
+      height: 64px;
+      border-radius: 50%;
+      object-fit: cover;
+      background: #333;
+      margin-bottom: 12px;
+    }
+    h1 {
+      font-size: 20px;
+      color: #fff;
+      margin: 0 0 8px 0;
+    }
+    p {
+      font-size: 15px;
+      color: #bbb;
+      margin: 0 0 20px 0;
+    }
+    .btn {
+      display: block;
+      background: #FF8D00;
+      color: #fff;
+      text-decoration: none;
+      padding: 14px 24px;
+      border-radius: 10px;
+      font-weight: bold;
+      font-size: 16px;
+    }
+  </style>
+  <script>
+    window.onload = function() {
+      var deepLinkUrl = "comedy-app://story-detail?id=${storyId}";
+      window.location.href = deepLinkUrl;
+    };
+  </script>
+</head>
+<body>
+  <div class="card">
+    <img class="avatar" src="https://ui-avatars.com/api/?name=${encodeURIComponent(authorName)}&background=FF8D00&color=fff&size=120" alt="Avatar">
+    <h1>Check out ${authorName}'s story on Comedy App!</h1>
+    <p>${caption ? '"' + caption + '"' : 'Shared a new story'}</p>
+    <a href="comedy-app://story-detail?id=${storyId}" class="btn">Open in Comedy App</a>
+  </div>
+</body>
+</html>
+    `);
+  } catch (err) {
+    res.status(500).send('Error loading story preview');
+  }
 });
 
 // ============= 404 HANDLER =============

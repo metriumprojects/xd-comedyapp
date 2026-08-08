@@ -1,5 +1,6 @@
 import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
+import COLORS from '@/src/theme/colors';
 
 const ErrorMessage = ({ message }: { message: string }) => (
   <View style={styles.container}>
@@ -10,12 +11,12 @@ const ErrorMessage = ({ message }: { message: string }) => (
 const styles = StyleSheet.create({
   container: {
     padding: 16,
-    backgroundColor: '#ffe5e5',
+    backgroundColor: COLORS.dangerLight,
     borderRadius: 8,
     margin: 8,
   },
   text: {
-    color: '#d32f2f',
+    color: COLORS.danger,
     fontSize: 16,
     textAlign: 'center',
   },

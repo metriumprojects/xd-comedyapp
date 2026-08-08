@@ -4,6 +4,7 @@ import { Image as ExpoImage } from 'expo-image';
 import { FlashList } from '@shopify/flash-list';
 import { Feather } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
+import COLORS from '@/src/theme/colors';
 import { GalleryAsset, isVideoUri } from '../../../hooks/useCreatePost';
 
 const { width } = Dimensions.get('window');
@@ -51,17 +52,17 @@ const MediaPicker: React.FC<MediaPickerProps> = ({
         />
         {item.mediaType === 'video' && (
           <View style={{ position: 'absolute', bottom: 6, right: 6, backgroundColor: 'rgba(0,0,0,0.6)', borderRadius: 6, paddingHorizontal: 4, paddingVertical: 2, flexDirection: 'row', alignItems: 'center' }}>
-            <Feather name="video" size={10} color="#fff" />
+            <Feather name="video" size={10} color={COLORS.textLight} />
             {typeof item.duration === 'number' && (
-              <Text style={{ color: '#fff', fontSize: 10, fontWeight: '600', marginLeft: 3 }}>
+              <Text style={{ color: COLORS.textLight, fontSize: 10, fontWeight: '600', marginLeft: 3 }}>
                 {Math.floor(item.duration / 60)}:{String(Math.floor(item.duration % 60)).padStart(2, '0')}
               </Text>
             )}
           </View>
         )}
         {isSelected && (
-          <View style={{ position: 'absolute', top: 5, right: 5, width: 22, height: 22, borderRadius: 11, backgroundColor: '#FF8D00', borderWidth: 2, borderColor: '#fff', alignItems: 'center', justifyContent: 'center' }}>
-            <Text style={{ color: '#fff', fontSize: 10, fontWeight: 'bold' }}>{index + 1}</Text>
+          <View style={{ position: 'absolute', top: 5, right: 5, width: 22, height: 22, borderRadius: 11, backgroundColor: COLORS.primary, borderWidth: 2, borderColor: COLORS.white, alignItems: 'center', justifyContent: 'center' }}>
+            <Text style={{ color: COLORS.textLight, fontSize: 10, fontWeight: 'bold' }}>{index + 1}</Text>
           </View>
         )}
       </TouchableOpacity>
@@ -69,18 +70,18 @@ const MediaPicker: React.FC<MediaPickerProps> = ({
   };
 
   return (
-    <View style={{ flex: 1, backgroundColor: '#fff' }}>
+    <View style={{ flex: 1, backgroundColor: COLORS.background }}>
       <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 15 }}>
-        <TouchableOpacity onPress={onBack} style={{ backgroundColor: '#f0f0f0', padding: 8, borderRadius: 20 }}>
-          <Feather name="x" size={20} color="#000" />
+        <TouchableOpacity onPress={onBack} style={{ backgroundColor: COLORS.inputBg, padding: 8, borderRadius: 20 }}>
+          <Feather name="x" size={20} color={COLORS.textPrimary} />
         </TouchableOpacity>
         <Text style={{ fontSize: 18, fontWeight: 'bold' }}>Recent</Text>
         <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-          <TouchableOpacity onPress={onBrowseFolders} style={{ backgroundColor: '#f0f0f0', padding: 8, borderRadius: 20, marginRight: 15 }}>
-            <Feather name="folder" size={20} color="#000" />
+          <TouchableOpacity onPress={onBrowseFolders} style={{ backgroundColor: COLORS.inputBg, padding: 8, borderRadius: 20, marginRight: 15 }}>
+            <Feather name="folder" size={20} color={COLORS.textPrimary} />
           </TouchableOpacity>
-          <TouchableOpacity onPress={onCamera} style={{ backgroundColor: '#f0f0f0', padding: 8, borderRadius: 20, marginRight: 15 }}>
-            <Feather name="camera" size={20} color="#000" />
+          <TouchableOpacity onPress={onCamera} style={{ backgroundColor: COLORS.inputBg, padding: 8, borderRadius: 20, marginRight: 15 }}>
+            <Feather name="camera" size={20} color={COLORS.textPrimary} />
           </TouchableOpacity>
           <TouchableOpacity 
             onPress={onNext} 
@@ -89,7 +90,7 @@ const MediaPicker: React.FC<MediaPickerProps> = ({
             activeOpacity={0.8}
           >
             <LinearGradient
-              colors={['#FBBC04', '#FF8D00']}
+              colors={COLORS.primaryGradient}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 0 }}
               style={{
@@ -100,7 +101,7 @@ const MediaPicker: React.FC<MediaPickerProps> = ({
                 alignItems: 'center'
               }}
             >
-              <Text style={{ color: '#fff', fontWeight: 'bold', fontSize: 14 }}>Next</Text>
+              <Text style={{ color: COLORS.textLight, fontWeight: 'bold', fontSize: 14 }}>Next</Text>
             </LinearGradient>
           </TouchableOpacity>
         </View>

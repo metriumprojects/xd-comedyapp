@@ -21,6 +21,7 @@ import {
 } from '../../lib/storyViewer';
 import { safeRouterBack } from '@/lib/safeRouterBack';
 import { mapService } from '../../services/implementations/GoogleMapsService';
+import COLORS from '@/src/theme/colors';
 
 
 const { width } = Dimensions.get('window');
@@ -213,7 +214,7 @@ export default function LocationDetailsScreen() {
           {/* Stats Overlay */}
           <View style={styles.statsOverlayRow}>
             <View style={styles.statOverlayItem}>
-              <Feather name="play" size={10} color="#fff" style={{ marginRight: 2 }} />
+              <Feather name="play" size={10} color={COLORS.textLight} style={{ marginRight: 2 }} />
               <Text style={styles.statOverlayText}>{formatCount(views)}</Text>
             </View>
             <View style={{ flex: 1 }} />
@@ -957,10 +958,10 @@ export default function LocationDetailsScreen() {
 
   if (loading && !placeDetails) {
     return (
-      <SafeAreaView style={{ flex: 1, backgroundColor: '#fff' }}>
+      <SafeAreaView style={{ flex: 1, backgroundColor: COLORS.background }}>
         <View style={[styles.header, { justifyContent: 'space-between', paddingTop: safeTop, height: totalHeaderHeight }]}>
           <TouchableOpacity onPress={() => safeRouterBack()} style={styles.backButton}>
-            <Feather name="arrow-left" size={28} color="#000" />
+            <Feather name="arrow-left" size={28} color={COLORS.black} />
           </TouchableOpacity>
         </View>
         <View style={{ flex: 1, paddingTop: 10 }}>
@@ -974,13 +975,13 @@ export default function LocationDetailsScreen() {
 
   if (!placeDetails) {
     return (
-      <SafeAreaView style={{ flex: 1, backgroundColor: '#fff' }}>
+      <SafeAreaView style={{ flex: 1, backgroundColor: COLORS.background }}>
         <View style={[styles.header, { justifyContent: 'space-between', paddingTop: safeTop, height: totalHeaderHeight }]}>
           <TouchableOpacity onPress={() => safeRouterBack()} style={styles.backButton}>
-            <Feather name="arrow-left" size={28} color="#000" />
+            <Feather name="arrow-left" size={28} color={COLORS.black} />
           </TouchableOpacity>
         </View>
-        <Text style={{ margin: 24, fontSize: 16, color: '#666', textAlign: 'center' }}>No details found.</Text>
+        <Text style={{ margin: 24, fontSize: 16, color: COLORS.textSecondary, textAlign: 'center' }}>No details found.</Text>
       </SafeAreaView>
     );
   }
@@ -1004,7 +1005,7 @@ export default function LocationDetailsScreen() {
             }}
             style={styles.backButton}
           >
-          <Feather name="arrow-left" size={28} color="#000" />
+          <Feather name="arrow-left" size={28} color={COLORS.black} />
         </TouchableOpacity>
         <View style={styles.headerRightIcons}>
           <TouchableOpacity
@@ -1014,7 +1015,7 @@ export default function LocationDetailsScreen() {
               router.push('/passport' as any);
             }}
           >
-            <Feather name="briefcase" size={20} color="#000" />
+            <Feather name="briefcase" size={20} color={COLORS.black} />
           </TouchableOpacity>
           <TouchableOpacity
             style={styles.headerIconBtn}
@@ -1023,7 +1024,7 @@ export default function LocationDetailsScreen() {
               router.push('/inbox' as any);
             }}
           >
-            <Feather name="message-square" size={20} color="#000" />
+            <Feather name="message-square" size={20} color={COLORS.black} />
             <View style={styles.badge} />
           </TouchableOpacity>
           <TouchableOpacity
@@ -1033,7 +1034,7 @@ export default function LocationDetailsScreen() {
               setNotificationsModalVisible(true);
             }}
           >
-            <Feather name="bell" size={20} color="#000" />
+            <Feather name="bell" size={20} color={COLORS.black} />
           </TouchableOpacity>
         </View>
         </View>
@@ -1087,13 +1088,13 @@ export default function LocationDetailsScreen() {
                 />
                 <View style={styles.locationTextContainer}>
                   <View style={styles.locationRow}>
-                    <Ionicons name="location" size={16} color="#000" />
+                    <Ionicons name="location" size={16} color={COLORS.black} />
                     <Text style={styles.locationNameText} numberOfLines={1}>
                       {formatHeaderLocationName()}
                     </Text>
                   </View>
                   <View style={[styles.locationRow, { marginTop: 6 }]}>
-                    <Ionicons name="grid-outline" size={16} color="#666" style={{ marginRight: 6 }} />
+                    <Ionicons name="grid-outline" size={16} color={COLORS.textSecondary} style={{ marginRight: 6 }} />
                     <Text style={styles.visitsText}>{allPosts.length} Posts</Text>
                   </View>
                 </View>
@@ -1111,13 +1112,13 @@ export default function LocationDetailsScreen() {
           ListFooterComponent={() => (
             loadingMore ? (
               <View style={{ paddingVertical: 20 }}>
-                <ActivityIndicator size="small" color="#FF8D00" />
+                <ActivityIndicator size="small" color={COLORS.primary} />
               </View>
             ) : null
           )}
           ListEmptyComponent={
             <View style={styles.emptyState}>
-              <Feather name="map-pin" size={64} color="#ccc" />
+              <Feather name="map-pin" size={64} color={COLORS.border} />
               <Text style={styles.emptyText}>No posts from this location</Text>
             </View>
           }
@@ -1149,7 +1150,7 @@ export default function LocationDetailsScreen() {
             flatListRef.current?.scrollToOffset({ offset: 0, animated: true });
           }}
         >
-          <Feather name="arrow-up" size={24} color="#007AFF" />
+          <Feather name="arrow-up" size={24} color={COLORS.info} />
         </TouchableOpacity>
       )}
 
@@ -1175,7 +1176,7 @@ export default function LocationDetailsScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#fff',
+    backgroundColor: COLORS.background,
   },
   header: {
     flexDirection: 'row',
@@ -1183,13 +1184,13 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingHorizontal: 20,
     paddingBottom: 12,
-    backgroundColor: '#fff',
+    backgroundColor: COLORS.card,
     zIndex: 10,
   },
   headerLogoText: {
     fontSize: 22,
     fontWeight: '800',
-    color: '#000',
+    color: COLORS.textPrimary,
   },
   headerRightIcons: {
     flexDirection: 'row',
@@ -1207,9 +1208,9 @@ const styles = StyleSheet.create({
     width: 10,
     height: 10,
     borderRadius: 5,
-    backgroundColor: '#FF8D00',
+    backgroundColor: COLORS.primary,
     borderWidth: 1.5,
-    borderColor: '#fff',
+    borderColor: COLORS.textLight,
   },
   backButton: {
     flexDirection: 'row',
@@ -1224,14 +1225,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 20,
     paddingVertical: 16,
-    backgroundColor: '#fff',
+    backgroundColor: COLORS.card,
   },
   locationImage: {
     width: 70,
     height: 70,
     borderRadius: 35,
     marginRight: 16,
-    backgroundColor: '#f0f0f0',
+    backgroundColor: COLORS.inputBg,
   },
   locationTextContainer: {
     flex: 1,
@@ -1244,17 +1245,17 @@ const styles = StyleSheet.create({
   locationNameText: {
     fontSize: 15,
     fontWeight: '700',
-    color: '#111',
+    color: COLORS.textPrimary,
     marginLeft: 6,
   },
   visitsText: {
     fontSize: 13,
-    color: '#444',
+    color: COLORS.textSecondary,
     marginLeft: 6,
   },
   verifiedText: {
     fontSize: 13,
-    color: '#222',
+    color: COLORS.textPrimary,
     marginLeft: 6,
   },
 
@@ -1262,7 +1263,7 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 12,
     fontWeight: '600',
-    color: '#888',
+    color: COLORS.textMuted,
     marginLeft: 20,
     marginBottom: 12,
     letterSpacing: 0.5,
@@ -1271,7 +1272,7 @@ const styles = StyleSheet.create({
   // Stories Section
   storiesSection: {
     paddingVertical: 12,
-    backgroundColor: '#fff',
+    backgroundColor: COLORS.card,
   },
   storiesScroll: {
     paddingHorizontal: 20,
@@ -1289,7 +1290,7 @@ const styles = StyleSheet.create({
   storyUserName: {
     fontSize: 12,
     fontWeight: '400',
-    color: '#111',
+    color: COLORS.textPrimary,
     textAlign: 'center',
     width: 68,
     marginTop: 8,
@@ -1298,9 +1299,9 @@ const styles = StyleSheet.create({
   // Sub Locations Section
   subLocationsSection: {
     paddingVertical: 16,
-    backgroundColor: '#fff',
+    backgroundColor: COLORS.card,
     borderBottomWidth: 0.5,
-    borderBottomColor: '#eee',
+    borderBottomColor: COLORS.border,
   },
   subLocationsScroll: {
     paddingHorizontal: 20,
@@ -1314,29 +1315,27 @@ const styles = StyleSheet.create({
     width: 72,
     height: 72,
     borderRadius: 28,
-    backgroundColor: '#f0f0f0',
+    backgroundColor: COLORS.inputBg,
     borderWidth: 2,
     borderColor: 'transparent',
   },
   subLocationImageSelected: {
-    borderColor: '#FF8D00',
+    borderColor: COLORS.primary,
     borderWidth: 2,
   },
   subLocationName: {
     fontSize: 12,
     fontWeight: '500',
-    color: '#666',
+    color: COLORS.textSecondary,
     textAlign: 'center',
     width: 76,
     marginTop: 8,
     lineHeight: 14,
   },
   subLocationNameSelected: {
-    color: '#000',
+    color: COLORS.textPrimary,
     fontWeight: '700',
   },
-
-
 
   // Empty State
   emptyState: {
@@ -1346,7 +1345,7 @@ const styles = StyleSheet.create({
   },
   emptyText: {
     fontSize: 16,
-    color: '#999',
+    color: COLORS.textMuted,
     marginTop: 16,
   },
   scrollTopButton: {
@@ -1360,7 +1359,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     zIndex: 999,
     borderWidth: 1,
-    borderColor: 'rgba(0,0,0,0.1)',
+    borderColor: COLORS.border,
   },
   gridColumnWrapper: {
     justifyContent: 'space-between',
@@ -1376,7 +1375,7 @@ const styles = StyleSheet.create({
     height: 200,
     borderRadius: 8,
     overflow: 'hidden',
-    backgroundColor: '#f2f2f7',
+    backgroundColor: COLORS.inputBg,
     position: 'relative',
   },
   thumbnail: {
@@ -1399,14 +1398,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   statOverlayText: {
-    color: '#fff',
+    color: COLORS.textLight,
     fontSize: 10,
     fontWeight: '600',
   },
   gridCaption: {
     fontSize: 13,
     fontWeight: '500',
-    color: '#111',
+    color: COLORS.textPrimary,
     marginTop: 6,
     lineHeight: 17,
   },
@@ -1419,7 +1418,7 @@ const styles = StyleSheet.create({
     width: 24,
     height: 24,
     borderRadius: 12,
-    backgroundColor: '#f2f2f7',
+    backgroundColor: COLORS.inputBg,
     marginRight: 8,
   },
   creatorInfo: {
@@ -1428,11 +1427,11 @@ const styles = StyleSheet.create({
   creatorName: {
     fontSize: 12,
     fontWeight: '400',
-    color: '#666',
+    color: COLORS.textSecondary,
   },
   timeText: {
     fontSize: 10,
-    color: '#999',
+    color: COLORS.textMuted,
     marginTop: 1,
   },
 });

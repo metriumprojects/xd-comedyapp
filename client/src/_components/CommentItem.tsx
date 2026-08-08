@@ -3,6 +3,7 @@ import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { Ionicons } from "@expo/vector-icons";
 import CommentAvatar from "./CommentAvatar";
 import { Comment } from "./CommentSection";
+import COLORS from '@/src/theme/colors';
 
 interface CommentItemProps {
   comment: Comment;
@@ -75,7 +76,7 @@ const CommentItemComponent: React.FC<CommentItemProps> = ({
               <Ionicons
                 name={isLiked ? 'heart' : 'heart-outline'}
                 size={14}
-                color={isLiked ? '#FF3B30' : '#999'}
+                color={isLiked ? COLORS.danger : COLORS.textMuted}
               />
               {likeCount > 0 && (
                 <Text style={styles.likeCount}>{likeCount}</Text>
@@ -111,12 +112,12 @@ const styles = StyleSheet.create({
   commentRow: { flexDirection: 'row', paddingHorizontal: 15, paddingVertical: 12 },
   replyRow: { paddingLeft: 0, paddingRight: 0, paddingHorizontal: 0, paddingVertical: 8 },
   commentContent: { flex: 1, marginLeft: 12 },
-  userName: { fontWeight: '700', fontSize: 13, color: '#333' },
-  commentText: { fontSize: 14, color: '#333', marginTop: 4, lineHeight: 18 },
+  userName: { fontWeight: '700', fontSize: 13, color: COLORS.textPrimary },
+  commentText: { fontSize: 14, color: COLORS.textPrimary, marginTop: 4, lineHeight: 18 },
   commentFooter: { flexDirection: 'row', alignItems: 'center', marginTop: 8 },
-  footerAction: { fontSize: 12, color: '#999', marginRight: 15, fontWeight: '600' },
+  footerAction: { fontSize: 12, color: COLORS.textMuted, marginRight: 15, fontWeight: '600' },
   likeButton: { flexDirection: 'row', alignItems: 'center', gap: 3 },
-  likeCount: { fontSize: 10, color: '#999' },
+  likeCount: { fontSize: 10, color: COLORS.textMuted },
 });
 
 export const CommentItem = React.memo(CommentItemComponent);

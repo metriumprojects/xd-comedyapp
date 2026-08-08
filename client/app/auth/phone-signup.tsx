@@ -8,6 +8,7 @@ import { AuthBrandHeader } from '@/src/_components/auth/AuthBrandHeader';
 import { AuthKeyboardScroll } from '@/src/_components/auth/AuthKeyboardScroll';
 import CustomButton from '@/src/_components/auth/CustomButton';
 import { safeRouterBack } from '@/lib/safeRouterBack';
+import COLORS from '@/src/theme/colors';
 
 // Popular countries list
 const COUNTRIES = [
@@ -143,7 +144,7 @@ export default function PhoneSignUpScreen() {
             onPress={() => safeRouterBack()}
             style={styles.backButton}
           >
-            <Ionicons name="arrow-back" size={24} color="#000" />
+            <Ionicons name="arrow-back" size={24} color={COLORS.black} />
           </TouchableOpacity>
         </View>
 
@@ -164,12 +165,12 @@ export default function PhoneSignUpScreen() {
             >
               <Text style={styles.countryFlag}>{selectedCountry.flag}</Text>
               <Text style={styles.countryCodeText}>{selectedCountry.code}</Text>
-              <Ionicons name="chevron-down" size={16} color="#666" />
+              <Ionicons name="chevron-down" size={16} color={COLORS.textSecondary} />
             </TouchableOpacity>
             <TextInput
               style={styles.phoneInput}
               placeholder="Enter phone number"
-              placeholderTextColor="#999"
+              placeholderTextColor={COLORS.textMuted}
               value={phoneNumber}
               onChangeText={setPhoneNumber}
               keyboardType="phone-pad"
@@ -183,7 +184,7 @@ export default function PhoneSignUpScreen() {
           <TextInput
             style={styles.input}
             placeholder="Enter your email"
-            placeholderTextColor="#999"
+            placeholderTextColor={COLORS.textMuted}
             value={email}
             onChangeText={setEmail}
             keyboardType="email-address"
@@ -205,7 +206,7 @@ export default function PhoneSignUpScreen() {
                 <View style={styles.modalHeader}>
                   <Text style={styles.modalTitle}>Select Country</Text>
                   <TouchableOpacity onPress={() => setShowCountryPicker(false)}>
-                    <Ionicons name="close" size={24} color="#000" />
+                    <Ionicons name="close" size={24} color={COLORS.black} />
                   </TouchableOpacity>
                 </View>
                 <FlatList
@@ -230,7 +231,7 @@ export default function PhoneSignUpScreen() {
           </Modal>
 
           {/* EULA Text */}
-          <Text style={{ fontSize: 12, color: '#666', textAlign: 'center', marginBottom: 12 }}>
+          <Text style={{ fontSize: 12, color: COLORS.textSecondary, textAlign: 'center', marginBottom: 12 }}>
             By signing up, you agree to our{' '}
             <Text style={{ fontWeight: '600' }} onPress={() => router.push('/legal/terms' as any)}>Terms of Service</Text> and{' '}
             <Text style={{ fontWeight: '600' }} onPress={() => router.push('/legal/privacy' as any)}>Privacy Policy</Text>.
@@ -294,9 +295,12 @@ export default function PhoneSignUpScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#fff',
+    backgroundColor: COLORS.background,
   },
   scrollContent: {
+    flexGrow: 1,
+  },
+  content: {
     flexGrow: 1,
     padding: 20,
     paddingBottom: 10,
@@ -307,84 +311,66 @@ const styles = StyleSheet.create({
   backButton: {
     width: 40,
     height: 40,
+    alignItems: 'center',
     justifyContent: 'center',
   },
   titleSection: {
+    marginBottom: 10,
+  },
+  formContainer: {
     marginBottom: 15,
   },
-  form: {
-    marginBottom: 15,
+  input: {
+    backgroundColor: COLORS.inputBg,
+    borderRadius: 8,
+    padding: 16,
+    fontSize: 16,
+    color: COLORS.textPrimary,
   },
   label: {
     fontSize: 14,
-    fontWeight: '600',
-    color: '#000',
+    color: COLORS.textSecondary,
     marginBottom: 8,
-  },
-  countryPicker: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    backgroundColor: '#f7f7f7',
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#f0f0f0',
-    height: 50,
-    paddingHorizontal: 12,
-    marginBottom: 16,
-  },
-  countryCode: {
-    fontSize: 15,
-    color: '#000',
   },
   phoneInputWrapper: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#f7f7f7',
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#f0f0f0',
-    height: 50,
-    marginBottom: 8,
   },
   countrySelector: {
     flexDirection: 'row',
     alignItems: 'center',
+    backgroundColor: COLORS.inputBg,
+    borderRadius: 8,
     paddingHorizontal: 12,
-    borderRightWidth: 1,
-    borderRightColor: '#e0e0e0',
-    height: '100%',
+    paddingVertical: 16,
+    marginRight: 12,
   },
-  countryCodeText: {
-    fontSize: 15,
-    color: '#000',
+  countryFlag: {
+    fontSize: 24,
+    marginRight: 12,
+  },
+  countryCode: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: COLORS.textPrimary,
     marginRight: 4,
   },
   phoneInput: {
     flex: 1,
-    height: '100%',
-    paddingHorizontal: 12,
-    fontSize: 15,
-    color: '#000',
-  },
-  input: {
-    backgroundColor: '#f7f7f7',
+    backgroundColor: COLORS.inputBg,
     borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#f0f0f0',
-    height: 50,
-    paddingHorizontal: 12,
-    fontSize: 15,
-    color: '#000',
-    marginBottom: 8,
+    padding: 16,
+    fontSize: 16,
+    color: COLORS.textPrimary,
   },
   errorText: {
-    color: '#e74c3c',
-    fontSize: 12,
-    marginBottom: 8,
+    color: COLORS.danger,
+    fontSize: 14,
+    marginBottom: 12,
   },
-  nextButton: {
-    marginTop: 8,
+  signUpButton: {
+    marginBottom: 15,
+    marginTop: 5,
   },
   socialSection: {
     marginBottom: 10,
@@ -404,10 +390,10 @@ const styles = StyleSheet.create({
   },
   footerText: {
     fontSize: 14,
-    color: '#666',
+    color: COLORS.textSecondary,
   },
   footerLink: {
-    color: '#FF8D00',
+    color: COLORS.primary,
     fontWeight: '600',
   },
   modalOverlay: {
@@ -416,7 +402,7 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
   },
   modalContent: {
-    backgroundColor: '#fff',
+    backgroundColor: COLORS.card,
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     maxHeight: '70%',
@@ -427,20 +413,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     padding: 16,
     borderBottomWidth: 1,
-    borderBottomColor: '#f0f0f0',
+    borderBottomColor: COLORS.border,
   },
   modalTitle: {
     fontSize: 18,
     fontWeight: '700',
-    color: '#000',
-  },
-  modalCloseText: {
-    fontSize: 16,
-    color: '#FF8D00',
-    fontWeight: '600',
-  },
-  countryList: {
-    padding: 8,
+    color: COLORS.textPrimary,
   },
   countryItem: {
     flexDirection: 'row',
@@ -449,44 +427,20 @@ const styles = StyleSheet.create({
     padding: 12,
     borderRadius: 8,
   },
-  countryItemLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flex: 1,
-  },
-  countryFlag: {
-    fontSize: 24,
-    marginRight: 12,
-  },
   countryItemFlag: {
     fontSize: 24,
     marginRight: 12,
   },
-  countryName: {
-    fontSize: 16,
-    color: '#000',
-    flex: 1,
-  },
-  countryItemName: {
-    fontSize: 16,
-    color: '#000',
-    flex: 1,
-  },
-  countryDialCode: {
-    fontSize: 14,
-    color: '#666',
-    marginLeft: 8,
-  },
   countryItemCode: {
     fontSize: 14,
-    color: '#666',
+    color: COLORS.textSecondary,
     marginLeft: 8,
   },
   selectedCountryCheck: {
     width: 20,
     height: 20,
     borderRadius: 10,
-    backgroundColor: '#FF8D00',
+    backgroundColor: COLORS.primary,
     alignItems: 'center',
     justifyContent: 'center',
     marginLeft: 8,

@@ -4,6 +4,7 @@ import { Feather } from '@expo/vector-icons';
 import { hapticLight } from '@/lib/haptics';
 import AsyncStorage from '@/lib/storage';
 import { apiService } from '@/src/_services/apiService';
+import COLORS from '@/src/theme/colors';
 
 interface VisibilityModalProps {
   visible: boolean;
@@ -77,7 +78,7 @@ const VisibilityModal: React.FC<VisibilityModalProps> = ({
       <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'flex-end' }}>
         <Pressable style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }} onPress={onClose} />
         <View style={{
-          backgroundColor: '#fff',
+          backgroundColor: COLORS.card,
           borderTopLeftRadius: 32,
           borderTopRightRadius: 32,
           paddingHorizontal: 20,
@@ -92,9 +93,9 @@ const VisibilityModal: React.FC<VisibilityModalProps> = ({
             <View 
               style={{ width: '100%', height: 32, justifyContent: 'center' }}
             >
-              <View style={{ width: 40, height: 4, backgroundColor: '#e0e0e0', borderRadius: 2, alignSelf: 'center' }} />
+              <View style={{ width: 40, height: 4, backgroundColor: COLORS.border, borderRadius: 2, alignSelf: 'center' }} />
             </View>
-            <Text style={{ fontWeight: '500', fontSize: 16, color: '#000', textAlign: 'center' }}>Post visibility</Text>
+            <Text style={{ fontWeight: '500', fontSize: 16, color: COLORS.textPrimary, textAlign: 'center' }}>Post visibility</Text>
           </View>
 
           <ScrollView style={{ maxHeight: 380 }} showsVerticalScrollIndicator={false}>
@@ -130,7 +131,7 @@ const VisibilityModal: React.FC<VisibilityModalProps> = ({
               return (
                 <TouchableOpacity
                   key={option.type === 'subscribers' ? (option.tierId ? `tier-${option.tierId}` : 'subscribers-generic') : (option.groupId || `everyone-${idx}`)}
-                  style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 12, paddingHorizontal: 8, backgroundColor: isSelected ? '#f2f2f2' : 'transparent', borderRadius: 12, marginBottom: 4 }}
+                  style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 12, paddingHorizontal: 8, backgroundColor: isSelected ? COLORS.surface : 'transparent', borderRadius: 12, marginBottom: 4 }}
                   onPress={() => {
                     hapticLight();
                     if (option.type === 'subscribers') {
@@ -150,21 +151,21 @@ const VisibilityModal: React.FC<VisibilityModalProps> = ({
                   }}
                 >
                   <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                    <View style={{ width: 44, height: 44, borderRadius: 12, backgroundColor: isSelected ? '#FF8D00' : '#f0f0f0', alignItems: 'center', justifyContent: 'center', marginRight: 16 }}>
-                      <Feather name={iconName as any} size={20} color={isSelected ? '#fff' : '#000'} />
+                    <View style={{ width: 44, height: 44, borderRadius: 12, backgroundColor: isSelected ? COLORS.primary : COLORS.inputBg, alignItems: 'center', justifyContent: 'center', marginRight: 16 }}>
+                      <Feather name={iconName as any} size={20} color={isSelected ? COLORS.textLight : COLORS.textPrimary} />
                     </View>
                     <View>
-                      <Text style={{ fontSize: 15, fontWeight: '600', color: '#111' }}>{option.label}</Text>
+                      <Text style={{ fontSize: 15, fontWeight: '600', color: COLORS.textPrimary }}>{option.label}</Text>
                       {option.groupId && (
-                        <Text style={{ fontSize: 12, color: '#888', marginTop: 2 }}>
+                        <Text style={{ fontSize: 12, color: COLORS.textMuted, marginTop: 2 }}>
                           {liveGroups.find(g => (g._id || g.id) === option.groupId)?.members?.length ?? 0} members
                         </Text>
                       )}
                     </View>
                   </View>
                   {isSelected && (
-                    <View style={{ width: 24, height: 24, borderRadius: 12, backgroundColor: '#FF8D00', alignItems: 'center', justifyContent: 'center' }}>
-                      <Feather name="check" size={14} color="#fff" />
+                    <View style={{ width: 24, height: 24, borderRadius: 12, backgroundColor: COLORS.primary, alignItems: 'center', justifyContent: 'center' }}>
+                      <Feather name="check" size={14} color={COLORS.textLight} />
                     </View>
                   )}
                 </TouchableOpacity>
@@ -174,13 +175,13 @@ const VisibilityModal: React.FC<VisibilityModalProps> = ({
 
           <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingTop: 16, paddingHorizontal: 4 }}>
             <TouchableOpacity onPress={onClose}>
-              <Text style={{ color: '#111', fontWeight: '700', fontSize: 15 }}>Cancel</Text>
+              <Text style={{ color: COLORS.textPrimary, fontWeight: '700', fontSize: 15 }}>Cancel</Text>
             </TouchableOpacity>
             <TouchableOpacity
               onPress={onClose}
-              style={{ backgroundColor: '#FF8D00', borderRadius: 8, paddingHorizontal: 24, paddingVertical: 10 }}
+              style={{ backgroundColor: COLORS.primary, borderRadius: 8, paddingHorizontal: 24, paddingVertical: 10 }}
             >
-              <Text style={{ color: '#fff', fontWeight: '600', fontSize: 15 }}>Save</Text>
+              <Text style={{ color: COLORS.textLight, fontWeight: '600', fontSize: 15 }}>Save</Text>
             </TouchableOpacity>
           </View>
         </View>

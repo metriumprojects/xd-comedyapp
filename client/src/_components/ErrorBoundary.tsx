@@ -16,6 +16,7 @@ interface State {
  * Enhanced Error Boundary Component
  * Catches JavaScript errors in child components and provides a recovery UI.
  */
+import COLORS from '@/src/theme/colors';
 export class ErrorBoundary extends Component<Props, State> {
   constructor(props: Props) {
     super(props);
@@ -101,11 +102,11 @@ const styles = StyleSheet.create({
     padding: 24,
   },
   errorBox: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: COLORS.background,
     borderRadius: 24,
     padding: 32,
     alignItems: 'center',
-    shadowColor: '#000',
+    shadowColor: COLORS.black,
     shadowOffset: { width: 0, height: 10 },
     shadowOpacity: 0.1,
     shadowRadius: 20,
@@ -120,19 +121,19 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 22,
     fontWeight: '800',
-    color: '#111827',
+    color: COLORS.textPrimary,
     marginBottom: 12,
     textAlign: 'center',
   },
   message: {
     fontSize: 15,
-    color: '#6B7280',
+    color: COLORS.textSecondary,
     textAlign: 'center',
     marginBottom: 32,
     lineHeight: 22,
   },
   button: {
-    backgroundColor: '#000000',
+    backgroundColor: COLORS.black,
     paddingHorizontal: 40,
     paddingVertical: 14,
     borderRadius: 14,
@@ -140,7 +141,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   buttonText: {
-    color: '#FFFFFF',
+    color: COLORS.textLight,
     fontSize: 16,
     fontWeight: '700',
   },

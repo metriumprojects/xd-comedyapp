@@ -187,7 +187,7 @@ const PodiumMediaImage = ({ thumbnailUrl, mediaUrl, style, contentFit, transitio
             setLocalVideoThumb(res.uri);
           }
         })
-        .catch(() => {});
+        .catch(() => { });
     }
     return () => { active = false; };
   }, [resolved, isVideo]);
@@ -214,13 +214,13 @@ export default function PodiumScreen() {
   const { notifications, unreadCount, fetchNotifications, markAsRead, markAllAsRead } = useNotifications(currentUserId || '', 60000);
 
   useEffect(() => {
-    AsyncStorage.getItem('userId').then(uid => { if (uid) setCurrentUserId(uid); }).catch(() => {});
+    AsyncStorage.getItem('userId').then(uid => { if (uid) setCurrentUserId(uid); }).catch(() => { });
   }, []);
 
   // Navigate to a creator's profile
   const navigateToCreator = (creatorId: string) => {
     if (!creatorId || creatorId.startsWith('creator-')) return; // Skip mock data
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => { });
     if (currentUserId && creatorId === currentUserId) {
       router.push('/(tabs)/profile');
     } else {
@@ -231,7 +231,7 @@ export default function PodiumScreen() {
   // Navigate to a video/post detail
   const navigateToPost = (postId: string) => {
     if (!postId || postId.startsWith('video-')) return; // Skip mock data
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => { });
     router.push({ pathname: '/post-detail', params: { id: postId } });
   };
 
@@ -271,20 +271,57 @@ export default function PodiumScreen() {
   }, [activeType, activeTimeframe]);
 
   const handleTabPress = (type: 'creators' | 'videos') => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => { });
     setActiveType(type);
   };
 
   const handleTimeframePress = (tf: 'weekly' | 'monthly' | 'all') => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => { });
     setActiveTimeframe(tf);
   };
 
-  const getRankIndicatorSymbol = (rank: number) => {
-    if (rank === 1) return '📈';
-    if (rank === 2) return '📈';
-    if (rank === 3) return '↘';
-    return '↘';
+  const renderRankPill = (rank: number) => {
+    if (rank === 1) {
+      return (
+        <View style={[styles.rankPill, { backgroundColor: '#FFFBEB', borderColor: '#F59E0B' }]}>
+          <Text style={[styles.rankPillText, { color: '#D97706' }]}>👑 #1</Text>
+        </View>
+      );
+    }
+    if (rank === 2) {
+      return (
+        <View style={[styles.rankPill, { backgroundColor: '#F3F4F6', borderColor: '#9CA3AF' }]}>
+          <Text style={[styles.rankPillText, { color: '#4B5563' }]}>🥈 #2</Text>
+        </View>
+      );
+    }
+    if (rank === 3) {
+      return (
+        <View style={[styles.rankPill, { backgroundColor: '#FFF7ED', borderColor: '#F97316' }]}>
+          <Text style={[styles.rankPillText, { color: '#C2410C' }]}>🥉 #3</Text>
+        </View>
+      );
+    }
+    return (
+      <View style={[styles.rankPill, { backgroundColor: '#F8FAFC', borderColor: '#E2E8F0' }]}>
+        <Text style={[styles.rankPillText, { color: '#64748B' }]}>#{rank}</Text>
+      </View>
+    );
+  };
+
+  const renderTrendIndicator = (rank: number) => {
+    if (rank <= 2) {
+      return (
+        <View style={styles.trendBadgeUp}>
+          <Feather name="trending-up" size={13} color="#10B981" />
+        </View>
+      );
+    }
+    return (
+      <View style={styles.trendBadgeDown}>
+        <Feather name="trending-down" size={13} color="#FF9500" />
+      </View>
+    );
   };
 
   // Real-time Search Filtered Rankings
@@ -293,22 +330,22 @@ export default function PodiumScreen() {
     const q = searchQuery.toLowerCase().trim();
     return rankings.filter((item: any) => {
       const creatorName = (
-        item.creator?.name || 
-        item.creator?.displayName || 
-        item.creator?.username || 
-        item.user?.displayName || 
-        item.user?.name || 
-        item.userName || 
-        item.userId?.displayName || 
-        item.userId?.name || 
+        item.creator?.name ||
+        item.creator?.displayName ||
+        item.creator?.username ||
+        item.user?.displayName ||
+        item.user?.name ||
+        item.userName ||
+        item.userId?.displayName ||
+        item.userId?.name ||
         ''
       ).toLowerCase();
 
       const caption = (
-        item.funniestVideo?.caption || 
-        item.caption || 
-        item.text || 
-        item.title || 
+        item.funniestVideo?.caption ||
+        item.caption ||
+        item.text ||
+        item.title ||
         ''
       ).toLowerCase();
 
@@ -352,7 +389,7 @@ export default function PodiumScreen() {
         <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
           <Ionicons name="arrow-back" size={24} color="#000" />
         </TouchableOpacity>
-        
+
         <View style={styles.headerRight}>
           <TouchableOpacity style={styles.headerIcon} onPress={() => router.push('/inbox')}>
             <Feather name="message-square" size={22} color="#000" />
@@ -382,7 +419,7 @@ export default function PodiumScreen() {
               </View>
             )}
           </TouchableOpacity>
-          <TouchableOpacity style={styles.headerIcon} onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {}); setMenuVisible(true); }}>
+          <TouchableOpacity style={styles.headerIcon} onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => { }); setMenuVisible(true); }}>
             <Feather name="more-vertical" size={22} color="#000" />
           </TouchableOpacity>
         </View>
@@ -406,18 +443,18 @@ export default function PodiumScreen() {
             </TouchableOpacity>
           )}
         </View>
-        <TouchableOpacity 
-          style={styles.searchBtn} 
-          onPress={() => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {})}
+        <TouchableOpacity
+          style={styles.searchBtn}
+          onPress={() => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => { })}
         >
           <Text style={styles.searchBtnText}>Search</Text>
         </TouchableOpacity>
       </View>
 
       {/* 3. Category Pills Row */}
-      <ScrollView 
-        horizontal 
-        showsHorizontalScrollIndicator={false} 
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
         style={styles.categoryPillsScrollView}
         contentContainerStyle={styles.categoryPills}
       >
@@ -426,8 +463,8 @@ export default function PodiumScreen() {
           <Text style={[styles.categoryChipText, styles.categoryChipTextActive]}>Podium</Text>
         </TouchableOpacity>
         {['Comics', 'Pranks', 'Memes', 'Street pranks', 'Stand Ups'].map((cat) => (
-          <TouchableOpacity 
-            key={cat} 
+          <TouchableOpacity
+            key={cat}
             style={styles.categoryChipInactive}
             onPress={() => router.push(`/(tabs)/home?filter=${encodeURIComponent(cat)}`)}
           >
@@ -439,14 +476,14 @@ export default function PodiumScreen() {
       {/* 4. Sub-tabs navigation */}
       <View style={styles.subTabsRow}>
         <View style={styles.leftToggles}>
-          <TouchableOpacity 
-            style={[styles.subTab, activeType === 'videos' && styles.subTabActive]} 
+          <TouchableOpacity
+            style={[styles.subTab, activeType === 'videos' && styles.subTabActive]}
             onPress={() => handleTabPress('videos')}
           >
             <Text style={[styles.subTabText, activeType === 'videos' && styles.subTabTextActive]}>Videos</Text>
           </TouchableOpacity>
-          <TouchableOpacity 
-            style={[styles.subTab, activeType === 'creators' && styles.subTabActive]} 
+          <TouchableOpacity
+            style={[styles.subTab, activeType === 'creators' && styles.subTabActive]}
             onPress={() => handleTabPress('creators')}
           >
             <Text style={[styles.subTabText, activeType === 'creators' && styles.subTabTextActive]}>Creators</Text>
@@ -454,20 +491,20 @@ export default function PodiumScreen() {
         </View>
 
         <View style={styles.rightToggles}>
-          <TouchableOpacity 
-            style={[styles.subTab, activeTimeframe === 'weekly' && styles.subTabActive]} 
+          <TouchableOpacity
+            style={[styles.subTab, activeTimeframe === 'weekly' && styles.subTabActive]}
             onPress={() => handleTimeframePress('weekly')}
           >
             <Text style={[styles.subTabText, activeTimeframe === 'weekly' && styles.subTabTextActive]}>Weekly</Text>
           </TouchableOpacity>
-          <TouchableOpacity 
-            style={[styles.subTab, activeTimeframe === 'monthly' && styles.subTabActive]} 
+          <TouchableOpacity
+            style={[styles.subTab, activeTimeframe === 'monthly' && styles.subTabActive]}
             onPress={() => handleTimeframePress('monthly')}
           >
             <Text style={[styles.subTabText, activeTimeframe === 'monthly' && styles.subTabTextActive]}>Monthly</Text>
           </TouchableOpacity>
-          <TouchableOpacity 
-            style={[styles.subTab, activeTimeframe === 'all' && styles.subTabActive]} 
+          <TouchableOpacity
+            style={[styles.subTab, activeTimeframe === 'all' && styles.subTabActive]}
             onPress={() => handleTimeframePress('all')}
           >
             <Text style={[styles.subTabText, activeTimeframe === 'all' && styles.subTabTextActive]}>All Time</Text>
@@ -483,7 +520,7 @@ export default function PodiumScreen() {
         </View>
       ) : (
         <ScrollView style={styles.scrollBody} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-          
+
           {/* 5. 3D Visual Podium */}
           <View style={styles.podiumContainer}>
             {/* RANK 2 (Left) */}
@@ -494,9 +531,9 @@ export default function PodiumScreen() {
                   onPress={() => activeType === 'creators' ? navigateToCreator(top2.creator.id) : navigateToPost(String(top2.id))}
                 >
                   {activeType === 'creators' ? (
-                    <ExpoImage source={{ uri: normalizeMediaUrl(top2.creator.avatar) || DEFAULT_AVATAR_URL }} style={[styles.avatarImage, { borderColor: '#C0C0C0' }]} contentFit="cover" transition={200} cachePolicy="memory-disk" />
+                    <ExpoImage source={{ uri: normalizeMediaUrl(top2.creator.avatar) || DEFAULT_AVATAR_URL }} style={[styles.avatarImage, { borderColor: '#C0C0C0', borderWidth: 3 }]} contentFit="cover" transition={200} cachePolicy="memory-disk" />
                   ) : (
-                    <View style={styles.videoThumbnailContainer}>
+                    <View style={[styles.videoThumbnailContainer, { borderRadius: 14, borderColor: '#C0C0C0', borderWidth: 2.5 }]}>
                       <PodiumMediaImage thumbnailUrl={top2.thumbnailUrl} mediaUrl={top2.mediaUrl} style={styles.videoThumbnail} contentFit="cover" transition={200} cachePolicy="memory-disk" />
                       <View style={styles.playIconOverlay}>
                         <Ionicons name="play" size={14} color="#fff" />
@@ -511,8 +548,9 @@ export default function PodiumScreen() {
                 <View style={styles.voteBadge}>
                   <Text style={styles.voteText}>😂 {formatCount(top2.laughCount || top2.totalLaughs)}</Text>
                 </View>
-                
-                <LinearGradient colors={['#3DC3FF', '#0095f6']} style={[styles.pedestal, { height: 110 }]}>
+
+                <LinearGradient colors={['#0EA5E9', '#0284C7', '#0369A1']} style={[styles.pedestal, { height: 115, width: 108 }]}>
+                  <View style={[styles.pedestalTop3D, { backgroundColor: 'rgba(255, 255, 255, 0.3)' }]} />
                   <Text style={styles.pedestalNumber}>2</Text>
                 </LinearGradient>
               </View>
@@ -525,13 +563,16 @@ export default function PodiumScreen() {
                   style={styles.avatarContainer}
                   onPress={() => activeType === 'creators' ? navigateToCreator(top1.creator.id) : navigateToPost(String(top1.id))}
                 >
+                  <View style={styles.crownContainer}>
+                    <Text style={styles.crownEmoji}>👑</Text>
+                  </View>
                   {activeType === 'creators' ? (
-                    <ExpoImage source={{ uri: normalizeMediaUrl(top1.creator.avatar) || DEFAULT_AVATAR_URL }} style={[styles.avatarImage, { borderColor: '#FFD700', width: 70, height: 70, borderRadius: 35 }]} contentFit="cover" transition={200} cachePolicy="memory-disk" />
+                    <ExpoImage source={{ uri: normalizeMediaUrl(top1.creator.avatar) || DEFAULT_AVATAR_URL }} style={[styles.avatarImage, { borderColor: '#FFD700', width: 74, height: 74, borderRadius: 37, borderWidth: 3.5 }]} contentFit="cover" transition={200} cachePolicy="memory-disk" />
                   ) : (
-                    <View style={[styles.videoThumbnailContainer, { width: 75, height: 75 }]}>
+                    <View style={[styles.videoThumbnailContainer, { width: 78, height: 78, borderRadius: 16, borderColor: '#FFD700', borderWidth: 3 }]}>
                       <PodiumMediaImage thumbnailUrl={top1.thumbnailUrl} mediaUrl={top1.mediaUrl} style={styles.videoThumbnail} contentFit="cover" transition={200} cachePolicy="memory-disk" />
                       <View style={styles.playIconOverlay}>
-                        <Ionicons name="play" size={16} color="#fff" />
+                        <Ionicons name="play" size={18} color="#fff" />
                       </View>
                     </View>
                   )}
@@ -544,7 +585,8 @@ export default function PodiumScreen() {
                   <Text style={styles.voteText}>😂 {formatCount(top1.laughCount || top1.totalLaughs)}</Text>
                 </View>
 
-                <LinearGradient colors={['#59E094', '#00A36C']} style={[styles.pedestal, { height: 160 }]}>
+                <LinearGradient colors={['#10B981', '#059669', '#047857']} style={[styles.pedestal, { height: 165, width: 116 }]}>
+                  <View style={[styles.pedestalTop3D, { backgroundColor: 'rgba(255, 215, 0, 0.35)' }]} />
                   <Text style={styles.pedestalNumber}>1</Text>
                 </LinearGradient>
               </View>
@@ -558,9 +600,9 @@ export default function PodiumScreen() {
                   onPress={() => activeType === 'creators' ? navigateToCreator(top3.creator.id) : navigateToPost(String(top3.id))}
                 >
                   {activeType === 'creators' ? (
-                    <ExpoImage source={{ uri: normalizeMediaUrl(top3.creator.avatar) || DEFAULT_AVATAR_URL }} style={[styles.avatarImage, { borderColor: '#CD7F32' }]} contentFit="cover" transition={200} cachePolicy="memory-disk" />
+                    <ExpoImage source={{ uri: normalizeMediaUrl(top3.creator.avatar) || DEFAULT_AVATAR_URL }} style={[styles.avatarImage, { borderColor: '#CD7F32', borderWidth: 3 }]} contentFit="cover" transition={200} cachePolicy="memory-disk" />
                   ) : (
-                    <View style={styles.videoThumbnailContainer}>
+                    <View style={[styles.videoThumbnailContainer, { borderRadius: 14, borderColor: '#CD7F32', borderWidth: 2.5 }]}>
                       <PodiumMediaImage thumbnailUrl={top3.thumbnailUrl} mediaUrl={top3.mediaUrl} style={styles.videoThumbnail} contentFit="cover" transition={200} cachePolicy="memory-disk" />
                       <View style={styles.playIconOverlay}>
                         <Ionicons name="play" size={14} color="#fff" />
@@ -576,7 +618,8 @@ export default function PodiumScreen() {
                   <Text style={styles.voteText}>😂 {formatCount(top3.laughCount || top3.totalLaughs)}</Text>
                 </View>
 
-                <LinearGradient colors={['#6CE5FF', '#00B4D8']} style={[styles.pedestal, { height: 85 }]}>
+                <LinearGradient colors={['#3B82F6', '#1D4ED8', '#1E3A8A']} style={[styles.pedestal, { height: 90, width: 108 }]}>
+                  <View style={[styles.pedestalTop3D, { backgroundColor: 'rgba(205, 127, 50, 0.35)' }]} />
                   <Text style={styles.pedestalNumber}>3</Text>
                 </LinearGradient>
               </View>
@@ -600,21 +643,25 @@ export default function PodiumScreen() {
                 </TouchableOpacity>
               </View>
             ) : (
-              filteredRankings.map((item) => {
+              filteredRankings.map((item, index) => {
                 if (activeType === 'creators') {
+                  const creatorKey = item?.creator?.id || item?.id || `creator_${index}`;
                   return (
-                    <TouchableOpacity key={item.creator.id} style={styles.card} activeOpacity={0.8} onPress={() => navigateToCreator(item.creator.id)}>
+                    <TouchableOpacity key={`${creatorKey}_${index}`} style={styles.card} activeOpacity={0.8} onPress={() => navigateToCreator(item.creator.id)}>
                       {/* Main Creator Header */}
                       <View style={styles.creatorHeader}>
                         <ExpoImage source={{ uri: normalizeMediaUrl(item.creator.avatar) || DEFAULT_AVATAR_URL }} style={styles.listAvatar} contentFit="cover" transition={200} cachePolicy="memory-disk" />
                         <View style={styles.creatorInfo}>
                           <Text style={styles.creatorNameText}>{item.creator.name}</Text>
                           <Text style={styles.creatorSubText}>
-                            N°{item.rank}  •  😂 Total {formatCount(item.totalLaughs)}  •  {item.totalVideos} videos
+                            😂 Total {formatCount(item.totalLaughs)}  •  {item.totalVideos} videos
                           </Text>
                         </View>
+                        <View style={{ marginLeft: 'auto' }}>
+                          {renderRankPill(item.rank)}
+                        </View>
                       </View>
-                      
+
                       {/* Nested Funniest Video Box */}
                       {item.funniestVideo && (
                         <TouchableOpacity style={styles.funniestVideoContainer} activeOpacity={0.7} onPress={() => navigateToPost(String(item.funniestVideo.id))}>
@@ -622,12 +669,11 @@ export default function PodiumScreen() {
                             <PodiumMediaImage thumbnailUrl={item.funniestVideo.thumbnailUrl} mediaUrl={item.funniestVideo.mediaUrl} style={styles.nestedThumbnail} contentFit="cover" transition={200} cachePolicy="memory-disk" />
                             <View style={styles.videoDetails}>
                               <View style={styles.funniestTitleRow}>
-                                <Text style={styles.funniestLabel}>Funniest video</Text>
-                                <Text style={styles.trendIcon}>{getRankIndicatorSymbol(item.rank)}</Text>
+                                <Text style={styles.videoTitleText} numberOfLines={1}>
+                                  {item.funniestVideo.caption || 'Top Clip'}
+                                </Text>
+                                {renderTrendIndicator(item.rank)}
                               </View>
-                              <Text style={styles.videoCaption} numberOfLines={1}>
-                                {item.funniestVideo.caption}
-                              </Text>
                               <Text style={styles.videoStats}>
                                 😂 {formatCount(item.funniestVideo.laughCount)}  •  {formatCount(item.funniestVideo.viewsCount)} Views  •  {formatCount(item.funniestVideo.likesCount)} Likes
                               </Text>
@@ -638,8 +684,9 @@ export default function PodiumScreen() {
                     </TouchableOpacity>
                   );
                 } else {
+                  const videoKey = item?.id || item?._id || `video_${index}`;
                   return (
-                    <View key={item.id} style={styles.card}>
+                    <View key={`${videoKey}_${index}`} style={styles.card}>
                       {/* Main Video Row — tappable to open video */}
                       <TouchableOpacity style={styles.videoRow} activeOpacity={0.7} onPress={() => navigateToPost(String(item.id))}>
                         <View style={styles.thumbnailWrapper}>
@@ -653,10 +700,12 @@ export default function PodiumScreen() {
                             <Text style={styles.videoTitleText} numberOfLines={1}>
                               {item.caption || 'Funny Video'}
                             </Text>
-                            <Text style={styles.trendIcon}>{getRankIndicatorSymbol(item.rank)}</Text>
+                            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                              {renderRankPill(item.rank)}
+                              {renderTrendIndicator(item.rank)}
+                            </View>
                           </View>
-                          <Text style={styles.videoRankText}>N°{item.rank}</Text>
-                          <Text style={styles.videoStats}>
+                          <Text style={[styles.videoStats, { marginTop: 4 }]}>
                             😂 {formatCount(item.laughCount)}  •  {formatCount(item.viewsCount)} Views  •  {formatCount(item.likesCount)} Likes
                           </Text>
                         </View>
@@ -696,7 +745,7 @@ export default function PodiumScreen() {
       <Modal
         visible={menuVisible}
         transparent={true}
-        animationType="fade"
+        animationType="slide"
         onRequestClose={() => setMenuVisible(false)}
       >
         <View style={styles.menuOverlay}>
@@ -1005,7 +1054,7 @@ const styles = StyleSheet.create({
   },
   podiumCol: {
     alignItems: 'center',
-    marginHorizontal: 8,
+    marginHorizontal: 0,
   },
   avatarContainer: {
     position: 'relative',
@@ -1061,28 +1110,70 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   voteBadge: {
-    backgroundColor: '#0095f6',
-    paddingHorizontal: 8,
+    backgroundColor: 'rgba(28, 28, 30, 0.88)',
+    paddingHorizontal: 10,
     paddingVertical: 3,
-    borderRadius: 10,
+    borderRadius: 12,
     marginBottom: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.2)',
+    shadowColor: '#000',
+    shadowOpacity: 0.15,
+    shadowRadius: 4,
+    elevation: 3,
   },
   voteText: {
-    fontSize: 10,
+    fontSize: 11,
     fontWeight: '700',
-    color: '#fff',
+    color: '#ffffff',
+  },
+  crownContainer: {
+    position: 'absolute',
+    top: -18,
+    alignSelf: 'center',
+    zIndex: 10,
+  },
+  crownEmoji: {
+    fontSize: 22,
+    lineHeight: 24,
+  },
+  pedestalTop3D: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    height: 14,
+    borderTopLeftRadius: 14,
+    borderTopRightRadius: 14,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(0, 0, 0, 0.15)',
   },
   pedestal: {
-    width: 85,
-    borderTopLeftRadius: 10,
-    borderTopRightRadius: 10,
+    width: 86,
+    borderTopLeftRadius: 14,
+    borderTopRightRadius: 14,
     alignItems: 'center',
     justifyContent: 'center',
+    position: 'relative',
+    overflow: 'hidden',
+    borderLeftWidth: 1.5,
+    borderLeftColor: 'rgba(255, 255, 255, 0.35)',
+    borderRightWidth: 1.5,
+    borderRightColor: 'rgba(0, 0, 0, 0.2)',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.25,
+    shadowRadius: 8,
+    elevation: 8,
   },
   pedestalNumber: {
-    fontSize: 48,
-    fontWeight: '800',
-    color: 'rgba(255, 255, 255, 0.4)',
+    fontSize: 52,
+    fontWeight: '900',
+    color: '#ffffff',
+    opacity: 0.4,
+    textShadowColor: 'rgba(0, 0, 0, 0.35)',
+    textShadowOffset: { width: 1, height: 2 },
+    textShadowRadius: 3,
   },
   listContainer: {
     paddingHorizontal: 16,
@@ -1167,6 +1258,33 @@ const styles = StyleSheet.create({
   funniestTitleRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  rankPill: {
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 10,
+    borderWidth: 1,
+    alignSelf: 'flex-start',
+  },
+  rankPillText: {
+    fontSize: 10,
+    fontWeight: '800',
+  },
+  trendBadgeUp: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    backgroundColor: 'rgba(16, 185, 129, 0.12)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  trendBadgeDown: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    backgroundColor: 'rgba(255, 149, 0, 0.12)',
+    justifyContent: 'center',
     alignItems: 'center',
   },
   funniestLabel: {

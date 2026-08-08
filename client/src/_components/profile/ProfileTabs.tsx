@@ -2,6 +2,7 @@ import React from 'react';
 import { View, TouchableOpacity, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { hapticLight } from '@/lib/haptics';
+import COLORS from '@/src/theme/colors';
 
 interface ProfileTabsProps {
   activeTab: 'grid' | 'map' | 'tagged' | 'saved';
@@ -19,7 +20,7 @@ const ProfileTabs: React.FC<ProfileTabsProps> = ({ activeTab, onChangeTab, mapEn
           style={[styles.tab, activeTab === 'map' && styles.activeTab]}
           onPress={() => { hapticLight(); onChangeTab('map'); }}
         >
-          <Ionicons name="location-outline" size={24} color={activeTab === 'map' ? '#000' : '#999'} />
+          <Ionicons name="location-outline" size={24} color={activeTab === 'map' ? COLORS.primary : COLORS.textMuted} />
         </TouchableOpacity>
       )}
       
@@ -27,7 +28,7 @@ const ProfileTabs: React.FC<ProfileTabsProps> = ({ activeTab, onChangeTab, mapEn
         style={[styles.tab, activeTab === 'tagged' && styles.activeTab]}
         onPress={() => { hapticLight(); onChangeTab('tagged'); }}
       >
-        <Ionicons name="pricetag-outline" size={24} color={activeTab === 'tagged' ? '#000' : '#999'} />
+        <Ionicons name="pricetag-outline" size={24} color={activeTab === 'tagged' ? COLORS.primary : COLORS.textMuted} />
       </TouchableOpacity>
 
       {onViewCollections && (

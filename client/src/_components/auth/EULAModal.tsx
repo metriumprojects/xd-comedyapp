@@ -9,6 +9,7 @@ import {
   Dimensions,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import COLORS from '@/src/theme/colors';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -35,7 +36,7 @@ export const EULAModal: React.FC<EULAModalProps> = ({
           {/* Header */}
           <View style={styles.header}>
             <View style={styles.iconContainer}>
-              <Ionicons name="shield-checkmark" size={32} color="#FF8D00" />
+              <Ionicons name="shield-checkmark" size={32} color={COLORS.primary} />
             </View>
             <Text style={styles.title}>Comedy App – Terms of Use</Text>
             <Text style={styles.date}>Effective: April 30, 2026</Text>
@@ -191,10 +192,10 @@ const styles = StyleSheet.create({
   container: {
     width: '100%',
     maxHeight: '85%',
-    backgroundColor: '#fff',
+    backgroundColor: COLORS.background,
     borderRadius: 28,
     padding: 24,
-    shadowColor: '#000',
+    shadowColor: COLORS.black,
     shadowOffset: { width: 0, height: 10 },
     shadowOpacity: 0.3,
     shadowRadius: 20,
@@ -208,7 +209,7 @@ const styles = StyleSheet.create({
     width: 60,
     height: 60,
     borderRadius: 30,
-    backgroundColor: '#F0F7FF',
+    backgroundColor: COLORS.primaryLight,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 12,
@@ -221,23 +222,24 @@ const styles = StyleSheet.create({
   },
   date: {
     fontSize: 12,
-    color: '#888',
+    color: COLORS.textMuted,
     marginTop: 4,
     fontWeight: '500',
   },
-  scroll: {
+  scrollContainer: {
+    maxHeight: 380,
     flexGrow: 0,
     marginBottom: 20,
     borderTopWidth: 1,
     borderBottomWidth: 1,
-    borderColor: '#f0f0f0',
+    borderColor: COLORS.border,
   },
   scrollContent: {
     paddingVertical: 15,
   },
   introText: {
     fontSize: 14,
-    color: '#333',
+    color: COLORS.textPrimary,
     lineHeight: 20,
     fontWeight: '600',
     marginBottom: 15,
@@ -249,12 +251,12 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 16,
     fontWeight: '700',
-    color: '#FF8D00',
+    color: COLORS.primary,
     marginBottom: 6,
   },
   sectionText: {
     fontSize: 13,
-    color: '#555',
+    color: COLORS.textSecondary,
     lineHeight: 20,
   },
   bulletRow: {
@@ -264,13 +266,13 @@ const styles = StyleSheet.create({
   },
   bulletPoint: {
     fontSize: 14,
-    color: '#FF8D00',
+    color: COLORS.primary,
     marginRight: 8,
     fontWeight: 'bold',
   },
   bulletText: {
     fontSize: 13,
-    color: '#555',
+    color: COLORS.textSecondary,
     lineHeight: 20,
     flex: 1,
   },
@@ -278,14 +280,14 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   acceptButton: {
-    backgroundColor: '#FF8D00',
+    backgroundColor: COLORS.primary,
     paddingVertical: 16,
     borderRadius: 16,
     alignItems: 'center',
     justifyContent: 'center',
   },
   acceptButtonText: {
-    color: '#fff',
+    color: COLORS.textLight,
     fontSize: 16,
     fontWeight: '700',
   },
@@ -294,7 +296,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   declineButtonText: {
-    color: '#666',
+    color: COLORS.textMuted,
     fontSize: 14,
     fontWeight: '600',
   },

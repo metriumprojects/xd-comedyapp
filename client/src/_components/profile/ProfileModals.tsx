@@ -13,6 +13,7 @@ import {
 } from 'react-native';
 import { Feather, Ionicons } from '@expo/vector-icons';
 import { hapticLight } from '@/lib/haptics';
+import COLORS from '@/src/theme/colors';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -57,8 +58,8 @@ export const CollectionsModal: React.FC<CollectionsModalProps> = ({
             </View>
             
             <View style={{ paddingHorizontal: 20, paddingBottom: 15 }}>
-              <Text style={{ fontSize: 20, fontWeight: '700', color: '#222', marginBottom: 4 }}>Collections</Text>
-              <Text style={{ fontSize: 14, color: '#666' }}>View specific sets of photos and videos</Text>
+              <Text style={{ fontSize: 20, fontWeight: '700', color: COLORS.textPrimary, marginBottom: 4 }}>Collections</Text>
+              <Text style={{ fontSize: 14, color: COLORS.textSecondary }}>View specific sets of photos and videos</Text>
             </View>
 
             <ScrollView style={{ maxHeight: 400 }}>
@@ -71,7 +72,7 @@ export const CollectionsModal: React.FC<CollectionsModalProps> = ({
                 }}
               >
                 <View style={styles.collectionSheetThumbPlaceholder}>
-                  <Ionicons name="grid" size={20} color="#666" />
+                  <Ionicons name="grid" size={20} color={COLORS.textSecondary} />
                 </View>
                 <Text style={[
                   styles.collectionSheetText,
@@ -93,7 +94,7 @@ export const CollectionsModal: React.FC<CollectionsModalProps> = ({
                     <Image source={{ uri: section.coverImage }} style={styles.collectionSheetThumb} />
                   ) : (
                     <View style={styles.collectionSheetThumbPlaceholder}>
-                      <Ionicons name="folder-outline" size={20} color="#666" />
+                      <Ionicons name="folder-outline" size={20} color={COLORS.textSecondary} />
                     </View>
                   )}
                   <Text style={[
@@ -148,17 +149,17 @@ export const UserMenuModal: React.FC<UserMenuModalProps> = ({
             {!isOwnProfile && (
               <>
                 <TouchableOpacity style={styles.menuItem} onPress={onReport}>
-                  <View style={[styles.menuIconContainer, { backgroundColor: '#FFF0F0' }]}>
-                    <Feather name="flag" size={18} color="#FF4B4B" />
+                  <View style={[styles.menuIconContainer, { backgroundColor: COLORS.primaryLight }]}>
+                    <Feather name="flag" size={18} color={COLORS.danger} />
                   </View>
-                  <Text style={[styles.menuItemText, { color: '#FF4B4B' }]}>Report User</Text>
+                  <Text style={[styles.menuItemText, { color: COLORS.danger }]}>Report User</Text>
                 </TouchableOpacity>
 
                 <View style={styles.menuSeparator} />
 
                 <TouchableOpacity style={styles.menuItem} onPress={onBlock}>
-                  <View style={[styles.menuIconContainer, { backgroundColor: '#F0F0F0' }]}>
-                    <Feather name="slash" size={18} color="#222" />
+                  <View style={[styles.menuIconContainer, { backgroundColor: COLORS.inputBg }]}>
+                    <Feather name="slash" size={18} color={COLORS.textPrimary} />
                   </View>
                   <Text style={styles.menuItemText}>Block User</Text>
                 </TouchableOpacity>
@@ -168,8 +169,8 @@ export const UserMenuModal: React.FC<UserMenuModalProps> = ({
             )}
 
             <TouchableOpacity style={styles.menuItem} onPress={onShare}>
-              <View style={[styles.menuIconContainer, { backgroundColor: '#F0F7FF' }]}>
-                <Feather name="share-2" size={18} color="#007AFF" />
+              <View style={[styles.menuIconContainer, { backgroundColor: COLORS.primaryLight }]}>
+                <Feather name="share-2" size={18} color={COLORS.info} />
               </View>
               <Text style={styles.menuItemText}>Share Profile</Text>
             </TouchableOpacity>
@@ -194,7 +195,7 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
   },
   menuSheet: {
-    backgroundColor: '#fff',
+    backgroundColor: COLORS.background,
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     overflow: 'hidden',
@@ -211,7 +212,7 @@ const styles = StyleSheet.create({
   menuHandle: {
     width: 40,
     height: 4,
-    backgroundColor: '#ddd',
+    backgroundColor: COLORS.border,
     borderRadius: 2,
   },
   menuItem: {
@@ -230,12 +231,12 @@ const styles = StyleSheet.create({
   },
   menuItemText: {
     fontSize: 16,
-    color: '#222',
+    color: COLORS.textPrimary,
     fontWeight: '500',
   },
   menuSeparator: {
     height: 1,
-    backgroundColor: '#f0f0f0',
+    backgroundColor: COLORS.inputBg,
     marginHorizontal: 20,
   },
   menuCancelBtn: {
@@ -250,7 +251,7 @@ const styles = StyleSheet.create({
   menuCancelText: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#000',
+    color: COLORS.black,
   },
   collectionSheetRow: {
     flexDirection: 'row',
@@ -258,14 +259,14 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     paddingHorizontal: 20,
     borderBottomWidth: 0.5,
-    borderBottomColor: '#f0f0f0',
+    borderBottomColor: COLORS.inputBg,
   },
   collectionSheetThumb: {
     width: 44,
     height: 44,
     borderRadius: 10,
     marginRight: 12,
-    backgroundColor: '#eee',
+    backgroundColor: COLORS.border,
   },
   collectionSheetThumbPlaceholder: {
     width: 44,
@@ -278,11 +279,11 @@ const styles = StyleSheet.create({
   },
   collectionSheetText: {
     fontSize: 17,
-    color: '#222',
+    color: COLORS.textPrimary,
     flexShrink: 1,
   },
   collectionSheetTextActive: {
-    color: '#FF8D00',
+    color: COLORS.primary,
     fontWeight: '700',
   },
 });

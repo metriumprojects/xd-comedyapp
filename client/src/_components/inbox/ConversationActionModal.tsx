@@ -1,6 +1,7 @@
 import React from 'react';
 import { Modal, Pressable, Text, TouchableOpacity, View, StyleSheet } from 'react-native';
 import { Feather } from '@expo/vector-icons';
+import COLORS from '@/src/theme/colors';
 
 interface ConversationActionModalProps {
   actionsVisible: boolean;
@@ -38,7 +39,7 @@ export const ConversationActionModal: React.FC<ConversationActionModalProps> = (
                 setConfirmDeleteVisible(true);
               }}
             >
-              <Feather name="trash-2" size={18} color="#ff3b30" />
+              <Feather name="trash-2" size={18} color={COLORS.danger} />
               <Text style={[styles.actionSheetButtonText, styles.actionSheetDeleteText]}>Delete</Text>
             </TouchableOpacity>
 
@@ -88,7 +89,7 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
   },
   actionSheetContainer: {
-    backgroundColor: '#fff',
+    backgroundColor: COLORS.background,
     paddingTop: 12,
     paddingHorizontal: 16,
     paddingBottom: 18,
@@ -97,7 +98,7 @@ const styles = StyleSheet.create({
   },
   actionSheetTitle: {
     fontSize: 14,
-    color: '#666',
+    color: COLORS.textSecondary,
     fontWeight: '600',
     marginBottom: 10,
   },
@@ -110,41 +111,41 @@ const styles = StyleSheet.create({
   actionSheetButtonText: {
     marginLeft: 10,
     fontSize: 16,
-    color: '#111',
+    color: COLORS.textPrimary,
     fontWeight: '600',
   },
   actionSheetDeleteButton: {
     marginTop: 2,
   },
   actionSheetDeleteText: {
-    color: '#ff3b30',
+    color: COLORS.danger,
   },
   actionSheetCancelButton: {
     marginTop: 10,
     justifyContent: 'center',
-    backgroundColor: '#f5f5f5',
+    backgroundColor: COLORS.surface,
   },
   actionSheetCancelText: {
     fontSize: 16,
-    color: '#111',
+    color: COLORS.textPrimary,
     fontWeight: '700',
   },
   confirmContainer: {
     marginHorizontal: 22,
     marginBottom: 24,
-    backgroundColor: '#fff',
+    backgroundColor: COLORS.background,
     borderRadius: 14,
     padding: 16,
   },
   confirmTitle: {
     fontSize: 16,
     fontWeight: '800',
-    color: '#111',
+    color: COLORS.textPrimary,
     marginBottom: 6,
   },
   confirmSubtitle: {
     fontSize: 14,
-    color: '#666',
+    color: COLORS.textSecondary,
     marginBottom: 14,
   },
   confirmRow: {
@@ -158,17 +159,17 @@ const styles = StyleSheet.create({
     marginLeft: 10,
   },
   confirmCancelBtn: {
-    backgroundColor: '#f5f5f5',
+    backgroundColor: COLORS.surface,
   },
   confirmCancelText: {
     fontWeight: '700',
-    color: '#111',
+    color: COLORS.textPrimary,
   },
   confirmDeleteBtn: {
-    backgroundColor: '#ff3b30',
+    backgroundColor: COLORS.danger,
   },
   confirmDeleteText: {
     fontWeight: '800',
-    color: '#fff',
+    color: COLORS.textLight,
   },
 });

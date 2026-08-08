@@ -23,6 +23,7 @@ import { subscribeToUserStatus } from '../src/_services/socketService';
 import { CreateGroupModal } from '@/src/_components/inbox/CreateGroupModal';
 import { ConversationActionModal } from '@/src/_components/inbox/ConversationActionModal';
 import { resolveCanonicalUserId } from '@/lib/currentUser';
+import COLORS from '@/src/theme/colors';
 
 const INBOX_BUILD_TAG = 'inbox-group-fix-2026-03-28-2';
 
@@ -891,9 +892,9 @@ function Inbox() {
       return (
         <SafeAreaView style={[styles.container, { alignItems: 'center', justifyContent: 'center' }]}>
           {userLoading ? (
-            <ActivityIndicator size="large" color="#FF8D00" />
+            <ActivityIndicator size="large" color={COLORS.primary} />
           ) : (
-            <Text style={{ color: '#999', fontSize: 18, marginTop: 40 }}>
+            <Text style={{ color: COLORS.textMuted, fontSize: 18, marginTop: 40 }}>
               Please sign in to view your messages.
             </Text>
           )}
@@ -926,7 +927,7 @@ function Inbox() {
           activeOpacity={0.7}
           hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
         >
-          <Feather name="x" size={28} color="#000" />
+          <Feather name="x" size={28} color={COLORS.textPrimary} />
         </TouchableOpacity>
         <Text style={[styles.title, { textAlign: 'center', flex: 1 }]}>Messages</Text>
         <TouchableOpacity
@@ -938,18 +939,18 @@ function Inbox() {
           activeOpacity={0.7}
           hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
         >
-          <Feather name="edit" size={20} color="#000" />
+          <Feather name="edit" size={20} color={COLORS.textPrimary} />
         </TouchableOpacity>
       </View>
 
       {/* Premium modern search bar */}
       <View style={styles.igSearchBarWrapper}>
         <View style={styles.igSearchBar}>
-          <Feather name="search" size={16} color="#8e8e8e" style={{ marginRight: 8 }} />
+          <Feather name="search" size={16} color={COLORS.textMuted} style={{ marginRight: 8 }} />
           <TextInput
             style={[styles.igSearchText, { flex: 1, padding: 0 }]}
             placeholder="Search messages"
-            placeholderTextColor="#8e8e8e"
+            placeholderTextColor={COLORS.textMuted}
             value={inboxSearch}
             onChangeText={setInboxSearch}
             autoCorrect={false}
@@ -986,8 +987,8 @@ function Inbox() {
             >
               <View style={[styles.igAvatarRing, { width: 62, height: 62, borderRadius: 31, alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }]}>
                 {(!item.avatar || item.avatar === DEFAULT_AVATAR_URL || item.avatar.includes('avatardefault.webp')) ? (
-                  <View style={{ width: 56, height: 56, borderRadius: 28, backgroundColor: '#788d9a', alignItems: 'center', justifyContent: 'center' }}>
-                    <Text style={{ color: '#fff', fontSize: 26, fontWeight: '700' }}>
+                  <View style={{ width: 56, height: 56, borderRadius: 28, backgroundColor: COLORS.surface, alignItems: 'center', justifyContent: 'center' }}>
+                    <Text style={{ color: COLORS.textLight, fontSize: 26, fontWeight: '700' }}>
                       {String(item.name || item.username || 'U').trim().charAt(0).toUpperCase()}
                     </Text>
                   </View>
@@ -1002,7 +1003,7 @@ function Inbox() {
                 )}
               </View>
               <Text 
-                style={{ fontSize: 11, color: '#262626', marginTop: 4, textAlign: 'center' }} 
+                style={{ fontSize: 11, color: COLORS.textPrimary, marginTop: 4, textAlign: 'center' }} 
                 numberOfLines={1}
               >
                 {item.username || item.name}
@@ -1076,22 +1077,22 @@ function Inbox() {
         ListEmptyComponent={
           (!polledLoading && polledReady) ? (
             <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', padding: 40, marginTop: 40 }}>
-              <Feather name="message-circle" size={64} color="#ccc" />
-              <Text style={{ color: '#999', marginTop: 16, fontSize: 16, fontWeight: '600' }}>No messages found</Text>
-              <Text style={{ color: '#ccc', marginTop: 8, textAlign: 'center', marginBottom: 20 }}>
+              <Feather name="message-circle" size={64} color={COLORS.textMuted} />
+              <Text style={{ color: COLORS.textSecondary, marginTop: 16, fontSize: 16, fontWeight: '600' }}>No messages found</Text>
+              <Text style={{ color: COLORS.textMuted, marginTop: 8, textAlign: 'center', marginBottom: 20 }}>
                 {`Status: Connected as ${userId?.substring(0, 8)}... (Found: ${conversations?.length || 0})`}
               </Text>
               <TouchableOpacity 
-                style={{ backgroundColor: '#FF8D00', paddingHorizontal: 20, paddingVertical: 10, borderRadius: 8, marginBottom: 12 }}
+                style={{ backgroundColor: COLORS.primary, paddingHorizontal: 20, paddingVertical: 10, borderRadius: 8, marginBottom: 12 }}
                 onPress={() => { hapticLight(); setCreateGroupVisible(true); }}
               >
-                <Text style={{ color: '#fff', fontWeight: '600' }}>Start Chatting</Text>
+                <Text style={{ color: COLORS.textLight, fontWeight: '600' }}>Start Chatting</Text>
               </TouchableOpacity>
               <TouchableOpacity 
                 style={{ paddingHorizontal: 20, paddingVertical: 10 }}
                 onPress={() => { hapticLight(); refreshInbox(); }}
               >
-                <Text style={{ color: '#FF8D00', fontWeight: '600' }}>Refresh Chats</Text>
+                <Text style={{ color: COLORS.primary, fontWeight: '600' }}>Refresh Chats</Text>
               </TouchableOpacity>
             </View>
           ) : null
@@ -1101,7 +1102,7 @@ function Inbox() {
           <RefreshControl
             refreshing={polledLoading && (!conversations || conversations.length === 0)}
             onRefresh={refreshInbox}
-            tintColor="#FF8D00"
+            tintColor={COLORS.primary}
           />
         }
         estimatedItemSize={80}
@@ -1132,7 +1133,7 @@ export default Inbox;
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#fff',
+    backgroundColor: COLORS.background,
   },
   iconBtn: { padding: 6 },
   topActions: {
@@ -1141,7 +1142,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 12,
     paddingHorizontal: 16,
-    backgroundColor: '#fff',
+    backgroundColor: COLORS.background,
     gap: 12,
   },
   chatCard: {
@@ -1150,10 +1151,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 10,
     borderRadius: 22,
-    backgroundColor: '#ffffff',
+    backgroundColor: COLORS.card,
     flexDirection: 'row',
     alignItems: 'center',
-    shadowColor: '#111827',
+    shadowColor: COLORS.textPrimary,
     shadowOpacity: 0.06,
     shadowRadius: 10,
     shadowOffset: { width: 0, height: 4 },
@@ -1167,12 +1168,12 @@ const styles = StyleSheet.create({
     width: 56,
     height: 56,
     borderRadius: 28,
-    backgroundColor: '#eceff3',
+    backgroundColor: COLORS.inputBg,
     borderWidth: 2,
-    borderColor: '#fff',
+    borderColor: COLORS.background,
   },
   avatarUnreadRing: {
-    borderColor: '#FF8D00',
+    borderColor: COLORS.primary,
     borderWidth: 3,
   },
   unreadDot: {
@@ -1182,9 +1183,9 @@ const styles = StyleSheet.create({
     width: 12,
     height: 12,
     borderRadius: 6,
-    backgroundColor: '#FF8D00',
+    backgroundColor: COLORS.primary,
     borderWidth: 2,
-    borderColor: '#fff',
+    borderColor: COLORS.background,
     zIndex: 2,
   },
   chatContent: {
@@ -1194,30 +1195,30 @@ const styles = StyleSheet.create({
   chatName: {
     fontSize: 16,
     fontWeight: '700',
-    color: '#0f172a',
+    color: COLORS.textPrimary,
     marginBottom: 4,
     marginRight: 8,
     maxWidth: 160,
   },
   chatNameUnread: {
-    color: '#111',
+    color: COLORS.textPrimary,
     fontWeight: 'bold',
   },
   groupMeta: {
-    color: '#6b7280',
+    color: COLORS.textSecondary,
     fontSize: 12,
     marginBottom: 4,
   },
   chatPreviewPill: {
     alignSelf: 'flex-start',
     maxWidth: '95%',
-    backgroundColor: '#f1f4f8',
+    backgroundColor: COLORS.inputBg,
     borderRadius: 14,
     paddingHorizontal: 10,
     paddingVertical: 6,
   },
   chatPreviewText: {
-    color: '#6b7280',
+    color: COLORS.textSecondary,
     fontSize: 13,
   },
   chatMetaCol: {
@@ -1225,7 +1226,7 @@ const styles = StyleSheet.create({
     marginLeft: 10,
   },
   chatTimeText: {
-    color: '#9ca3af',
+    color: COLORS.textMuted,
     fontSize: 12,
     fontWeight: '600',
   },
@@ -1234,18 +1235,18 @@ const styles = StyleSheet.create({
     minWidth: 22,
     height: 22,
     borderRadius: 11,
-    backgroundColor: '#111827',
+    backgroundColor: COLORS.textPrimary,
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: 6,
   },
   chatUnreadText: {
-    color: '#ffffff',
+    color: COLORS.textLight,
     fontSize: 11,
     fontWeight: '700',
   },
   groupSheet: {
-    backgroundColor: '#fff',
+    backgroundColor: COLORS.card,
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     paddingHorizontal: 16,
@@ -1256,37 +1257,37 @@ const styles = StyleSheet.create({
     width: 42,
     height: 4,
     borderRadius: 2,
-    backgroundColor: '#d1d5db',
+    backgroundColor: COLORS.border,
     alignSelf: 'center',
     marginBottom: 12,
   },
   groupTitle: {
     fontSize: 18,
     fontWeight: '800',
-    color: '#111827',
+    color: COLORS.textPrimary,
     marginBottom: 10,
   },
   groupNameInput: {
     borderWidth: 1,
-    borderColor: '#e5e7eb',
+    borderColor: COLORS.border,
     borderRadius: 12,
     paddingHorizontal: 12,
     paddingVertical: 10,
     fontSize: 15,
-    color: '#111827',
+    color: COLORS.textPrimary,
     marginBottom: 8,
-    backgroundColor: '#f8fafc',
+    backgroundColor: COLORS.inputBg,
   },
   groupSearchInput: {
     borderWidth: 1,
-    borderColor: '#e5e7eb',
+    borderColor: COLORS.border,
     borderRadius: 12,
     paddingHorizontal: 12,
     paddingVertical: 10,
     fontSize: 14,
-    color: '#111827',
+    color: COLORS.textPrimary,
     marginBottom: 8,
-    backgroundColor: '#fff',
+    backgroundColor: COLORS.card,
   },
   memberChipsWrap: {
     flexDirection: 'row',
@@ -1298,7 +1299,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    backgroundColor: '#e0f2fe',
+    backgroundColor: COLORS.primaryLight,
     borderRadius: 999,
     paddingHorizontal: 10,
     paddingVertical: 6,
@@ -1306,7 +1307,7 @@ const styles = StyleSheet.create({
   },
   memberChipText: {
     fontSize: 12,
-    color: '#0f172a',
+    color: COLORS.textPrimary,
     fontWeight: '400',
     maxWidth: 170,
   },
@@ -1315,51 +1316,51 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 10,
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: '#f1f5f9',
+    borderBottomColor: COLORS.border,
   },
   memberAvatar: {
     width: 34,
     height: 34,
     borderRadius: 17,
     marginRight: 10,
-    backgroundColor: '#e5e7eb',
+    backgroundColor: COLORS.inputBg,
   },
   memberName: {
     flex: 1,
     fontSize: 14,
-    color: '#111827',
+    color: COLORS.textPrimary,
     fontWeight: '400',
   },
   memberEmpty: {
     textAlign: 'center',
-    color: '#94a3b8',
+    color: COLORS.textMuted,
     fontSize: 13,
     paddingVertical: 18,
   },
   createGroupBtn: {
     marginTop: 12,
     borderRadius: 12,
-    backgroundColor: '#FF8D00',
+    backgroundColor: COLORS.primary,
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: 13,
   },
   createGroupBtnText: {
-    color: '#fff',
+    color: COLORS.textLight,
     fontSize: 15,
     fontWeight: '800',
   },
   actionBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#f5f5f5',
+    backgroundColor: COLORS.surface,
     borderRadius: 20,
     paddingHorizontal: 16,
     paddingVertical: 8,
   },
   actionText: {
     marginLeft: 6,
-    color: '#FF8D00',
+    color: COLORS.primary,
     fontWeight: '600',
     fontSize: 14,
   },
@@ -1369,7 +1370,7 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
   },
   actionSheetContainer: {
-    backgroundColor: '#fff',
+    backgroundColor: COLORS.background,
     paddingTop: 12,
     paddingHorizontal: 16,
     paddingBottom: 18,
@@ -1378,7 +1379,7 @@ const styles = StyleSheet.create({
   },
   actionSheetTitle: {
     fontSize: 14,
-    color: '#666',
+    color: COLORS.textSecondary,
     fontWeight: '600',
     marginBottom: 10,
   },
@@ -1391,41 +1392,41 @@ const styles = StyleSheet.create({
   actionSheetButtonText: {
     marginLeft: 10,
     fontSize: 16,
-    color: '#111',
+    color: COLORS.textPrimary,
     fontWeight: '600',
   },
   actionSheetDeleteButton: {
     marginTop: 2,
   },
   actionSheetDeleteText: {
-    color: '#ff3b30',
+    color: COLORS.danger,
   },
   actionSheetCancelButton: {
     marginTop: 10,
     justifyContent: 'center',
-    backgroundColor: '#f5f5f5',
+    backgroundColor: COLORS.surface,
   },
   actionSheetCancelText: {
     fontSize: 16,
-    color: '#111',
+    color: COLORS.textPrimary,
     fontWeight: '700',
   },
   confirmContainer: {
     marginHorizontal: 22,
     marginBottom: 24,
-    backgroundColor: '#fff',
+    backgroundColor: COLORS.background,
     borderRadius: 14,
     padding: 16,
   },
   confirmTitle: {
     fontSize: 16,
     fontWeight: '800',
-    color: '#111',
+    color: COLORS.textPrimary,
     marginBottom: 6,
   },
   confirmSubtitle: {
     fontSize: 14,
-    color: '#666',
+    color: COLORS.textSecondary,
     marginBottom: 14,
   },
   confirmRow: {
@@ -1439,25 +1440,25 @@ const styles = StyleSheet.create({
     marginLeft: 10,
   },
   confirmCancelBtn: {
-    backgroundColor: '#f5f5f5',
+    backgroundColor: COLORS.surface,
   },
   confirmCancelText: {
     fontWeight: '700',
-    color: '#111',
+    color: COLORS.textPrimary,
   },
   confirmDeleteBtn: {
-    backgroundColor: '#ff3b30',
+    backgroundColor: COLORS.danger,
   },
   confirmDeleteText: {
     fontWeight: '800',
-    color: '#fff',
+    color: COLORS.textLight,
   },
   row: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingVertical: 14,
     paddingHorizontal: 16,
-    backgroundColor: '#fff',
+    backgroundColor: COLORS.background,
   },
   avatarRing: {
     width: 60,
@@ -1469,13 +1470,13 @@ const styles = StyleSheet.create({
   },
   avatarRingUnread: {
     borderWidth: 2,
-    borderColor: '#FF8D00'
+    borderColor: COLORS.primary
   },
   avatar: {
     width: 56,
     height: 56,
     borderRadius: 28,
-    backgroundColor: '#f0f0f0'
+    backgroundColor: COLORS.inputBg
   },
   content: {
     flex: 1,
@@ -1495,29 +1496,29 @@ const styles = StyleSheet.create({
   user: {
     fontWeight: '600',
     fontSize: 15,
-    color: '#000',
+    color: COLORS.black,
     flex: 1
   },
   userUnread: {
     fontWeight: '700',
-    color: '#000'
+    color: COLORS.black
   },
   at: {
-    color: '#999',
+    color: COLORS.textMuted,
     fontSize: 12,
     marginLeft: 8
   },
   last: {
-    color: '#666',
+    color: COLORS.textSecondary,
     fontSize: 14,
     flex: 1
   },
   lastUnread: {
-    color: '#000',
+    color: COLORS.black,
     fontWeight: '600'
   },
   unreadBadge: {
-    backgroundColor: '#FF8D00',
+    backgroundColor: COLORS.primary,
     minWidth: 20,
     height: 20,
     borderRadius: 10,
@@ -1526,19 +1527,19 @@ const styles = StyleSheet.create({
     paddingHorizontal: 6
   },
   unreadText: {
-    color: '#fff',
+    color: COLORS.textLight,
     fontWeight: '700',
     fontSize: 11
   },
   archiveBtn: {
-    backgroundColor: '#ff3b30',
+    backgroundColor: COLORS.danger,
     justifyContent: 'center',
     alignItems: 'center',
     width: 90,
     height: '100%',
   },
   archiveText: {
-    color: '#fff',
+    color: COLORS.textLight,
     fontWeight: '600',
     fontSize: 15,
   },
@@ -1553,7 +1554,7 @@ const styles = StyleSheet.create({
     width: 120,
     height: 120,
     borderRadius: 60,
-    backgroundColor: '#f5f5f5',
+    backgroundColor: COLORS.surface,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 24,
@@ -1561,13 +1562,13 @@ const styles = StyleSheet.create({
   emptyTitle: {
     fontSize: 22,
     fontWeight: '700',
-    color: '#000',
+    color: COLORS.black,
     marginBottom: 8,
     textAlign: 'center',
   },
   emptySubtitle: {
     fontSize: 15,
-    color: '#999',
+    color: COLORS.textMuted,
     textAlign: 'center',
     marginBottom: 32,
     lineHeight: 20,
@@ -1580,7 +1581,7 @@ const styles = StyleSheet.create({
     marginTop: 16,
   },
   exploreBtnText: {
-    color: '#fff',
+    color: COLORS.textLight,
     fontWeight: '700',
     fontSize: 15,
   },
@@ -1595,7 +1596,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 16,
     paddingVertical: 10,
-    backgroundColor: '#fff',
+    backgroundColor: COLORS.background,
   },
   igAvatarContainer: {
     alignItems: 'center',
@@ -1620,7 +1621,7 @@ const styles = StyleSheet.create({
   igUsername: {
     fontSize: 15,
     fontWeight: '500',
-    color: '#262626',
+    color: COLORS.textPrimary,
     marginBottom: 2,
   },
   igUsernameBold: {
@@ -1628,16 +1629,16 @@ const styles = StyleSheet.create({
   },
   igGroupMeta: {
     fontSize: 13,
-    color: '#8e8e8e',
+    color: COLORS.textMuted,
     marginBottom: 2,
   },
   igPreview: {
     fontSize: 13,
-    color: '#8e8e8e',
+    color: COLORS.textSecondary,
     fontWeight: '400',
   },
   igPreviewBold: {
-    color: '#262626',
+    color: COLORS.textPrimary,
     fontWeight: '600',
   },
   igChatRight: {
@@ -1649,7 +1650,7 @@ const styles = StyleSheet.create({
     width: 10,
     height: 10,
     borderRadius: 5,
-    backgroundColor: '#FF8D00',
+    backgroundColor: COLORS.primary,
   },
   headerRow: {
     flexDirection: 'row',
@@ -1657,29 +1658,29 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingHorizontal: 8,
     height: 56,
-    backgroundColor: '#fff',
+    backgroundColor: COLORS.background,
   },
-  title: { fontSize: 17, fontWeight: '700', color: '#000' },
+  title: { fontSize: 17, fontWeight: '700', color: COLORS.textPrimary },
   backBtn: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
   igSearchBarWrapper: {
     paddingHorizontal: 16,
     marginVertical: 4,
-    backgroundColor: '#fff',
+    backgroundColor: COLORS.background,
   },
   igSearchBar: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#F2F2F2',
+    backgroundColor: COLORS.inputBg,
     height: 44,
     borderRadius: 14,
     paddingHorizontal: 16,
   },
-  igSearchText: { fontSize: 16, color: '#8e8e8e' },
+  igSearchText: { fontSize: 16, color: COLORS.textMuted },
   tabsWrap: {
     flexDirection: 'row',
     paddingHorizontal: 16,
     height: 48,
-    backgroundColor: '#fff',
+    backgroundColor: COLORS.background,
   },
   tabBtn: {
     marginRight: 24,
@@ -1688,7 +1689,7 @@ const styles = StyleSheet.create({
     borderBottomWidth: 2,
     borderBottomColor: 'transparent',
   },
-  tabBtnActive: { borderBottomColor: '#000' },
-  tabText: { fontSize: 14, fontWeight: '600', color: '#8E8E8E' },
-  tabTextActive: { color: '#000', fontWeight: '700' },
+  tabBtnActive: { borderBottomColor: COLORS.textPrimary },
+  tabText: { fontSize: 14, fontWeight: '600', color: COLORS.textMuted },
+  tabTextActive: { color: COLORS.textPrimary, fontWeight: '700' },
 });

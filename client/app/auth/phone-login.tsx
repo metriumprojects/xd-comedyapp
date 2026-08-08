@@ -8,6 +8,7 @@ import { AuthKeyboardScroll } from '@/src/_components/auth/AuthKeyboardScroll';
 import CustomButton from '@/src/_components/auth/CustomButton';
 import SocialButton from '@/src/_components/auth/SocialButton';
 import { safeRouterBack } from '@/lib/safeRouterBack';
+import COLORS from '@/src/theme/colors';
 
 // Popular countries list
 const COUNTRIES = [
@@ -174,7 +175,7 @@ export default function PhoneLoginScreen() {
                 onPress={() => safeRouterBack()}
                 style={styles.backButton}
               >
-                <Ionicons name="arrow-back" size={24} color="#000" />
+                <Ionicons name="arrow-back" size={24} color={COLORS.black} />
               </TouchableOpacity>
             </View>
 
@@ -193,12 +194,12 @@ export default function PhoneLoginScreen() {
                 >
                   <Text style={styles.countryFlag}>{selectedCountry.flag}</Text>
                   <Text style={styles.countryCode}>{selectedCountry.code}</Text>
-                  <Ionicons name="chevron-down" size={16} color="#666" />
+                  <Ionicons name="chevron-down" size={16} color={COLORS.textSecondary} />
                 </TouchableOpacity>
                 <TextInput
                   style={styles.phoneInput}
                   placeholder="Enter phone number"
-                  placeholderTextColor="#999"
+                  placeholderTextColor={COLORS.textMuted}
                   value={phoneNumber}
                   onChangeText={setPhoneNumber}
                   keyboardType="phone-pad"
@@ -220,7 +221,7 @@ export default function PhoneLoginScreen() {
                 <TextInput
                   style={styles.passwordInput}
                   placeholder="Enter your password"
-                  placeholderTextColor="#999"
+                  placeholderTextColor={COLORS.textMuted}
                   value={password}
                   onChangeText={setPassword}
                   secureTextEntry={!showPassword}
@@ -235,7 +236,7 @@ export default function PhoneLoginScreen() {
                   <Ionicons
                     name={showPassword ? "eye-off" : "eye"}
                     size={20}
-                    color="#666"
+                    color={COLORS.textSecondary}
                   />
                 </TouchableOpacity>
               </View>
@@ -252,7 +253,7 @@ export default function PhoneLoginScreen() {
                   <View style={styles.modalHeader}>
                     <Text style={styles.modalTitle}>Select Country</Text>
                     <TouchableOpacity onPress={() => setShowCountryPicker(false)}>
-                      <Ionicons name="close" size={24} color="#000" />
+                      <Ionicons name="close" size={24} color={COLORS.black} />
                     </TouchableOpacity>
                   </View>
                   <FlatList
@@ -330,13 +331,13 @@ export default function PhoneLoginScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#fff',
+    backgroundColor: COLORS.background,
   },
   scrollContent: {
     flexGrow: 1,
   },
   content: {
-    flex: 1,
+    flexGrow: 1,
     padding: 20,
     paddingBottom: 10,
   },
@@ -350,32 +351,27 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   titleSection: {
+    marginBottom: 10,
+  },
+  formContainer: {
     marginBottom: 15,
   },
   inputContainer: {
-    marginBottom: 12,
-  },
-  labelRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 8,
+    marginBottom: 15,
   },
   label: {
     fontSize: 14,
-    color: '#666',
+    color: COLORS.textSecondary,
+    marginBottom: 8,
+  },
+  forgotPasswordContainer: {
+    alignItems: 'flex-end',
+    marginBottom: 15,
   },
   forgotPasswordText: {
-    fontSize: 13,
-    color: '#FF8D00',
+    fontSize: 14,
+    color: COLORS.primary,
     fontWeight: '600',
-  },
-  input: {
-    backgroundColor: '#f5f5f5',
-    borderRadius: 8,
-    padding: 16,
-    fontSize: 16,
-    color: '#000',
   },
   loginButton: {
     marginBottom: 15,
@@ -393,10 +389,10 @@ const styles = StyleSheet.create({
   },
   footerText: {
     fontSize: 14,
-    color: '#666',
+    color: COLORS.textSecondary,
   },
   footerLink: {
-    color: '#FF8D00',
+    color: COLORS.primary,
     fontWeight: '600',
   },
   phoneInputWrapper: {
@@ -406,7 +402,7 @@ const styles = StyleSheet.create({
   countrySelector: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#f5f5f5',
+    backgroundColor: COLORS.inputBg,
     borderRadius: 8,
     paddingHorizontal: 12,
     paddingVertical: 16,
@@ -419,28 +415,28 @@ const styles = StyleSheet.create({
   countryCode: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#000',
+    color: COLORS.textPrimary,
     marginRight: 4,
   },
   phoneInput: {
     flex: 1,
-    backgroundColor: '#f5f5f5',
+    backgroundColor: COLORS.inputBg,
     borderRadius: 8,
     padding: 16,
     fontSize: 16,
-    color: '#000',
+    color: COLORS.textPrimary,
   },
   passwordInputWrapper: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#f5f5f5',
+    backgroundColor: COLORS.inputBg,
     borderRadius: 8,
   },
   passwordInput: {
     flex: 1,
     padding: 16,
     fontSize: 16,
-    color: '#000',
+    color: COLORS.textPrimary,
   },
   eyeIcon: {
     padding: 16,
@@ -451,7 +447,7 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
   },
   modalContent: {
-    backgroundColor: '#fff',
+    backgroundColor: COLORS.card,
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
     maxHeight: '80%',
@@ -462,19 +458,19 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     padding: 20,
     borderBottomWidth: 1,
-    borderBottomColor: '#eee',
+    borderBottomColor: COLORS.border,
   },
   modalTitle: {
     fontSize: 18,
     fontWeight: '700',
-    color: '#000',
+    color: COLORS.textPrimary,
   },
   countryItem: {
     flexDirection: 'row',
     alignItems: 'center',
     padding: 16,
     borderBottomWidth: 1,
-    borderBottomColor: '#f5f5f5',
+    borderBottomColor: COLORS.border,
   },
   countryItemFlag: {
     fontSize: 24,
@@ -483,11 +479,11 @@ const styles = StyleSheet.create({
   countryItemName: {
     flex: 1,
     fontSize: 16,
-    color: '#000',
+    color: COLORS.textPrimary,
   },
   countryItemCode: {
     fontSize: 14,
-    color: '#666',
+    color: COLORS.textSecondary,
   },
 });
 

@@ -11,6 +11,7 @@ import { AuthKeyboardScroll } from '@/src/_components/auth/AuthKeyboardScroll';
 import CustomButton from '@/src/_components/auth/CustomButton';
 import SocialButton from '@/src/_components/auth/SocialButton';
 import { safeRouterBack } from '@/lib/safeRouterBack';
+import COLORS from '@/src/theme/colors';
 
 export default function UsernameLoginScreen() {
   const router = useRouter();
@@ -76,7 +77,7 @@ export default function UsernameLoginScreen() {
                 onPress={() => safeRouterBack()}
                 style={styles.backButton}
               >
-                <Ionicons name="arrow-back" size={24} color="#000" />
+                <Ionicons name="arrow-back" size={24} color={COLORS.black} />
               </TouchableOpacity>
             </View>
 
@@ -91,7 +92,7 @@ export default function UsernameLoginScreen() {
               <TextInput
                 style={styles.input}
                 placeholder="Enter"
-                placeholderTextColor="#999"
+                placeholderTextColor={COLORS.textMuted}
                 value={username}
                 onChangeText={setUsername}
                 autoCapitalize="none"
@@ -111,7 +112,7 @@ export default function UsernameLoginScreen() {
 
             {loading && (
               <View style={styles.loadingContainer}>
-                <ActivityIndicator size="small" color="#FF8D00" />
+                <ActivityIndicator size="small" color={COLORS.primary} />
               </View>
             )}
 
@@ -160,7 +161,7 @@ export default function UsernameLoginScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#fff',
+    backgroundColor: COLORS.background,
   },
   scrollContent: {
     flexGrow: 1,
@@ -187,15 +188,15 @@ const styles = StyleSheet.create({
   },
   label: {
     fontSize: 14,
-    color: '#666',
+    color: COLORS.textSecondary,
     marginBottom: 8,
   },
   input: {
-    backgroundColor: '#f5f5f5',
+    backgroundColor: COLORS.inputBg,
     borderRadius: 8,
     padding: 16,
     fontSize: 16,
-    color: '#000',
+    color: COLORS.textPrimary,
   },
   loginButton: {
     marginBottom: 15,
@@ -217,10 +218,10 @@ const styles = StyleSheet.create({
   },
   footerText: {
     fontSize: 14,
-    color: '#666',
+    color: COLORS.textSecondary,
   },
   footerLink: {
-    color: '#FF8D00',
+    color: COLORS.primary,
     fontWeight: '600',
   },
 });

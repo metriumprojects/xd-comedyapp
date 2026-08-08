@@ -1,5 +1,6 @@
 import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
+import COLORS from '@/src/theme/colors';
 
 interface StatsRowProps {
   locationsCount: number;
@@ -30,10 +31,10 @@ const StatsRow: React.FC<StatsRowProps> = ({ locationsCount, postsCount, followe
 );
 
 const styles = StyleSheet.create({
-  statsRow: { flexDirection: 'row', justifyContent: 'space-around', paddingVertical: 12, borderBottomWidth: 0.5, borderBottomColor: '#e0e0e0' },
+  statsRow: { flexDirection: 'row', justifyContent: 'space-around', paddingVertical: 12, borderBottomWidth: 0.5, borderBottomColor: COLORS.border },
   statItem: { alignItems: 'center' },
-  statNum: { fontWeight: '700', fontSize: 18, color: '#222' },
-  statLbl: { fontSize: 12, color: '#666', marginTop: 2 },
+  statNum: { fontWeight: '700', fontSize: 18, color: COLORS.textPrimary },
+  statLbl: { fontSize: 12, color: COLORS.textSecondary, marginTop: 2 },
 });
 
 export default StatsRow;

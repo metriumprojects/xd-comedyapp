@@ -10,6 +10,7 @@ import { AuthBrandHeader } from '@/src/_components/auth/AuthBrandHeader';
 import { AuthKeyboardScroll } from '@/src/_components/auth/AuthKeyboardScroll';
 import CustomButton from '@/src/_components/auth/CustomButton';
 import { safeRouterBack } from '@/lib/safeRouterBack';
+import COLORS from '@/src/theme/colors';
 
 export default function UsernameSignUpScreen() {
   const router = useRouter();
@@ -114,7 +115,7 @@ export default function UsernameSignUpScreen() {
                 onPress={() => safeRouterBack()}
                 style={styles.backButton}
               >
-                <Ionicons name="arrow-back" size={24} color="#000" />
+                <Ionicons name="arrow-back" size={24} color={COLORS.black} />
               </TouchableOpacity>
             </View>
 
@@ -135,11 +136,11 @@ export default function UsernameSignUpScreen() {
                 {profileImage ? (
                   <Image source={{ uri: profileImage }} style={styles.avatarImage} />
                 ) : (
-                  <Ionicons name="person-outline" size={40} color="#999" />
+                  <Ionicons name="person-outline" size={40} color={COLORS.textMuted} />
                 )}
               </TouchableOpacity>
               <TouchableOpacity onPress={pickImage} style={styles.editIconContainer}>
-                <Ionicons name="camera" size={20} color="#fff" />
+                <Ionicons name="camera" size={20} color={COLORS.textLight} />
               </TouchableOpacity>
             </View>
 
@@ -150,7 +151,7 @@ export default function UsernameSignUpScreen() {
                 <TextInput
                   style={styles.input}
                   placeholder="username"
-                  placeholderTextColor="#999"
+                  placeholderTextColor={COLORS.textMuted}
                   value={username}
                   onChangeText={setUsername}
                   autoCapitalize="none"
@@ -159,7 +160,7 @@ export default function UsernameSignUpScreen() {
                   editable={!loading}
                 />
                 {checkingUsername && (
-                  <ActivityIndicator size="small" color="#FF8D00" style={styles.inputIcon} />
+                  <ActivityIndicator size="small" color={COLORS.primary} style={styles.inputIcon} />
                 )}
                 {!checkingUsername && usernameAvailable === true && username.length >= 3 && (
                   <Ionicons name="checkmark-circle" size={20} color="#4CAF50" style={styles.inputIcon} />
@@ -185,7 +186,7 @@ export default function UsernameSignUpScreen() {
               <TextInput
                 style={styles.input}
                 placeholder="Enter your name"
-                placeholderTextColor="#999"
+                placeholderTextColor={COLORS.textMuted}
                 value={name}
                 onChangeText={setName}
                 autoCorrect={false}
@@ -193,7 +194,7 @@ export default function UsernameSignUpScreen() {
             </View>
 
             {/* EULA Text */}
-            <Text style={{ fontSize: 12, color: '#666', textAlign: 'center', marginBottom: 12, marginTop: 10 }}>
+            <Text style={{ fontSize: 12, color: COLORS.textSecondary, textAlign: 'center', marginBottom: 12, marginTop: 10 }}>
               By signing up, you agree to our{' '}
               <Text style={{ fontWeight: '600' }} onPress={() => router.push('/legal/terms' as any)}>Terms of Service</Text> and{' '}
               <Text style={{ fontWeight: '600' }} onPress={() => router.push('/legal/privacy' as any)}>Privacy Policy</Text>.
@@ -210,7 +211,7 @@ export default function UsernameSignUpScreen() {
 
             {loading && (
               <View style={styles.loadingContainer}>
-                <ActivityIndicator size="small" color="#FF8D00" />
+                <ActivityIndicator size="small" color={COLORS.primary} />
               </View>
             )}
           </View>
@@ -222,7 +223,7 @@ export default function UsernameSignUpScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#fff',
+    backgroundColor: COLORS.background,
   },
   scrollContent: {
     flexGrow: 1,
@@ -247,7 +248,7 @@ const styles = StyleSheet.create({
   },
   checkIcon: {
     fontSize: 32,
-    color: '#FF8D00',
+    color: COLORS.primary,
     marginBottom: 12,
   },
   avatarContainer: {
@@ -259,7 +260,7 @@ const styles = StyleSheet.create({
     width: 100,
     height: 100,
     borderRadius: 50,
-    backgroundColor: '#f5f5f5',
+    backgroundColor: COLORS.inputBg,
     alignItems: 'center',
     justifyContent: 'center',
     overflow: 'hidden',
@@ -273,21 +274,21 @@ const styles = StyleSheet.create({
     position: 'absolute',
     bottom: 0,
     right: '35%',
-    backgroundColor: '#FF8D00',
+    backgroundColor: COLORS.primary,
     width: 32,
     height: 32,
     borderRadius: 16,
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 2,
-    borderColor: '#fff',
+    borderColor: COLORS.background,
   },
   inputContainer: {
     marginBottom: 10,
   },
   label: {
     fontSize: 14,
-    color: '#000',
+    color: COLORS.textPrimary,
     marginBottom: 8,
     fontWeight: '600',
   },
@@ -297,11 +298,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   input: {
-    backgroundColor: '#f5f5f5',
+    backgroundColor: COLORS.inputBg,
     borderRadius: 8,
     padding: 16,
     fontSize: 16,
-    color: '#000',
+    color: COLORS.textPrimary,
     flex: 1,
     paddingRight: 45,
   },
@@ -311,7 +312,7 @@ const styles = StyleSheet.create({
   },
   hint: {
     fontSize: 12,
-    color: '#FF8D00',
+    color: COLORS.primary,
     marginTop: 4,
   },
   loadingContainer: {

@@ -20,6 +20,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { apiService } from '../_services/apiService';
+import COLORS from '@/src/theme/colors';
 
 interface Collection {
     _id: string;
@@ -97,7 +98,7 @@ export default function CollectionDeleteModal({
     const renderConfirm = () => (
         <View style={styles.body}>
             <View style={styles.iconWrap}>
-                <Feather name="trash-2" size={28} color="#E74C3C" />
+                <Feather name="trash-2" size={28} color={COLORS.danger} />
             </View>
             <Text style={styles.title}>Do you want to keep your saved post?</Text>
             <View style={styles.btnRow}>
@@ -141,7 +142,7 @@ export default function CollectionDeleteModal({
                                 <ExpoImage source={{ uri: col.coverImage }} style={styles.collThumbImg} contentFit="cover" />
                             ) : (
                                 <View style={[styles.collThumbImg, styles.collThumbPlaceholder]}>
-                                    <Feather name="image" size={16} color="#ccc" />
+                                    <Feather name="image" size={16} color={COLORS.textMuted} />
                                 </View>
                             )}
                         </View>
@@ -159,7 +160,7 @@ export default function CollectionDeleteModal({
                 disabled={!migrateTo || loading}
             >
                 {loading ? (
-                    <ActivityIndicator color="#fff" />
+                    <ActivityIndicator color={COLORS.textLight} />
                 ) : (
                     <Text style={styles.deleteBtnText}>Migrate & Delete</Text>
                 )}
@@ -194,7 +195,7 @@ const styles = StyleSheet.create({
     sheet: {
         position: 'absolute',
         bottom: 0, left: 0, right: 0,
-        backgroundColor: '#fff',
+        backgroundColor: COLORS.card,
         borderTopLeftRadius: 20,
         borderTopRightRadius: 20,
         maxHeight: '75%',
@@ -202,7 +203,7 @@ const styles = StyleSheet.create({
     dragHandle: {
         width: 36, height: 4,
         borderRadius: 2,
-        backgroundColor: '#ddd',
+        backgroundColor: COLORS.border,
         alignSelf: 'center',
         marginTop: 10, marginBottom: 4,
     },
@@ -213,7 +214,7 @@ const styles = StyleSheet.create({
     iconWrap: {
         width: 60, height: 60,
         borderRadius: 30,
-        backgroundColor: '#FEF0EE',
+        backgroundColor: COLORS.dangerLight,
         justifyContent: 'center',
         alignItems: 'center',
         alignSelf: 'center',
@@ -221,12 +222,12 @@ const styles = StyleSheet.create({
     },
     title: {
         fontSize: 18, fontWeight: '700',
-        color: '#111',
+        color: COLORS.textPrimary,
         textAlign: 'center',
         marginBottom: 8,
     },
     subtitle: {
-        fontSize: 13, color: '#888',
+        fontSize: 13, color: COLORS.textMuted,
         textAlign: 'center',
         lineHeight: 20,
         marginBottom: 20,
@@ -235,12 +236,12 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         alignItems: 'center',
         padding: 14,
-        backgroundColor: '#EFF3F8',
+        backgroundColor: COLORS.surface,
         borderRadius: 12,
         marginBottom: 12,
     },
-    optionBtnLabel: { fontSize: 14, fontWeight: '600', color: '#FF8D00' },
-    optionBtnSub: { fontSize: 12, color: '#888', marginTop: 2 },
+    optionBtnLabel: { fontSize: 14, fontWeight: '600', color: COLORS.primary },
+    optionBtnSub: { fontSize: 12, color: COLORS.textMuted, marginTop: 2 },
     btnRow: {
         flexDirection: 'row',
         justifyContent: 'space-between',
@@ -254,14 +255,14 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
         alignItems: 'center',
     },
-    yesBtn: { backgroundColor: '#FF8D00' },
-    noBtn: { backgroundColor: '#2C5A96' }, // A slightly different blue as in screenshot
-    btnText: { color: '#fff', fontSize: 16, fontWeight: '700' },
+    yesBtn: { backgroundColor: COLORS.primary },
+    noBtn: { backgroundColor: COLORS.info }, // A slightly different blue as in screenshot
+    btnText: { color: COLORS.textLight, fontSize: 16, fontWeight: '700' },
     cancelBtn: {
         paddingVertical: 12,
         alignItems: 'center',
     },
-    cancelBtnText: { color: '#888', fontSize: 15 },
+    cancelBtnText: { color: COLORS.textMuted, fontSize: 15 },
     btnDisabled: { opacity: 0.5 },
     list: { maxHeight: 260, marginBottom: 16 },
     collRow: {
@@ -270,7 +271,7 @@ const styles = StyleSheet.create({
         paddingVertical: 10,
         paddingHorizontal: 4,
     },
-    collRowSelected: { backgroundColor: '#F0F7FF' },
+    collRowSelected: { backgroundColor: COLORS.primaryLight },
     collThumb: {
         width: 44, height: 44,
         borderRadius: 8,
@@ -278,29 +279,29 @@ const styles = StyleSheet.create({
         marginRight: 12,
     },
     collThumbImg: { width: '100%', height: '100%' },
-    collThumbPlaceholder: { backgroundColor: '#f0f0f0', justifyContent: 'center', alignItems: 'center' },
-    collName: { flex: 1, fontSize: 14, fontWeight: '600', color: '#111' },
+    collThumbPlaceholder: { backgroundColor: COLORS.inputBg, justifyContent: 'center', alignItems: 'center' },
+    collName: { flex: 1, fontSize: 14, fontWeight: '600', color: COLORS.textPrimary },
     deleteBtn: {
         height: 48,
         borderRadius: 12,
-        backgroundColor: '#E74C3C',
+        backgroundColor: COLORS.danger,
         justifyContent: 'center',
         alignItems: 'center',
         marginBottom: 8,
     },
-    deleteBtnText: { color: '#fff', fontSize: 15, fontWeight: '700' },
+    deleteBtnText: { color: COLORS.textLight, fontSize: 15, fontWeight: '700' },
     radio: {
         width: 20, height: 20,
         borderRadius: 10,
         borderWidth: 2,
-        borderColor: '#ccc',
+        borderColor: COLORS.textMuted,
         justifyContent: 'center',
         alignItems: 'center',
     },
-    radioSelected: { borderColor: '#FF8D00' },
+    radioSelected: { borderColor: COLORS.primary },
     radioDot: {
         width: 10, height: 10,
         borderRadius: 5,
-        backgroundColor: '#FF8D00',
+        backgroundColor: COLORS.primary,
     },
 });

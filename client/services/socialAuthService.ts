@@ -35,6 +35,54 @@ try {
 // Important: Complete auth session for web browser
 WebBrowser.maybeCompleteAuthSession();
 
+async function signInWithGoogleBrowserFallback() {
+  const { makeRedirectUri } = await import('expo-auth-session');
+  const { GoogleAuthProvider, signInWithCredential } = await import('firebase/auth');
+  const WebBrowserModule = await import('expo-web-browser');
+
+  WebBrowserModule.maybeCompleteAuthSession();
+
+  const clientId = (Platform.OS === 'ios' && GOOGLE_SIGN_IN_CONFIG.iosClientId)
+    ? GOOGLE_SIGN_IN_CONFIG.iosClientId
+    : GOOGLE_SIGN_IN_CONFIG.webClientId;
+
+  const iosReversedScheme = GOOGLE_SIGN_IN_CONFIG.iosClientId
+    ? `com.googleusercontent.apps.${GOOGLE_SIGN_IN_CONFIG.iosClientId.replace('.apps.googleusercontent.com', '')}`
+    : 'comedy-app';
+
+  const redirectUri = makeRedirectUri({
+    native: `${iosReversedScheme}:/oauth2redirect`,
+    scheme: 'comedy-app',
+  });
+
+  const nonce = Math.random().toString(36).substring(2) + Date.now().toString(36);
+  const authUrl =
+    `https://accounts.google.com/o/oauth2/v2/auth` +
+    `?client_id=${encodeURIComponent(clientId)}` +
+    `&redirect_uri=${encodeURIComponent(redirectUri)}` +
+    `&response_type=id_token` +
+    `&scope=${encodeURIComponent('openid profile email')}` +
+    `&nonce=${nonce}`;
+
+  const result = await WebBrowserModule.openAuthSessionAsync(authUrl, redirectUri);
+
+  if (result.type !== 'success' || !result.url) {
+    return { success: false, error: 'Google Sign-In cancelled' };
+  }
+
+  const params = new URLSearchParams(result.url.split('#')[1] || result.url.split('?')[1] || '');
+  const idToken = params.get('id_token') || params.get('access_token');
+
+  if (!idToken) {
+    return { success: false, error: 'No token received from Google Sign-In' };
+  }
+
+  const authInstance = await requireAuth();
+  const credential = GoogleAuthProvider.credential(idToken);
+  const firebaseResult = await signInWithCredential(authInstance, credential);
+  return { success: true, user: firebaseResult.user };
+}
+
 /**
  * Google Sign-In using @react-native-google-signin for mobile and firebase for web
  * Works on iOS, Android, and Web
@@ -57,48 +105,13 @@ export async function signInWithGoogle() {
     }
 
     // For mobile (iOS/Android)
+    // In Expo Go, use WebBrowser OAuth fallback
+    if (Constants.appOwnership === 'expo') {
+      return await signInWithGoogleBrowserFallback();
+    }
+
     if (GoogleSignin) {
       try {
-        // Expo Go on Android — use web-based OAuth (no SHA-1 needed)
-        if (Platform.OS === 'android' && Constants.appOwnership === 'expo') {
-          const { makeRedirectUri } = await import('expo-auth-session');
-          const { GoogleAuthProvider, signInWithCredential } = await import('firebase/auth');
-          const WebBrowserModule = await import('expo-web-browser');
-
-          WebBrowserModule.maybeCompleteAuthSession();
-
-          const webClientId = '709095117662-2l84b3ua08t9icu8tpqtpchrmtdciep0.apps.googleusercontent.com';
-
-          const redirectUri = makeRedirectUri();
-
-          // Open Google OAuth in browser
-          const authUrl =
-            `https://accounts.google.com/o/oauth2/v2/auth` +
-            `?client_id=${webClientId}` +
-            `&redirect_uri=${encodeURIComponent(redirectUri)}` +
-            `&response_type=token` +
-            `&scope=profile%20email`;
-
-          const result = await WebBrowserModule.openAuthSessionAsync(authUrl, redirectUri);
-
-          if (result.type !== 'success' || !result.url) {
-            return { success: false, error: 'Google Sign-In cancelled' };
-          }
-
-          // Extract access_token from URL fragment
-          const params = new URLSearchParams(result.url.split('#')[1] || result.url.split('?')[1] || '');
-          const accessToken = params.get('access_token');
-
-          if (!accessToken) {
-            return { success: false, error: 'No access token received from Google' };
-          }
-
-          const authInstance = await requireAuth();
-          const credential = GoogleAuthProvider.credential(null, accessToken);
-          const firebaseResult = await signInWithCredential(authInstance, credential);
-          return { success: true, user: firebaseResult.user };
-        }
-
         const webClientId = GOOGLE_SIGN_IN_CONFIG.webClientId?.trim();
         const iosClientId = GOOGLE_SIGN_IN_CONFIG.iosClientId?.trim();
         if (!webClientId) {
@@ -175,7 +188,7 @@ export async function signInWithGoogle() {
           user: result.user,
         };
       } catch (configError: any) {
-        console.error('❌ Google Sign-In Error:', configError);
+        console.error('❌ Google Sign-In Native Error:', configError);
 
         // Better error messages
         let errorMessage = 'Google Sign-In failed. Please try again.';

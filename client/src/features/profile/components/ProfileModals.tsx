@@ -11,6 +11,7 @@ import EditSectionsModal from '@/src/_components/EditSectionsModal';
 import { UploadStoryModal } from '@/src/_components/profile/UploadStoryModal';
 import StoriesViewer from '@/src/_components/StoriesViewer';
 import CreateHighlightModal from '@/src/_components/CreateHighlightModal';
+import COLORS from '@/src/theme/colors';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
@@ -159,7 +160,7 @@ const ProfileModals: React.FC<ProfileModalsProps> = (props) => {
             style={[styles.closeButton, { top: Math.max(insets.top, 12) + 4 }]}
             hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
           >
-            <Ionicons name="close" size={34} color="#fff" />
+            <Ionicons name="close" size={34} color={COLORS.textLight} />
           </TouchableOpacity>
           {!!avatarPreviewUri && (
             <Pressable onPress={(e) => e.stopPropagation()} style={styles.avatarPreviewContainer}>
@@ -346,7 +347,7 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(255,255,255,0.35)',
   },
   changePhotoText: {
-    color: '#fff',
+    color: COLORS.textLight,
     fontWeight: '700',
     fontSize: 15
   },
@@ -356,12 +357,12 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0,0,0,0.5)'
   },
   commentSheet: {
-    backgroundColor: '#fff',
+    backgroundColor: COLORS.background,
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
     paddingTop: 18,
     paddingHorizontal: 16,
-    shadowColor: '#000',
+    shadowColor: COLORS.black,
     shadowOpacity: 0.08,
     shadowRadius: 8,
     elevation: 8,
@@ -373,13 +374,13 @@ const styles = StyleSheet.create({
   commentHandle: {
     width: 40,
     height: 4,
-    backgroundColor: '#ddd',
+    backgroundColor: COLORS.border,
     borderRadius: 2,
     marginBottom: 8
   },
   commentTitle: {
     fontWeight: '700',
     fontSize: 17,
-    color: '#222'
+    color: COLORS.textPrimary
   }
 });

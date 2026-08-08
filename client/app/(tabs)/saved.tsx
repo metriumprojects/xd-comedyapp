@@ -38,6 +38,7 @@ import PostViewerModal from '@/src/_components/PostViewerModal';
 import CommentSection from '@/src/_components/CommentSection';
 import { apiService } from '@/src/_services/apiService';
 import { feedEventEmitter } from '../../lib/feedEventEmitter';
+import COLORS from '@/src/theme/colors';
 import { sharePost } from '../../lib/postShare';
 import { useHeaderHeight } from './_layout';
 import { resolveCanonicalUserId, getAuthenticatedUserId } from '../../lib/currentUser';
@@ -139,7 +140,7 @@ const SavedGridItem = React.memo(({
       />
       {isVideo && (
         <View style={styles.playIconOverlay}>
-          <Ionicons name="play" size={16} color="#fff" />
+          <Ionicons name="play" size={16} color={COLORS.textLight} />
         </View>
       )}
     </TouchableOpacity>
@@ -817,11 +818,11 @@ export default function SavedScreen() {
 
   // Grid
   const renderGrid = () => {
-    if (loading) return <ActivityIndicator color="#FF8D00" style={{ marginTop: 60 }} size="large" />;
+    if (loading) return <ActivityIndicator color={COLORS.primary} style={{ marginTop: 60 }} size="large" />;
     if (displayedPosts.length === 0) return (
       <View style={styles.emptyWrap}>
         <View style={styles.emptyIconContainer}>
-          <Ionicons name="bookmark-outline" size={42} color="#FF8D00" />
+          <Ionicons name="bookmark-outline" size={42} color={COLORS.primary} />
         </View>
         <Text style={styles.emptyTitle}>
           {activeCollection ? 'No posts in this collection' : 'No saved posts yet'}
@@ -893,12 +894,12 @@ export default function SavedScreen() {
           {allSavedPosts[0]?.imageUrl ? (
             <Image source={{ uri: allSavedPosts[0].imageUrl }} style={styles.allThumb} />
           ) : (
-            <View style={[styles.allThumb, { backgroundColor: '#eee', justifyContent: 'center', alignItems: 'center' }]}>
-              <Feather name="image" size={16} color="#ccc" />
+            <View style={[styles.allThumb, { backgroundColor: COLORS.inputBg, justifyContent: 'center', alignItems: 'center' }]}>
+              <Feather name="image" size={16} color={COLORS.border} />
             </View>
           )}
-          <Text style={[styles.allLabel, !activeCollection && { color: '#FF8D00', fontWeight: '700' }]}>All</Text>
-          {!activeCollection && <Feather name="check" size={16} color="#FF8D00" style={{ marginLeft: 'auto' }} />}
+          <Text style={[styles.allLabel, !activeCollection && { color: COLORS.primary, fontWeight: '700' }]}>All</Text>
+          {!activeCollection && <Feather name="check" size={16} color={COLORS.primary} style={{ marginLeft: 'auto' }} />}
         </TouchableOpacity>
 
         {/* Collections header */}
@@ -913,7 +914,7 @@ export default function SavedScreen() {
                 setCollDropdownOpen(false);
               }}
             >
-              <Feather name="plus" size={14} color="#FF8D00" />
+              <Feather name="plus" size={14} color={COLORS.primary} />
               <Text style={styles.newCollText}>New</Text>
             </TouchableOpacity>
           )}
@@ -923,7 +924,7 @@ export default function SavedScreen() {
         <ScrollView style={{ maxHeight: SCREEN_H * 0.48 }} showsVerticalScrollIndicator={false}>
           {visibleCollections.length === 0 ? (
             <View style={{ alignItems: 'center', paddingVertical: 24 }}>
-              <Text style={{ color: '#bbb', fontSize: 14 }}>No collections yet</Text>
+              <Text style={{ color: COLORS.textMuted, fontSize: 14 }}>No collections yet</Text>
             </View>
           ) : (
             visibleCollections.map(col => {
@@ -941,17 +942,17 @@ export default function SavedScreen() {
                       <ExpoImage source={{ uri: thumb }} style={styles.collThumb} contentFit="cover" />
                     ) : (
                       <View style={[styles.collThumb, styles.thumbPlaceholder]}>
-                        <Feather name="image" size={16} color="#ccc" />
+                        <Feather name="image" size={16} color={COLORS.border} />
                       </View>
                     )}
 
                     {/* Name */}
-                    <Text style={[styles.collName, active && { color: '#FF8D00', fontWeight: '700' }]} numberOfLines={1}>
+                    <Text style={[styles.collName, active && { color: COLORS.primary, fontWeight: '700' }]} numberOfLines={1}>
                       {col.name}
                     </Text>
 
                     {/* Active check */}
-                    {active && <Feather name="check" size={16} color="#FF8D00" style={{ marginRight: 8 }} />}
+                    {active && <Feather name="check" size={16} color={COLORS.primary} style={{ marginRight: 8 }} />}
                   </TouchableOpacity>
 
                   {/* ⊗ Delete (owner only) */}
@@ -964,7 +965,7 @@ export default function SavedScreen() {
                       hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
                       activeOpacity={0.7}
                     >
-                      <Ionicons name="close-circle-outline" size={22} color="#aaa" />
+                      <Ionicons name="close-circle-outline" size={22} color={COLORS.textMuted} />
                     </TouchableOpacity>
                   )}
 
@@ -978,7 +979,7 @@ export default function SavedScreen() {
                       hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
                       activeOpacity={0.7}
                     >
-                      <Feather name="edit-2" size={17} color="#aaa" />
+                      <Feather name="edit-2" size={17} color={COLORS.textMuted} />
                     </TouchableOpacity>
                   )}
                 </View>
@@ -1031,7 +1032,7 @@ export default function SavedScreen() {
                     activeOpacity={0.7}
                     hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
                   >
-                    <Text style={[styles.editSave, (!editName.trim() || editSaving) && { color: '#ccc' }]}>
+                    <Text style={[styles.editSave, (!editName.trim() || editSaving) && { color: COLORS.border }]}>
                       {editSaving ? '...' : 'Save'}
                     </Text>
                   </TouchableOpacity>
@@ -1046,7 +1047,7 @@ export default function SavedScreen() {
                   />
                 ) : (
                   <View style={[styles.editCover, styles.thumbPlaceholder]}>
-                    <Feather name="image" size={32} color="#ccc" />
+                    <Feather name="image" size={32} color={COLORS.border} />
                   </View>
                 )}
 
@@ -1057,7 +1058,7 @@ export default function SavedScreen() {
                     value={editName}
                     onChangeText={setEditName}
                     placeholder="Collection name"
-                    placeholderTextColor="#ccc"
+                    placeholderTextColor={COLORS.border}
                     returnKeyType="done"
                     editable={isOwnerOfColl}
                   />
@@ -1066,13 +1067,13 @@ export default function SavedScreen() {
                 {/* Visibility row */}
                 {isOwnerOfColl && (
                   <TouchableOpacity style={styles.optionRow} onPress={() => setEditSubScreen('visibility')}>
-                    <Ionicons name="eye-outline" size={20} color="#444" />
+                    <Ionicons name="eye-outline" size={20} color={COLORS.textSecondary} />
                     <Text style={styles.optionLabel}>Visibility</Text>
                     <View style={styles.optionRight}>
                       <Text style={styles.optionValue}>
                         {editVisibility === 'public' ? 'Public' : 'Private'}
                       </Text>
-                      <Feather name="chevron-right" size={18} color="#aaa" />
+                      <Feather name="chevron-right" size={18} color={COLORS.textMuted} />
                     </View>
                   </TouchableOpacity>
                 )}
@@ -1080,28 +1081,28 @@ export default function SavedScreen() {
                 {/* Invite row */}
                 {isOwnerOfColl && (
                   <TouchableOpacity style={styles.optionRow} onPress={() => { setTempSelectedCollaborators([...editCollaborators]); setEditSubScreen('invite'); }}>
-                    <Ionicons name="person-add-outline" size={20} color="#444" />
+                    <Ionicons name="person-add-outline" size={20} color={COLORS.textSecondary} />
                     <Text style={styles.optionLabel}>Invite an other person to collaborate</Text>
-                    <Feather name="chevron-right" size={18} color="#aaa" />
+                    <Feather name="chevron-right" size={18} color={COLORS.textMuted} />
                   </TouchableOpacity>
                 )}
 
                 {/* Collaborator chips */}
                 {editCollaborators.length > 0 && (
                   <View style={{ paddingHorizontal: 16, marginTop: 4, marginBottom: 12 }}>
-                    <Text style={{ fontSize: 12, color: '#666', fontWeight: '600', marginBottom: 6 }}>Collaborators</Text>
+                    <Text style={{ fontSize: 12, color: COLORS.textSecondary, fontWeight: '600', marginBottom: 6 }}>Collaborators</Text>
                     <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
                       {editCollaborators.map((u, index) => {
                         const name = typeof u === 'string' ? u : (u.name || u.displayName || u.username || 'Collaborator');
                         const avatar = typeof u === 'string' ? null : u.avatar;
                         return (
-                          <View key={index} style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: '#f0f2f5', paddingHorizontal: 10, paddingVertical: 6, borderRadius: 16 }}>
+                          <View key={index} style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: COLORS.inputBg, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 16 }}>
                             {avatar ? (
                               <ExpoImage source={{ uri: avatar }} style={{ width: 20, height: 20, borderRadius: 10, marginRight: 6 }} />
                             ) : (
-                              <Ionicons name="person-circle" size={20} color="#999" style={{ marginRight: 6 }} />
+                              <Ionicons name="person-circle" size={20} color={COLORS.textMuted} style={{ marginRight: 6 }} />
                             )}
-                            <Text style={{ fontSize: 13, color: '#333', fontWeight: '600' }}>{name}</Text>
+                            <Text style={{ fontSize: 13, color: COLORS.textPrimary, fontWeight: '600' }}>{name}</Text>
                           </View>
                         );
                       })}
@@ -1115,8 +1116,8 @@ export default function SavedScreen() {
                     style={[styles.optionRow, { marginTop: 12, borderBottomWidth: 0 }]} 
                     onPress={() => { setDeleteTarget(editTarget); setEditTarget(null); }}
                   >
-                    <Ionicons name="trash-outline" size={20} color="#ff3b30" />
-                    <Text style={[styles.optionLabel, { color: '#ff3b30' }]}>Delete Collection</Text>
+                    <Ionicons name="trash-outline" size={20} color={COLORS.danger} />
+                    <Text style={[styles.optionLabel, { color: COLORS.danger }]}>Delete Collection</Text>
                   </TouchableOpacity>
                 )}
               </>
@@ -1171,25 +1172,25 @@ export default function SavedScreen() {
                   </TouchableOpacity>
                 </View>
                 
-                <View style={[styles.searchWrapEdit, { height: 46, borderRadius: 23, backgroundColor: '#f5f7fa', borderWidth: 1, borderColor: '#eef0f2' }]}>
-                  <Ionicons name="search" size={18} color="#FF8D00" />
+                <View style={[styles.searchWrapEdit, { height: 46, borderRadius: 23, backgroundColor: COLORS.inputBg, borderWidth: 1, borderColor: COLORS.border }]}>
+                  <Ionicons name="search" size={18} color={COLORS.primary} />
                   <TextInput
                     style={[styles.searchInputEdit, { fontSize: 15 }]}
                     placeholder="Search people to invite..."
-                    placeholderTextColor="#99aab5"
+                    placeholderTextColor={COLORS.textMuted}
                     value={followerSearch}
                     onChangeText={setFollowerSearch}
                     autoFocus={false}
                   />
                   {followerSearch.length > 0 && (
                     <TouchableOpacity onPress={() => setFollowerSearch('')}>
-                      <Ionicons name="close-circle" size={18} color="#ccc" />
+                      <Ionicons name="close-circle" size={18} color={COLORS.border} />
                     </TouchableOpacity>
                   )}
                 </View>
 
                 {searching ? (
-                  <ActivityIndicator color="#FF8D00" style={{ marginTop: 20 }} />
+                  <ActivityIndicator color={COLORS.primary} style={{ marginTop: 20 }} />
                 ) : (
                   <ScrollView style={{ flex: 1 }} keyboardShouldPersistTaps="handled">
                     {(followerSearch.trim().length > 1 ? searchResults : followers.filter(f => 
@@ -1238,7 +1239,7 @@ export default function SavedScreen() {
           activeOpacity={0.8}
         >
           <Text style={styles.dropBtnLabel}>Collections</Text>
-          <Feather name="chevron-down" size={14} color="#FF8D00" />
+          <Feather name="chevron-down" size={14} color={COLORS.primary} />
         </TouchableOpacity>
       </View>
 
@@ -1308,9 +1309,9 @@ export default function SavedScreen() {
                 setCommentModalVisible(false);
               }}
             />
-            <View style={{ backgroundColor: '#fff', height: '80%', borderTopLeftRadius: 20, borderTopRightRadius: 20 }}>
-              <View style={{ width: 40, height: 4, backgroundColor: '#eee', borderRadius: 2, alignSelf: 'center', marginVertical: 10 }} />
-              <View style={{ flexDirection: 'row', justifyContent: 'space-between', paddingHorizontal: 16, paddingBottom: 10, borderBottomWidth: 0.5, borderBottomColor: '#eee' }}>
+            <View style={{ backgroundColor: COLORS.card, height: '80%', borderTopLeftRadius: 20, borderTopRightRadius: 20 }}>
+              <View style={{ width: 40, height: 4, backgroundColor: COLORS.border, borderRadius: 2, alignSelf: 'center', marginVertical: 10 }} />
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between', paddingHorizontal: 16, paddingBottom: 10, borderBottomWidth: 0.5, borderBottomColor: COLORS.border }}>
                 <Text style={{ fontWeight: '700', fontSize: 16 }}>Comments</Text>
                 <TouchableOpacity
                   onPress={() => {
@@ -1318,7 +1319,7 @@ export default function SavedScreen() {
                     setCommentModalVisible(false);
                   }}
                 >
-                  <Ionicons name="close" size={24} color="#333" />
+                  <Ionicons name="close" size={24} color={COLORS.textPrimary} />
                 </TouchableOpacity>
               </View>
               <CommentSection
@@ -1352,7 +1353,7 @@ export default function SavedScreen() {
 // ─── Styles ───────────────────────────────────────────────────────────────────
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#fff' },
+  container: { flex: 1, backgroundColor: COLORS.background },
 
   // Top bar
   topBar: {
@@ -1365,19 +1366,19 @@ const styles = StyleSheet.create({
   topTitle: {
     fontSize: 18,
     fontWeight: '700',
-    color: '#111',
+    color: COLORS.textPrimary,
     flex: 1,
   },
   dropBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    backgroundColor: 'rgba(255, 141, 0, 0.12)',
+    backgroundColor: COLORS.primaryLight,
     paddingHorizontal: 12,
     paddingVertical: 7,
     borderRadius: 16,
   },
-  dropBtnLabel: { fontSize: 13, fontWeight: '600', color: '#FF8D00' },
+  dropBtnLabel: { fontSize: 13, fontWeight: '600', color: COLORS.primary },
 
   // Grid
   grid: { padding: 1 },
@@ -1385,7 +1386,7 @@ const styles = StyleSheet.create({
     width: '33.33%',
     aspectRatio: 1,
     padding: 1,
-    backgroundColor: '#f0f0f0',
+    backgroundColor: COLORS.inputBg,
   },
   gridImg: { width: '100%', height: '100%', resizeMode: 'cover' },
 
@@ -1399,7 +1400,7 @@ const styles = StyleSheet.create({
     width: 80,
     height: 80,
     borderRadius: 40,
-    backgroundColor: '#F0F7FF',
+    backgroundColor: COLORS.primaryLight,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 20,
@@ -1407,34 +1408,35 @@ const styles = StyleSheet.create({
   emptyTitle: { 
     fontSize: 18, 
     fontWeight: '700', 
-    color: '#111', 
+    color: COLORS.textPrimary, 
     marginBottom: 8,
     textAlign: 'center' 
   },
   emptySubtitle: { 
     fontSize: 14, 
-    color: '#888', 
+    color: COLORS.textMuted, 
     textAlign: 'center',
     lineHeight: 20,
     marginBottom: 24,
   },
   emptyBtn: {
-    backgroundColor: '#FF8D00',
+    backgroundColor: COLORS.primary,
     paddingHorizontal: 24,
     paddingVertical: 12,
     borderRadius: 25,
-    shadowColor: '#FF8D00',
+    shadowColor: COLORS.primary,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.2,
     shadowRadius: 8,
     elevation: 4,
   },
   emptyBtnText: {
-    color: '#fff',
+    color: COLORS.textLight,
     fontSize: 14,
     fontWeight: '600',
   },
 
+  // Bottom sheet
   // Bottom sheet
   sheetBackdrop: {
     ...StyleSheet.absoluteFillObject,
@@ -1443,7 +1445,7 @@ const styles = StyleSheet.create({
   sheet: {
     position: 'absolute',
     bottom: 0, left: 0, right: 0,
-    backgroundColor: '#fff',
+    backgroundColor: COLORS.card,
     borderTopLeftRadius: 22,
     borderTopRightRadius: 22,
     maxHeight: SCREEN_H * 0.86,
@@ -1452,7 +1454,7 @@ const styles = StyleSheet.create({
   dragHandle: {
     width: 36, height: 4,
     borderRadius: 2,
-    backgroundColor: '#ddd',
+    backgroundColor: COLORS.border,
     alignSelf: 'center',
     marginTop: 12, marginBottom: 4,
   },
@@ -1470,7 +1472,7 @@ const styles = StyleSheet.create({
     marginRight: 12,
     overflow: 'hidden',
   },
-  allLabel: { fontSize: 15, color: '#111', fontWeight: '500' },
+  allLabel: { fontSize: 15, color: COLORS.textPrimary, fontWeight: '500' },
 
   // Collections section header inside sheet
   collSectionHeader: {
@@ -1480,17 +1482,17 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 12,
   },
-  collSectionTitle: { fontSize: 16, fontWeight: '700', color: '#111' },
+  collSectionTitle: { fontSize: 16, fontWeight: '700', color: COLORS.textPrimary },
   newCollBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(255, 141, 0, 0.12)',
+    backgroundColor: COLORS.primaryLight,
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 12,
     gap: 4,
   },
-  newCollText: { fontSize: 13, color: '#FF8D00', fontWeight: '700' },
+  newCollText: { fontSize: 13, color: COLORS.primary, fontWeight: '700' },
 
   // Collection row inside sheet
   collRow: {
@@ -1509,10 +1511,10 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     marginRight: 12,
     overflow: 'hidden',
-    backgroundColor: '#f0f0f0',
+    backgroundColor: COLORS.inputBg,
   },
   thumbPlaceholder: { justifyContent: 'center', alignItems: 'center' },
-  collName: { flex: 1, fontSize: 14, color: '#111', fontWeight: '500' },
+  collName: { flex: 1, fontSize: 14, color: COLORS.textPrimary, fontWeight: '500' },
   iconBtn: { padding: 6 },
 
   // Edit sheet
@@ -1523,21 +1525,21 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 14,
   },
-  editCancel: { fontSize: 15, color: '#555', fontWeight: '500' },
-  editTitle: { fontSize: 16, fontWeight: '700', color: '#111' },
-  editSave: { fontSize: 15, color: '#FF8D00', fontWeight: '700' },
+  editCancel: { fontSize: 15, color: COLORS.textSecondary, fontWeight: '500' },
+  editTitle: { fontSize: 16, fontWeight: '700', color: COLORS.textPrimary },
+  editSave: { fontSize: 15, color: COLORS.primary, fontWeight: '700' },
   editCover: {
     width: 130, height: 130,
     borderRadius: 14,
     alignSelf: 'center',
     marginVertical: 16,
-    backgroundColor: '#f0f0f0',
+    backgroundColor: COLORS.inputBg,
   },
   nameInputWrap: {
     marginHorizontal: 16,
     marginBottom: 4,
   },
-  nameInput: { fontSize: 16, color: '#111', paddingVertical: 10 },
+  nameInput: { fontSize: 16, color: COLORS.textPrimary, paddingVertical: 10 },
   optionRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -1545,9 +1547,9 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     gap: 12,
   },
-  optionLabel: { flex: 1, fontSize: 14, color: '#222' },
+  optionLabel: { flex: 1, fontSize: 14, color: COLORS.textPrimary },
   optionRight: { flexDirection: 'row', alignItems: 'center', gap: 4 },
-  optionValue: { fontSize: 13, color: '#888' },
+  optionValue: { fontSize: 13, color: COLORS.textMuted },
 
   // Visibility picker
   radioRow: {
@@ -1556,19 +1558,19 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 16,
   },
-  radioLabel: { fontSize: 15, fontWeight: '600', color: '#111', marginBottom: 2 },
-  radioSub: { fontSize: 12, color: '#999' },
+  radioLabel: { fontSize: 15, fontWeight: '600', color: COLORS.textPrimary, marginBottom: 2 },
+  radioSub: { fontSize: 12, color: COLORS.textMuted },
   radioCircle: {
     width: 20, height: 20,
     borderRadius: 10,
     borderWidth: 2,
-    borderColor: '#ccc',
+    borderColor: COLORS.border,
     justifyContent: 'center',
     alignItems: 'center',
     marginLeft: 12,
   },
-  radioCircleActive: { borderColor: '#FF8D00' },
-  radioDot: { width: 10, height: 10, borderRadius: 5, backgroundColor: '#FF8D00' },
+  radioCircleActive: { borderColor: COLORS.primary },
+  radioDot: { width: 10, height: 10, borderRadius: 5, backgroundColor: COLORS.primary },
 
   // New Edit sheet styles
   collabInfoInline: {
@@ -1580,7 +1582,7 @@ const styles = StyleSheet.create({
   },
   collabChipsInline: {
     fontSize: 12,
-    color: '#FF8D00',
+    color: COLORS.primary,
     fontWeight: '500',
     flex: 1,
     marginHorizontal: 16,
@@ -1591,11 +1593,11 @@ const styles = StyleSheet.create({
     paddingLeft: 44,
     paddingRight: 16,
     paddingBottom: 16,
-    backgroundColor: '#fafafa',
+    backgroundColor: COLORS.surface,
   },
   infoText: {
     fontSize: 12,
-    color: '#888',
+    color: COLORS.textMuted,
     marginVertical: 8,
     fontStyle: 'italic',
   },
@@ -1607,16 +1609,16 @@ const styles = StyleSheet.create({
   },
   groupNameEdit: {
     fontSize: 14,
-    color: '#444',
+    color: COLORS.textSecondary,
   },
   groupNameSelectedEdit: {
-    color: '#FF8D00',
+    color: COLORS.primary,
     fontWeight: '700',
   },
   searchWrapEdit: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#f5f7fa',
+    backgroundColor: COLORS.inputBg,
     marginHorizontal: 16,
     marginVertical: 12,
     paddingHorizontal: 16,
@@ -1624,12 +1626,12 @@ const styles = StyleSheet.create({
     height: 46,
     gap: 10,
     borderWidth: 1,
-    borderColor: '#eef0f2',
+    borderColor: COLORS.border,
   },
   searchInputEdit: {
     flex: 1,
     fontSize: 14,
-    color: '#111',
+    color: COLORS.textPrimary,
   },
   userRowEdit: {
     flexDirection: 'row',
@@ -1642,16 +1644,16 @@ const styles = StyleSheet.create({
     height: 44,
     borderRadius: 22,
     marginRight: 12,
-    backgroundColor: '#eee',
+    backgroundColor: COLORS.inputBg,
   },
   userNameEdit: {
     fontSize: 15,
     fontWeight: '600',
-    color: '#111',
+    color: COLORS.textPrimary,
   },
   userHandleEdit: {
     fontSize: 13,
-    color: '#888',
+    color: COLORS.textMuted,
   },
   playIconOverlay: {
     position: 'absolute',

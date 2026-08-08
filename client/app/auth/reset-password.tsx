@@ -15,6 +15,7 @@ import { AuthBrandHeader } from '@/src/_components/auth/AuthBrandHeader';
 import { AuthKeyboardScroll } from '@/src/_components/auth/AuthKeyboardScroll';
 import CustomButton from '@/src/_components/auth/CustomButton';
 import { API_BASE_URL } from '../../lib/api';
+import COLORS from '@/src/theme/colors';
 
 export default function ResetPasswordScreen() {
   const router = useRouter();
@@ -76,7 +77,7 @@ export default function ResetPasswordScreen() {
       <AuthKeyboardScroll contentContainerStyle={styles.scrollContent}>
           <View style={styles.content}>
             <TouchableOpacity onPress={() => safeRouterBack()} style={styles.backButton}>
-              <Ionicons name="arrow-back" size={24} color="#000" />
+              <Ionicons name="arrow-back" size={24} color={COLORS.black} />
             </TouchableOpacity>
 
             <View style={styles.titleSection}>
@@ -89,7 +90,7 @@ export default function ResetPasswordScreen() {
             <View style={styles.inputContainer}>
               <Text style={styles.label}>Verification Code</Text>
               <View style={styles.inputWrapper}>
-                <Ionicons name="lock-closed-outline" size={20} color="#999" />
+                <Ionicons name="lock-closed-outline" size={20} color={COLORS.textMuted} />
                 <TextInput
                   style={styles.input}
                   placeholder="6-digit code"
@@ -106,7 +107,7 @@ export default function ResetPasswordScreen() {
             <View style={styles.inputContainer}>
               <Text style={styles.label}>New Password</Text>
               <View style={styles.inputWrapper}>
-                <Ionicons name="key-outline" size={20} color="#999" />
+                <Ionicons name="key-outline" size={20} color={COLORS.textMuted} />
                 <TextInput
                   style={styles.input}
                   placeholder="Min 6 characters"
@@ -122,7 +123,7 @@ export default function ResetPasswordScreen() {
             <View style={styles.inputContainer}>
               <Text style={styles.label}>Confirm Password</Text>
               <View style={styles.inputWrapper}>
-                <Ionicons name="key-outline" size={20} color="#999" />
+                <Ionicons name="key-outline" size={20} color={COLORS.textMuted} />
                 <TextInput
                   style={styles.input}
                   placeholder="Repeat new password"
@@ -149,21 +150,21 @@ export default function ResetPasswordScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#fff' },
+  container: { flex: 1, backgroundColor: COLORS.background },
   scrollContent: { flexGrow: 1 },
   content: { padding: 25 },
   backButton: { marginBottom: 20 },
   titleSection: { marginBottom: 30 },
   inputContainer: { marginBottom: 20 },
-  label: { fontSize: 14, fontWeight: '600', color: '#333', marginBottom: 8 },
+  label: { fontSize: 14, fontWeight: '600', color: COLORS.textPrimary, marginBottom: 8 },
   inputWrapper: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#f5f5f5',
+    backgroundColor: COLORS.surface,
     borderRadius: 12,
     paddingHorizontal: 16,
     borderWidth: 1,
-    borderColor: '#e0e0e0',
+    borderColor: COLORS.border,
   },
-  input: { flex: 1, padding: 16, fontSize: 16, color: '#000', marginLeft: 10 },
+  input: { flex: 1, padding: 16, fontSize: 16, color: COLORS.black, marginLeft: 10 },
 });

@@ -10,6 +10,7 @@ import { resolveCanonicalUserId } from '@/lib/currentUser';
 import { auth } from '@/config/firebase';
 import AsyncStorage from '@/lib/storage';
 import { withdrawalService, type WithdrawalRecord } from '@/src/_services/withdrawalService';
+import COLORS from '@/src/theme/colors';
 
 export default function SettingsScreen() {
   const router = useRouter();
@@ -49,7 +50,7 @@ export default function SettingsScreen() {
           }}
           style={styles.backBtn}
         >
-          <Feather name="arrow-left" size={24} color="#000" />
+          <Feather name="arrow-left" size={24} color={COLORS.black} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Settings</Text>
         <View style={{ width: 24 }} />
@@ -74,34 +75,34 @@ export default function SettingsScreen() {
             );
           }}
         >
-          <Feather name="message-circle" size={18} color="#FF8D00" />
+          <Feather name="message-circle" size={18} color={COLORS.primary} />
           <Text style={styles.feedbackText}>Send Feedback / Report Issue</Text>
         </TouchableOpacity>
 
         {/* Blocked Users Section */}
         <TouchableOpacity
-          style={[styles.settingsItem, { backgroundColor: '#fff5f5', borderColor: '#ffcfcf' }]}
+          style={[styles.settingsItem, { backgroundColor: COLORS.dangerLight, borderColor: COLORS.border }]}
           onPress={() => {
             hapticLight();
             router.push('/blocked-users' as any);
           }}
         >
-          <Feather name="slash" size={20} color="#e74c3c" style={{ marginRight: 12 }} />
+          <Feather name="slash" size={20} color={COLORS.danger} style={{ marginRight: 12 }} />
           <View style={{ flex: 1 }}>
             <Text style={styles.settingsTitle}>Blocked Users</Text>
             <Text style={styles.settingsSubtitle}>Manage users you have blocked</Text>
           </View>
-          <Feather name="chevron-right" size={18} color="#ccc" />
+          <Feather name="chevron-right" size={18} color={COLORS.textMuted} />
         </TouchableOpacity>
 
         {/* Payout History Section */}
         <View style={styles.payoutSection}>
           <View style={styles.payoutHeader}>
-            <Feather name="credit-card" size={18} color="#2e7d32" style={{ marginRight: 8 }} />
+            <Feather name="credit-card" size={18} color={COLORS.success} style={{ marginRight: 8 }} />
             <Text style={styles.payoutSectionTitle}>Payout History</Text>
           </View>
           {payoutLoading ? (
-            <ActivityIndicator size="small" color="#007aff" style={{ padding: 20 }} />
+            <ActivityIndicator size="small" color={COLORS.primary} style={{ padding: 20 }} />
           ) : payoutHistory.length > 0 ? (
             <>
               {payoutHistory.map((payout) => (
@@ -143,7 +144,7 @@ export default function SettingsScreen() {
                     disabled={payoutPage <= 1}
                     onPress={() => { hapticLight(); loadPayoutHistory(payoutPage - 1); }}
                   >
-                    <Feather name="chevron-left" size={16} color={payoutPage <= 1 ? '#ccc' : '#007aff'} />
+                    <Feather name="chevron-left" size={16} color={COLORS.textSecondary} />
                   </TouchableOpacity>
                   <Text style={styles.pageText}>Page {payoutPage} of {payoutTotalPages}</Text>
                   <TouchableOpacity
@@ -151,14 +152,14 @@ export default function SettingsScreen() {
                     disabled={payoutPage >= payoutTotalPages}
                     onPress={() => { hapticLight(); loadPayoutHistory(payoutPage + 1); }}
                   >
-                    <Feather name="chevron-right" size={16} color={payoutPage >= payoutTotalPages ? '#ccc' : '#007aff'} />
+                    <Feather name="chevron-right" size={16} color={COLORS.textSecondary} />
                   </TouchableOpacity>
                 </View>
               )}
             </>
           ) : (
             <View style={styles.payoutEmpty}>
-              <Feather name="inbox" size={28} color="#ccc" />
+              <Feather name="inbox" size={28} color={COLORS.textMuted} />
               <Text style={styles.payoutEmptyText}>No payouts yet</Text>
               <Text style={styles.payoutEmptySubtext}>Your withdrawal history will appear here</Text>
             </View>
@@ -176,6 +177,7 @@ export default function SettingsScreen() {
         {/* Legal Section */}
         <View style={styles.legalBox}>
           <Text style={styles.legalTitle}>Legal</Text>
+          
           <TouchableOpacity
             style={styles.legalItem}
             onPress={() => {
@@ -183,10 +185,11 @@ export default function SettingsScreen() {
               router.push('/legal/privacy' as any);
             }}
           >
-            <Feather name="shield" size={18} color="#667eea" style={{ marginRight: 10 }} />
+            <Feather name="shield" size={18} color={COLORS.textSecondary} style={{ marginRight: 10 }} />
             <Text style={styles.legalText}>Privacy Policy</Text>
-            <Feather name="chevron-right" size={18} color="#ccc" style={{ marginLeft: 'auto' }} />
+            <Feather name="chevron-right" size={18} color={COLORS.textMuted} style={{ marginLeft: 'auto' }} />
           </TouchableOpacity>
+
           <TouchableOpacity
             style={styles.legalItem}
             onPress={() => {
@@ -194,15 +197,15 @@ export default function SettingsScreen() {
               router.push('/legal/terms' as any);
             }}
           >
-            <Feather name="file-text" size={18} color="#667eea" style={{ marginRight: 10 }} />
+            <Feather name="file-text" size={18} color={COLORS.textSecondary} style={{ marginRight: 10 }} />
             <Text style={styles.legalText}>Terms of Service</Text>
-            <Feather name="chevron-right" size={18} color="#ccc" style={{ marginLeft: 'auto' }} />
+            <Feather name="chevron-right" size={18} color={COLORS.textMuted} style={{ marginLeft: 'auto' }} />
           </TouchableOpacity>
         </View>
 
         {/* Danger Zone */}
-        <View style={[styles.legalBox, { marginTop: 20, borderColor: '#ffcfcf' }]}>
-          <Text style={[styles.legalTitle, { color: '#e74c3c' }]}>Danger Zone</Text>
+        <View style={[styles.legalBox, { marginTop: 20, borderColor: COLORS.dangerLight }]}>
+          <Text style={[styles.legalTitle, { color: COLORS.danger }]}>Danger Zone</Text>
           <TouchableOpacity
             style={styles.legalItem}
             onPress={() => {
@@ -237,8 +240,8 @@ export default function SettingsScreen() {
               );
             }}
           >
-            <Feather name="trash-2" size={18} color="#e74c3c" style={{ marginRight: 10 }} />
-            <Text style={[styles.legalText, { color: '#e74c3c' }]}>Delete Account</Text>
+            <Feather name="trash-2" size={18} color={COLORS.danger} style={{ marginRight: 10 }} />
+            <Text style={[styles.legalText, { color: COLORS.danger }]}>Delete Account</Text>
           </TouchableOpacity>
         </View>
       </ScrollView>
@@ -250,28 +253,28 @@ const styles = StyleSheet.create({
   feedbackBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#fffbe6',
+    backgroundColor: COLORS.primaryLight,
     borderRadius: 8,
     paddingVertical: 10,
     paddingHorizontal: 16,
     margin: 16,
     marginBottom: 0,
     borderWidth: 1,
-    borderColor: '#ffe0a3',
-    shadowColor: '#FF8D00',
+    borderColor: COLORS.primaryBorder,
+    shadowColor: COLORS.primary,
     shadowOpacity: 0.08,
     shadowRadius: 4,
     elevation: 2,
   },
   feedbackText: {
     marginLeft: 10,
-    color: '#FF8D00',
+    color: COLORS.primary,
     fontWeight: '600',
     fontSize: 15,
   },
   container: {
     flex: 1,
-    backgroundColor: '#fff',
+    backgroundColor: COLORS.background,
   },
   header: {
     flexDirection: 'row',
@@ -279,6 +282,8 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingHorizontal: 16,
     paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.border,
   },
   backBtn: {
     padding: 4,
@@ -286,16 +291,16 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontSize: 18,
     fontWeight: '700',
-    color: '#000',
+    color: COLORS.textPrimary,
   },
   aboutBox: {
-    backgroundColor: '#f9f9f9',
+    backgroundColor: COLORS.surface,
     borderRadius: 12,
     padding: 16,
     margin: 16,
     marginBottom: 0,
     alignItems: 'flex-start',
-    shadowColor: '#000',
+    shadowColor: COLORS.black,
     shadowOpacity: 0.04,
     shadowRadius: 4,
     elevation: 1,
@@ -303,53 +308,53 @@ const styles = StyleSheet.create({
   settingsItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#fffbf5',
+    backgroundColor: COLORS.primaryLight,
     borderRadius: 12,
     paddingHorizontal: 14,
     paddingVertical: 12,
     marginHorizontal: 16,
     marginVertical: 8,
     borderWidth: 1,
-    borderColor: '#ffe0a3',
+    borderColor: COLORS.primaryBorder,
   },
   settingsTitle: {
     fontSize: 15,
     fontWeight: '600',
-    color: '#222',
+    color: COLORS.textPrimary,
   },
   settingsSubtitle: {
     fontSize: 12,
-    color: '#999',
+    color: COLORS.textMuted,
     marginTop: 2,
   },
   aboutTitle: {
     fontSize: 17,
     fontWeight: '700',
-    color: '#222',
+    color: COLORS.textPrimary,
     marginBottom: 6,
   },
   aboutText: {
     fontSize: 14,
-    color: '#666',
+    color: COLORS.textSecondary,
     marginBottom: 2,
   },
   legalBox: {
-    backgroundColor: '#fff',
+    backgroundColor: COLORS.card,
     borderRadius: 12,
     padding: 8,
     margin: 16,
     marginBottom: 0,
-    shadowColor: '#000',
+    shadowColor: COLORS.black,
     shadowOpacity: 0.03,
     shadowRadius: 4,
     elevation: 1,
     borderWidth: 1,
-    borderColor: '#eee',
+    borderColor: COLORS.border,
   },
   legalTitle: {
     fontSize: 16,
     fontWeight: '700',
-    color: '#222',
+    color: COLORS.textPrimary,
     marginBottom: 6,
     paddingHorizontal: 8,
   },
@@ -359,26 +364,26 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     paddingHorizontal: 8,
     borderTopWidth: 1,
-    borderTopColor: '#f2f2f2',
+    borderTopColor: COLORS.border,
   },
   legalText: {
     fontSize: 15,
-    color: '#1f2937',
+    color: COLORS.textPrimary,
     fontWeight: '500',
   },
   // Payout history styles
   payoutSection: {
-    backgroundColor: '#fff',
+    backgroundColor: COLORS.card,
     borderRadius: 12,
     padding: 16,
     margin: 16,
     marginBottom: 0,
-    shadowColor: '#000',
+    shadowColor: COLORS.black,
     shadowOpacity: 0.04,
     shadowRadius: 4,
     elevation: 1,
     borderWidth: 1,
-    borderColor: '#e8f5e9',
+    borderColor: COLORS.border,
   },
   payoutHeader: {
     flexDirection: 'row',
@@ -388,7 +393,7 @@ const styles = StyleSheet.create({
   payoutSectionTitle: {
     fontSize: 16,
     fontWeight: '700',
-    color: '#222',
+    color: COLORS.textPrimary,
   },
   payoutRow: {
     flexDirection: 'row',
@@ -396,7 +401,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 10,
     borderTopWidth: 1,
-    borderTopColor: '#f2f2f2',
+    borderTopColor: COLORS.border,
   },
   payoutInfo: {
     flex: 1,
@@ -404,11 +409,11 @@ const styles = StyleSheet.create({
   payoutAmount: {
     fontSize: 15,
     fontWeight: '700',
-    color: '#000',
+    color: COLORS.textPrimary,
   },
   payoutDate: {
     fontSize: 12,
-    color: '#8e8e93',
+    color: COLORS.textMuted,
     marginTop: 2,
     fontWeight: '500',
   },
@@ -416,30 +421,30 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: 12,
-    backgroundColor: '#f0f0f0',
+    backgroundColor: COLORS.inputBg,
   },
   payoutStatusPaid: {
-    backgroundColor: '#e8f5e9',
+    backgroundColor: COLORS.surface,
   },
   payoutStatusProcessing: {
-    backgroundColor: '#fff3e0',
+    backgroundColor: COLORS.primaryLight,
   },
   payoutStatusFailed: {
-    backgroundColor: '#fce4ec',
+    backgroundColor: COLORS.dangerLight,
   },
   payoutStatusText: {
     fontSize: 12,
     fontWeight: '600',
-    color: '#666',
+    color: COLORS.textSecondary,
   },
   payoutStatusTextPaid: {
-    color: '#2e7d32',
+    color: COLORS.success,
   },
   payoutStatusTextProcessing: {
-    color: '#e65100',
+    color: COLORS.primary,
   },
   payoutStatusTextFailed: {
-    color: '#c62828',
+    color: COLORS.danger,
   },
   payoutEmpty: {
     alignItems: 'center',
@@ -449,11 +454,11 @@ const styles = StyleSheet.create({
   payoutEmptyText: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#999',
+    color: COLORS.textMuted,
   },
   payoutEmptySubtext: {
     fontSize: 12,
-    color: '#bbb',
+    color: COLORS.textMuted,
   },
   payoutPagination: {
     flexDirection: 'row',
@@ -465,7 +470,7 @@ const styles = StyleSheet.create({
   pageBtn: {
     padding: 6,
     borderRadius: 8,
-    backgroundColor: '#f5f5f7',
+    backgroundColor: COLORS.inputBg,
   },
   pageBtnDisabled: {
     opacity: 0.4,
@@ -473,6 +478,6 @@ const styles = StyleSheet.create({
   pageText: {
     fontSize: 13,
     fontWeight: '600',
-    color: '#666',
+    color: COLORS.textSecondary,
   },
 });

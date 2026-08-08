@@ -19,6 +19,7 @@ import VisibilityModal from '@/src/_components/CreatePost/VisibilityModal';
 
 import { DEFAULT_CATEGORIES } from '../lib/firebaseHelpers/index';
 import { hapticLight } from '../lib/haptics';
+import COLORS from '@/src/theme/colors';
 
 export default function CreatePostScreen() {
   const params = useLocalSearchParams();
@@ -58,7 +59,7 @@ export default function CreatePostScreen() {
   const dummyPanHandlers = { onStartShouldSetResponder: () => true, onMoveShouldSetResponder: () => true };
 
   return (
-    <View style={{ flex: 1, backgroundColor: '#fff', paddingTop: insets.top || (Platform.OS === 'ios' ? 47 : 0), paddingBottom: insets.bottom || (Platform.OS === 'ios' ? 34 : 0) }}>
+    <View style={{ flex: 1, backgroundColor: COLORS.background, paddingTop: insets.top || (Platform.OS === 'ios' ? 47 : 0), paddingBottom: insets.bottom || (Platform.OS === 'ios' ? 34 : 0) }}>
       {step === 'picker' ? (
         <MediaPicker
           assets={galleryAssets || []}
@@ -114,9 +115,9 @@ export default function CreatePostScreen() {
             <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 15, paddingVertical: 10 }}>
               <TouchableOpacity 
                 onPress={() => isEditMode ? router.back() : setStep('picker')} 
-                style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: '#f5f5f5', alignItems: 'center', justifyContent: 'center' }}
+                style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: COLORS.surface, alignItems: 'center', justifyContent: 'center' }}
               >
-                <Feather name="x" size={20} color="#000" />
+                <Feather name="x" size={20} color={COLORS.black} />
               </TouchableOpacity>
               <Text style={{ fontSize: 16, fontWeight: '600' }}>{isEditMode ? 'Edit post' : 'New post'}</Text>
               <View style={{ width: 40 }} />
@@ -170,10 +171,10 @@ export default function CreatePostScreen() {
                 setTaggedUsers([]);
                 setSelectedCategories([]);
               }}>
-                <Text style={{ fontSize: 15, fontWeight: '600', color: '#333' }}>Clear all</Text>
+                <Text style={{ fontSize: 15, fontWeight: '600', color: COLORS.textPrimary }}>Clear all</Text>
               </TouchableOpacity>
-              <TouchableOpacity onPress={handleShare} style={{ backgroundColor: '#FF8D00', paddingHorizontal: 35, paddingVertical: 12, borderRadius: 8 }}>
-                <Text style={{ color: '#fff', fontWeight: 'bold', fontSize: 15 }}>{isEditMode ? 'Save' : 'Share'}</Text>
+              <TouchableOpacity onPress={handleShare} style={{ backgroundColor: COLORS.primary, paddingHorizontal: 35, paddingVertical: 12, borderRadius: 8 }}>
+                <Text style={{ color: COLORS.textLight, fontWeight: 'bold', fontSize: 15 }}>{isEditMode ? 'Save' : 'Share'}</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -250,7 +251,7 @@ export default function CreatePostScreen() {
 
       {loading && (
         <View style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(0,0,0,0.3)', justifyContent: 'center', alignItems: 'center', zIndex: 1000 }]}>
-          <ActivityIndicator size="large" color="#0095f6" />
+          <ActivityIndicator size="large" color={COLORS.primary} />
         </View>
       )}
     </View>

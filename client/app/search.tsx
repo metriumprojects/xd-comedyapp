@@ -24,6 +24,7 @@ import { resolveCanonicalUserId } from '../lib/currentUser';
 import { useAssetPreloader } from '@/hooks/useAssetPreloader';
 
 import { useSearchData } from '@/src/features/search/hooks/useSearchData';
+import COLORS from '@/src/theme/colors';
 
 export default function SearchScreen() {
   const router = useRouter();
@@ -85,18 +86,19 @@ export default function SearchScreen() {
   const postResults = activeTab !== 'users' ? results : [];
 
   return (
-    <View style={{ flex: 1, backgroundColor: '#fff', paddingTop: Math.max(insets.top, 12) }}>
+    <View style={{ flex: 1, backgroundColor: COLORS.background, paddingTop: Math.max(insets.top, 12) }}>
       <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingBottom: 16 }}>
         <TextInput
           ref={inputRef}
           autoFocus={true}
-          style={{ flex: 1, fontSize: 16, backgroundColor: '#f7f7f7', borderRadius: 8, padding: 10 }}
-          placeholder={activeTab === 'users' ? 'Search users...' : activeTab === 'hashtags' ? 'Search hashtags...' : 'Search posts...'}
+          style={{ flex: 1, fontSize: 16, backgroundColor: COLORS.inputBg, borderRadius: 8, padding: 10, color: COLORS.textPrimary }}
+          placeholder={activeTab === 'users' ? 'Search creators, comedians, friends...' : activeTab === 'hashtags' ? 'Search #standup, #skits, #roasts...' : 'Search funny clips, standup, jokes...'}
+          placeholderTextColor={COLORS.textMuted}
           value={query}
           onChangeText={handleSearch}
         />
         <TouchableOpacity onPress={() => setQuery('')} style={{ marginLeft: 8 }}>
-          <Feather name="x" size={22} color="#888" />
+          <Feather name="x" size={22} color={COLORS.textMuted} />
         </TouchableOpacity>
       </View>
       <View style={{ flexDirection: 'row', justifyContent: 'center', marginVertical: 10 }}>
@@ -111,7 +113,7 @@ export default function SearchScreen() {
         </TouchableOpacity>
       </View>
       {loading ? (
-        <ActivityIndicator size="large" color="#FFB800" style={{ marginTop: 32 }} />
+        <ActivityIndicator size="large" color={COLORS.primary} style={{ marginTop: 32 }} />
       ) : activeTab === 'users' ? (
         <FlashList
           data={userResults}
@@ -141,10 +143,10 @@ export default function SearchScreen() {
                 <Text style={styles.name}>{item.displayName || item.userName || 'User'}</Text>
                 <Text style={styles.email}>{item.email}</Text>
               </View>
-              <Feather name="chevron-right" size={20} color="#ccc" />
+              <Feather name="chevron-right" size={20} color={COLORS.border} />
             </TouchableOpacity>
           )}
-          ListEmptyComponent={<Text style={{ color: '#888', marginTop: 32, textAlign: 'center' }}>No users found</Text>}
+          ListEmptyComponent={<Text style={{ color: COLORS.textMuted, marginTop: 32, textAlign: 'center' }}>No users found</Text>}
           refreshing={loading}
           onRefresh={() => handleSearch(query)}
           estimatedItemSize={75}
@@ -173,10 +175,10 @@ export default function SearchScreen() {
                   <Text style={styles.name}>{item.userName || 'User'}</Text>
                   <Text style={styles.caption} numberOfLines={1}>{item.caption}</Text>
                 </View>
-                <Feather name="chevron-right" size={20} color="#ccc" />
+                <Feather name="chevron-right" size={20} color={COLORS.border} />
               </TouchableOpacity>
             )}
-            ListEmptyComponent={<Text style={{ color: '#888', marginTop: 32, textAlign: 'center' }}>No posts with this hashtag</Text>}
+            ListEmptyComponent={<Text style={{ color: COLORS.textMuted, marginTop: 32, textAlign: 'center' }}>No posts with this hashtag</Text>}
             estimatedItemSize={80}
           />
         ) : (
@@ -195,10 +197,10 @@ export default function SearchScreen() {
                   <Text style={styles.hashtagName}>#{item.tag}</Text>
                   <Text style={styles.hashtagCount}>{item.postCount || 0} posts</Text>
                 </View>
-                <Feather name="chevron-right" size={20} color="#ccc" />
+                <Feather name="chevron-right" size={20} color={COLORS.border} />
               </TouchableOpacity>
             )}
-            ListEmptyComponent={<Text style={{ color: '#888', marginTop: 32, textAlign: 'center' }}>No trending hashtags</Text>}
+            ListEmptyComponent={<Text style={{ color: COLORS.textMuted, marginTop: 32, textAlign: 'center' }}>No trending hashtags</Text>}
             estimatedItemSize={70}
           />
         )
@@ -225,10 +227,10 @@ export default function SearchScreen() {
                 <Text style={styles.name}>{item.userName || 'User'}</Text>
                 <Text style={styles.caption}>{item.caption}</Text>
               </View>
-              <Feather name="chevron-right" size={20} color="#ccc" />
+              <Feather name="chevron-right" size={20} color={COLORS.border} />
             </TouchableOpacity>
           )}
-          ListEmptyComponent={<Text style={{ color: '#888', marginTop: 32, textAlign: 'center' }}>No posts found</Text>}
+          ListEmptyComponent={<Text style={{ color: COLORS.textMuted, marginTop: 32, textAlign: 'center' }}>No posts found</Text>}
           refreshing={loading}
           onRefresh={() => handleSearch(query)}
           estimatedItemSize={80}
@@ -243,19 +245,19 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24,
     paddingVertical: 8,
     borderRadius: 20,
-    backgroundColor: '#f7f7f7',
+    backgroundColor: COLORS.inputBg,
     marginHorizontal: 6,
   },
   tabActive: {
-    backgroundColor: '#FFB800',
+    backgroundColor: COLORS.primary,
   },
   tabText: {
     fontSize: 16,
-    color: '#888',
+    color: COLORS.textMuted,
     fontWeight: '600',
   },
   tabTextActive: {
-    color: '#000',
+    color: COLORS.textLight,
   },
   row: {
     flexDirection: 'row',
@@ -263,34 +265,34 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     paddingHorizontal: 16,
     borderBottomWidth: 1,
-    borderBottomColor: '#f0f0f0',
-    backgroundColor: '#fff',
+    borderBottomColor: COLORS.border,
+    backgroundColor: COLORS.card,
   },
   avatar: {
     width: 48,
     height: 48,
     borderRadius: 24,
     marginRight: 14,
-    backgroundColor: '#eee',
+    backgroundColor: COLORS.inputBg,
   },
   postImg: {
     width: 56,
     height: 56,
     borderRadius: 12,
     marginRight: 14,
-    backgroundColor: '#eee',
+    backgroundColor: COLORS.inputBg,
   },
   name: {
     fontWeight: '700',
     fontSize: 15,
-    color: '#111',
+    color: COLORS.textPrimary,
   },
   email: {
-    color: '#888',
+    color: COLORS.textMuted,
     fontSize: 13,
   },
   caption: {
-    color: '#666',
+    color: COLORS.textSecondary,
     fontSize: 13,
     marginTop: 2,
   },
@@ -300,16 +302,16 @@ const styles = StyleSheet.create({
     paddingVertical: 16,
     paddingHorizontal: 16,
     borderBottomWidth: 1,
-    borderBottomColor: '#f0f0f0',
-    backgroundColor: '#fff',
+    borderBottomColor: COLORS.border,
+    backgroundColor: COLORS.card,
   },
   hashtagName: {
     fontWeight: '700',
     fontSize: 16,
-    color: '#667eea',
+    color: COLORS.info,
   },
   hashtagCount: {
-    color: '#888',
+    color: COLORS.textMuted,
     fontSize: 13,
     marginTop: 4,
   },

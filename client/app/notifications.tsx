@@ -11,6 +11,7 @@ import AcceptDeclineButtons from '@/src/_components/AcceptDeclineButtons';
 import { getNotificationActionText } from '../lib/notificationText';
 import { hapticLight, hapticMedium } from '@/lib/haptics';
 import { safeRouterBack } from '@/lib/safeRouterBack';
+import COLORS from '@/src/theme/colors';
 
 export default function NotificationsScreen() {
     // Default avatar from Firebase Storage
@@ -61,18 +62,18 @@ export default function NotificationsScreen() {
   function getNotificationColor(type: string) {
     switch (type) {
       case 'like': return '#FF6B00';
-      case 'comment': return '#007aff';
+      case 'comment': return COLORS.info;
       case 'follow': return '#FF6B00';
       case 'follow-request': return '#FF6B00';
-      case 'follow-approved': return '#007aff';
+      case 'follow-approved': return COLORS.info;
       case 'new-follower': return '#FF6B00';
       case 'mention': return '#8b5cf6';
       case 'dm':
-      case 'message': return '#007aff';
+      case 'message': return COLORS.info;
       case 'story-mention': return '#FF6B00';
-      case 'story-reply': return '#007aff';
+      case 'story-reply': return COLORS.info;
       case 'tag': return '#FF6B00';
-      default: return '#666';
+      default: return COLORS.textSecondary;
     }
   }
 
@@ -134,11 +135,11 @@ export default function NotificationsScreen() {
         <View style={{ width: '100%', padding: 16 }}>
           {[1,2,3,4].map(i => (
             <View key={i} style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 18 }}>
-              <View style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: '#eee', marginRight: 8 }} />
-              <View style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: '#eee', marginRight: 14 }} />
+              <View style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: COLORS.border, marginRight: 8 }} />
+              <View style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: COLORS.border, marginRight: 14 }} />
               <View style={{ flex: 1 }}>
-                <View style={{ width: '60%', height: 16, borderRadius: 6, backgroundColor: '#eee', marginBottom: 6 }} />
-                <View style={{ width: '40%', height: 13, borderRadius: 6, backgroundColor: '#eee' }} />
+                <View style={{ width: '60%', height: 16, borderRadius: 6, backgroundColor: COLORS.border, marginBottom: 6 }} />
+                <View style={{ width: '40%', height: 13, borderRadius: 6, backgroundColor: COLORS.border }} />
               </View>
             </View>
           ))}
@@ -156,7 +157,7 @@ export default function NotificationsScreen() {
             safeRouterBack();
           }}
         >
-          <Feather name="arrow-left" size={20} color="#007aff" />
+          <Feather name="arrow-left" size={20} color={COLORS.info} />
         </TouchableOpacity>
         <Text style={styles.title}>Notifications</Text>
         <TouchableOpacity
@@ -165,14 +166,14 @@ export default function NotificationsScreen() {
             router.push('/passport' as any);
           }}
         >
-          <Feather name="briefcase" size={20} color="#000" />
+          <Feather name="briefcase" size={20} color={COLORS.black} />
         </TouchableOpacity>
       </View>
 
       {/* Bulk Actions */}
       <View style={{ flexDirection: 'row', gap: 12, margin: 12 }}>
         <TouchableOpacity
-          style={{ backgroundColor: '#007aff', padding: 8, borderRadius: 8 }}
+          style={{ backgroundColor: COLORS.info, padding: 8, borderRadius: 8 }}
           onPress={async () => {
             hapticMedium();
             try {
@@ -182,10 +183,10 @@ export default function NotificationsScreen() {
             }
           }}
         >
-          <Text style={{ color: '#fff', fontWeight: 'bold' }}>Mark All Read</Text>
+          <Text style={{ color: COLORS.textLight, fontWeight: 'bold' }}>Mark All Read</Text>
         </TouchableOpacity>
         <TouchableOpacity
-          style={{ backgroundColor: '#FF3B30', padding: 8, borderRadius: 8 }}
+          style={{ backgroundColor: COLORS.danger, padding: 8, borderRadius: 8 }}
           onPress={async () => {
             hapticMedium();
             try {
@@ -195,13 +196,13 @@ export default function NotificationsScreen() {
             }
           }}
         >
-          <Text style={{ color: '#fff', fontWeight: 'bold' }}>Clear All</Text>
+          <Text style={{ color: COLORS.textLight, fontWeight: 'bold' }}>Clear All</Text>
         </TouchableOpacity>
       </View>
 
       {notifications.length === 0 ? (
         <View style={styles.emptyContainer}>
-          <Feather name="bell-off" size={64} color="#ccc" />
+          <Feather name="bell-off" size={64} color={COLORS.border} />
           <Text style={styles.emptyText}>No notifications yet</Text>
         </View>
       ) : (
@@ -238,7 +239,7 @@ export default function NotificationsScreen() {
                 <View style={{ flex: 1 }}>
                   <Text style={styles.nTitle}>
                     <Text style={{ fontWeight: '700', color: '#FF6B00' }}>{String(item?.senderName || 'Someone')}</Text>
-                    <Text style={{ fontWeight: '400', color: '#444' }}> {getNotificationActionText(item)}</Text>
+                    <Text style={{ fontWeight: '400', color: COLORS.textSecondary }}> {getNotificationActionText(item)}</Text>
                   </Text>
                   <Text style={styles.nBody}>{formatTime(item.createdAt)}</Text>
                 </View>
@@ -265,7 +266,7 @@ export default function NotificationsScreen() {
 const styles = StyleSheet.create({
   container: { 
     flex: 1, 
-    backgroundColor: '#fff' 
+    backgroundColor: COLORS.background 
   },
   header: {
     flexDirection: 'row',
@@ -274,12 +275,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingTop: 8,
     paddingBottom: 12,
-    backgroundColor: '#fff',
+    backgroundColor: COLORS.background,
   },
   title: {
     fontSize: 20,
     fontWeight: 'bold',
-    color: '#222',
+    color: COLORS.textPrimary,
   },
   emptyContainer: {
     flex: 1,
@@ -290,12 +291,12 @@ const styles = StyleSheet.create({
   emptyText: {
     fontSize: 20,
     fontWeight: '600',
-    color: '#333',
+    color: COLORS.textPrimary,
     marginTop: 16,
   },
   emptySubtext: {
     fontSize: 14,
-    color: '#999',
+    color: COLORS.textMuted,
     textAlign: 'center',
     marginTop: 8,
   },
@@ -304,7 +305,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 14,
     paddingHorizontal: 16,
-    backgroundColor: '#fff',
+    backgroundColor: COLORS.background,
   },
   nRowUnread: {
     backgroundColor: '#f0f8ff',
@@ -327,21 +328,21 @@ const styles = StyleSheet.create({
     width: 10,
     height: 10,
     borderRadius: 5,
-    backgroundColor: '#007aff',
+    backgroundColor: COLORS.info,
     marginLeft: 8,
   },
   nTitle: {
     fontSize: 15,
-    color: '#222',
+    color: COLORS.textPrimary,
     marginBottom: 2,
   },
   nBody: {
     fontSize: 13,
-    color: '#999',
+    color: COLORS.textMuted,
   },
   nSep: {
     height: 1,
-    backgroundColor: '#f0f0f0',
+    backgroundColor: COLORS.inputBg,
     marginLeft: 74,
   },
 });

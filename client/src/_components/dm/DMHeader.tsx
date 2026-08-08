@@ -2,6 +2,7 @@ import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Image } from 'react-native';
 import { Feather, Ionicons } from '@expo/vector-icons';
 import { DEFAULT_AVATAR_URL } from '@/lib/api';
+import COLORS from '@/src/theme/colors';
 
 type DMHeaderProps = {
   displayName: string;
@@ -29,7 +30,7 @@ const DMHeader: React.FC<DMHeaderProps> = ({
   return (
     <View style={styles.header}>
       <TouchableOpacity style={styles.backBtn} onPress={onBack}>
-        <Feather name="chevron-left" size={28} color="#000" />
+        <Feather name="chevron-left" size={28} color={COLORS.black} />
       </TouchableOpacity>
 
       <TouchableOpacity style={styles.headerTitle} onPress={onTitlePress || onInfo} activeOpacity={0.7}>
@@ -46,7 +47,7 @@ const DMHeader: React.FC<DMHeaderProps> = ({
 
       <View style={styles.headerActions}>
         <TouchableOpacity style={styles.actionBtn} onPress={onInfo}>
-          <Feather name="info" size={22} color="#000" />
+          <Feather name="info" size={22} color={COLORS.black} />
         </TouchableOpacity>
       </View>
     </View>
@@ -59,7 +60,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 8,
-    backgroundColor: '#fff',
+    backgroundColor: COLORS.background,
     borderBottomWidth: 0,
   },
   backBtn: {
@@ -84,11 +85,11 @@ const styles = StyleSheet.create({
   headerName: {
     fontSize: 16,
     fontWeight: '700',
-    color: '#000',
+    color: COLORS.black,
   },
   headerStatus: {
     fontSize: 11,
-    color: '#0095f6',
+    color: COLORS.info,
     marginTop: 1,
   },
   headerActions: {

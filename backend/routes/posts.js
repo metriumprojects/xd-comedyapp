@@ -808,9 +808,7 @@ router.get('/search', optionalAuth, async (req, res, next) => {
 
     // 3. Pill filter
     let sort = { createdAt: -1 };
-    if (filter === 'videos') {
-      dbQuery.mediaType = 'video';
-    } else if (filter === 'image') {
+    if (filter === 'image') {
       dbQuery.mediaType = { $ne: 'video' };
     } else if (filter === 'laugh') {
       sort = { laughCount: -1, createdAt: -1 };
@@ -820,7 +818,7 @@ router.get('/search', optionalAuth, async (req, res, next) => {
       // Filter only posts with location values
       dbQuery.location = { $exists: true, $ne: '' };
     }
-    // 'posts' filter: no mediaType constraint — returns all types
+    // 'videos' and 'posts' filters: no mediaType constraint — returns all matching posts
 
     // Visibility filter (only public posts)
     dbQuery.$and = dbQuery.$and || [];

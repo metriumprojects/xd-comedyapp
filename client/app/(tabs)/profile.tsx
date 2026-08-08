@@ -7,6 +7,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Alert,
+  Animated,
   Dimensions,
   Image,
   Keyboard,
@@ -34,7 +35,7 @@ import { userService } from '../../lib/userService';
 import { fetchBlockedUserIds, filterOutBlocked } from '../../services/moderation';
 import HighlightCarousel from '@/src/_components/HighlightCarousel';
 import StoriesViewer from '@/src/_components/StoriesViewer';
-import * as Clipboard from 'expo-clipboard';
+import { useQueryClient } from '@tanstack/react-query';
 import { useHeaderVisibility, useHeaderHeight } from './_layout';
 
 import { getTaggedPosts, getUserHighlights as getUserHighlightsAPI, getUserPosts as getUserPostsAPI, getUserProfile as getUserProfileAPI, getUserSections as getUserSectionsAPI } from '@/src/_services/firebaseService';
@@ -58,6 +59,7 @@ import { ProfilePostMarker } from '@/src/_components/profile/ProfilePostMarker';
 
 import ProfileHeader from '@/src/_components/profile/ProfileHeader';
 import ProfileStats from '@/src/_components/profile/ProfileStats';
+import COLORS from '@/src/theme/colors';
 
 import ProfileSections from '@/src/_components/profile/ProfileSections';
 import ProfileModals from '@/src/features/profile/components/ProfileModals';
@@ -305,6 +307,7 @@ export default function Profile({ userIdProp }: any) {
     viewedUserId: viewedUserId as string,
     currentUserId,
     enabled: !!viewedUserId,
+    activeTab: segmentTab,
   });
 
   useAssetPreloader(posts, (item: any) => [
@@ -323,6 +326,7 @@ export default function Profile({ userIdProp }: any) {
   const [postViewerVisible, setPostViewerVisible] = useState<boolean>(false);
   const [selectedPostIndex, setSelectedPostIndex] = useState<number>(0);
   const [segmentTab, setSegmentTab] = useState<'grid' | 'tagged' | 'heart' | 'star' | 'stats'>('grid');
+  const scrollX = useRef(new Animated.Value(0)).current;
   const [editSectionsModal, setEditSectionsModal] = useState<boolean>(false);
   const [viewCollectionsModal, setViewCollectionsModal] = useState<boolean>(false);
   const [followLoading, setFollowLoading] = useState(false);
@@ -578,6 +582,7 @@ export default function Profile({ userIdProp }: any) {
   }, [PROFILE_MAP_ENABLED, segmentTab]);
 
   // Hook for actions
+  const queryClient = useQueryClient();
   const {
     followLoading: actionFollowLoading,
     handleFollowToggle,
@@ -590,8 +595,23 @@ export default function Profile({ userIdProp }: any) {
     isOwnProfile,
     isPrivate: !!profile?.isPrivate,
     isFollowing: !!profile?.isFollowing,
-    setIsFollowing: () => refetchAll(), // Refresh after follow
-    setProfile: () => {}, // Handled by refetch
+    setIsFollowing: (val: boolean) => {
+      queryClient.setQueryData(['profile', viewedUserId, currentUserId], (old: any) => {
+        if (!old) return old;
+        const currentCount = Number(old.followersCount ?? old.followers ?? 0);
+        return {
+          ...old,
+          isFollowing: val,
+          followersCount: val ? currentCount + 1 : Math.max(0, currentCount - 1),
+        };
+      });
+    },
+    setProfile: (val: any) => {
+      queryClient.setQueryData(['profile', viewedUserId, currentUserId], (old: any) => {
+        if (typeof val === 'function') return val(old);
+        return val ? { ...old, ...val } : old;
+      });
+    },
     setApprovedFollower: () => {}, 
     setFollowRequestPending: () => {},
     likedPosts,
@@ -793,14 +813,14 @@ export default function Profile({ userIdProp }: any) {
         {(!profile?.isPrivate || isOwnProfile || !!profile?.isApprovedFollower) && highlights && (highlights.length > 0 || isOwnProfile) && (
           <View style={{ marginTop: 14, marginBottom: 10 }}>
             <View style={{ paddingHorizontal: 16, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
-              <Text style={{ fontSize: 13, fontWeight: '500', color: '#888', letterSpacing: 0.5 }}>HIGHLIGHTS</Text>
+              <Text style={{ fontSize: 13, fontWeight: '500', color: COLORS.textMuted, letterSpacing: 0.5 }}>HIGHLIGHTS</Text>
               {isOwnProfile && (
                 <TouchableOpacity 
-                  style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: '#f5f5f5', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 8, gap: 4 }}
+                  style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: COLORS.surface, paddingHorizontal: 12, paddingVertical: 6, borderRadius: 8, gap: 4 }}
                   onPress={handleAddStory}
                 >
-                  <Feather name="plus" size={12} color="#000" />
-                  <Text style={{ fontSize: 12, fontWeight: '600', color: '#000' }}>Add a story</Text>
+                  <Feather name="plus" size={12} color={COLORS.black} />
+                  <Text style={{ fontSize: 12, fontWeight: '600', color: COLORS.black }}>Add a story</Text>
                 </TouchableOpacity>
               )}
             </View>
@@ -817,73 +837,68 @@ export default function Profile({ userIdProp }: any) {
         {(!profile?.isPrivate || isOwnProfile || !!profile?.isApprovedFollower) && (
           <View style={styles.customProfileTabBar}>
             <TouchableOpacity 
-              style={[styles.customProfileTabItem, segmentTab === 'grid' && styles.customProfileTabItemActive]}
-              onPress={() => { hapticLight(); setSegmentTab('grid'); setSelectedSection(null); }}
+              style={styles.customProfileTabItem}
+              onPress={() => { setSegmentTab('grid'); setSelectedSection(null); }}
             >
-              <Feather name="grid" size={20} color={segmentTab === 'grid' ? '#007aff' : '#8e8e93'} />
+              <Feather name="grid" size={20} color={segmentTab === 'grid' ? COLORS.primary : COLORS.textMuted} />
             </TouchableOpacity>
             <TouchableOpacity 
-              style={[styles.customProfileTabItem, segmentTab === 'tagged' && styles.customProfileTabItemActive]}
-              onPress={() => { hapticLight(); setSegmentTab('tagged'); setSelectedSection(null); }}
+              style={styles.customProfileTabItem}
+              onPress={() => { setSegmentTab('tagged'); setSelectedSection(null); }}
             >
-              <Feather name="user" size={20} color={segmentTab === 'tagged' ? '#007aff' : '#8e8e93'} />
+              <Feather name="user" size={20} color={segmentTab === 'tagged' ? COLORS.primary : COLORS.textMuted} />
             </TouchableOpacity>
             {isOwnProfile && (
               <TouchableOpacity 
-                style={[styles.customProfileTabItem, segmentTab === 'heart' && styles.customProfileTabItemActive]}
-                onPress={() => { hapticLight(); setSegmentTab('heart'); setSelectedSection(null); }}
+                style={styles.customProfileTabItem}
+                onPress={() => { setSegmentTab('heart'); setSelectedSection(null); }}
               >
-                <Feather name="heart" size={20} color={segmentTab === 'heart' ? '#007aff' : '#8e8e93'} />
+                <Feather name="heart" size={20} color={segmentTab === 'heart' ? COLORS.primary : COLORS.textMuted} />
               </TouchableOpacity>
             )}
             {isOwnProfile && (
               <TouchableOpacity 
-                style={[styles.customProfileTabItem, segmentTab === 'star' && styles.customProfileTabItemActive]}
-                onPress={() => { hapticLight(); setSegmentTab('star'); setSelectedSection(null); }}
+                style={styles.customProfileTabItem}
+                onPress={() => { setSegmentTab('star'); setSelectedSection(null); }}
               >
-                <Feather name="star" size={20} color={segmentTab === 'star' ? '#007aff' : '#8e8e93'} />
+                <Feather name="star" size={20} color={segmentTab === 'star' ? COLORS.primary : COLORS.textMuted} />
               </TouchableOpacity>
             )}
             {isOwnProfile && (
               <TouchableOpacity 
-                style={[styles.customProfileTabItem, segmentTab === 'stats' && styles.customProfileTabItemActive]}
-                onPress={() => { hapticLight(); setSegmentTab('stats'); setSelectedSection(null); }}
+                style={styles.customProfileTabItem}
+                onPress={() => { setSegmentTab('stats'); setSelectedSection(null); }}
               >
-                <Ionicons name="bar-chart" size={20} color={segmentTab === 'stats' ? '#007aff' : '#8e8e93'} />
+                <Ionicons name="bar-chart" size={20} color={segmentTab === 'stats' ? COLORS.primary : COLORS.textMuted} />
               </TouchableOpacity>
             )}
-          </View>
-        )}
 
-        {/* Collections Highlights (Moved inside 1st menu / Grid tab) */}
-        {segmentTab === 'grid' && (!profile?.isPrivate || isOwnProfile || !!profile?.isApprovedFollower) && mergedSections && (mergedSections.length > 0 || isOwnProfile) && (
-          <View style={{ marginTop: 8, marginBottom: 4 }}>
-            <ProfileSections
-              sections={mergedSections}
-              selectedSection={selectedSection}
-              onSelectSection={(secName) => {
-                const isSelectingSubFolder = secName === subscriptionTitle;
-                if (isSelectingSubFolder && !isOwnProfile && !isSubscribed) {
-                  setSubModalVisible(true);
-                }
-                setSelectedSection(secName);
-                if (secName) {
-                  setSegmentTab('grid');
-                }
-              }}
-              subscriptionSectionName={subscriptionTitle}
-              isSubscribed={isSubscribed}
-              sectionSourcePosts={sectionSourcePosts}
-              getPostId={getPostId}
-              isOwnProfile={isOwnProfile}
-              currentUserId={currentUserId}
-              onEditSections={() => setEditSectionsModal(true)}
-            />
+            {/* Real-time Sliding Orange Indicator Line */}
+            {(() => {
+              const activeTabsCount = isOwnProfile ? 5 : 2;
+              const tabWidth = SCREEN_WIDTH / activeTabsCount;
+              const indicatorTranslateX = scrollX.interpolate({
+                inputRange: [0, (activeTabsCount - 1) * SCREEN_WIDTH],
+                outputRange: [0, (activeTabsCount - 1) * tabWidth],
+                extrapolate: 'clamp',
+              });
+              return (
+                <Animated.View
+                  style={[
+                    styles.activeIndicatorLine,
+                    {
+                      width: tabWidth,
+                      transform: [{ translateX: indicatorTranslateX }],
+                    },
+                  ]}
+                />
+              );
+            })()}
           </View>
         )}
       </View>
     );
-  }, [profile, userStories, isOwnProfile, profileLoading, passportLocationsCount, posts.length, highlights, highlightViewerVisible, selectedHighlightId, segmentTab, mergedSections, selectedSection, followLoading, viewedUserId, currentUserId, sectionSourcePosts, isSubscribed]);
+  }, [profile, userStories, isOwnProfile, profileLoading, passportLocationsCount, posts.length, highlights, highlightViewerVisible, selectedHighlightId, segmentTab, followLoading, viewedUserId, currentUserId, scrollX]);
 
   const currentPostsArray = useMemo(() => {
     if (segmentTab === 'grid') {
@@ -896,22 +911,21 @@ export default function Profile({ userIdProp }: any) {
     return [];
   }, [segmentTab, visiblePosts, taggedPosts, fetchedLikedPosts, likedPosts, posts, currentUserId]);
 
-
   // UI
   // Show error if not logged in on own profile tab
   if (authResolved && !currentUserId && isOwnProfile) {
     return (
       <SafeAreaView style={styles.container} edges={['top']}>
         <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-          <Text style={{ fontSize: 18, color: '#999', marginBottom: 20 }}>Please log in to view your profile</Text>
+          <Text style={{ fontSize: 18, color: COLORS.textMuted, marginBottom: 20 }}>Please log in to view your profile</Text>
           <TouchableOpacity
-            style={{ backgroundColor: '#007aff', paddingHorizontal: 30, paddingVertical: 12, borderRadius: 8 }}
+            style={{ backgroundColor: COLORS.info, paddingHorizontal: 30, paddingVertical: 12, borderRadius: 8 }}
             onPress={() => {
               hapticLight();
               router.push('/login' as any);
             }}
           >
-            <Text style={{ color: '#fff', fontSize: 16, fontWeight: 'bold' }}>Go to Login</Text>
+            <Text style={{ color: COLORS.textLight, fontSize: 16, fontWeight: 'bold' }}>Go to Login</Text>
           </TouchableOpacity>
         </View>
       </SafeAreaView>
@@ -943,7 +957,7 @@ export default function Profile({ userIdProp }: any) {
           paddingHorizontal: 16,
           paddingTop: 6,
           paddingBottom: 6,
-          backgroundColor: '#fff',
+          backgroundColor: COLORS.background,
           minHeight: 40,
         }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', flexShrink: 1, marginRight: 8 }}>
@@ -954,7 +968,7 @@ export default function Profile({ userIdProp }: any) {
               }}
               style={[styles.headerBackBtn, { marginRight: 8 }]}
             >
-              <Feather name="arrow-left" size={20} color="#000" />
+              <Feather name="arrow-left" size={20} color={COLORS.black} />
             </TouchableOpacity>
           </View>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
@@ -966,11 +980,21 @@ export default function Profile({ userIdProp }: any) {
                 }} 
                 style={styles.headerMenuBtn}
               >
-                <Feather name="message-circle" size={20} color="#000" strokeWidth={2.5} />
+                <Feather name="message-circle" size={20} color={COLORS.black} strokeWidth={2.5} />
               </TouchableOpacity>
             )}
-            <TouchableOpacity onPress={() => { hapticLight(); setUserMenuVisible(true); }} style={styles.headerMenuBtn}>
-              <Feather name="more-vertical" size={20} color="#000" />
+            <TouchableOpacity 
+              onPress={() => { 
+                hapticLight(); 
+                if (isOwnProfile) {
+                  feedEventEmitter.emit('openSettingsMenu');
+                } else {
+                  setUserMenuVisible(true); 
+                }
+              }} 
+              style={styles.headerMenuBtn}
+            >
+              <Feather name="more-vertical" size={20} color={COLORS.black} />
             </TouchableOpacity>
           </View>
         </View>
@@ -978,9 +1002,9 @@ export default function Profile({ userIdProp }: any) {
 
       {showProfileError && (
         <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', padding: 20 }}>
-          <Text style={{ fontSize: 16, color: '#666', marginBottom: 12 }}>Failed to load profile.</Text>
-          <TouchableOpacity onPress={refetchAll} style={{ backgroundColor: '#007aff', paddingHorizontal: 20, paddingVertical: 10, borderRadius: 8 }}>
-            <Text style={{ color: '#fff', fontWeight: 'bold' }}>Retry</Text>
+          <Text style={{ fontSize: 16, color: COLORS.textSecondary, marginBottom: 12 }}>Failed to load profile.</Text>
+          <TouchableOpacity onPress={refetchAll} style={{ backgroundColor: COLORS.info, paddingHorizontal: 20, paddingVertical: 10, borderRadius: 8 }}>
+            <Text style={{ color: COLORS.textLight, fontWeight: 'bold' }}>Retry</Text>
           </TouchableOpacity>
         </View>
       )}
@@ -990,7 +1014,10 @@ export default function Profile({ userIdProp }: any) {
 
       {(!profile?.isPrivate || isOwnProfile || !!profile?.isApprovedFollower) ? (
         <ProfileGrid
-          posts={currentPostsArray}
+          scrollX={scrollX}
+          gridPosts={visiblePosts}
+          taggedPosts={taggedPosts}
+          likedPosts={fetchedLikedPosts || []}
           loading={loading}
           refreshing={refreshing}
           onRefresh={onRefresh}
@@ -1022,16 +1049,38 @@ export default function Profile({ userIdProp }: any) {
           DEFAULT_IMAGE_URL={DEFAULT_IMAGE_URL}
           insetsBottom={insets.bottom}
           segmentTab={segmentTab}
+          onSelectTab={(newTab) => {
+            setSegmentTab(newTab);
+            setSelectedSection(null);
+          }}
           currentUserId={currentUserId}
           creatorPosts={posts}
+          mergedSections={mergedSections}
+          selectedSection={selectedSection}
+          onSelectSection={(secName) => {
+            const isSelectingSubFolder = secName === subscriptionTitle;
+            if (isSelectingSubFolder && !isOwnProfile && !isSubscribed) {
+              setSubModalVisible(true);
+            }
+            setSelectedSection(secName);
+            if (secName) {
+              setSegmentTab('grid');
+            }
+          }}
+          subscriptionTitle={subscriptionTitle}
+          isSubscribed={isSubscribed}
+          sectionSourcePosts={sectionSourcePosts}
+          getPostId={getPostId}
+          isOwnProfile={isOwnProfile}
+          onEditSections={() => setEditSectionsModal(true)}
         />
       ) : (
         <ScrollView contentContainerStyle={{ paddingBottom: 40 }} showsVerticalScrollIndicator={false}>
           {renderProfileHeader}
           <View style={{ padding: 40, alignItems: 'center' }}>
-            <Ionicons name="lock-closed" size={48} color="#ccc" />
-            <Text style={{ marginTop: 10, color: '#999' }}>This account is private</Text>
-            <Text style={{ textAlign: 'center', color: '#999', marginTop: 4 }}>Follow to see their posts and photos.</Text>
+            <Ionicons name="lock-closed" size={48} color={COLORS.border} />
+            <Text style={{ marginTop: 10, color: COLORS.textMuted }}>This account is private</Text>
+            <Text style={{ textAlign: 'center', color: COLORS.textMuted, marginTop: 4 }}>Follow to see their posts and photos.</Text>
           </View>
         </ScrollView>
       )}
@@ -1082,89 +1131,94 @@ const styles = StyleSheet.create({
     marginHorizontal: 16,
     marginTop: 10,
     marginBottom: 2,
-    backgroundColor: '#111',
+    backgroundColor: COLORS.textPrimary,
     borderRadius: 12,
     paddingVertical: 10,
     paddingHorizontal: 12,
     opacity: 0.92,
   },
-  offlineBannerText: { color: '#fff', fontWeight: '700', textAlign: 'center' },
+  offlineBannerText: { color: COLORS.textLight, fontWeight: '700', textAlign: 'center' },
   headerBackBtn: { padding: 4 },
-  headerTitle: { fontSize: 18, fontWeight: 'bold', color: '#222', maxWidth: 200, textAlign: 'left' },
+  headerTitle: { fontSize: 18, fontWeight: 'bold', color: COLORS.textPrimary, maxWidth: 200, textAlign: 'left' },
   headerMenuBtn: { padding: 4 },
   menuOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'flex-end' },
-  menuSheet: { backgroundColor: '#fff', borderTopLeftRadius: 24, borderTopRightRadius: 24, overflow: 'hidden' },
+  menuSheet: { backgroundColor: COLORS.card, borderTopLeftRadius: 24, borderTopRightRadius: 24, overflow: 'hidden' },
   menuSheetContent: { paddingBottom: 20 },
   handleContainer: { width: '100%', alignItems: 'center', paddingTop: 10, paddingBottom: 10 },
-  menuHandle: { width: 40, height: 4, backgroundColor: '#ddd', borderRadius: 2 },
+  menuHandle: { width: 40, height: 4, backgroundColor: COLORS.border, borderRadius: 2 },
   menuItem: { flexDirection: 'row', alignItems: 'center', paddingVertical: 16, paddingHorizontal: 20 },
   menuIconContainer: { width: 32, height: 32, borderRadius: 16, alignItems: 'center', justifyContent: 'center', marginRight: 14 },
-  menuItemText: { fontSize: 16, color: '#222', fontWeight: '500' },
-  container: { flex: 1, backgroundColor: '#fff' },
-  topBar: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, paddingVertical: 10, borderBottomWidth: 0.5, borderBottomColor: '#e0e0e0', justifyContent: 'space-between' },
+  menuItemText: { fontSize: 16, color: COLORS.textPrimary, fontWeight: '500' },
+  container: { flex: 1, backgroundColor: COLORS.background },
+  topBar: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, paddingVertical: 10, borderBottomWidth: 0.5, borderBottomColor: COLORS.border, justifyContent: 'space-between' },
   topIcon: { padding: 4 },
-  topTitle: { fontSize: 16, fontWeight: '600', color: '#000' },
+  topTitle: { fontSize: 16, fontWeight: '600', color: COLORS.textPrimary },
   content: { paddingHorizontal: 0, paddingBottom: 0 },
   avatarContainer: { alignItems: 'center', paddingVertical: 12, marginTop: 4 },
-  avatar: { width: 90, height: 90, borderRadius: 45, backgroundColor: '#eee', borderWidth: 2, borderColor: '#FF8D00' },
-  avatarFallback: { alignItems: 'center', justifyContent: 'center', backgroundColor: '#EEF2FF' },
-  avatarInitials: { fontSize: 26, fontWeight: '800', color: '#667085' },
+  avatar: { width: 90, height: 90, borderRadius: 45, backgroundColor: COLORS.inputBg, borderWidth: 2, borderColor: COLORS.primary },
+  avatarFallback: { alignItems: 'center', justifyContent: 'center', backgroundColor: COLORS.primaryLight },
+  avatarInitials: { fontSize: 26, fontWeight: '800', color: COLORS.textSecondary },
   statsRow: { flexDirection: 'row', justifyContent: 'center', alignItems: 'center', paddingVertical: 8, paddingHorizontal: 16, gap: 24 },
   statItem: { alignItems: 'center', minWidth: 60, gap: 4 },
-  statNum: { fontWeight: '700', fontSize: 18, color: '#000' },
-  statLbl: { fontSize: 12, color: '#444', marginTop: 4, fontWeight: '600' },
+  statNum: { fontWeight: '700', fontSize: 18, color: COLORS.textPrimary },
+  statLbl: { fontSize: 12, color: COLORS.textSecondary, marginTop: 4, fontWeight: '600' },
   infoBlock: { alignItems: 'center', paddingVertical: 8, paddingHorizontal: 16 },
-  displayName: { fontSize: 16, fontWeight: '700', color: '#000' },
-  username: { fontSize: 13, color: '#667eea', marginTop: 2, fontWeight: '500' },
-  bio: { fontSize: 13, color: '#555', marginTop: 4, textAlign: 'center', lineHeight: 18 },
+  displayName: { fontSize: 16, fontWeight: '700', color: COLORS.textPrimary },
+  username: { fontSize: 13, color: COLORS.primary, marginTop: 2, fontWeight: '500' },
+  bio: { fontSize: 13, color: COLORS.textSecondary, marginTop: 4, textAlign: 'center', lineHeight: 18 },
   linksBlock: { marginTop: 6, width: '100%' },
   linkRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 4 },
   linkIconWrap: { width: 22, alignItems: 'center', justifyContent: 'center', marginRight: 8 },
   linkFavicon: { width: 16, height: 16, borderRadius: 4 },
-  linkText: { flex: 1, fontSize: 12, color: '#007aff' },
-  location: { fontSize: 12, color: '#666', marginTop: 3 },
-  phone: { fontSize: 12, color: '#666', marginTop: 3 },
-  interests: { fontSize: 12, color: '#666', marginTop: 3, fontStyle: 'italic' },
+  linkText: { flex: 1, fontSize: 12, color: COLORS.info },
+  location: { fontSize: 12, color: COLORS.textSecondary, marginTop: 3 },
+  phone: { fontSize: 12, color: COLORS.textSecondary, marginTop: 3 },
+  interests: { fontSize: 12, color: COLORS.textSecondary, marginTop: 3, fontStyle: 'italic' },
   passportBtnLarge: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,
-    borderColor: '#ddd',
+    borderColor: COLORS.border,
     borderRadius: 8,
     paddingVertical: 8,
     paddingHorizontal: 24,
     marginTop: 12,
     marginBottom: 8,
-    backgroundColor: '#fff',
+    backgroundColor: COLORS.card,
     minWidth: 140,
   },
   passportBtnText: {
     fontSize: 14,
     fontWeight: '700',
-    color: '#333',
+    color: COLORS.textPrimary,
   },
   pillRow: { flexDirection: 'row', gap: 8, paddingVertical: 8, paddingHorizontal: 16, marginBottom: 0 },
-  pillBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: '#f5f5f5', paddingVertical: 8, borderRadius: 6, borderWidth: 1, borderColor: '#e0e0e0' },
-  pillText: { fontSize: 12, fontWeight: '500', color: '#333' },
-  followBtn: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: '#FF8D00', paddingVertical: 8, borderRadius: 6 },
-  followingBtn: { backgroundColor: '#f5f5f5', borderWidth: 1, borderColor: '#e0e0e0' },
-  followText: { fontSize: 12, fontWeight: '600', color: '#fff' },
-  followingText: { color: '#333' },
+  pillBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: COLORS.inputBg, paddingVertical: 8, borderRadius: 6, borderWidth: 1, borderColor: COLORS.border },
+  pillText: { fontSize: 12, fontWeight: '500', color: COLORS.textPrimary },
+  followBtn: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: COLORS.primary, paddingVertical: 8, borderRadius: 6 },
+  followingBtn: { backgroundColor: COLORS.inputBg, borderWidth: 1, borderColor: COLORS.border },
+  followText: { fontSize: 12, fontWeight: '600', color: COLORS.textLight },
+  followingText: { color: COLORS.textPrimary },
   customProfileTabBar: {
     flexDirection: 'row',
     marginTop: 12,
     marginBottom: 10,
-    backgroundColor: '#fff',
+    backgroundColor: COLORS.background,
+    position: 'relative',
   },
   customProfileTabItem: {
     flex: 1,
     alignItems: 'center',
     paddingVertical: 12,
-    borderBottomWidth: 2,
-    borderBottomColor: 'transparent',
   },
-  customProfileTabItemActive: {
-    borderBottomColor: '#007aff',
+  customProfileTabItemActive: {},
+  activeIndicatorLine: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    height: 2.5,
+    backgroundColor: COLORS.primary,
+    borderRadius: 2,
   },
 });

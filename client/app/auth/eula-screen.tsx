@@ -12,6 +12,7 @@ import {
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@/lib/storage';
+import COLORS from '@/src/theme/colors';
 
 export default function EULAScreen() {
   const router = useRouter();
@@ -34,7 +35,7 @@ export default function EULAScreen() {
         {/* Header */}
         <View style={styles.header}>
           <View style={styles.iconContainer}>
-            <Ionicons name="shield-checkmark" size={40} color="#FF8D00" />
+            <Ionicons name="shield-checkmark" size={40} color={COLORS.primary} />
           </View>
           <Text style={styles.title}>Community Guidelines & Terms</Text>
           <Text style={styles.subtitle}>Please review our terms of use to continue to Comedy App.</Text>
@@ -158,7 +159,7 @@ export default function EULAScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#fff',
+    backgroundColor: COLORS.background,
   },
   content: {
     flex: 1,
@@ -168,13 +169,13 @@ const styles = StyleSheet.create({
     paddingVertical: 20,
     alignItems: 'center',
     borderBottomWidth: 1,
-    borderBottomColor: '#f0f0f0',
+    borderBottomColor: COLORS.border,
   },
   iconContainer: {
     width: 80,
     height: 80,
     borderRadius: 40,
-    backgroundColor: '#F0F7FF',
+    backgroundColor: COLORS.primaryLight,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 16,
@@ -182,12 +183,12 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 24,
     fontWeight: '800',
-    color: '#1a1a1a',
+    color: COLORS.textPrimary,
     textAlign: 'center',
   },
   subtitle: {
     fontSize: 14,
-    color: '#666',
+    color: COLORS.textSecondary,
     marginTop: 8,
     textAlign: 'center',
   },
@@ -203,16 +204,16 @@ const styles = StyleSheet.create({
   legalTitle: {
     fontSize: 18,
     fontWeight: '700',
-    color: '#FF8D00',
+    color: COLORS.primary,
   },
   date: {
     fontSize: 13,
-    color: '#888',
+    color: COLORS.textMuted,
     marginTop: 4,
   },
   introText: {
     fontSize: 15,
-    color: '#333',
+    color: COLORS.textPrimary,
     lineHeight: 22,
     fontWeight: '600',
     marginBottom: 24,
@@ -220,18 +221,18 @@ const styles = StyleSheet.create({
   section: {
     marginBottom: 24,
     borderBottomWidth: 1,
-    borderBottomColor: '#f5f5f5',
+    borderBottomColor: COLORS.border,
     paddingBottom: 20,
   },
   sectionTitle: {
     fontSize: 16,
     fontWeight: '700',
-    color: '#1a1a1a',
+    color: COLORS.textPrimary,
     marginBottom: 10,
   },
   sectionText: {
     fontSize: 14,
-    color: '#555',
+    color: COLORS.textSecondary,
     lineHeight: 22,
   },
   bulletRow: {
@@ -240,27 +241,27 @@ const styles = StyleSheet.create({
   },
   bulletPoint: {
     fontSize: 14,
-    color: '#FF8D00',
+    color: COLORS.primary,
     marginRight: 10,
     fontWeight: 'bold',
   },
   bulletText: {
     fontSize: 14,
-    color: '#555',
+    color: COLORS.textSecondary,
     lineHeight: 22,
     flex: 1,
   },
   safetyBox: {
-    backgroundColor: '#FFF5F5',
+    backgroundColor: COLORS.dangerLight,
     padding: 16,
     borderRadius: 12,
     marginTop: 8,
     borderWidth: 1,
-    borderColor: '#FFEBEB',
+    borderColor: COLORS.dangerLight,
   },
   safetyText: {
     fontSize: 13,
-    color: '#E0245E',
+    color: COLORS.danger,
     fontWeight: '600',
     lineHeight: 18,
   },
@@ -269,19 +270,19 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   acceptButton: {
-    backgroundColor: '#FF8D00',
+    backgroundColor: COLORS.primary,
     paddingVertical: 18,
     borderRadius: 16,
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: '#FF8D00',
+    shadowColor: COLORS.primary,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.2,
     shadowRadius: 8,
     elevation: 4,
   },
   acceptButtonText: {
-    color: '#fff',
+    color: COLORS.textLight,
     fontSize: 18,
     fontWeight: '700',
   },
@@ -290,7 +291,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   declineButtonText: {
-    color: '#ff4d4d',
+    color: COLORS.danger,
     fontSize: 14,
     fontWeight: '600',
   },

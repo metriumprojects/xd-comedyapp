@@ -7,6 +7,7 @@ import { handleSocialAuthResult, signInWithApple, signInWithGoogle, signInWithSn
 import { AuthBrandHeader } from '@/src/_components/auth/AuthBrandHeader';
 import CustomButton from '@/src/_components/auth/CustomButton';
 import SocialButton from '@/src/_components/auth/SocialButton';
+import COLORS from '@/src/theme/colors';
 
 export default function WelcomeScreen() {
   const router = useRouter();
@@ -108,12 +109,7 @@ export default function WelcomeScreen() {
 
             <SocialButton provider="google" onPress={handleGoogleSignIn} style={styles.socialButton} disabled={loading} />
             <SocialButton provider="apple" onPress={handleAppleSignIn} style={styles.socialButton} disabled={loading} />
-            {/* <SocialButton provider="tiktok" onPress={handleTikTokSignIn} style={styles.socialButton} disabled={loading} /> */}
-            {/* <SocialButton provider="snapchat" onPress={handleSnapchatSignIn} style={{ ...styles.socialButton, ...styles.snapButton }} disabled={loading} /> */}
           </View>
-
-
-
         </View>
       </ScrollView>
     </SafeAreaView>
@@ -123,7 +119,7 @@ export default function WelcomeScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#fff',
+    backgroundColor: COLORS.background,
   },
   scrollContent: {
     flexGrow: 1,
@@ -131,8 +127,8 @@ const styles = StyleSheet.create({
   content: {
     flex: 1,
     padding: 20,
-    paddingBottom: 80, // Extra padding to forcefully shift content up
-    justifyContent: 'center', // Vertically center all layout blocks
+    paddingBottom: 80,
+    justifyContent: 'center',
   },
   buttonContainer: {
     marginTop: 15,
@@ -152,11 +148,11 @@ const styles = StyleSheet.create({
   line: {
     flex: 1,
     height: 1,
-    backgroundColor: '#e0e0e0',
+    backgroundColor: COLORS.border,
   },
   dividerText: {
     marginHorizontal: 10,
-    color: '#999',
+    color: COLORS.textMuted,
     fontSize: 14,
   },
   socialButton: {
@@ -174,15 +170,15 @@ const styles = StyleSheet.create({
   },
   footerText: {
     fontSize: 14,
-    color: '#666',
+    color: COLORS.textSecondary,
   },
   footerLink: {
-    color: '#FF8D00',
+    color: COLORS.primary,
     fontWeight: '600',
   },
   agreementText: {
     fontSize: 12,
-    color: '#888',
+    color: COLORS.textMuted,
     textAlign: 'center',
     lineHeight: 18,
   },
@@ -193,7 +189,7 @@ const styles = StyleSheet.create({
   },
   legalLink: {
     fontSize: 12,
-    color: '#007AFF',
+    color: COLORS.info,
     textDecorationLine: 'underline',
   },
 });

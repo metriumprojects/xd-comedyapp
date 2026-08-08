@@ -8,6 +8,7 @@ import { AuthBrandHeader } from '@/src/_components/auth/AuthBrandHeader';
 import { AuthKeyboardScroll } from '@/src/_components/auth/AuthKeyboardScroll';
 import CustomButton from '@/src/_components/auth/CustomButton';
 import { safeRouterBack } from '@/lib/safeRouterBack';
+import COLORS from '@/src/theme/colors';
 
 export default function EmailSignUpScreen() {
   const router = useRouter();
@@ -96,7 +97,7 @@ export default function EmailSignUpScreen() {
                 onPress={() => safeRouterBack()}
                 style={styles.backButton}
               >
-                <Ionicons name="arrow-back" size={24} color="#000" />
+                <Ionicons name="arrow-back" size={24} color={COLORS.black} />
               </TouchableOpacity>
             </View>
 
@@ -111,7 +112,7 @@ export default function EmailSignUpScreen() {
                 <TextInput
                   style={[styles.input, styles.usernameInput, prefillEmail ? styles.inputLocked : null]}
                   placeholder="Please enter your email"
-                  placeholderTextColor="#999"
+                  placeholderTextColor={COLORS.textMuted}
                   value={email}
                   onChangeText={setEmail}
                   keyboardType="email-address"
@@ -121,7 +122,7 @@ export default function EmailSignUpScreen() {
                   editable={!prefillEmail}
                 />
                 {checkingEmail && (
-                  <ActivityIndicator size="small" color="#FF8D00" style={styles.inputIcon} />
+                  <ActivityIndicator size="small" color={COLORS.primary} style={styles.inputIcon} />
                 )}
                 {!checkingEmail && emailAvailable === true && email.includes('@') && (
                   <Ionicons name="checkmark-circle" size={20} color="#4CAF50" style={styles.inputIcon} />
@@ -141,7 +142,7 @@ export default function EmailSignUpScreen() {
                 <TextInput
                   style={[styles.input, styles.usernameInput]}
                   placeholder="Please enter a username"
-                  placeholderTextColor="#999"
+                  placeholderTextColor={COLORS.textMuted}
                   value={username}
                   onChangeText={setUsername}
                   autoCapitalize="none"
@@ -149,7 +150,7 @@ export default function EmailSignUpScreen() {
                   spellCheck={false}
                 />
                 {checkingUsername && (
-                  <ActivityIndicator size="small" color="#FF8D00" style={styles.inputIcon} />
+                  <ActivityIndicator size="small" color={COLORS.primary} style={styles.inputIcon} />
                 )}
                 {!checkingUsername && usernameAvailable === true && username.length >= 3 && (
                   <Ionicons name="checkmark-circle" size={20} color="#4CAF50" style={styles.inputIcon} />
@@ -174,7 +175,7 @@ export default function EmailSignUpScreen() {
               <TextInput
                 style={styles.input}
                 placeholder="Please enter your name (optional)"
-                placeholderTextColor="#999"
+                placeholderTextColor={COLORS.textMuted}
                 value={name}
                 onChangeText={setName}
                 autoCorrect={false}
@@ -187,7 +188,7 @@ export default function EmailSignUpScreen() {
             ) : null}
 
             {/* EULA Text */}
-            <Text style={{ fontSize: 12, color: '#666', textAlign: 'center', marginBottom: 12 }}>
+            <Text style={{ fontSize: 12, color: COLORS.textSecondary, textAlign: 'center', marginBottom: 12 }}>
               By signing up, you agree to our{' '}
               <Text style={{ fontWeight: '600' }} onPress={() => router.push('/legal/terms' as any)}>Terms of Service</Text> and{' '}
               <Text style={{ fontWeight: '600' }} onPress={() => router.push('/legal/privacy' as any)}>Privacy Policy</Text>.
@@ -222,7 +223,7 @@ export default function EmailSignUpScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#fff',
+    backgroundColor: COLORS.background,
   },
   scrollContent: {
     flexGrow: 1,
@@ -249,19 +250,19 @@ const styles = StyleSheet.create({
   },
   label: {
     fontSize: 14,
-    color: '#666',
+    color: COLORS.textSecondary,
     marginBottom: 8,
   },
   input: {
-    backgroundColor: '#f5f5f5',
+    backgroundColor: COLORS.inputBg,
     borderRadius: 8,
     padding: 16,
     fontSize: 16,
-    color: '#000',
+    color: COLORS.textPrimary,
   },
   inputLocked: {
-    backgroundColor: '#ececec',
-    color: '#555',
+    backgroundColor: COLORS.border,
+    color: COLORS.textSecondary,
   },
   inputWrapper: {
     position: 'relative',
@@ -278,11 +279,11 @@ const styles = StyleSheet.create({
   },
   hint: {
     fontSize: 12,
-    color: '#FF8D00',
+    color: COLORS.primary,
     marginTop: 4,
   },
   errorText: {
-    color: '#e74c3c',
+    color: COLORS.danger,
     fontSize: 14,
     marginBottom: 12,
   },
@@ -297,10 +298,10 @@ const styles = StyleSheet.create({
   },
   footerText: {
     fontSize: 14,
-    color: '#666',
+    color: COLORS.textSecondary,
   },
   footerLink: {
-    color: '#FF8D00',
+    color: COLORS.primary,
     fontWeight: '600',
   },
 });

@@ -14,6 +14,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { addStoryToHighlight } from '../../lib/firebaseHelpers/highlights';
 import { useAppDialog } from '@/src/_components/AppDialogProvider';
+import COLORS from '@/src/theme/colors';
 
 interface Story {
   id?: string;
@@ -137,7 +138,7 @@ export default function AddStoriesToHighlightModal({
 
   const renderEmptyState = () => (
     <View style={styles.emptyContainer}>
-      <Ionicons name="images-outline" size={48} color="#ccc" />
+      <Ionicons name="images-outline" size={48} color={COLORS.border} />
       <Text style={styles.emptyText}>No stories available</Text>
     </View>
   );
@@ -148,7 +149,7 @@ export default function AddStoriesToHighlightModal({
         {/* Header */}
         <View style={styles.header}>
           <TouchableOpacity onPress={onClose} style={styles.closeBtn} disabled={loading}>
-            <Ionicons name="close" size={24} color="#000" />
+            <Ionicons name="close" size={24} color={COLORS.black} />
           </TouchableOpacity>
           <Text style={styles.title}>Add Stories to Highlight</Text>
           <View style={{ width: 40 }} />
@@ -198,7 +199,7 @@ export default function AddStoriesToHighlightModal({
             disabled={selectedStories.size === 0 || loading}
           >
             {loading ? (
-              <ActivityIndicator color="#fff" />
+              <ActivityIndicator color={COLORS.textLight} />
             ) : (
               <Text style={styles.addButtonText}>
                 Add {selectedStories.size > 0 ? `(${selectedStories.size})` : ''}
@@ -214,7 +215,7 @@ export default function AddStoriesToHighlightModal({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#fff',
+    backgroundColor: COLORS.background,
   },
   header: {
     flexDirection: 'row',
@@ -232,7 +233,7 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 18,
     fontWeight: '600',
-    color: '#000',
+    color: COLORS.black,
   },
   listContent: {
     padding: 8,
@@ -246,9 +247,9 @@ const styles = StyleSheet.create({
     margin: 8,
     borderRadius: 12,
     overflow: 'hidden',
-    backgroundColor: '#f5f5f5',
+    backgroundColor: COLORS.surface,
     borderWidth: 2,
-    borderColor: '#e0e0e0',
+    borderColor: COLORS.border,
   },
   storyItemSelected: {
     borderColor: '#4CAF50',
@@ -271,11 +272,11 @@ const styles = StyleSheet.create({
   storyUserName: {
     fontSize: 12,
     fontWeight: '600',
-    color: '#000',
+    color: COLORS.black,
   },
   storyDate: {
     fontSize: 11,
-    color: '#999',
+    color: COLORS.textMuted,
   },
   emptyContainer: {
     flex: 1,
@@ -285,7 +286,7 @@ const styles = StyleSheet.create({
   emptyText: {
     marginTop: 12,
     fontSize: 14,
-    color: '#999',
+    color: COLORS.textMuted,
   },
   selectionInfo: {
     paddingHorizontal: 16,
@@ -310,14 +311,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   cancelButton: {
-    backgroundColor: '#f5f5f5',
+    backgroundColor: COLORS.surface,
     borderWidth: 1,
-    borderColor: '#ddd',
+    borderColor: COLORS.border,
   },
   cancelButtonText: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#333',
+    color: COLORS.textPrimary,
   },
   addButton: {
     backgroundColor: '#4CAF50',
@@ -325,7 +326,7 @@ const styles = StyleSheet.create({
   addButtonText: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#fff',
+    color: COLORS.textLight,
   },
   buttonDisabled: {
     opacity: 0.5,

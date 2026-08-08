@@ -10,6 +10,7 @@ import { apiService } from '../_services/apiService';
 import { getUserSectionsSorted } from '../../lib/firebaseHelpers/getUserSectionsSorted';
 import { addUserSection, deleteUserSection, updateUserSection } from '../../lib/firebaseHelpers/index';
 import { updateUserSectionsOrder } from '../../lib/firebaseHelpers/updateUserSectionsOrder';
+import COLORS from '@/src/theme/colors';
 
 type Section = {
   _id?: string;
@@ -526,7 +527,7 @@ export default function EditSectionsModal({
             {/* Header */}
             <View style={styles.header}>
               <TouchableOpacity onPress={onClose} style={styles.closeBtn}>
-                <Ionicons name="close" size={24} color="#000" />
+                <Ionicons name="close" size={24} color={COLORS.black} />
               </TouchableOpacity>
               <Text style={styles.title}>Edit sections</Text>
               <View style={{ width: 40 }} />
@@ -539,7 +540,7 @@ export default function EditSectionsModal({
                   style={styles.createSectionBtn}
                   onPress={() => setShowCreateInput(true)}
                 >
-                  <Ionicons name="add" size={20} color="#000" style={{ marginRight: 8 }} />
+                  <Ionicons name="add" size={20} color={COLORS.black} style={{ marginRight: 8 }} />
                   <Text style={styles.createSectionText}>Create a new section</Text>
                 </TouchableOpacity>
               ) : (isOwner && showCreateInput) ? (
@@ -553,10 +554,10 @@ export default function EditSectionsModal({
                     onSubmitEditing={handleCreateSection}
                   />
                   <TouchableOpacity onPress={handleCreateSection} style={styles.createConfirmBtn}>
-                    <Ionicons name="checkmark" size={20} color="#fff" />
+                    <Ionicons name="checkmark" size={20} color={COLORS.textLight} />
                   </TouchableOpacity>
                   <TouchableOpacity onPress={() => { setShowCreateInput(false); setNewSectionName(''); }} style={styles.createCancelBtn}>
-                    <Ionicons name="close" size={20} color="#666" />
+                    <Ionicons name="close" size={20} color={COLORS.textSecondary} />
                   </TouchableOpacity>
                 </View>
               ) : null}
@@ -627,7 +628,7 @@ export default function EditSectionsModal({
                         <Ionicons 
                           name={v === 'public' ? 'globe-outline' : 'lock-closed-outline'} 
                           size={16} 
-                          color={selectedSection?.visibility === v ? '#fff' : '#666'} 
+                          color={selectedSection?.visibility === v ? COLORS.textLight : COLORS.textSecondary} 
                         />
                         <Text style={[styles.visOptText, selectedSection?.visibility === v && styles.visOptTextActive]}>
                           {v.charAt(0) + v.slice(1)}
@@ -642,7 +643,7 @@ export default function EditSectionsModal({
                 <View style={{ marginTop: 16 }}>
                   <Text style={styles.instructionTitle}>Invite Collaborators</Text>
                   <View style={[styles.searchWrapEdit, { height: 46, borderRadius: 23, backgroundColor: '#f5f7fa', borderWidth: 1, borderColor: '#eef0f2', marginVertical: 8 }]}>
-                    <Ionicons name="search" size={18} color="#FF8D00" style={{ marginRight: 8 }} />
+                    <Ionicons name="search" size={18} color={COLORS.primary} style={{ marginRight: 8 }} />
                     <TextInput
                       style={[styles.searchInputEdit, { fontSize: 15 }]}
                       placeholder="Search people to invite..."
@@ -653,14 +654,14 @@ export default function EditSectionsModal({
                     />
                     {collaboratorInput.length > 0 && (
                       <TouchableOpacity onPress={() => setCollaboratorInput('')}>
-                        <Ionicons name="close-circle" size={18} color="#ccc" />
+                        <Ionicons name="close-circle" size={18} color={COLORS.border} />
                       </TouchableOpacity>
                     )}
                   </View>
                   
                   <ScrollView style={{ maxHeight: 200, marginTop: 8 }} keyboardShouldPersistTaps="handled">
                     {searching ? (
-                      <ActivityIndicator size="small" color="#FF8D00" />
+                      <ActivityIndicator size="small" color={COLORS.primary} />
                     ) : (collaboratorInput.trim().length > 1 ? searchResults : followers.filter(f => 
                         (f.name || f.username || '').toLowerCase().includes(collaboratorInput.toLowerCase())
                       )).map(f => {
@@ -676,7 +677,7 @@ export default function EditSectionsModal({
                             <Ionicons
                               name={isCollab ? "remove-circle" : "add-circle"}
                               size={24}
-                              color={isCollab ? "#ff3b30" : "#4CAF50"}
+                              color={isCollab ? COLORS.danger : "#4CAF50"}
                             />
                           </TouchableOpacity>
                         );
@@ -787,7 +788,7 @@ const SectionRow = ({ item, isOwner, isSelected, onPress, onDelete, onRename, on
           style={[styles.dragHandle, isSelected && { marginRight: 0 }]}
           disabled={!isOwner}
         >
-          <Ionicons name="menu" size={24} color={isOwner ? "#999" : "#eee"} />
+          <Ionicons name="menu" size={24} color={isOwner ? COLORS.textMuted : COLORS.border} />
         </TouchableOpacity>
         {isSelected ? (
           <View style={styles.selectedSectionCard}>
@@ -808,18 +809,18 @@ const SectionRow = ({ item, isOwner, isSelected, onPress, onDelete, onRename, on
             </TouchableOpacity>
             <View style={styles.selectedSectionActions}>
               <View style={styles.selectedSectionActionRow}>
-                <Ionicons name="albums-outline" size={18} color="#fff" style={{ marginRight: 8 }} />
+                <Ionicons name="albums-outline" size={18} color={COLORS.textLight} style={{ marginRight: 8 }} />
                 <Text style={styles.selectedSectionActionText}>{item.postIds?.length || 0} Posts</Text>
               </View>
               
               <TouchableOpacity style={styles.selectedSectionActionRow} onPress={onToggleVisibility} disabled={!isOwner}>
-                <Ionicons name={isPrivate ? "lock-closed-outline" : "globe-outline"} size={18} color="#fff" style={{ marginRight: 8 }} />
+                <Ionicons name={isPrivate ? "lock-closed-outline" : "globe-outline"} size={18} color={COLORS.textLight} style={{ marginRight: 8 }} />
                 <Text style={styles.selectedSectionActionText}>{isPrivate ? "Private" : "Public"} Collection</Text>
               </TouchableOpacity>
 
               {isOwner && (
                 <TouchableOpacity key="delete-action" style={styles.selectedSectionActionRow} onPress={onDelete}>
-                  <Ionicons name="trash-outline" size={18} color="#fff" style={{ marginRight: 8 }} />
+                  <Ionicons name="trash-outline" size={18} color={COLORS.textLight} style={{ marginRight: 8 }} />
                   <Text style={styles.selectedSectionActionText}>Delete this section</Text>
                 </TouchableOpacity>
               )}
@@ -835,14 +836,14 @@ const SectionRow = ({ item, isOwner, isSelected, onPress, onDelete, onRename, on
               <View>
                 <View style={{ flexDirection: 'row', alignItems: 'center' }}>
                   <Text style={styles.sectionRowTitle}>{item.name}</Text>
-                  {isPrivate && <Ionicons name="lock-closed" size={12} color="#666" style={{ marginLeft: 4 }} />}
+                  {isPrivate && <Ionicons name="lock-closed" size={12} color={COLORS.textSecondary} style={{ marginLeft: 4 }} />}
                 </View>
                 <Text style={styles.sectionRowCount}>{item.postIds?.length || 0} Posts</Text>
               </View>
               {item.collaborators && item.collaborators.length > 0 && (
                 <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                  <Ionicons name="people" size={14} color="#666" style={{ marginRight: 4 }} />
-                  <Text style={{ fontSize: 12, color: '#666' }}>{item.collaborators.length}</Text>
+                  <Ionicons name="people" size={14} color={COLORS.textSecondary} style={{ marginRight: 4 }} />
+                  <Text style={{ fontSize: 12, color: COLORS.textSecondary }}>{item.collaborators.length}</Text>
                 </View>
               )}
             </View>
@@ -856,20 +857,20 @@ const SectionRow = ({ item, isOwner, isSelected, onPress, onDelete, onRename, on
 const styles = StyleSheet.create({
     selectedSectionCard: {
       flex: 1,
-      backgroundColor: '#FF8D00',
+      backgroundColor: COLORS.primary,
       borderRadius: 16,
       borderWidth: 2,
-      borderColor: '#FF8D00',
+      borderColor: COLORS.primary,
       padding: 12,
       justifyContent: 'center',
-      shadowColor: '#FF8D00',
+      shadowColor: COLORS.primary,
       shadowOpacity: 0.12,
       shadowRadius: 8,
       shadowOffset: { width: 0, height: 2 },
       elevation: 4,
     },
     selectedSectionInputWrap: {
-      backgroundColor: '#fff',
+      backgroundColor: COLORS.card,
       borderRadius: 8,
       marginBottom: 10,
       paddingHorizontal: 8,
@@ -878,7 +879,7 @@ const styles = StyleSheet.create({
     selectedSectionInput: {
       fontSize: 16,
       fontWeight: '600',
-      color: '#222',
+      color: COLORS.textPrimary,
       paddingVertical: 6,
       paddingHorizontal: 2,
       backgroundColor: 'transparent',
@@ -892,7 +893,7 @@ const styles = StyleSheet.create({
       marginBottom: 8,
     },
     selectedSectionActionText: {
-      color: '#fff',
+      color: COLORS.textLight,
       fontSize: 15,
       fontWeight: '500',
     },
@@ -904,52 +905,58 @@ const styles = StyleSheet.create({
       paddingHorizontal: 8,
       justifyContent: 'center',
     },
-  container: { flex: 1, backgroundColor: '#fff' },
+  container: { flex: 1, backgroundColor: COLORS.background },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 12,
     paddingVertical: 12,
+    borderBottomWidth: 0.5,
+    borderBottomColor: COLORS.border,
   },
   closeBtn: { padding: 8 },
-  title: { fontSize: 16, fontWeight: '600', color: '#000' },
+  title: { fontSize: 16, fontWeight: '600', color: COLORS.textPrimary },
   content: { padding: 16 },
   createSectionBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingVertical: 14,
+    borderBottomWidth: 0.5,
+    borderBottomColor: COLORS.border,
   },
   createSectionText: { fontSize: 15, fontWeight: '500' },
   createInputContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingVertical: 8,
+    borderBottomWidth: 0.5,
+    borderBottomColor: COLORS.border,
     gap: 8,
   },
   createInput: {
     flex: 1,
     borderWidth: 1,
-    borderColor: '#e0e0e0',
+    borderColor: COLORS.border,
     borderRadius: 8,
     paddingHorizontal: 12,
     paddingVertical: 10,
     fontSize: 15,
   },
   createConfirmBtn: {
-    backgroundColor: '#FF8D00',
+    backgroundColor: COLORS.primary,
     padding: 8,
     borderRadius: 8,
   },
   createCancelBtn: {
-    backgroundColor: '#f0f0f0',
+    backgroundColor: COLORS.inputBg,
     padding: 8,
     borderRadius: 8,
   },
   sectionRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#f9f9f9',
+    backgroundColor: COLORS.surface,
     paddingVertical: 16,
     paddingLeft: 4,
     paddingRight: 16,
@@ -957,14 +964,14 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   sectionRowActive: {
-    backgroundColor: '#fff4e6',
+    backgroundColor: COLORS.primaryLight,
     borderWidth: 2,
-    borderColor: '#FF8D00',
+    borderColor: COLORS.primary,
   },
   sectionRowDragging: {
-    backgroundColor: '#fff',
+    backgroundColor: COLORS.card,
     elevation: 5,
-    shadowColor: '#000',
+    shadowColor: COLORS.black,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.2,
     shadowRadius: 4,
@@ -978,23 +985,23 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingLeft: 8,
   },
-  sectionRowTitle: { fontSize: 15, fontWeight: '600', color: '#000' },
-  sectionRowCount: { fontSize: 13, color: '#666', marginTop: 2 },
+  sectionRowTitle: { fontSize: 15, fontWeight: '600', color: COLORS.textPrimary },
+  sectionRowCount: { fontSize: 13, color: COLORS.textSecondary, marginTop: 2 },
   deleteBtn: { padding: 8 },
-  deleteText: { color: '#ff3b30', fontSize: 13, fontWeight: '500' },
+  deleteText: { color: COLORS.danger, fontSize: 13, fontWeight: '500' },
   managementSection: { marginTop: 24 },
-  instructionTitle: { fontSize: 14, fontWeight: '600', color: '#000' },
+  instructionTitle: { fontSize: 14, fontWeight: '600', color: COLORS.textPrimary },
   modeToggle: { flexDirection: 'row', gap: 8, marginTop: 12 },
   modeBtn: {
     flex: 1,
     paddingVertical: 8,
     borderRadius: 6,
-    backgroundColor: '#f0f0f0',
+    backgroundColor: COLORS.inputBg,
     alignItems: 'center',
   },
-  modeBtnActive: { backgroundColor: '#FF8D00' },
-  modeBtnText: { fontSize: 13, fontWeight: '500', color: '#000' },
-  modeBtnTextActive: { color: '#fff' },
+  modeBtnActive: { backgroundColor: COLORS.primary },
+  modeBtnText: { fontSize: 13, fontWeight: '500', color: COLORS.textPrimary },
+  modeBtnTextActive: { color: COLORS.textLight },
   grid: { flexDirection: 'row', flexWrap: 'wrap', marginTop: 8 },
   gridItem: { width: '33.3333%', aspectRatio: 1, padding: 1 },
   gridImage: { width: '100%', height: '100%' },
@@ -1008,7 +1015,7 @@ const styles = StyleSheet.create({
     height: 28,
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: '#000',
+    shadowColor: COLORS.black,
     shadowOpacity: 0.2,
     shadowRadius: 4,
     shadowOffset: { width: 0, height: 2 },
@@ -1039,18 +1046,18 @@ const styles = StyleSheet.create({
     marginTop: 24,
     paddingBottom: 40,
   },
-  clearText: { fontSize: 16, color: '#666' },
+  clearText: { fontSize: 16, color: COLORS.textSecondary },
   saveBtn: {
-    backgroundColor: '#FF8D00',
+    backgroundColor: COLORS.primary,
     paddingHorizontal: 32,
     paddingVertical: 10,
     borderRadius: 8,
   },
-  saveBtnText: { fontSize: 16, fontWeight: '600', color: '#fff' },
+  saveBtnText: { fontSize: 16, fontWeight: '600', color: COLORS.textLight },
   collaboratorTag: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#f0f0f0',
+    backgroundColor: COLORS.inputBg,
     borderRadius: 16,
     paddingHorizontal: 12,
     paddingVertical: 6,
@@ -1058,7 +1065,7 @@ const styles = StyleSheet.create({
   },
     followerNameEdit: {
       fontSize: 14,
-      color: '#333',
+      color: COLORS.textPrimary,
       flex: 1,
     },
     visibilityOptions: {
@@ -1073,27 +1080,27 @@ const styles = StyleSheet.create({
       justifyContent: 'center',
       paddingVertical: 8,
       borderRadius: 8,
-      backgroundColor: '#f0f0f0',
+      backgroundColor: COLORS.inputBg,
       gap: 6,
     },
     visOptActive: {
-      backgroundColor: '#FF8D00',
+      backgroundColor: COLORS.primary,
     },
     visOptText: {
       fontSize: 12,
-      color: '#666',
+      color: COLORS.textSecondary,
       fontWeight: '500',
     },
     visOptTextActive: {
-      color: '#fff',
+      color: COLORS.textLight,
     },
     specificGroups: {
-      backgroundColor: '#fdfdfd',
+      backgroundColor: COLORS.surface,
       padding: 10,
       borderRadius: 8,
       marginTop: 8,
       borderWidth: 1,
-      borderColor: '#f0f0f0',
+      borderColor: COLORS.border,
     },
     groupRowEdit: {
       flexDirection: 'row',
@@ -1103,28 +1110,28 @@ const styles = StyleSheet.create({
     },
     groupNameEdit: {
       fontSize: 14,
-      color: '#444',
+      color: COLORS.textSecondary,
     },
     groupNameSelectedEdit: {
-      color: '#FF8D00',
+      color: COLORS.primary,
       fontWeight: '600',
     },
     infoText: {
       fontSize: 12,
-      color: '#999',
+      color: COLORS.textMuted,
       fontStyle: 'italic',
     },
     searchWrapEdit: {
       flexDirection: 'row',
       alignItems: 'center',
-      backgroundColor: '#f5f7fa',
+      backgroundColor: COLORS.inputBg,
       borderRadius: 23,
       paddingHorizontal: 16,
       marginTop: 8,
       marginHorizontal: 16,
       height: 46,
       borderWidth: 1,
-      borderColor: '#eef0f2',
+      borderColor: COLORS.border,
     },
     searchInputEdit: {
       flex: 1,
@@ -1138,18 +1145,18 @@ const styles = StyleSheet.create({
       paddingVertical: 10,
       paddingHorizontal: 16,
       borderBottomWidth: StyleSheet.hairlineWidth,
-      borderBottomColor: '#eee',
+      borderBottomColor: COLORS.border,
       gap: 12,
     },
     followerAvatarEdit: {
       width: 36,
       height: 36,
       borderRadius: 18,
-      backgroundColor: '#eee',
+      backgroundColor: COLORS.inputBg,
     },
   collaboratorText: {
     fontSize: 13,
-    color: '#333',
+    color: COLORS.textPrimary,
     fontWeight: '500',
   },
 });

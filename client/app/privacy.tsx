@@ -4,6 +4,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { toggleUserPrivacy } from '../lib/firebaseHelpers';
 import { useUser } from '@/src/_components/UserContext';
 import AsyncStorage from '@/lib/storage';
+import COLORS from '@/src/theme/colors';
 
 
 export default function PrivacyScreen() {
@@ -61,7 +62,7 @@ export default function PrivacyScreen() {
 
   if (loading) return (
     <SafeAreaView style={styles.container}>
-      <ActivityIndicator style={{ marginTop: 32 }} size="large" color="#FF6B00" />
+      <ActivityIndicator style={{ marginTop: 32 }} size="large" color={COLORS.primary} />
     </SafeAreaView>
   );
 
@@ -71,7 +72,7 @@ export default function PrivacyScreen() {
       <View style={styles.card}>
         <View style={styles.row}>
           <Text style={styles.label}>Private Account</Text>
-          <Switch value={isPrivate} onValueChange={handleToggle} thumbColor="#FF6B00" />
+          <Switch value={isPrivate} onValueChange={handleToggle} thumbColor={COLORS.primary} />
         </View>
         <Text style={styles.info}>
           {isPrivate
@@ -90,12 +91,12 @@ export default function PrivacyScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#fff', padding: 24 },
-  header: { fontWeight: '700', fontSize: 24, color: '#FF6B00', marginBottom: 24, textAlign: 'center' },
-  card: { backgroundColor: '#f7f7f7', borderRadius: 16, padding: 20, shadowColor: '#000', shadowOpacity: 0.08, shadowRadius: 8, elevation: 8 },
+  container: { flex: 1, backgroundColor: COLORS.background, padding: 24 },
+  header: { fontWeight: '700', fontSize: 24, color: COLORS.primary, marginBottom: 24, textAlign: 'center' },
+  card: { backgroundColor: COLORS.surface, borderRadius: 16, padding: 20, shadowColor: COLORS.black, shadowOpacity: 0.08, shadowRadius: 8, elevation: 8 },
   row: { flexDirection: 'row', alignItems: 'center', marginBottom: 18, justifyContent: 'space-between' },
-  label: { fontSize: 17, color: '#222', fontWeight: '600' },
-  info: { fontSize: 14, color: '#666', marginBottom: 8, textAlign: 'center' },
-  debugCard: { backgroundColor: '#f0f0f0', borderRadius: 8, padding: 12, marginTop: 16, borderLeftWidth: 3, borderLeftColor: '#FF6B00' },
-  debugText: { fontSize: 11, color: '#666', marginVertical: 2, fontFamily: 'monospace' },
+  label: { fontSize: 17, color: COLORS.textPrimary, fontWeight: '600' },
+  info: { fontSize: 14, color: COLORS.textSecondary, marginBottom: 8, textAlign: 'center' },
+  debugCard: { backgroundColor: COLORS.inputBg, borderRadius: 8, padding: 12, marginTop: 16, borderLeftWidth: 3, borderLeftColor: COLORS.primary },
+  debugText: { fontSize: 11, color: COLORS.textSecondary, marginVertical: 2, fontFamily: 'monospace' },
 });

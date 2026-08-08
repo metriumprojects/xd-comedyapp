@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator } from 'rea
 import { Image as ExpoImage } from 'expo-image';
 import { Feather } from '@expo/vector-icons';
 import { DEFAULT_AVATAR_URL } from '@/lib/api';
+import COLORS from '@/src/theme/colors';
 
 type ConversationItemProps = {
   item: any;
@@ -54,7 +55,7 @@ const ConversationItem: React.FC<ConversationItemProps> = ({
         <View style={[styles.avatarRing, hasUnread && styles.avatarRingUnread, { overflow: 'hidden' }]}>
           {isDefaultAvatar ? (
             <View style={[styles.avatar, { backgroundColor: '#788d9a', alignItems: 'center', justifyContent: 'center' }]}>
-              <Text style={{ color: '#fff', fontSize: 26, fontWeight: '700' }}>
+              <Text style={{ color: COLORS.textLight, fontSize: 26, fontWeight: '700' }}>
                 {String(displayName || 'U').trim().charAt(0).toUpperCase()}
               </Text>
             </View>
@@ -85,7 +86,7 @@ const ConversationItem: React.FC<ConversationItemProps> = ({
       <View style={styles.chatRight}>
         {hasUnread ? <View style={styles.blueDot} /> : <View style={{ width: 10 }} />}
         {isSendingMedia ? (
-          <ActivityIndicator size="small" color="#FF8D00" style={{ marginRight: 4 }} />
+          <ActivityIndicator size="small" color={COLORS.primary} style={{ marginRight: 4 }} />
         ) : (
           <TouchableOpacity
             onPress={(e) => {
@@ -94,7 +95,7 @@ const ConversationItem: React.FC<ConversationItemProps> = ({
             }}
             hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
           >
-            <Feather name="camera" size={22} color="#000" />
+            <Feather name="camera" size={22} color={COLORS.black} />
           </TouchableOpacity>
         )}
       </View>
@@ -133,7 +134,7 @@ const styles = StyleSheet.create({
   },
   username: {
     fontSize: 14,
-    color: '#000',
+    color: COLORS.textPrimary,
     fontWeight: '500',
   },
   usernameBold: {
@@ -141,11 +142,11 @@ const styles = StyleSheet.create({
   },
   preview: {
     fontSize: 13,
-    color: '#8e8e8e',
+    color: COLORS.textMuted,
     marginTop: 2,
   },
   previewBold: {
-    color: '#000',
+    color: COLORS.textPrimary,
     fontWeight: '600',
   },
   chatRight: {
@@ -156,7 +157,7 @@ const styles = StyleSheet.create({
     width: 8,
     height: 8,
     borderRadius: 4,
-    backgroundColor: '#FF8D00',
+    backgroundColor: COLORS.primary,
     marginRight: 12,
   },
   onlineDot: {
@@ -166,9 +167,9 @@ const styles = StyleSheet.create({
     width: 14,
     height: 14,
     borderRadius: 7,
-    backgroundColor: '#4CAF50',
+    backgroundColor: COLORS.success,
     borderWidth: 2,
-    borderColor: '#fff',
+    borderColor: COLORS.background,
   },
 });
 

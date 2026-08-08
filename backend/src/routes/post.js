@@ -24,37 +24,47 @@ router.get('/feed', optionalAuth, async (req, res) => {
     // Redis caching
     const cacheKey = `feed:skip_${skip}:limit_${limit}`;
     const cachedFeed = await get(cacheKey);
+    let finalFeed = [];
+
     if (cachedFeed) {
-      return res.json({ success: true, data: cachedFeed, source: 'cache' });
+      finalFeed = cachedFeed;
+    } else {
+      const db = mongoose.connection.db;
+      const postsCollection = db.collection('posts');
+      const userId = req.userId ? String(req.userId) : null;
+
+      // Use aggregation for high-performance field selection and computed values
+      const pipeline = [
+        { $sort: { createdAt: -1 } },
+        { $skip: skip },
+        { $limit: limit },
+        {
+          $addFields: {
+            isLiked: userId ? { $in: [userId, { $ifNull: ["$likes", []] }] } : false,
+            id: "$_id"
+          }
+        },
+        {
+          $project: {
+            likes: 0,
+            comments: 0
+          }
+        }
+      ];
+
+      finalFeed = await postsCollection.aggregate(pipeline).toArray();
+      await set(cacheKey, finalFeed || [], 120);
     }
 
-    const db = mongoose.connection.db;
-    const postsCollection = db.collection('posts');
-    const userId = req.userId ? String(req.userId) : null;
+    // Filter out posts reported by the current user
+    if (req.userId) {
+      const Report = require('../models/Report');
+      const reportedPosts = await Report.find({ reporterId: String(req.userId), targetType: 'post' }).select('targetId').lean();
+      const reportedIds = reportedPosts.map(r => String(r.targetId));
+      finalFeed = finalFeed.filter(post => !reportedIds.includes(String(post._id || post.id)));
+    }
 
-    // Use aggregation for high-performance field selection and computed values
-    const pipeline = [
-      { $sort: { createdAt: -1 } },
-      { $skip: skip },
-      { $limit: limit },
-      {
-        $addFields: {
-          isLiked: userId ? { $in: [userId, { $ifNull: ["$likes", []] }] } : false,
-          id: "$_id"
-        }
-      },
-      {
-        $project: {
-          likes: 0,
-          comments: 0
-        }
-      }
-    ];
-
-    const posts = await postsCollection.aggregate(pipeline).toArray();
-
-    await set(cacheKey, posts || [], 120);
-    res.json({ success: true, data: posts || [], source: 'db' });
+    res.json({ success: true, data: finalFeed || [], source: cachedFeed ? 'cache' : 'db' });
   } catch (err) {
     res.status(500).json({ success: false, error: 'Failed to fetch feed', data: [] });
   }
@@ -126,6 +136,81 @@ router.get('/by-location', optionalAuth, async (req, res) => {
     res.json({ success: true, data: posts || [] });
   } catch (err) {
     res.status(500).json({ success: false, error: 'Location search failed', data: [] });
+  }
+});
+
+// Search posts by caption, hashtags, tags, or location (GET /api/posts/search?q=query&filter=videos)
+// MUST be placed before /:id route!
+router.get('/search', optionalAuth, async (req, res) => {
+  try {
+    const rawQ = req.query.q || req.query.query || '';
+    const filterMode = req.query.filter || 'videos';
+    const trimmed = String(rawQ).trim();
+
+    const limit = Math.min(50, Math.max(1, parseInt(req.query.limit) || 30));
+    const db = mongoose.connection.db;
+    const postsCollection = db.collection('posts');
+    const userId = req.userId ? String(req.userId) : null;
+
+    // Visibility: include public posts + own posts (if logged in)
+    // Also include docs where visibility field doesn't exist at all (older posts)
+    const visibilityFilter = {
+      $or: [
+        { visibility: { $exists: false } },
+        { visibility: null },
+        { visibility: { $in: ['Everyone', 'everyone', 'public'] } },
+        ...(userId ? [{ userId: userId }] : [])
+      ]
+    };
+
+    let queryConditions = [visibilityFilter];
+
+    if (trimmed) {
+      const cleanTag = trimmed.replace(/^#/, '');
+      const escapedQ = escapeRegex(cleanTag || trimmed);
+
+      if (filterMode === 'location') {
+        // Location capsule: Search specifically by location name / place
+        queryConditions.push({
+          $or: [
+            { location: { $regex: escapedQ, $options: 'i' } },
+            { 'locationData.name': { $regex: escapedQ, $options: 'i' } },
+            { 'locationData.address': { $regex: escapedQ, $options: 'i' } },
+            { 'locationData.city': { $regex: escapedQ, $options: 'i' } }
+          ]
+        });
+      } else {
+        // Videos / Laugh / Tomato capsules: Search caption, text, hashtags, tags, location
+        queryConditions.push({
+          $or: [
+            { caption: { $regex: escapedQ, $options: 'i' } },
+            { text: { $regex: escapedQ, $options: 'i' } },
+            { hashtags: { $regex: escapedQ, $options: 'i' } },
+            { tags: { $regex: escapedQ, $options: 'i' } },
+            { location: { $regex: escapedQ, $options: 'i' } },
+            { 'locationData.name': { $regex: escapedQ, $options: 'i' } }
+          ]
+        });
+      }
+    }
+
+    let sortOption = { _id: -1 };
+    if (filterMode === 'laugh') {
+      sortOption = { laughCount: -1, laughs: -1, _id: -1 };
+    } else if (filterMode === 'tomato') {
+      sortOption = { tomatoCount: -1, tomatoes: -1, _id: -1 };
+    }
+
+    const posts = await postsCollection
+      .find({ $and: queryConditions })
+      .sort(sortOption)
+      .limit(limit)
+      .toArray();
+
+    res.json({ success: true, data: posts || [] });
+  } catch (err) {
+    console.error('[Posts Search] Error:', err);
+    res.status(500).json({ success: false, error: 'Search failed', data: [] });
   }
 });
 

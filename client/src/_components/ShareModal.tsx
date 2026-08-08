@@ -21,6 +21,7 @@ import { useRouter } from 'expo-router';
 import { apiService } from '../_services/apiService'; // Fixed import path
 import { DEFAULT_AVATAR_URL } from '@/lib/api';
 import { getAPIBaseURL } from '../../config/environment';
+import COLORS from '@/src/theme/colors';
 
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
@@ -174,13 +175,15 @@ export default function ShareModal({
         if (onAddToStory) {
           onAddToStory();
         } else {
-          router.push({
-            pathname: '/story-creator',
-            params: {
-              sharePostId: postId,
-              sharePostData: JSON.stringify(sharePayload)
-            }
-          } as any);
+          setTimeout(() => {
+            router.push({
+              pathname: '/story-creator',
+              params: {
+                sharePostId: postId,
+                sharePostData: JSON.stringify(sharePayload)
+              }
+            } as any);
+          }, Platform.OS === 'ios' ? 250 : 100);
         }
         break;
 
@@ -427,7 +430,7 @@ export default function ShareModal({
           <Image source={{ uri: item.avatar }} style={styles.userAvatar} />
           {isSelected && (
             <View style={styles.selectedOverlay}>
-              <Ionicons name="checkmark-circle" size={24} color="#0095f6" />
+              <Ionicons name="checkmark-circle" size={24} color={COLORS.info} />
             </View>
           )}
         </View>
@@ -481,13 +484,13 @@ export default function ShareModal({
                   router.push({ pathname: '/new-group', params } as any);
                 }}
               >
-                <Ionicons name="people-outline" size={22} color="#6b7280" />
+                <Ionicons name="people-outline" size={22} color={COLORS.textSecondary} />
               </TouchableOpacity>
             </View>
 
             <View style={styles.usersListContainer}>
               {loading ? (
-                <ActivityIndicator size="small" color="#0095f6" style={{ marginTop: 20 }} />
+                <ActivityIndicator size="small" color={COLORS.info} style={{ marginTop: 20 }} />
               ) : (
                 <FlatList 
                   data={users}
@@ -513,7 +516,7 @@ export default function ShareModal({
                       onPress={() => handleQuickAction('story')}
                     >
                       <View style={styles.quickActionIconCircle}>
-                        <Ionicons name="add-circle-outline" size={24} color="#111827" />
+                        <Ionicons name="add-circle-outline" size={24} color={COLORS.textPrimary} />
                       </View>
                       <Text style={styles.quickActionLabel}>Add to story</Text>
                     </TouchableOpacity>
@@ -524,7 +527,7 @@ export default function ShareModal({
                       onPress={() => handleQuickAction('whatsapp')}
                     >
                       <View style={[styles.quickActionIconCircle, styles.quickActionIconGreen]}>
-                        <Ionicons name="logo-whatsapp" size={24} color="#fff" />
+                        <Ionicons name="logo-whatsapp" size={24} color={COLORS.textLight} />
                       </View>
                       <Text style={styles.quickActionLabel}>WhatsApp</Text>
                     </TouchableOpacity>
@@ -535,7 +538,7 @@ export default function ShareModal({
                       onPress={() => handleQuickAction('copy_link')}
                     >
                       <View style={styles.quickActionIconCircle}>
-                        <Ionicons name="link-outline" size={24} color="#111827" />
+                        <Ionicons name="link-outline" size={24} color={COLORS.textPrimary} />
                       </View>
                       <Text style={styles.quickActionLabel}>Copy link</Text>
                     </TouchableOpacity>
@@ -546,7 +549,7 @@ export default function ShareModal({
                       onPress={() => handleQuickAction('whatsapp_status')}
                     >
                       <View style={[styles.quickActionIconCircle, styles.quickActionIconGreen]}>
-                        <Ionicons name="refresh-circle-outline" size={24} color="#fff" />
+                        <Ionicons name="refresh-circle-outline" size={24} color={COLORS.textLight} />
                       </View>
                       <Text style={styles.quickActionLabel}>WhatsApp Status</Text>
                     </TouchableOpacity>
@@ -557,7 +560,7 @@ export default function ShareModal({
                       onPress={() => handleQuickAction('share')}
                     >
                       <View style={styles.quickActionIconCircle}>
-                        <Ionicons name="share-social-outline" size={24} color="#111827" />
+                        <Ionicons name="share-social-outline" size={24} color={COLORS.textPrimary} />
                       </View>
                       <Text style={styles.quickActionLabel}>Share</Text>
                     </TouchableOpacity>
@@ -621,13 +624,13 @@ export default function ShareModal({
                 router.push({ pathname: '/new-group', params } as any);
               }}
             >
-              <Ionicons name="people-outline" size={22} color="#6b7280" />
+              <Ionicons name="people-outline" size={22} color={COLORS.textSecondary} />
             </TouchableOpacity>
           </View>
 
           <View style={styles.usersListContainer}>
             {loading ? (
-              <ActivityIndicator size="small" color="#0095f6" style={{ marginTop: 20 }} />
+              <ActivityIndicator size="small" color={COLORS.info} style={{ marginTop: 20 }} />
             ) : (
               <FlatList 
                 data={users}
@@ -653,7 +656,7 @@ export default function ShareModal({
                     onPress={() => handleQuickAction('story')}
                   >
                     <View style={styles.quickActionIconCircle}>
-                      <Ionicons name="add-circle-outline" size={24} color="#111827" />
+                      <Ionicons name="add-circle-outline" size={24} color={COLORS.textPrimary} />
                     </View>
                     <Text style={styles.quickActionLabel}>Add to story</Text>
                   </TouchableOpacity>
@@ -664,7 +667,7 @@ export default function ShareModal({
                     onPress={() => handleQuickAction('whatsapp')}
                   >
                     <View style={[styles.quickActionIconCircle, styles.quickActionIconGreen]}>
-                      <Ionicons name="logo-whatsapp" size={24} color="#fff" />
+                      <Ionicons name="logo-whatsapp" size={24} color={COLORS.textLight} />
                     </View>
                     <Text style={styles.quickActionLabel}>WhatsApp</Text>
                   </TouchableOpacity>
@@ -675,7 +678,7 @@ export default function ShareModal({
                     onPress={() => handleQuickAction('copy_link')}
                   >
                     <View style={styles.quickActionIconCircle}>
-                      <Ionicons name="link-outline" size={24} color="#111827" />
+                      <Ionicons name="link-outline" size={24} color={COLORS.textPrimary} />
                     </View>
                     <Text style={styles.quickActionLabel}>Copy link</Text>
                   </TouchableOpacity>
@@ -686,7 +689,7 @@ export default function ShareModal({
                     onPress={() => handleQuickAction('whatsapp_status')}
                   >
                     <View style={[styles.quickActionIconCircle, styles.quickActionIconGreen]}>
-                      <Ionicons name="refresh-circle-outline" size={24} color="#fff" />
+                      <Ionicons name="refresh-circle-outline" size={24} color={COLORS.textLight} />
                     </View>
                     <Text style={styles.quickActionLabel}>WhatsApp Status</Text>
                   </TouchableOpacity>
@@ -697,7 +700,7 @@ export default function ShareModal({
                     onPress={() => handleQuickAction('share')}
                   >
                     <View style={styles.quickActionIconCircle}>
-                      <Ionicons name="share-social-outline" size={24} color="#111827" />
+                      <Ionicons name="share-social-outline" size={24} color={COLORS.textPrimary} />
                     </View>
                     <Text style={styles.quickActionLabel}>Share</Text>
                   </TouchableOpacity>
@@ -728,7 +731,7 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
   },
   container: {
-    backgroundColor: '#fff',
+    backgroundColor: COLORS.background,
     borderTopLeftRadius: 16,
     borderTopRightRadius: 16,
     height: '80%',
@@ -770,7 +773,7 @@ const styles = StyleSheet.create({
     flex: 1,
     marginLeft: 8,
     fontSize: 16,
-    color: '#000',
+    color: COLORS.black,
   },
   createGroupBtn: {
     marginLeft: 12,
@@ -803,13 +806,13 @@ const styles = StyleSheet.create({
     width: 65,
     height: 65,
     borderRadius: 32.5,
-    backgroundColor: '#eee',
+    backgroundColor: COLORS.border,
   },
   selectedOverlay: {
     position: 'absolute',
     bottom: 0,
     right: 0,
-    backgroundColor: '#fff',
+    backgroundColor: COLORS.background,
     borderRadius: 12,
   },
   username: {
@@ -827,13 +830,13 @@ const styles = StyleSheet.create({
   bottomContainer: {
     borderTopWidth: 1,
     borderTopColor: '#ececec',
-    backgroundColor: '#fff',
+    backgroundColor: COLORS.background,
     paddingHorizontal: 6,
     paddingTop: 10,
     paddingBottom: Platform.OS === 'ios' ? 24 : 12,
   },
   sendBtn: {
-    backgroundColor: '#FF8D00',
+    backgroundColor: COLORS.primary,
     marginHorizontal: 16,
     marginTop: 16,
     borderRadius: 8,
@@ -842,7 +845,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   sendBtnText: {
-    color: '#fff',
+    color: COLORS.textLight,
     fontSize: 16,
     fontWeight: '700',
   },

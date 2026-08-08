@@ -456,9 +456,13 @@ export const useCreatePost = (params: any = {}) => {
 
   const handleHashtagCommit = () => {
     if (!hashtagInput.trim()) return;
-    const tag = hashtagInput.trim().replace(/^#/, '');
-    if (!hashtags.includes(tag)) {
-      setHashtags(prev => [...prev, tag]);
+    const rawTags = hashtagInput.split(/[\s,]+/);
+    const newTags = rawTags
+      .map(t => t.trim().replace(/^#/, ''))
+      .filter(t => t.length > 0);
+
+    if (newTags.length > 0) {
+      setHashtags(prev => [...new Set([...prev, ...newTags])]);
     }
     setHashtagInput('');
     hapticLight();
@@ -470,79 +474,94 @@ export const useCreatePost = (params: any = {}) => {
       return;
     }
 
-    setLoading(true);
     try {
       hapticMedium();
       const authUserId = await getAuthenticatedUserId();
       if (!authUserId) throw new Error('User not authenticated');
 
-      // Check if ANY selected media is a video
       const isVideo = selectedImages.some(uri => isVideoUri(uri, galleryAssets));
       
-      let res;
-      if (params.editPostId) {
-        res = await updatePost(
-          params.editPostId as string,
-          authUserId,
-          selectedImages,
-          caption,
-          verifiedLocation?.name || location?.name || '',
-          isVideo ? 'video' : 'image',
-          verifiedLocation || location || undefined,
-          taggedUsers.map(u => u.uid),
-          selectedCategories.length > 0 ? selectedCategories[0].name : undefined,
-          hashtags,
-          [], // mentions
-          visibility,
-          selectedGroupId ? [selectedGroupId] : [],
-          postType === 'STORY' ? 'story' : 'post',
-          undefined,
-          undefined,
-          subscriptionTierId
-        );
-      } else {
-        res = await createPost(
-          authUserId,
-          selectedImages,
-          caption,
-          verifiedLocation?.name || location?.name || '',
-          isVideo ? 'video' : 'image',
-          verifiedLocation || location || undefined,
-          taggedUsers.map(u => u.uid),
-          selectedCategories.length > 0 ? selectedCategories[0].name : undefined,
-          hashtags,
-          [], // mentions
-          visibility,
-          selectedGroupId ? [selectedGroupId] : [],
-          postType === 'STORY' ? 'story' : 'post',
-          customThumbnailUri || undefined,
-          undefined,
-          subscriptionTierId,
-          galleryAssets
-        );
-      }
+      const { useUploadQueue } = require('@/lib/useUploadQueue');
 
-      if (res && res.success) {
-        hapticSuccess();
+      const uploadAction = async () => {
+        let res;
         if (params.editPostId) {
-          feedEventEmitter.emitFeedUpdate({ type: 'POST_UPDATED', postId: params.editPostId as string });
+          res = await updatePost(
+            params.editPostId as string,
+            authUserId,
+            selectedImages,
+            caption,
+            verifiedLocation?.name || location?.name || '',
+            isVideo ? 'video' : 'image',
+            verifiedLocation || location || undefined,
+            taggedUsers.map(u => u.uid),
+            selectedCategories.length > 0 ? selectedCategories[0].name : undefined,
+            hashtags,
+            [], // mentions
+            visibility,
+            selectedGroupId ? [selectedGroupId] : [],
+            postType === 'STORY' ? 'story' : 'post',
+            undefined,
+            undefined,
+            subscriptionTierId
+          );
         } else {
-          feedEventEmitter.emitFeedUpdate({ type: 'POST_CREATED', postId: res.postId });
+          res = await createPost(
+            authUserId,
+            selectedImages,
+            caption,
+            verifiedLocation?.name || location?.name || '',
+            isVideo ? 'video' : 'image',
+            verifiedLocation || location || undefined,
+            taggedUsers.map(u => u.uid),
+            selectedCategories.length > 0 ? selectedCategories[0].name : undefined,
+            hashtags,
+            [], // mentions
+            visibility,
+            selectedGroupId ? [selectedGroupId] : [],
+            postType === 'STORY' ? 'story' : 'post',
+            customThumbnailUri || undefined,
+            undefined,
+            subscriptionTierId,
+            galleryAssets
+          );
         }
-        router.replace('/(tabs)/home');
-      } else {
-        throw new Error('Failed to create post');
-      }
+
+        if (res && res.success) {
+          if (params.editPostId) {
+            feedEventEmitter.emitFeedUpdate({
+              type: 'POST_UPDATED',
+              postId: params.editPostId as string,
+              data: {
+                caption,
+                content: caption,
+                location: verifiedLocation?.name || location?.name || '',
+                category: selectedCategories.length > 0 ? selectedCategories[0].name : undefined,
+                hashtags,
+                visibility,
+                updatedAt: new Date().toISOString()
+              }
+            });
+          } else {
+            feedEventEmitter.emitFeedUpdate({ type: 'POST_CREATED', postId: res.postId });
+          }
+        } else {
+          throw new Error('Failed to create post');
+        }
+      };
+
+      // Add to background queue
+      useUploadQueue.getState().enqueueUpload({
+        type: postType === 'STORY' ? 'story' : 'post',
+        action: uploadAction
+      });
+
+      // Instantly go back to home feed!
+      router.replace('/(tabs)/home');
+      
     } catch (e: any) {
       console.error('[handleShare] ❌ Error:', e);
-      // Log response error if available
-      if (e.response) {
-        console.error('[handleShare] Response status:', e.response.status);
-        console.error('[handleShare] Response data:', JSON.stringify(e.response.data, null, 2));
-      }
       Alert.alert('Error', e.message || 'Something went wrong');
-    } finally {
-      setLoading(false);
     }
   };
 

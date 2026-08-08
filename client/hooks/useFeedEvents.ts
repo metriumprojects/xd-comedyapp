@@ -55,14 +55,49 @@ export function useFeedEvents(
       }
       if (event.type === 'POST_UPDATED' && event.postId) {
         const patch = event.data && typeof event.data === 'object' ? event.data : {};
-        const apply = (p: any) => {
-          if (!p) return p;
-          const ids = [String(p.id || ''), String(p._id || ''), String((p as any).postId || '')].filter(Boolean);
-          if (!ids.includes(String(event.postId))) return p;
-          return { ...p, ...patch, updatedAt: new Date().toISOString() };
+        const targetId = String(event.postId);
+        const isContentEdit = patch.isContentEdit === true;
+
+        const updateInPlaceOrMoveToTop = (prev: any[]) => {
+          if (!Array.isArray(prev)) return prev;
+          let targetPost: any = null;
+          const remaining = prev.filter(p => {
+            const ids = [String(p?.id || ''), String(p?._id || ''), String((p as any)?.postId || '')].filter(Boolean);
+            if (ids.includes(targetId)) {
+              targetPost = { ...p, ...patch };
+              if (isContentEdit) {
+                targetPost.updatedAt = new Date().toISOString();
+              }
+              return false; // Remove it so we can either put it back in place or at top
+            }
+            return true;
+          });
+
+          if (targetPost) {
+            if (isContentEdit) {
+              // Move to top for content edits
+              return [targetPost, ...remaining];
+            } else {
+              // Update in place for likes/ratings/saves
+              return prev.map(p => {
+                const ids = [String(p?.id || ''), String(p?._id || ''), String((p as any)?.postId || '')].filter(Boolean);
+                if (ids.includes(targetId)) {
+                  return targetPost;
+                }
+                return p;
+              });
+            }
+          }
+          return prev;
         };
-        setPosts(prev => (Array.isArray(prev) ? prev.map(apply) : prev));
-        setAllLoadedPosts(prev => (Array.isArray(prev) ? prev.map(apply) : prev));
+
+        setPosts(prev => updateInPlaceOrMoveToTop(prev));
+        setAllLoadedPosts(prev => updateInPlaceOrMoveToTop(prev));
+
+        // Only reload feed from server if it was an actual content edit, to avoid feed jumping on simple likes/ratings
+        if (isContentEdit && isOnline) {
+          loadInitialFeed(0, { silent: true, _t: Date.now(), bypassDedupe: true }).catch(() => {});
+        }
       }
       if (event.type === 'USER_BLOCKED' && event.userId) {
         const blockedUserId = String(event.userId);

@@ -1,6 +1,7 @@
 import React from 'react';
 import { View, StyleSheet } from 'react-native';
 import Animated, { useAnimatedStyle } from 'react-native-reanimated';
+import COLORS from '@/src/theme/colors';
 
 interface StoryProgressBarsProps {
   storiesCount: number;
@@ -49,7 +50,7 @@ const styles = StyleSheet.create({
   },
   progressBarFill: {
     height: '100%',
-    backgroundColor: '#fff',
+    backgroundColor: COLORS.textLight,
   },
 });
 

@@ -10,6 +10,7 @@ import { AuthBrandHeader } from '@/src/_components/auth/AuthBrandHeader';
 import { AuthKeyboardScroll } from '@/src/_components/auth/AuthKeyboardScroll';
 import CustomButton from '@/src/_components/auth/CustomButton';
 import { safeRouterBack } from '@/lib/safeRouterBack';
+import COLORS from '@/src/theme/colors';
 
 export default function LoginPasswordScreen() {
   const router = useRouter();
@@ -70,7 +71,7 @@ export default function LoginPasswordScreen() {
           {/* Header */}
           <View style={styles.header}>
             <TouchableOpacity onPress={() => safeRouterBack()} style={styles.backButton}>
-              <Ionicons name="arrow-back" size={24} color="#000" />
+              <Ionicons name="arrow-back" size={24} color={COLORS.textPrimary} />
             </TouchableOpacity>
           </View>
 
@@ -85,13 +86,17 @@ export default function LoginPasswordScreen() {
               <TextInput
                 style={[styles.input, styles.passwordInput]}
                 placeholder="Enter your password"
-                placeholderTextColor="#999"
+                placeholderTextColor={COLORS.textMuted}
                 value={password}
                 onChangeText={setPassword}
                 secureTextEntry={!showPassword}
                 autoCorrect={false}
                 spellCheck={false}
                 autoCapitalize="none"
+                autoFocus={true}
+                autoComplete="password"
+                textContentType="password"
+                importantForAutofill="yes"
                 editable={!loading}
               />
               <TouchableOpacity
@@ -101,7 +106,7 @@ export default function LoginPasswordScreen() {
                 <Ionicons
                   name={showPassword ? 'eye-off-outline' : 'eye-outline'}
                   size={20}
-                  color="#999"
+                  color={COLORS.textMuted}
                 />
               </TouchableOpacity>
             </View>
@@ -111,7 +116,7 @@ export default function LoginPasswordScreen() {
           {error ? <Text style={styles.errorText}>{error}</Text> : null}
 
           {/* Forgot Password */}
-          <TouchableOpacity onPress={() => router.push('/auth/forgot-password')}>
+          <TouchableOpacity onPress={() => router.push({ pathname: '/auth/forgot-password', params: { email: identifier } })}>
             <Text style={styles.forgotPassword}>Forgot password?</Text>
           </TouchableOpacity>
 
@@ -141,7 +146,7 @@ export default function LoginPasswordScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#fff' },
+  container: { flex: 1, backgroundColor: COLORS.background },
   scrollContent: { flexGrow: 1 },
   content: { flexGrow: 1, padding: 20, paddingBottom: 10 },
   header: { marginBottom: 10 },
@@ -149,11 +154,11 @@ const styles = StyleSheet.create({
   titleSection: { marginBottom: 10 },
   inputContainer: { marginBottom: 12 },
   input: {
-    backgroundColor: '#f5f5f5',
+    backgroundColor: COLORS.inputBg,
     borderRadius: 8,
     padding: 16,
     fontSize: 16,
-    color: '#000',
+    color: COLORS.textPrimary,
   },
   inputWrapper: {
     position: 'relative',
@@ -165,10 +170,10 @@ const styles = StyleSheet.create({
     paddingRight: 48,
   },
   eyeIcon: { position: 'absolute', right: 15, padding: 4 },
-  errorText: { color: '#e74c3c', fontSize: 14, marginBottom: 10 },
-  forgotPassword: { fontSize: 14, color: '#FF8D00', marginBottom: 16 },
+  errorText: { color: COLORS.danger, fontSize: 14, marginBottom: 10 },
+  forgotPassword: { fontSize: 14, color: COLORS.primary, marginBottom: 16 },
   loginButton: { marginBottom: 15, marginTop: 5 },
   footer: { alignItems: 'center', paddingBottom: 10, marginTop: 'auto' },
-  footerText: { fontSize: 14, color: '#666' },
-  footerLink: { color: '#FF8D00', fontWeight: '600' },
+  footerText: { fontSize: 14, color: COLORS.textSecondary },
+  footerLink: { color: COLORS.primary, fontWeight: '600' },
 });

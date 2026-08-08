@@ -1,5 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useState } from 'react';
 import { Alert, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -8,10 +8,12 @@ import { AuthKeyboardScroll } from '@/src/_components/auth/AuthKeyboardScroll';
 import CustomButton from '@/src/_components/auth/CustomButton';
 import { API_BASE_URL } from '../../lib/api';
 import { safeRouterBack } from '@/lib/safeRouterBack';
+import COLORS from '@/src/theme/colors';
 
 export default function ForgotPasswordScreen() {
   const router = useRouter();
-  const [email, setEmail] = useState('');
+  const { email: initialEmail } = useLocalSearchParams<{ email?: string }>();
+  const [email, setEmail] = useState(initialEmail || '');
   const [loading, setLoading] = useState(false);
   const [emailSent, setEmailSent] = useState(false);
 
@@ -75,7 +77,7 @@ export default function ForgotPasswordScreen() {
                 onPress={() => safeRouterBack()}
                 style={styles.backButton}
               >
-                <Ionicons name="arrow-back" size={24} color="#000" />
+                <Ionicons name="arrow-back" size={24} color={COLORS.textPrimary} />
               </TouchableOpacity>
             </View>
 
@@ -91,23 +93,26 @@ export default function ForgotPasswordScreen() {
             <View style={styles.inputContainer}>
               <Text style={styles.label}>Email address</Text>
               <View style={styles.inputWrapper}>
-                <Ionicons name="mail-outline" size={20} color="#999" style={styles.inputIcon} />
+                <Ionicons name="mail-outline" size={20} color={COLORS.textMuted} style={styles.inputIcon} />
                 <TextInput
                   style={styles.input}
                   placeholder="Enter your email"
-                  placeholderTextColor="#999"
+                  placeholderTextColor={COLORS.textMuted}
                   value={email}
                   onChangeText={setEmail}
                   keyboardType="email-address"
                   autoCapitalize="none"
                   autoCorrect={false}
                   spellCheck={false}
+                  autoComplete="email"
+                  textContentType="emailAddress"
+                  importantForAutofill="yes"
                   editable={!loading && !emailSent}
                 />
               </View>
               {emailSent && (
                 <View style={styles.successBanner}>
-                  <Ionicons name="checkmark-circle" size={20} color="#27ae60" />
+                  <Ionicons name="checkmark-circle" size={20} color={COLORS.success} />
                   <Text style={styles.successText}>Reset email sent! Check your inbox.</Text>
                 </View>
               )}
@@ -139,7 +144,7 @@ export default function ForgotPasswordScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#fff',
+    backgroundColor: COLORS.background,
   },
   scrollContent: {
     flexGrow: 1,
@@ -167,17 +172,17 @@ const styles = StyleSheet.create({
   label: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#333',
+    color: COLORS.textPrimary,
     marginBottom: 8,
   },
   inputWrapper: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#f5f5f5',
+    backgroundColor: COLORS.inputBg,
     borderRadius: 12,
     paddingHorizontal: 16,
     borderWidth: 1,
-    borderColor: '#e0e0e0',
+    borderColor: COLORS.border,
   },
   inputIcon: {
     marginRight: 12,
@@ -186,7 +191,7 @@ const styles = StyleSheet.create({
     flex: 1,
     padding: 16,
     fontSize: 16,
-    color: '#000',
+    color: COLORS.textPrimary,
   },
   successBanner: {
     flexDirection: 'row',
@@ -199,7 +204,7 @@ const styles = StyleSheet.create({
   },
   successText: {
     fontSize: 14,
-    color: '#27ae60',
+    color: COLORS.success,
     fontWeight: '600',
   },
   nextButton: {
@@ -212,7 +217,7 @@ const styles = StyleSheet.create({
   },
   backToLoginText: {
     fontSize: 15,
-    color: '#FF8D00',
+    color: COLORS.primary,
     fontWeight: '600',
   },
 });

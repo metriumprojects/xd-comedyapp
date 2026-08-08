@@ -1,6 +1,7 @@
 import { Image as ExpoImage } from 'expo-image';
 import React, { useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
+import COLORS from '@/src/theme/colors';
 
 // ── CDN: flagcdn.com serves flags for ANY ISO 3166-1 alpha-2 country code ────
 // e.g. PK → https://flagcdn.com/w160/pk.png
@@ -87,7 +88,7 @@ const s = StyleSheet.create({
         backgroundColor: 'rgba(0,0,0,0.2)',
     },
     initials: {
-        color: '#fff',
+        color: COLORS.textLight,
         fontWeight: '900',
         letterSpacing: 1,
         textShadowColor: 'rgba(0,0,0,0.5)',

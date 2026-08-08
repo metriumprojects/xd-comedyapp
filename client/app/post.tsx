@@ -3,6 +3,7 @@ import React, { useEffect, useState } from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import ErrorBoundary from '@/src/_components/ErrorBoundary';
+import COLORS from '@/src/theme/colors';
 
 export default function PostScreen() {
   const { postId, commentId, mentionId, tagId } = useLocalSearchParams();
@@ -43,10 +44,10 @@ export default function PostScreen() {
   if (loading) return (
     <SafeAreaView style={styles.container} edges={["top", "bottom"]}>
       <View style={{ padding: 24 }}>
-        <View style={{ width: '100%', height: 200, borderRadius: 12, backgroundColor: '#eee', marginBottom: 16 }} />
-        <View style={{ width: 120, height: 24, borderRadius: 8, backgroundColor: '#eee', marginBottom: 12 }} />
-        <View style={{ width: '80%', height: 16, borderRadius: 6, backgroundColor: '#eee', marginBottom: 8 }} />
-        <View style={{ width: '60%', height: 16, borderRadius: 6, backgroundColor: '#eee', marginBottom: 8 }} />
+        <View style={{ width: '100%', height: 200, borderRadius: 12, backgroundColor: COLORS.border, marginBottom: 16 }} />
+        <View style={{ width: 120, height: 24, borderRadius: 8, backgroundColor: COLORS.border, marginBottom: 12 }} />
+        <View style={{ width: '80%', height: 16, borderRadius: 6, backgroundColor: COLORS.border, marginBottom: 8 }} />
+        <View style={{ width: '60%', height: 16, borderRadius: 6, backgroundColor: COLORS.border, marginBottom: 8 }} />
       </View>
     </SafeAreaView>
   );
@@ -83,10 +84,10 @@ export default function PostScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#fff' },
+  container: { flex: 1, backgroundColor: COLORS.background },
   content: { padding: 24 },
   header: { fontWeight: '700', fontSize: 24, color: '#FF6B00', marginBottom: 16 },
-  caption: { fontSize: 16, color: '#222', marginBottom: 12 },
-  highlight: { fontSize: 15, color: '#007aff', marginBottom: 8 },
+  caption: { fontSize: 16, color: COLORS.textPrimary, marginBottom: 12 },
+  highlight: { fontSize: 15, color: COLORS.info, marginBottom: 8 },
   notFound: { fontSize: 18, color: '#d00', textAlign: 'center', marginTop: 40 },
 });

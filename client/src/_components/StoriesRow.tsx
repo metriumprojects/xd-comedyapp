@@ -11,9 +11,9 @@ import { useFocusEffect, useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useState } from "react";
 import { ActivityIndicator, Alert, Dimensions, Image, Keyboard, KeyboardAvoidingView, Modal, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from 'react-native-safe-area-context';
-// import {} from "../../lib/firebaseHelpers";
 import { createStory, getAllStoriesForFeed, getUserProfile } from "../../lib/firebaseHelpers/index";
 import { feedEventEmitter } from '../../lib/feedEventEmitter';
+import COLORS from '@/src/theme/colors';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
@@ -136,7 +136,7 @@ function StoriesRowComponent({ onStoryPress, onStoryViewerClose, refreshTrigger,
   // Default avatar placeholder
   
   const STORY_RING_UNSEEN = ['#F58529', '#DD2A7B', '#8134AF'] as const;
-  const STORY_RING_SEEN = '#D1D5DB';
+  const STORY_RING_SEEN = COLORS.border;
 
   const resolveAvatarSource = (uri: string) => {
     const safe = normalizeAvatar(uri);
@@ -582,7 +582,7 @@ function StoriesRowComponent({ onStoryPress, onStoryViewerClose, refreshTrigger,
                     </View>
                     {myUser.bubbleMediaType === 'video' ? (
                       <View style={styles.overlayTypePill}>
-                        <Feather name={'video'} size={11} color="#fff" />
+                        <Feather name={'video'} size={11} color={COLORS.textLight} />
                       </View>
                     ) : null}
                   </LinearGradient>
@@ -617,7 +617,7 @@ function StoriesRowComponent({ onStoryPress, onStoryViewerClose, refreshTrigger,
               activeOpacity={0.9}
               disabled={showUploadModal}
             >
-              <Feather name="plus" size={10} color="#fff" />
+              <Feather name="plus" size={10} color={COLORS.textLight} />
             </TouchableOpacity>
           </View>
           {hasMyStory && myUser && myUser.latestLocation ? (
@@ -668,7 +668,7 @@ function StoriesRowComponent({ onStoryPress, onStoryViewerClose, refreshTrigger,
                   </View>
                   {user.bubbleMediaType === 'video' ? (
                     <View style={[styles.overlayTypePill, mirror && { left: undefined, right: 6 }]}>
-                      <Feather name={'video'} size={11} color="#fff" />
+                      <Feather name={'video'} size={11} color={COLORS.textLight} />
                     </View>
                   ) : null}
                 </LinearGradient>
@@ -696,7 +696,7 @@ function StoriesRowComponent({ onStoryPress, onStoryViewerClose, refreshTrigger,
           setLocationSuggestions([]);
         }}
       >
-        <SafeAreaView style={{ flex: 1, backgroundColor: '#fff' }} edges={['top', 'bottom']}>
+        <SafeAreaView style={{ flex: 1, backgroundColor: COLORS.background }} edges={['top', 'bottom']}>
           <KeyboardAvoidingView
             style={{ flex: 1 }}
             behavior={Platform.OS === 'ios' ? 'padding' : undefined}
@@ -715,7 +715,7 @@ function StoriesRowComponent({ onStoryPress, onStoryViewerClose, refreshTrigger,
                     setLocationSuggestions([]);
                   }}
                 >
-                  <Feather name="x" size={24} color="#222" />
+                  <Feather name="x" size={24} color={COLORS.textPrimary} />
                 </TouchableOpacity>
 
                 {/* Title in center */}
@@ -822,7 +822,7 @@ function StoriesRowComponent({ onStoryPress, onStoryViewerClose, refreshTrigger,
                         }
                       }}
                     >
-                      <Feather name="edit-2" size={16} color="#FF8D00" />
+                      <Feather name="edit-2" size={16} color={COLORS.primary} />
                       <Text style={styles.changeMediaText}>Change</Text>
                     </TouchableOpacity>
                   </View>
@@ -848,7 +848,7 @@ function StoriesRowComponent({ onStoryPress, onStoryViewerClose, refreshTrigger,
                       }
                     }}
                   >
-                    <Feather name="image" size={48} color="#FF8D00" />
+                    <Feather name="image" size={48} color={COLORS.primary} />
                     <Text style={styles.imagePickerText}>Select Photo or Video</Text>
                   </TouchableOpacity>
                 )}
@@ -862,7 +862,7 @@ function StoriesRowComponent({ onStoryPress, onStoryViewerClose, refreshTrigger,
                     onChangeText={text => setSelectedMedia((prev: any) => prev ? { ...prev, caption: text } : prev)}
                     style={styles.inputField}
                     maxLength={120}
-                    placeholderTextColor="#999"
+                    placeholderTextColor={COLORS.textMuted}
                     multiline
                   />
                 </View>
@@ -872,13 +872,13 @@ function StoriesRowComponent({ onStoryPress, onStoryViewerClose, refreshTrigger,
                   <Text style={styles.inputLabel}>Location (Optional)</Text>
                   <View style={{ position: 'relative' }}>
                     <View style={styles.locationInputContainer}>
-                      <Feather name="map-pin" size={18} color="#666" />
+                      <Feather name="map-pin" size={18} color={COLORS.textSecondary} />
                       <TextInput
                         placeholder="Add location..."
                         value={locationQuery}
                         onChangeText={setLocationQuery}
                         style={styles.locationInput}
-                        placeholderTextColor="#999"
+                        placeholderTextColor={COLORS.textMuted}
                         returnKeyType="done"
                         blurOnSubmit={true}
                       />
@@ -909,7 +909,7 @@ function StoriesRowComponent({ onStoryPress, onStoryViewerClose, refreshTrigger,
                                 setLocationSuggestions([]);
                               }}
                             >
-                              <Feather name="map-pin" size={16} color="#FF8D00" style={{ marginRight: 8 }} />
+                              <Feather name="map-pin" size={16} color={COLORS.primary} style={{ marginRight: 8 }} />
                               <View style={{ flex: 1 }}>
                                 <Text style={styles.locationName}>{item.name}</Text>
                                 <Text style={styles.locationAddress} numberOfLines={1}>{item.address}</Text>
@@ -921,7 +921,7 @@ function StoriesRowComponent({ onStoryPress, onStoryViewerClose, refreshTrigger,
                     )}
                     {loadingLocations && (
                       <View style={styles.locationLoading}>
-                        <ActivityIndicator size="small" color="#FF8D00" />
+                        <ActivityIndicator size="small" color={COLORS.primary} />
                       </View>
                     )}
                   </View>
@@ -930,7 +930,7 @@ function StoriesRowComponent({ onStoryPress, onStoryViewerClose, refreshTrigger,
                 {/* Upload Progress */}
                 {uploading && (
                   <View style={styles.uploadingArea}>
-                    <ActivityIndicator size="small" color="#FF8D00" style={{ marginBottom: 8 }} />
+                    <ActivityIndicator size="small" color={COLORS.primary} style={{ marginBottom: 8 }} />
                     <Text style={styles.uploadingText}>Uploading {uploadProgress}%</Text>
                     <View style={styles.uploadingBarBg}>
                       <View style={[styles.uploadingBar, { width: `${uploadProgress}%` }]} />
@@ -1060,14 +1060,14 @@ const styles = StyleSheet.create({
     position: 'absolute',
     bottom: -2,
     right: -2,
-    backgroundColor: '#FF8D00',
+    backgroundColor: COLORS.primary,
     borderRadius: 8.5,
     width: 17,
     height: 17,
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 1.5,
-    borderColor: '#fff',
+    borderColor: COLORS.textLight,
     zIndex: 10,
   },
   currentUserTile: {
@@ -1144,9 +1144,9 @@ const styles = StyleSheet.create({
     height: 28,
     borderRadius: 14,
     borderWidth: 2,
-    borderColor: '#fff',
+    borderColor: COLORS.textLight,
     overflow: 'hidden',
-    backgroundColor: '#e9eef5',
+    backgroundColor: COLORS.surface,
     zIndex: 3,
   },
   overlayAvatarImg: {
@@ -1157,7 +1157,7 @@ const styles = StyleSheet.create({
   storyLocation: {
     fontSize: STORY_ROW_NAME_FONT_SIZE,
     fontWeight: '400',
-    color: '#666',
+    color: COLORS.textSecondary,
     width: 58,
     textAlign: 'center',
     marginTop: 4,
@@ -1168,16 +1168,16 @@ const styles = StyleSheet.create({
     fontWeight: '400',
     width: 58,
     textAlign: 'center',
-    color: '#666',
+    color: COLORS.textSecondary,
     marginTop: 5,
   },
   userNameCta: {
-    color: '#FF8D00',
+    color: COLORS.primary,
     fontWeight: '400',
   },
   uploadModalCard: {
     flex: 1,
-    backgroundColor: '#fff',
+    backgroundColor: COLORS.card,
     width: '100%',
     paddingTop: 0,
     paddingHorizontal: 0,
@@ -1185,7 +1185,7 @@ const styles = StyleSheet.create({
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
     borderTopWidth: 2,
-    borderTopColor: '#FFB800',
+    borderTopColor: COLORS.primaryBorder,
   },
   modalHeader: {
     flexDirection: 'row',
@@ -1194,13 +1194,13 @@ const styles = StyleSheet.create({
     paddingVertical: responsiveValues.spacing,
     paddingHorizontal: responsiveValues.modalPadding,
     borderBottomWidth: 2,
-    borderBottomColor: '#FFB800',
-    backgroundColor: '#fffbf5',
+    borderBottomColor: COLORS.primaryBorder,
+    backgroundColor: COLORS.primaryLight,
   },
   modalTitle: {
     fontSize: responsiveValues.titleSize,
     fontWeight: '700',
-    color: '#222',
+    color: COLORS.textPrimary,
   },
   mediaPreviewContainer: {
     marginTop: responsiveValues.spacingLarge,
@@ -1210,7 +1210,7 @@ const styles = StyleSheet.create({
     width: '100%',
     height: responsiveValues.imageHeight,
     borderRadius: 16,
-    backgroundColor: '#f5f5f5',
+    backgroundColor: COLORS.inputBg,
   },
   changeMediaButton: {
     flexDirection: 'row',
@@ -1221,7 +1221,7 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   changeMediaText: {
-    color: '#FF8D00',
+    color: COLORS.primary,
     fontSize: 15,
     fontWeight: '600',
   },
@@ -1230,16 +1230,16 @@ const styles = StyleSheet.create({
     height: responsiveValues.imageHeight,
     borderRadius: 16,
     borderWidth: 2,
-    borderColor: '#e0e0e0',
+    borderColor: COLORS.border,
     borderStyle: 'dashed',
-    backgroundColor: '#fafafa',
+    backgroundColor: COLORS.surface,
     justifyContent: 'center',
     alignItems: 'center',
     marginTop: responsiveValues.spacingLarge,
     marginBottom: responsiveValues.spacingLarge,
   },
   imagePickerText: {
-    color: '#FF8D00',
+    color: COLORS.primary,
     marginTop: 12,
     fontWeight: '600',
     fontSize: responsiveValues.inputSize,
@@ -1253,36 +1253,36 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     fontSize: responsiveValues.labelSize,
     marginBottom: 8,
-    color: '#666',
+    color: COLORS.textSecondary,
   },
   inputField: {
     minHeight: responsiveValues.inputHeight,
     maxHeight: isSmallDevice ? 80 : 100,
     fontSize: responsiveValues.inputSize,
-    backgroundColor: '#f5f5f5',
+    backgroundColor: COLORS.inputBg,
     borderRadius: 12,
     paddingHorizontal: responsiveValues.spacing,
     paddingVertical: 12,
     borderWidth: 1,
-    borderColor: '#e0e0e0',
-    color: '#222',
+    borderColor: COLORS.border,
+    color: COLORS.textPrimary,
   },
   locationInputContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#f5f5f5',
+    backgroundColor: COLORS.inputBg,
     borderRadius: 12,
     paddingHorizontal: responsiveValues.spacing,
     paddingVertical: 12,
     borderWidth: 1,
-    borderColor: '#e0e0e0',
+    borderColor: COLORS.border,
     gap: 10,
     minHeight: responsiveValues.inputHeight,
   },
   locationInput: {
     flex: 1,
     fontSize: responsiveValues.inputSize,
-    color: '#222',
+    color: COLORS.textPrimary,
     padding: 0,
   },
   uploadingArea: {
@@ -1293,25 +1293,25 @@ const styles = StyleSheet.create({
   },
   uploadingText: {
     marginBottom: 8,
-    color: '#666',
+    color: COLORS.textSecondary,
     fontWeight: '600',
     fontSize: 14,
   },
   uploadingBarBg: {
     width: '100%',
     height: 6,
-    backgroundColor: '#e0e0e0',
+    backgroundColor: COLORS.border,
     borderRadius: 3,
     overflow: 'hidden',
   },
   uploadingBar: {
     height: 6,
-    backgroundColor: '#FF8D00',
+    backgroundColor: COLORS.primary,
     borderRadius: 3,
   },
   shareButton: {
     width: '100%',
-    backgroundColor: '#FF8D00',
+    backgroundColor: COLORS.primary,
     paddingVertical: 16,
     borderRadius: 12,
     alignItems: 'center',
@@ -1319,10 +1319,10 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   shareButtonDisabled: {
-    backgroundColor: '#e0e0e0',
+    backgroundColor: COLORS.border,
   },
   shareButtonText: {
-    color: '#fff',
+    color: COLORS.textLight,
     fontWeight: '700',
     fontSize: 16,
   },
@@ -1331,13 +1331,13 @@ const styles = StyleSheet.create({
     top: responsiveValues.inputHeight + 8,
     left: 0,
     right: 0,
-    backgroundColor: '#fff',
+    backgroundColor: COLORS.card,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#e0e0e0',
+    borderColor: COLORS.border,
     maxHeight: isSmallDevice ? 160 : 200,
     zIndex: 1000,
-    shadowColor: '#000',
+    shadowColor: COLORS.black,
     shadowOpacity: 0.1,
     shadowRadius: 8,
     shadowOffset: { width: 0, height: 2 },
@@ -1348,16 +1348,16 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     padding: isSmallDevice ? 12 : 14,
     borderBottomWidth: 1,
-    borderBottomColor: '#f0f0f0',
-    backgroundColor: '#fff',
+    borderBottomColor: COLORS.border,
+    backgroundColor: COLORS.card,
   },
   locationName: {
-    color: '#222',
+    color: COLORS.textPrimary,
     fontSize: responsiveValues.labelSize,
     fontWeight: '600',
   },
   locationAddress: {
-    color: '#999',
+    color: COLORS.textMuted,
     fontSize: isSmallDevice ? 11 : 12,
     marginTop: 2,
   },

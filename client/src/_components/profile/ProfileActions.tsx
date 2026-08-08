@@ -2,6 +2,7 @@ import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { Feather, Ionicons } from '@expo/vector-icons';
 import { hapticLight } from '@/lib/haptics';
+import COLORS from '@/src/theme/colors';
 
 interface ProfileActionsProps {
   isOwnProfile: boolean;
@@ -46,7 +47,7 @@ const ProfileActions: React.FC<ProfileActionsProps> = ({
       
       {(!isPrivate || approvedFollower) && (
         <TouchableOpacity style={styles.pillBtn} onPress={onMessage}>
-          <Ionicons name="chatbubble-outline" size={16} color="#000" style={{ marginRight: 6 }} />
+          <Ionicons name="chatbubble-outline" size={16} color={COLORS.black} style={{ marginRight: 6 }} />
           <Text style={styles.pillText}>Message</Text>
         </TouchableOpacity>
       )}
@@ -67,35 +68,35 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#f0f0f0',
+    backgroundColor: COLORS.inputBg,
     paddingVertical: 10,
     borderRadius: 8,
   },
   pillText: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#000',
+    color: COLORS.black,
   },
   followBtn: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#007aff',
+    backgroundColor: COLORS.info,
     paddingVertical: 10,
     borderRadius: 8,
   },
   followingBtn: {
-    backgroundColor: '#f0f0f0',
+    backgroundColor: COLORS.inputBg,
     borderWidth: 1,
-    borderColor: '#ddd',
+    borderColor: COLORS.border,
   },
   followText: {
     fontSize: 14,
     fontWeight: '700',
-    color: '#fff',
+    color: COLORS.textLight,
   },
   followingText: {
-    color: '#000',
+    color: COLORS.black,
   }
 });
 

@@ -29,6 +29,7 @@ type Region = {
 };
 
 import { PostMarker } from '@/src/_components/map/MapMarkers';
+import COLORS from '@/src/theme/colors';
 
 const IMAGE_PLACEHOLDER = 'L5H2EC=PM+yV0g-mq.wG9c010J}I';
 
@@ -543,7 +544,7 @@ export default function MapScreen() {
               setShowSearch(true);
             }}
           >
-            <Ionicons name="search" size={20} color="#FF8D00" />
+            <Ionicons name="search" size={20} color={COLORS.primary} />
           </TouchableOpacity>
         )}
 
@@ -573,7 +574,7 @@ export default function MapScreen() {
                     hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                     activeOpacity={0.8}
                   >
-                    <Ionicons name="close" size={18} color="#111" />
+                    <Ionicons name="close" size={18} color={COLORS.textPrimary} />
                   </TouchableOpacity>
                 ) : (
                   <View style={{ width: 26 }} />
@@ -614,7 +615,7 @@ export default function MapScreen() {
                     fetchLocationFeed(chosen, 'reset');
                   }}
                 >
-                  <Ionicons name="search" size={20} color="#111" />
+                  <Ionicons name="search" size={20} color={COLORS.textPrimary} />
                 </TouchableOpacity>
               </View>
 
@@ -648,18 +649,18 @@ export default function MapScreen() {
                     ListFooterComponent={
                       locationLoadingMore ? (
                         <View style={{ paddingVertical: 12 }}>
-                          <ActivityIndicator size="small" color="#111" />
+                          <ActivityIndicator size="small" color={COLORS.textPrimary} />
                         </View>
                       ) : null
                     }
                     ListEmptyComponent={
                       <View style={styles.searchCenterState}>
                         {locationLoading ? (
-                          <ActivityIndicator size="small" color="#111" />
+                          <ActivityIndicator size="small" color={COLORS.textPrimary} />
                         ) : locationError ? (
                           <Text style={{ color: '#c00' }}>{locationError}</Text>
                         ) : (
-                          <Text style={{ color: '#666' }}>No posts found</Text>
+                          <Text style={{ color: COLORS.textSecondary }}>No posts found</Text>
                         )}
                       </View>
                     }
@@ -674,7 +675,7 @@ export default function MapScreen() {
                 <View style={styles.searchResultsWrap}>
                   {!query.trim() ? null : suggestions.length === 0 ? (
                     <View style={styles.searchCenterState}>
-                      <Text style={{ color: '#666' }}>No locations found</Text>
+                      <Text style={{ color: COLORS.textSecondary }}>No locations found</Text>
                     </View>
                   ) : (
                     <FlatList
@@ -710,7 +711,7 @@ export default function MapScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#fff' },
+  container: { flex: 1, backgroundColor: COLORS.background },
   mapContainer: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   mapView: { width: '100%', height: '100%' },
   errorText: { position: 'absolute', bottom: 20, color: '#c00', backgroundColor: 'rgba(255,255,255,0.9)', padding: 8, borderRadius: 6 },
@@ -722,10 +723,10 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 14,
-    backgroundColor: '#fff',
+    backgroundColor: COLORS.background,
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: '#000',
+    shadowColor: COLORS.black,
     shadowOffset: { width: 0, height: 6 },
     shadowOpacity: 0.12,
     shadowRadius: 8,
@@ -747,7 +748,7 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
-    backgroundColor: '#fff',
+    backgroundColor: COLORS.background,
     zIndex: 1000,
     elevation: 1000,
   },
@@ -764,10 +765,10 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: '#fff',
+    backgroundColor: COLORS.background,
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: '#000',
+    shadowColor: COLORS.black,
     shadowOffset: { width: 0, height: 6 },
     shadowOpacity: 0.12,
     shadowRadius: 8,
@@ -779,7 +780,7 @@ const styles = StyleSheet.create({
     right: 0,
     bottom: 0,
     height: '62%',
-    backgroundColor: '#fff',
+    backgroundColor: COLORS.background,
     borderTopLeftRadius: 28,
     borderTopRightRadius: 28,
     overflow: 'hidden',
@@ -798,13 +799,13 @@ const styles = StyleSheet.create({
     width: '92%',
     height: 56,
     borderRadius: 28,
-    backgroundColor: '#fff',
+    backgroundColor: COLORS.background,
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 18,
     borderWidth: 1,
-    borderColor: '#eee',
-    shadowColor: '#000',
+    borderColor: COLORS.border,
+    shadowColor: COLORS.black,
     shadowOffset: { width: 0, height: 6 },
     shadowOpacity: 0.08,
     shadowRadius: 10,
@@ -813,7 +814,7 @@ const styles = StyleSheet.create({
   searchSheetInput: {
     flex: 1,
     fontSize: 16,
-    color: '#111',
+    color: COLORS.textPrimary,
     textAlign: 'right',
     paddingRight: 10,
   },
@@ -833,20 +834,20 @@ const styles = StyleSheet.create({
     paddingHorizontal: 18,
     paddingVertical: 14,
     borderBottomWidth: 1,
-    borderBottomColor: '#f0f0f0',
+    borderBottomColor: COLORS.inputBg,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
   },
   suggestionName: {
     fontSize: 16,
-    color: '#111',
+    color: COLORS.textPrimary,
     flex: 1,
     paddingRight: 10,
   },
   suggestionCount: {
     fontSize: 13,
-    color: '#666',
+    color: COLORS.textSecondary,
   },
   locationHeaderRow: {
     paddingHorizontal: 18,
@@ -854,13 +855,13 @@ const styles = StyleSheet.create({
   },
   locationHeaderCount: {
     fontSize: 13,
-    color: '#111',
+    color: COLORS.textPrimary,
     fontWeight: '600',
     textAlign: 'center',
   },
   locationHeaderTitle: {
     fontSize: 20,
-    color: '#111',
+    color: COLORS.textPrimary,
     fontWeight: '700',
     marginTop: 6,
     textAlign: 'center',
@@ -877,11 +878,11 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     borderWidth: 2,
     borderColor: '#ffa726',
-    backgroundColor: '#f0f0f0',
+    backgroundColor: COLORS.inputBg,
     overflow: 'hidden',
     justifyContent: 'center',
     alignItems: 'center',
-    shadowColor: '#000',
+    shadowColor: COLORS.black,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.25,
     shadowRadius: 3,
@@ -891,7 +892,7 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 8,
-    backgroundColor: '#f0f0f0',
+    backgroundColor: COLORS.inputBg,
   },
   postAvatarOutside: {
     position: 'absolute',
@@ -901,11 +902,11 @@ const styles = StyleSheet.create({
     height: 20,
     borderRadius: 10,
     borderWidth: 2,
-    borderColor: '#fff',
-    backgroundColor: '#f0f0f0',
+    borderColor: COLORS.background,
+    backgroundColor: COLORS.inputBg,
     justifyContent: 'center',
     alignItems: 'center',
-    shadowColor: '#000',
+    shadowColor: COLORS.black,
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.3,
     shadowRadius: 2,
@@ -917,7 +918,7 @@ const styles = StyleSheet.create({
     width: 16,
     height: 16,
     borderRadius: 8,
-    backgroundColor: '#f0f0f0',
+    backgroundColor: COLORS.inputBg,
   },
 
   liveMarkerContainer: {
@@ -926,20 +927,20 @@ const styles = StyleSheet.create({
     backgroundColor: 'transparent',
   },
   liveBadgeNew: {
-    backgroundColor: '#e0245e',
+    backgroundColor: COLORS.danger,
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: 16,
     marginRight: -8,
     zIndex: 2,
-    shadowColor: '#000',
+    shadowColor: COLORS.black,
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.15,
     shadowRadius: 2,
     elevation: 2,
   },
   liveText: {
-    color: '#fff',
+    color: COLORS.textLight,
     fontSize: 13,
     fontWeight: 'bold',
     letterSpacing: 0.5,
@@ -950,11 +951,11 @@ const styles = StyleSheet.create({
     height: 36,
     borderRadius: 18,
     borderWidth: 2,
-    borderColor: '#fff',
-    backgroundColor: '#fff',
+    borderColor: COLORS.background,
+    backgroundColor: COLORS.background,
     justifyContent: 'center',
     alignItems: 'center',
-    shadowColor: '#000',
+    shadowColor: COLORS.black,
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.15,
     shadowRadius: 2,

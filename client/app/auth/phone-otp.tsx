@@ -8,6 +8,7 @@ import { AuthBrandHeader } from '@/src/_components/auth/AuthBrandHeader';
 import { AuthKeyboardScroll } from '@/src/_components/auth/AuthKeyboardScroll';
 import CustomButton from '@/src/_components/auth/CustomButton';
 import { safeRouterBack } from '@/lib/safeRouterBack';
+import COLORS from '@/src/theme/colors';
 
 export default function PhoneOTPScreen() {
   const router = useRouter();
@@ -113,7 +114,7 @@ export default function PhoneOTPScreen() {
                 onPress={() => safeRouterBack()}
                 style={styles.backButton}
               >
-                <Ionicons name="arrow-back" size={24} color="#000" />
+                <Ionicons name="arrow-back" size={24} color={COLORS.black} />
               </TouchableOpacity>
             </View>
 
@@ -128,7 +129,7 @@ export default function PhoneOTPScreen() {
             {/* SMS Icon */}
             <View style={styles.iconContainer}>
               <View style={styles.iconCircle}>
-                <Ionicons name="chatbubble-ellipses" size={40} color="#FF8D00" />
+                <Ionicons name="chatbubble-ellipses" size={40} color={COLORS.primary} />
               </View>
               <Text style={styles.iconText}>Check your SMS messages</Text>
             </View>
@@ -182,14 +183,14 @@ export default function PhoneOTPScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#fff',
+    backgroundColor: COLORS.background,
   },
   scrollContent: {
     flexGrow: 1,
   },
   content: {
     flex: 1,
-    padding: 15,
+    padding: 20,
     paddingBottom: 10,
   },
   header: {
@@ -212,14 +213,14 @@ const styles = StyleSheet.create({
     width: 60,
     height: 60,
     borderRadius: 30,
-    backgroundColor: '#FFF5E6',
+    backgroundColor: COLORS.primaryLight,
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 8,
   },
   iconText: {
     fontSize: 14,
-    color: '#666',
+    color: COLORS.textSecondary,
     fontWeight: '500',
   },
   otpContainer: {
@@ -228,7 +229,7 @@ const styles = StyleSheet.create({
   label: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#000',
+    color: COLORS.textPrimary,
     marginBottom: 12,
   },
   otpInputRow: {
@@ -241,23 +242,23 @@ const styles = StyleSheet.create({
     height: 56,
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: '#e0e0e0',
-    backgroundColor: '#f7f7f7',
+    borderColor: COLORS.border,
+    backgroundColor: COLORS.inputBg,
     textAlign: 'center',
     fontSize: 20,
     fontWeight: '600',
-    color: '#000',
+    color: COLORS.textPrimary,
   },
   otpInputFilled: {
-    borderColor: '#FF8D00',
-    backgroundColor: '#fff',
+    borderColor: COLORS.primary,
+    backgroundColor: COLORS.background,
   },
   otpInputError: {
-    borderColor: '#e74c3c',
+    borderColor: COLORS.danger,
   },
   errorText: {
     fontSize: 12,
-    color: '#e74c3c',
+    color: COLORS.danger,
     marginTop: 8,
   },
   submitButton: {
@@ -270,12 +271,11 @@ const styles = StyleSheet.create({
   },
   resendText: {
     fontSize: 14,
-    color: '#666',
+    color: COLORS.textSecondary,
   },
   resendLink: {
     fontSize: 14,
-    color: '#FF8D00',
+    color: COLORS.primary,
     fontWeight: '600',
   },
 });
-

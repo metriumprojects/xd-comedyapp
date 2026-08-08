@@ -9,6 +9,7 @@ import { apiService } from '../../../src/_services/apiService';
 import { feedEventEmitter } from '@/lib/feedEventEmitter';
 import { getCachedData, setCachedData, useNetworkStatus, useOfflineBanner } from '../../../hooks/useOffline';
 import { safeRouterBack } from '@/lib/safeRouterBack';
+import COLORS from '@/src/theme/colors';
 
 
 
@@ -264,17 +265,24 @@ export default function UserPostsScreen() {
       }
       if (event.type === 'POST_UPDATED' && event.postId) {
         const patch = event.data && typeof event.data === 'object' ? event.data : {};
-        const apply = (p: any) => {
-          if (!p) return p;
-          const ids = [String(p.id || ''), String(p._id || ''), String((p as any).postId || '')].filter(Boolean);
-          if (!ids.includes(String(event.postId))) return p;
-          return {
-            ...p,
-            ...patch,
-            updatedAt: new Date().toISOString(),
-          };
+        const targetId = String(event.postId);
+        const updateAndMoveToTop = (prev: any[]) => {
+          if (!Array.isArray(prev)) return prev;
+          let targetPost: any = null;
+          const remaining = prev.filter(p => {
+            const ids = [String(p?.id || ''), String(p?._id || ''), String((p as any)?.postId || '')].filter(Boolean);
+            if (ids.includes(targetId)) {
+              targetPost = { ...p, ...patch, updatedAt: new Date().toISOString() };
+              return false;
+            }
+            return true;
+          });
+          if (targetPost) {
+            return [targetPost, ...remaining];
+          }
+          return prev;
         };
-        setPosts(prev => (Array.isArray(prev) ? prev.map(apply) : prev));
+        setPosts(prev => updateAndMoveToTop(prev));
       }
     });
     return unsub;
@@ -299,7 +307,7 @@ export default function UserPostsScreen() {
     return (
       <SafeAreaView style={styles.loading} edges={['top', 'bottom']}>
         <TouchableOpacity style={styles.backBtn} onPress={() => safeRouterBack()}>
-          <Ionicons name="arrow-back" size={22} color="#111" />
+          <Ionicons name="arrow-back" size={22} color={COLORS.textPrimary} />
         </TouchableOpacity>
         <Text style={styles.missingText}>Missing userId</Text>
       </SafeAreaView>
@@ -309,7 +317,7 @@ export default function UserPostsScreen() {
   if (loading && posts.length === 0) {
     return (
       <SafeAreaView style={styles.loading}>
-        <ActivityIndicator size="large" color="#FF8D00" />
+        <ActivityIndicator size="large" color={COLORS.primary} />
       </SafeAreaView>
     );
   }
@@ -323,7 +331,7 @@ export default function UserPostsScreen() {
       )}
       <View style={styles.header}>
         <TouchableOpacity style={styles.backBtn} onPress={() => safeRouterBack()}>
-          <Ionicons name="arrow-back" size={22} color="#111" />
+          <Ionicons name="arrow-back" size={22} color={COLORS.textPrimary} />
         </TouchableOpacity>
         <Text style={styles.title} numberOfLines={1}>
           {String(profile?.displayName || profile?.name || profile?.username || 'Posts')}
@@ -352,7 +360,7 @@ export default function UserPostsScreen() {
         ListFooterComponent={
           loadingMore ? (
             <View style={styles.footer}>
-              <ActivityIndicator size="small" color="#FF8D00" />
+              <ActivityIndicator size="small" color={COLORS.primary} />
             </View>
           ) : null
         }
@@ -373,30 +381,30 @@ export default function UserPostsScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#fff' },
-  loading: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: '#fff' },
+  container: { flex: 1, backgroundColor: COLORS.background },
+  loading: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: COLORS.background },
   header: {
     height: 52,
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 12,
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: '#eee',
+    borderBottomColor: COLORS.border,
   },
   backBtn: { padding: 6, marginRight: 8 },
   headerRight: { width: 28 },
-  title: { flex: 1, fontSize: 16, fontWeight: '700', color: '#111' },
+  title: { flex: 1, fontSize: 16, fontWeight: '700', color: COLORS.textPrimary },
   footer: { paddingVertical: 16, alignItems: 'center' },
-  missingText: { marginTop: 12, color: '#666', fontSize: 14 },
+  missingText: { marginTop: 12, color: COLORS.textSecondary, fontSize: 14 },
   offlineBanner: {
     marginHorizontal: 12,
     marginTop: 8,
     marginBottom: 4,
-    backgroundColor: '#111',
+    backgroundColor: COLORS.textPrimary,
     borderRadius: 12,
     paddingVertical: 9,
     paddingHorizontal: 12,
     opacity: 0.92,
   },
-  offlineBannerText: { color: '#fff', fontWeight: '700', textAlign: 'center' },
+  offlineBannerText: { color: COLORS.textLight, fontWeight: '700', textAlign: 'center' },
 });

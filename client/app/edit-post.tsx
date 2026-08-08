@@ -9,6 +9,7 @@ import { feedEventEmitter } from '@/lib/feedEventEmitter';
 import { getCachedData, setCachedData } from '../hooks/useOffline';
 import { safeRouterBack } from '@/lib/safeRouterBack';
 import { DEFAULT_CATEGORIES, getCategories } from '@/lib/firebaseHelpers';
+import COLORS from '@/src/theme/colors';
 
 type CategoryOption = { name: string; image: string };
 
@@ -294,7 +295,7 @@ export default function EditPostScreen() {
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: '#fff' },
+  safe: { flex: 1, backgroundColor: COLORS.background },
   header: {
     height: 52,
     borderBottomWidth: StyleSheet.hairlineWidth,
@@ -307,7 +308,7 @@ const styles = StyleSheet.create({
   title: { fontSize: 16, fontWeight: '700', color: '#262626' },
   headerBtn: { paddingVertical: 8, paddingHorizontal: 6 },
   headerBtnText: { color: '#262626', fontSize: 16, fontWeight: '400' },
-  doneText: { color: '#0095f6', fontSize: 16, fontWeight: '700' },
+  doneText: { color: COLORS.info, fontSize: 16, fontWeight: '700' },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   body: { padding: 14 },
   row: { flexDirection: 'row', gap: 12, alignItems: 'flex-start' },
@@ -340,14 +341,14 @@ const styles = StyleSheet.create({
     borderRadius: 999,
     backgroundColor: '#f2f2f2',
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: '#e0e0e0',
+    borderColor: COLORS.border,
   },
   categoryChipSelected: {
-    backgroundColor: '#0095f6',
-    borderColor: '#0095f6',
+    backgroundColor: COLORS.info,
+    borderColor: COLORS.info,
   },
   categoryChipText: { color: '#262626', fontSize: 13, fontWeight: '600' },
-  categoryChipTextSelected: { color: '#fff' },
+  categoryChipTextSelected: { color: COLORS.textLight },
   captionInput: {
     minHeight: 110,
     fontSize: 16,
@@ -361,14 +362,14 @@ const styles = StyleSheet.create({
     marginTop: 6,
     minHeight: 64,
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: '#f0f0f0',
+    borderColor: COLORS.inputBg,
     borderRadius: 10,
     paddingHorizontal: 10,
     paddingVertical: 8,
     fontSize: 13,
     color: '#555',
     textAlignVertical: 'top',
-    backgroundColor: '#fafafa',
+    backgroundColor: COLORS.surface,
   },
 });
 

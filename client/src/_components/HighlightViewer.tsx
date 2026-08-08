@@ -10,6 +10,7 @@ import AsyncStorage from '@/lib/storage';
 import { feedEventEmitter } from '../../lib/feedEventEmitter';
 import { apiService } from '../_services/apiService';
 import StoriesViewer from './StoriesViewer';
+import COLORS from '@/src/theme/colors';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
@@ -201,14 +202,14 @@ const HighlightViewer: React.FC<HighlightViewerProps> = ({ visible, highlightId,
       <SafeAreaView style={styles.container}>
         {loading ? (
           <View style={styles.loadingContainer}>
-            <ActivityIndicator size="large" color="#fff" />
+            <ActivityIndicator size="large" color={COLORS.textLight} />
           </View>
         ) : stories.length === 0 ? (
           <View style={styles.emptyContainer}>
             <TouchableOpacity style={styles.closeBtnOverlay} onPress={handleClose}>
-              <Ionicons name="close" size={30} color="#fff" />
+              <Ionicons name="close" size={30} color={COLORS.textLight} />
             </TouchableOpacity>
-            <Ionicons name="image-outline" size={48} color="#999" />
+            <Ionicons name="image-outline" size={48} color={COLORS.textMuted} />
             <Text style={styles.loadingText}>No stories in this highlight</Text>
           </View>
         ) : (
@@ -227,7 +228,7 @@ const HighlightViewer: React.FC<HighlightViewerProps> = ({ visible, highlightId,
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#000',
+    backgroundColor: COLORS.black,
   },
   loadingContainer: {
     flex: 1,
@@ -246,21 +247,21 @@ const styles = StyleSheet.create({
     zIndex: 10,
   },
   loadingText: {
-    color: '#fff',
+    color: COLORS.textLight,
     fontSize: 16,
     marginTop: 12,
     textAlign: 'center',
   },
   storyContainer: {
     flex: 1,
-    backgroundColor: '#000',
+    backgroundColor: COLORS.black,
     borderRadius: 8,
     overflow: 'hidden',
   },
   storyImage: {
     width: SCREEN_WIDTH,
     height: SCREEN_HEIGHT,
-    backgroundColor: '#000',
+    backgroundColor: COLORS.black,
   },
   progressBarContainer: {
     flexDirection: 'row',
@@ -281,7 +282,7 @@ const styles = StyleSheet.create({
   },
   progressBarFill: {
     height: '100%',
-    backgroundColor: '#fff',
+    backgroundColor: COLORS.textLight,
   },
   topBar: {
     position: 'absolute',
@@ -303,15 +304,15 @@ const styles = StyleSheet.create({
     height: 32,
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: '#fff',
+    borderColor: COLORS.textLight,
   },
   userAvatarPlaceholder: {
-    backgroundColor: '#333',
+    backgroundColor: COLORS.card,
     justifyContent: 'center',
     alignItems: 'center',
   },
   userName: {
-    color: '#fff',
+    color: COLORS.textLight,
     fontSize: 14,
     fontWeight: '600',
     marginLeft: 10,
@@ -368,7 +369,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0,0,0,0.1)',
   },
   commentPlaceholder: {
-    color: '#fff',
+    color: COLORS.textLight,
     fontSize: 14,
   },
   bottomIconBtn: {
@@ -389,7 +390,7 @@ const styles = StyleSheet.create({
   },
   commentsContent: {
     flex: 1,
-    backgroundColor: '#fff',
+    backgroundColor: COLORS.card,
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
     overflow: 'hidden',
@@ -399,12 +400,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     borderBottomWidth: 0.5,
-    borderBottomColor: '#eee',
+    borderBottomColor: COLORS.border,
   },
   commentsHandle: {
     width: 40,
     height: 5,
-    backgroundColor: '#ddd',
+    backgroundColor: COLORS.border,
     borderRadius: 2.5,
   },
   commentsCloseBtn: {

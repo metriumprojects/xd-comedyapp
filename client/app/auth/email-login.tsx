@@ -12,11 +12,13 @@ import { AuthKeyboardScroll } from '@/src/_components/auth/AuthKeyboardScroll';
 import CustomButton from '@/src/_components/auth/CustomButton';
 import SocialButton from '@/src/_components/auth/SocialButton';
 import { safeRouterBack } from '@/lib/safeRouterBack';
+import COLORS from '@/src/theme/colors';
 
 export default function EmailLoginScreen() {
   const router = useRouter();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
@@ -41,31 +43,23 @@ export default function EmailLoginScreen() {
       console.log('[Login] Result:', result);
 
       if (result.success) {
-        console.log('[Login] âœ… Success - waiting for token save');
-        // Wait a moment for AsyncStorage to sync
+        console.log('[Login] ✅ Success - waiting for token save');
         await new Promise(resolve => setTimeout(resolve, 1000));
 
-        // Verify token was saved
         const token = await AsyncStorage.getItem('token');
         const userId = await AsyncStorage.getItem('userId');
         console.log('[Login] Token saved?', !!token, 'userId saved?', !!userId);
 
-        // Successfully logged in - navigate to home
-        console.log('[Login] About to navigate to home screen');
-
-        // Use setTimeout to ensure navigation happens after state updates
         setTimeout(() => {
           try {
             router.replace('/(tabs)/home');
-            console.log('[Login] Navigation called successfully');
           } catch (e) {
             console.error('[Login] Navigation error:', e);
-            // Fallback: try alternative navigation path
             router.push('/(tabs)/home');
           }
         }, 100);
       } else {
-        console.log('[Login] âŒ Failed:', result.error);
+        console.log('[Login] ❌ Failed:', result.error);
         setError(getUserErrorMessage(result.error || 'Login failed'));
         setLoading(false);
       }
@@ -92,7 +86,6 @@ export default function EmailLoginScreen() {
       }
 
       if (result && result.success) {
-        // Handle social auth result (create user profile if needed)
         await handleSocialAuthResult(result, router);
       } else {
         setError(getUserErrorMessage(result?.error || 'Login failed'));
@@ -115,7 +108,7 @@ export default function EmailLoginScreen() {
                 onPress={() => safeRouterBack()}
                 style={styles.backButton}
               >
-                <Ionicons name="arrow-back" size={24} color="#000" />
+                <Ionicons name="arrow-back" size={24} color={COLORS.textPrimary} />
               </TouchableOpacity>
             </View>
 
@@ -131,30 +124,49 @@ export default function EmailLoginScreen() {
                 testID="email-input"
                 style={styles.input}
                 placeholder="Enter"
-                placeholderTextColor="#999"
+                placeholderTextColor={COLORS.textMuted}
                 value={email}
                 onChangeText={setEmail}
                 keyboardType="email-address"
                 autoCapitalize="none"
                 autoCorrect={false}
                 spellCheck={false}
+                autoComplete="email"
+                textContentType="emailAddress"
+                importantForAutofill="yes"
               />
             </View>
 
             {/* Password Input */}
             <View style={styles.inputContainer}>
               <Text style={styles.label}>Password</Text>
-              <TextInput
-                testID="password-input"
-                style={styles.input}
-                placeholder="Enter"
-                placeholderTextColor="#999"
-                value={password}
-                onChangeText={setPassword}
-                secureTextEntry
-                autoCorrect={false}
-                spellCheck={false}
-              />
+              <View style={styles.inputWrapper}>
+                <TextInput
+                  testID="password-input"
+                  style={[styles.input, styles.passwordInput]}
+                  placeholder="Enter"
+                  placeholderTextColor={COLORS.textMuted}
+                  value={password}
+                  onChangeText={setPassword}
+                  secureTextEntry={!showPassword}
+                  autoCorrect={false}
+                  spellCheck={false}
+                  autoCapitalize="none"
+                  autoComplete="password"
+                  textContentType="password"
+                  importantForAutofill="yes"
+                />
+                <TouchableOpacity
+                  style={styles.eyeIcon}
+                  onPress={() => setShowPassword(v => !v)}
+                >
+                  <Ionicons
+                    name={showPassword ? 'eye-off-outline' : 'eye-outline'}
+                    size={20}
+                    color={COLORS.textMuted}
+                  />
+                </TouchableOpacity>
+              </View>
             </View>
 
             {/* Error Message */}
@@ -163,7 +175,7 @@ export default function EmailLoginScreen() {
             ) : null}
 
             {/* Forgot Password */}
-            <TouchableOpacity onPress={() => router.push('/auth/forgot-password')}>
+            <TouchableOpacity onPress={() => router.push({ pathname: '/auth/forgot-password', params: { email } })}>
               <Text style={styles.forgotPassword}>Forgot password?</Text>
             </TouchableOpacity>
 
@@ -190,16 +202,6 @@ export default function EmailLoginScreen() {
                 onPress={() => handleSocialLogin('apple')}
                 style={styles.socialButton}
               />
-              {/* <SocialButton
-                provider="tiktok"
-                onPress={() => handleSocialLogin('tiktok')}
-                style={styles.socialButton}
-              /> */}
-              {/* <SocialButton
-                provider="snapchat"
-                onPress={() => handleSocialLogin('snapchat')}
-                style={styles.socialButton}
-              /> */}
             </View>
 
             {/* Footer */}
@@ -223,7 +225,7 @@ export default function EmailLoginScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#fff',
+    backgroundColor: COLORS.background,
   },
   scrollContent: {
     flexGrow: 1,
@@ -250,24 +252,36 @@ const styles = StyleSheet.create({
   },
   label: {
     fontSize: 14,
-    color: '#666',
+    color: COLORS.textSecondary,
     marginBottom: 8,
   },
+  inputWrapper: {
+    position: 'relative',
+    justifyContent: 'center',
+  },
   input: {
-    backgroundColor: '#f5f5f5',
+    backgroundColor: COLORS.inputBg,
     borderRadius: 8,
     padding: 16,
     fontSize: 16,
-    color: '#000',
+    color: COLORS.textPrimary,
+  },
+  passwordInput: {
+    paddingRight: 48,
+  },
+  eyeIcon: {
+    position: 'absolute',
+    right: 14,
+    padding: 4,
   },
   errorText: {
-    color: '#e74c3c',
+    color: COLORS.danger,
     fontSize: 14,
     marginBottom: 12,
   },
   forgotPassword: {
     fontSize: 14,
-    color: '#FF8D00',
+    color: COLORS.primary,
     marginBottom: 20,
   },
   loginButton: {
@@ -286,10 +300,10 @@ const styles = StyleSheet.create({
   },
   footerText: {
     fontSize: 14,
-    color: '#666',
+    color: COLORS.textSecondary,
   },
   footerLink: {
-    color: '#FF8D00',
+    color: COLORS.primary,
     fontWeight: '600',
   },
 });

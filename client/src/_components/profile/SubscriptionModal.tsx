@@ -19,6 +19,7 @@ import { useStripe, PaymentSheet } from '@stripe/stripe-react-native';
 import { subscriptionService, TierResponse } from '@/src/_services/subscriptionService';
 import { resolveCanonicalUserId } from '@/lib/currentUser';
 import { feedEventEmitter } from '@/lib/feedEventEmitter';
+import COLORS from '@/src/theme/colors';
 
 interface SubscriptionModalProps {
   visible: boolean;
@@ -433,7 +434,7 @@ export const SubscriptionModal: React.FC<SubscriptionModalProps> = ({
         <TextInput
           style={styles.input}
           placeholder="Title (max 100 characters)"
-          placeholderTextColor="#8e8e93"
+          placeholderTextColor={COLORS.textMuted}
           maxLength={100}
           value={title}
           onChangeText={setTitle}
@@ -445,7 +446,7 @@ export const SubscriptionModal: React.FC<SubscriptionModalProps> = ({
         <TextInput
           style={[styles.input, styles.textArea]}
           placeholder="Description (max 300 characters)"
-          placeholderTextColor="#8e8e93"
+          placeholderTextColor={COLORS.textMuted}
           maxLength={300}
           multiline
           numberOfLines={3}
@@ -459,7 +460,7 @@ export const SubscriptionModal: React.FC<SubscriptionModalProps> = ({
         <TextInput
           style={styles.input}
           placeholder="Price in dollars (min $1.00)"
-          placeholderTextColor="#8e8e93"
+          placeholderTextColor={COLORS.textMuted}
           keyboardType="numeric"
           value={price}
           onChangeText={setPrice}
@@ -472,7 +473,7 @@ export const SubscriptionModal: React.FC<SubscriptionModalProps> = ({
         onPress={() => setCreateGroupChat(!createGroupChat)}
       >
         <View style={[styles.checkbox, createGroupChat && styles.checkboxChecked]}>
-          {createGroupChat && <Ionicons name="checkmark" size={14} color="#fff" />}
+          {createGroupChat && <Ionicons name="checkmark" size={14} color={COLORS.textLight} />}
         </View>
         <Text style={styles.checkboxLabel}>
           Create a group chat with the members of this subscription tier.
@@ -486,7 +487,7 @@ export const SubscriptionModal: React.FC<SubscriptionModalProps> = ({
           <View key={idx} style={styles.includedRow}>
             <Text style={styles.includedText}>{item}</Text>
             <TouchableOpacity onPress={() => handleRemoveIncluded(idx)}>
-              <Feather name="x" size={16} color="#8e8e93" />
+              <Feather name="x" size={16} color={COLORS.textMuted} />
             </TouchableOpacity>
           </View>
         ))}
@@ -496,17 +497,17 @@ export const SubscriptionModal: React.FC<SubscriptionModalProps> = ({
             <TextInput
               style={styles.addInput}
               placeholder="E.g., Early video access"
-              placeholderTextColor="#8e8e93"
+              placeholderTextColor={COLORS.textMuted}
               value={newItem}
               onChangeText={setNewItem}
               onSubmitEditing={handleAddIncluded}
               autoFocus
             />
             <TouchableOpacity style={styles.addConfirmBtn} onPress={handleAddIncluded}>
-              <Feather name="check" size={18} color="#007aff" />
+              <Feather name="check" size={18} color={COLORS.info} />
             </TouchableOpacity>
             <TouchableOpacity style={styles.addCancelBtn} onPress={() => { setIsAddingBenefit(false); setNewItem(''); }}>
-              <Feather name="x" size={18} color="#ff3b30" />
+              <Feather name="x" size={18} color={COLORS.danger} />
             </TouchableOpacity>
           </View>
         ) : (
@@ -514,7 +515,7 @@ export const SubscriptionModal: React.FC<SubscriptionModalProps> = ({
             style={styles.addTriggerBtn} 
             onPress={() => setIsAddingBenefit(true)}
           >
-            <Feather name="plus" size={14} color="#007aff" style={{ marginRight: 4 }} />
+            <Feather name="plus" size={14} color={COLORS.info} style={{ marginRight: 4 }} />
             <Text style={styles.addTriggerText}>Add</Text>
           </TouchableOpacity>
         )}
@@ -557,7 +558,7 @@ export const SubscriptionModal: React.FC<SubscriptionModalProps> = ({
           <Feather 
             name={createGroupChat ? "message-square" : "slash"} 
             size={16} 
-            color={createGroupChat ? "#007aff" : "#8e8e93"} 
+            color={createGroupChat ? COLORS.info : COLORS.textMuted} 
             style={{ marginRight: 8 }}
           />
           <Text style={styles.confirmGroupChatText}>
@@ -569,7 +570,7 @@ export const SubscriptionModal: React.FC<SubscriptionModalProps> = ({
           <Text style={styles.confirmBenefitsLabel}>Included Perks:</Text>
           {included.map((item, idx) => (
             <View key={idx} style={styles.confirmBenefitRow}>
-              <Feather name="check" size={12} color="#007aff" style={{ marginRight: 6 }} />
+              <Feather name="check" size={12} color={COLORS.info} style={{ marginRight: 6 }} />
               <Text style={styles.confirmBenefitText}>{item}</Text>
             </View>
           ))}
@@ -582,7 +583,7 @@ export const SubscriptionModal: React.FC<SubscriptionModalProps> = ({
         disabled={isLoading}
       >
         {isLoading ? (
-          <ActivityIndicator color="#fff" size="small" />
+          <ActivityIndicator color={COLORS.textLight} size="small" />
         ) : (
           <Text style={styles.primaryBtnText}>
             {selectedTier ? 'Save Changes' : 'Create subscription'}
@@ -612,7 +613,7 @@ export const SubscriptionModal: React.FC<SubscriptionModalProps> = ({
               style={[
                 styles.tierChip,
                 isSel && styles.tierChipActive,
-                !isSel && isSub && { borderColor: '#34c759', borderWidth: 1 }
+                !isSel && isSub && { borderColor: COLORS.success, borderWidth: 1 }
               ]}
               onPress={() => {
                 setSelectedTier(tier);
@@ -626,7 +627,7 @@ export const SubscriptionModal: React.FC<SubscriptionModalProps> = ({
               <Text style={[
                 styles.tierChipText,
                 isSel && styles.tierChipTextActive,
-                !isSel && isSub && { color: '#34c759' }
+                !isSel && isSub && { color: COLORS.success }
               ]}>
                 {tier.title} {isSub ? '✓' : ''}
               </Text>
@@ -635,7 +636,7 @@ export const SubscriptionModal: React.FC<SubscriptionModalProps> = ({
         })}
         {resolvedIsOwnProfile && (
           <TouchableOpacity
-            style={[styles.tierChip, { backgroundColor: '#f0f0f5', borderColor: '#ddd' }]}
+            style={[styles.tierChip, { backgroundColor: COLORS.inputBg, borderColor: COLORS.border }]}
             onPress={() => {
               setSelectedTier(null);
               setTitle('');
@@ -646,7 +647,7 @@ export const SubscriptionModal: React.FC<SubscriptionModalProps> = ({
               setStep('form');
             }}
           >
-            <Text style={[styles.tierChipText, { color: '#007aff' }]}>+ Add Tier</Text>
+            <Text style={[styles.tierChipText, { color: COLORS.info }]}>+ Add Tier</Text>
           </TouchableOpacity>
         )}
       </ScrollView>
@@ -659,7 +660,7 @@ export const SubscriptionModal: React.FC<SubscriptionModalProps> = ({
           <View style={styles.membershipBenefits}>
             {included.map((item, idx) => (
               <View key={idx} style={styles.benefitRow}>
-                <Feather name="check" size={14} color="#fff" style={{ marginRight: 8 }} />
+                <Feather name="check" size={14} color={COLORS.textLight} style={{ marginRight: 8 }} />
                 <Text style={styles.benefitText}>{item}</Text>
               </View>
             ))}
@@ -669,7 +670,7 @@ export const SubscriptionModal: React.FC<SubscriptionModalProps> = ({
 
           {isSelectedTierCancelAtPeriodEnd && selectedTierPeriodEnd && (
             <View style={styles.cancelNotice}>
-              <Feather name="info" size={14} color="#FFD60A" style={{ marginRight: 6 }} />
+              <Feather name="info" size={14} color={COLORS.warning} style={{ marginRight: 6 }} />
               <Text style={styles.cancelNoticeText}>
                 Cancels {new Date(selectedTierPeriodEnd).toLocaleDateString()}
               </Text>
@@ -687,10 +688,10 @@ export const SubscriptionModal: React.FC<SubscriptionModalProps> = ({
               disabled={isPaymentLoading || isLoading}
             >
               {isPaymentLoading ? (
-                <ActivityIndicator color={isSelectedTierSubscribed ? "#fff" : "#000"} size="small" />
+                <ActivityIndicator color={isSelectedTierSubscribed ? COLORS.textLight : COLORS.black} size="small" />
               ) : (
                 <>
-                  <Feather name={isSelectedTierSubscribed ? "check" : "star"} size={16} color={isSelectedTierSubscribed ? "#fff" : "#000"} style={{ marginRight: 8 }} />
+                  <Feather name={isSelectedTierSubscribed ? "check" : "star"} size={16} color={isSelectedTierSubscribed ? COLORS.textLight : COLORS.black} style={{ marginRight: 8 }} />
                   <Text style={[styles.subscribeBtnText, isSelectedTierSubscribed && styles.subscribedBtnTextActive]}>
                     {isSelectedTierSubscribed 
                       ? (isSelectedTierCancelAtPeriodEnd ? 'Canceling...' : 'Subscribed') 
@@ -785,13 +786,13 @@ export const SubscriptionModal: React.FC<SubscriptionModalProps> = ({
               {step === 'membership' ? 'Membership' : 'Create subscription'}
             </Text>
             <TouchableOpacity style={styles.closeBtn} onPress={onClose}>
-              <Feather name="x" size={20} color="#000" />
+              <Feather name="x" size={20} color={COLORS.black} />
             </TouchableOpacity>
           </View>
 
           {isLoading && step !== 'confirm' && step !== 'membership' ? (
             <View style={styles.loadingContainer}>
-              <ActivityIndicator size="large" color="#007aff" />
+              <ActivityIndicator size="large" color={COLORS.info} />
               <Text style={styles.loadingText}>Loading...</Text>
             </View>
           ) : (
@@ -814,7 +815,7 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
   },
   sheet: {
-    backgroundColor: '#fff',
+    backgroundColor: COLORS.background,
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     maxHeight: '85%',
@@ -831,7 +832,7 @@ const styles = StyleSheet.create({
   modalHeaderTitle: {
     fontSize: 18,
     fontWeight: '700',
-    color: '#000',
+    color: COLORS.black,
   },
   closeBtn: {
     padding: 4,
@@ -848,7 +849,7 @@ const styles = StyleSheet.create({
   loadingText: {
     marginTop: 12,
     fontSize: 14,
-    color: '#8e8e93',
+    color: COLORS.textMuted,
   },
   inputContainer: {
     marginBottom: 16,
@@ -856,19 +857,19 @@ const styles = StyleSheet.create({
   inputLabel: {
     fontSize: 12,
     fontWeight: '600',
-    color: '#8e8e93',
+    color: COLORS.textMuted,
     marginBottom: 6,
     textTransform: 'uppercase',
   },
   input: {
     borderWidth: 1,
-    borderColor: '#e5e5ea',
+    borderColor: COLORS.border,
     borderRadius: 12,
     paddingHorizontal: 16,
     paddingVertical: 12,
     fontSize: 15,
-    color: '#000',
-    backgroundColor: '#fafafa',
+    color: COLORS.black,
+    backgroundColor: COLORS.surface,
   },
   textArea: {
     height: 80,
@@ -885,19 +886,19 @@ const styles = StyleSheet.create({
     height: 22,
     borderRadius: 6,
     borderWidth: 2,
-    borderColor: '#7a828a',
+    borderColor: COLORS.textSecondary,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#fff',
+    backgroundColor: COLORS.background,
     marginRight: 12,
   },
   checkboxChecked: {
-    backgroundColor: '#111827',
-    borderColor: '#111827',
+    backgroundColor: COLORS.textPrimary,
+    borderColor: COLORS.textPrimary,
   },
   checkboxLabel: {
     fontSize: 13,
-    color: '#333',
+    color: COLORS.textPrimary,
     flex: 1,
     lineHeight: 18,
   },
@@ -907,14 +908,14 @@ const styles = StyleSheet.create({
   includedHeader: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#333',
+    color: COLORS.textPrimary,
     marginBottom: 12,
   },
   includedRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: '#f5f5f7',
+    backgroundColor: COLORS.surface,
     paddingHorizontal: 14,
     paddingVertical: 10,
     borderRadius: 8,
@@ -922,7 +923,7 @@ const styles = StyleSheet.create({
   },
   includedText: {
     fontSize: 13,
-    color: '#1c1c1e',
+    color: COLORS.textPrimary,
     flex: 1,
     marginRight: 10,
   },
@@ -935,12 +936,12 @@ const styles = StyleSheet.create({
   addInput: {
     flex: 1,
     borderWidth: 1,
-    borderColor: '#e5e5ea',
+    borderColor: COLORS.border,
     borderRadius: 8,
     paddingHorizontal: 12,
     paddingVertical: 8,
     fontSize: 13,
-    backgroundColor: '#fafafa',
+    backgroundColor: COLORS.surface,
   },
   addConfirmBtn: {
     padding: 8,
@@ -957,11 +958,11 @@ const styles = StyleSheet.create({
   },
   addTriggerText: {
     fontSize: 13,
-    color: '#007aff',
+    color: COLORS.info,
     fontWeight: '600',
   },
   primaryBtn: {
-    backgroundColor: '#000',
+    backgroundColor: COLORS.black,
     borderRadius: 24,
     paddingVertical: 14,
     alignItems: 'center',
@@ -969,7 +970,7 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   primaryBtnText: {
-    color: '#fff',
+    color: COLORS.textLight,
     fontSize: 15,
     fontWeight: '700',
   },
@@ -979,46 +980,46 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,
-    borderColor: '#ddd',
+    borderColor: COLORS.border,
     marginBottom: 10,
   },
   secondaryBtnText: {
-    color: '#333',
+    color: COLORS.textPrimary,
     fontSize: 15,
     fontWeight: '600',
   },
   tierChip: {
     borderWidth: 1,
-    borderColor: '#e5e5ea',
+    borderColor: COLORS.border,
     borderRadius: 18,
     paddingVertical: 6,
     paddingHorizontal: 16,
-    backgroundColor: '#fff',
+    backgroundColor: COLORS.background,
   },
   tierChipActive: {
     borderWidth: 1,
-    borderColor: '#000',
-    backgroundColor: '#000',
+    borderColor: COLORS.black,
+    backgroundColor: COLORS.black,
   },
   tierChipText: {
     fontSize: 13,
     fontWeight: '600',
-    color: '#666',
+    color: COLORS.textSecondary,
   },
   tierChipTextActive: {
     fontSize: 13,
     fontWeight: '600',
-    color: '#fff',
+    color: COLORS.textLight,
   },
   membershipCard: {
-    backgroundColor: '#00a2ff',
+    backgroundColor: COLORS.info,
     borderRadius: 24,
     padding: 20,
   },
   membershipTitle: {
     fontSize: 20,
     fontWeight: '700',
-    color: '#fff',
+    color: COLORS.textLight,
     marginBottom: 6,
   },
   membershipDesc: {
@@ -1037,12 +1038,12 @@ const styles = StyleSheet.create({
   },
   benefitText: {
     fontSize: 13,
-    color: '#fff',
+    color: COLORS.textLight,
   },
   membershipPrice: {
     fontSize: 18,
     fontWeight: '700',
-    color: '#fff',
+    color: COLORS.textLight,
     marginBottom: 16,
   },
   cancelNotice: {
@@ -1056,11 +1057,11 @@ const styles = StyleSheet.create({
   },
   cancelNoticeText: {
     fontSize: 12,
-    color: '#FFD60A',
+    color: COLORS.warning,
     fontWeight: '600',
   },
   subscribeBtn: {
-    backgroundColor: '#FFD60A',
+    backgroundColor: COLORS.warning,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
@@ -1068,25 +1069,25 @@ const styles = StyleSheet.create({
     borderRadius: 24,
   },
   subscribeBtnText: {
-    color: '#000',
+    color: COLORS.black,
     fontSize: 15,
     fontWeight: '700',
   },
   subscribedBtnActive: {
-    backgroundColor: '#34c759',
+    backgroundColor: COLORS.success,
   },
   subscribedBtnTextActive: {
-    color: '#fff',
+    color: COLORS.textLight,
   },
   editBtn: {
-    backgroundColor: '#000',
+    backgroundColor: COLORS.black,
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: 12,
     borderRadius: 24,
   },
   editBtnText: {
-    color: '#fff',
+    color: COLORS.textLight,
     fontSize: 15,
     fontWeight: '700',
   },
@@ -1096,7 +1097,7 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
   },
   deleteBtnText: {
-    color: '#ff3b30',
+    color: COLORS.danger,
     fontSize: 13,
     fontWeight: '600',
     textDecorationLine: 'underline',
@@ -1107,58 +1108,58 @@ const styles = StyleSheet.create({
   confirmHeaderTitle: {
     fontSize: 18,
     fontWeight: '700',
-    color: '#000',
+    color: COLORS.black,
     marginBottom: 6,
   },
   confirmHeaderSub: {
     fontSize: 13,
-    color: '#8e8e93',
+    color: COLORS.textMuted,
   },
   confirmCard: {
     borderWidth: 1,
-    borderColor: '#e5e5ea',
+    borderColor: COLORS.border,
     borderRadius: 16,
     padding: 16,
     marginBottom: 20,
-    backgroundColor: '#fafafa',
+    backgroundColor: COLORS.surface,
   },
   confirmTitleLabel: {
     fontSize: 11,
     fontWeight: '600',
-    color: '#8e8e93',
+    color: COLORS.textMuted,
     textTransform: 'uppercase',
     marginBottom: 4,
   },
   confirmTitleValue: {
     fontSize: 16,
     fontWeight: '700',
-    color: '#000',
+    color: COLORS.black,
     marginBottom: 16,
   },
   confirmDescLabel: {
     fontSize: 11,
     fontWeight: '600',
-    color: '#8e8e93',
+    color: COLORS.textMuted,
     textTransform: 'uppercase',
     marginBottom: 4,
   },
   confirmDescValue: {
     fontSize: 14,
-    color: '#333',
+    color: COLORS.textPrimary,
     lineHeight: 20,
     marginBottom: 16,
   },
   confirmPriceLabel: {
     fontSize: 11,
     fontWeight: '600',
-    color: '#8e8e93',
+    color: COLORS.textMuted,
     textTransform: 'uppercase',
     marginBottom: 4,
   },
   confirmPriceValue: {
     fontSize: 15,
     fontWeight: '700',
-    color: '#000',
+    color: COLORS.black,
     marginBottom: 16,
   },
   confirmGroupChatRow: {
@@ -1168,18 +1169,18 @@ const styles = StyleSheet.create({
   },
   confirmGroupChatText: {
     fontSize: 13,
-    color: '#333',
+    color: COLORS.textPrimary,
     fontWeight: '500',
   },
   confirmBenefitsSection: {
     borderTopWidth: 1,
-    borderTopColor: '#e5e5ea',
+    borderTopColor: COLORS.border,
     paddingTop: 14,
   },
   confirmBenefitsLabel: {
     fontSize: 13,
     fontWeight: '600',
-    color: '#333',
+    color: COLORS.textPrimary,
     marginBottom: 8,
   },
   confirmBenefitRow: {
@@ -1189,6 +1190,6 @@ const styles = StyleSheet.create({
   },
   confirmBenefitText: {
     fontSize: 13,
-    color: '#666',
+    color: COLORS.textSecondary,
   },
 });

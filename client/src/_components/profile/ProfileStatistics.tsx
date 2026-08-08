@@ -9,6 +9,7 @@ import { apiService } from '@/src/_services/apiService';
 import { DEFAULT_AVATAR_URL } from '@/lib/api';
 import { subscriptionService } from '@/src/_services/subscriptionService';
 import { withdrawalService, type ConnectStatus, type BalanceData, type WithdrawalRecord } from '@/src/_services/withdrawalService';
+import COLORS from '@/src/theme/colors';
 
 interface ProfileStatisticsProps {
   creatorPosts?: any[];
@@ -88,33 +89,71 @@ export const ProfileStatistics: React.FC<ProfileStatisticsProps> = ({
     return (
       <Animated.View style={[styles.subscriberCard, { opacity: skeletonOpacity }]}>
         <View style={styles.cardHeader}>
-          <View style={[styles.avatar, { backgroundColor: '#e5e5ea' }]} />
+          <View style={[styles.avatar, { backgroundColor: COLORS.border }]} />
           <View style={styles.cardHeaderInfo}>
-            <View style={{ width: 120, height: 16, backgroundColor: '#e5e5ea', borderRadius: 4, marginBottom: 6 }} />
-            <View style={{ width: 180, height: 12, backgroundColor: '#e5e5ea', borderRadius: 4, marginBottom: 4 }} />
-            <View style={{ width: 80, height: 12, backgroundColor: '#e5e5ea', borderRadius: 4 }} />
+            <View style={{ width: 120, height: 16, backgroundColor: COLORS.border, borderRadius: 4, marginBottom: 6 }} />
+            <View style={{ width: 180, height: 12, backgroundColor: COLORS.border, borderRadius: 4, marginBottom: 4 }} />
+            <View style={{ width: 80, height: 12, backgroundColor: COLORS.border, borderRadius: 4 }} />
           </View>
         </View>
-        <View style={[styles.btnMessage, { backgroundColor: '#e5e5ea', width: 90, marginTop: 10 }]}>
+        <View style={[styles.btnMessage, { backgroundColor: COLORS.border, width: 90, marginTop: 10 }]}>
           <View style={{ width: 60, height: 12, backgroundColor: '#d1d1d6', borderRadius: 4 }} />
         </View>
       </Animated.View>
     );
   };
 
+// Spring Animated Number Ticker Component (Robinhood / Apple Fitness style)
+const SpringAnimatedNumber: React.FC<{ rawValue: number | string; style?: any }> = ({ rawValue, style }) => {
+  const numericVal = typeof rawValue === 'number' ? rawValue : (parseInt(String(rawValue).replace(/[^0-9]/g, ''), 10) || 0);
+  const animVal = useRef(new Animated.Value(0)).current;
+  const [currentNum, setCurrentNum] = useState<number>(0);
+
+  useEffect(() => {
+    animVal.setValue(0);
+    const id = animVal.addListener(({ value }) => {
+      setCurrentNum(Math.floor(value));
+    });
+
+    Animated.spring(animVal, {
+      toValue: numericVal,
+      tension: 40,
+      friction: 7,
+      useNativeDriver: true,
+    }).start();
+
+    return () => {
+      animVal.removeListener(id);
+    };
+  }, [numericVal]);
+
+  const formattedDisplay = useMemo(() => {
+    if (typeof rawValue === 'string' && (rawValue.endsWith('K') || rawValue.endsWith('M'))) {
+      if (currentNum >= 1000000) return `${(currentNum / 1000000).toFixed(1)}M`;
+      if (currentNum >= 1000) return `${(currentNum / 1000).toFixed(1)}K`;
+      return String(currentNum);
+    }
+    if (currentNum >= 1000000) return `${(currentNum / 1000000).toFixed(1)}M`;
+    if (currentNum >= 1000) return `${(currentNum / 1000).toFixed(1)}K`;
+    return String(currentNum);
+  }, [currentNum, rawValue]);
+
+  return <Text style={style}>{formattedDisplay}</Text>;
+};
+
   const renderStatValue = (val: string | number, width = 60) => {
     if (loading) {
       return (
-        <Animated.View style={{ width, height: 28, backgroundColor: '#e5e5ea', borderRadius: 6, marginVertical: 4, opacity: skeletonOpacity }} />
+        <Animated.View style={{ width, height: 28, backgroundColor: COLORS.border, borderRadius: 6, marginVertical: 4, opacity: skeletonOpacity }} />
       );
     }
-    return <Text style={styles.statValue}>{val}</Text>;
+    return <SpringAnimatedNumber rawValue={val} style={styles.statValue} />;
   };
 
   const renderBalanceValue = (val: string, width = 120) => {
     if (loading) {
       return (
-        <Animated.View style={{ width, height: 36, backgroundColor: '#e5e5ea', borderRadius: 6, marginVertical: 4, opacity: skeletonOpacity }} />
+        <Animated.View style={{ width, height: 36, backgroundColor: COLORS.border, borderRadius: 6, marginVertical: 4, opacity: skeletonOpacity }} />
       );
     }
     return <Text style={styles.moneyValue}>{val}</Text>;
@@ -427,11 +466,11 @@ export const ProfileStatistics: React.FC<ProfileStatisticsProps> = ({
               disabled={setupLoading}
             >
               {setupLoading ? (
-                <ActivityIndicator size="small" color="#000" />
+                <ActivityIndicator size="small" color={COLORS.black} />
               ) : (
                 <>
-                  <Feather name="settings" size={16} color="#000" style={{ marginRight: 6 }} />
-                  <Text style={styles.withdrawText}>Set up payouts</Text>
+                  <Feather name="settings" size={16} color={COLORS.black} style={{ marginRight: 6 }} />
+                  <Text style={[styles.withdrawText, { color: COLORS.black }]}>Set up payouts</Text>
                 </>
               )}
             </TouchableOpacity>
@@ -447,11 +486,11 @@ export const ProfileStatistics: React.FC<ProfileStatisticsProps> = ({
               disabled={withdrawLoading || !balance?.canWithdraw}
             >
               {withdrawLoading ? (
-                <ActivityIndicator size="small" color="#000" />
+                <ActivityIndicator size="small" color={COLORS.black} />
               ) : (
                 <>
                   <Text style={styles.withdrawText}>Withdraw</Text>
-                  <Feather name="arrow-down" size={16} color="#000" style={styles.withdrawIcon} />
+                  <Feather name="arrow-down" size={16} color={COLORS.black} style={styles.withdrawIcon} />
                 </>
               )}
             </TouchableOpacity>
@@ -464,11 +503,11 @@ export const ProfileStatistics: React.FC<ProfileStatisticsProps> = ({
               disabled={setupLoading}
             >
               {setupLoading ? (
-                <ActivityIndicator size="small" color="#fff" />
+                <ActivityIndicator size="small" color={COLORS.textLight} />
               ) : (
                 <>
-                  <Feather name="refresh-cw" size={14} color="#fff" style={{ marginRight: 6 }} />
-                  <Text style={[styles.withdrawText, { color: '#fff' }]}>Fix payout info</Text>
+                  <Feather name="refresh-cw" size={14} color={COLORS.textLight} style={{ marginRight: 6 }} />
+                  <Text style={[styles.withdrawText, { color: COLORS.textLight }]}>Fix payout info</Text>
                 </>
               )}
             </TouchableOpacity>
@@ -539,7 +578,7 @@ export const ProfileStatistics: React.FC<ProfileStatisticsProps> = ({
             style={[styles.pill, filter === 'recent' && styles.pillActive]}
             onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {}); setFilter('recent'); }}
           >
-            <Feather name="clock" size={14} color={filter === 'recent' ? '#fff' : '#fff'} style={{ marginRight: 6 }} />
+            <Feather name="clock" size={14} color={filter === 'recent' ? COLORS.textLight : COLORS.textLight} style={{ marginRight: 6 }} />
             <Text style={styles.pillText}>Recent subscribers</Text>
           </TouchableOpacity>
 
@@ -602,7 +641,7 @@ export const ProfileStatistics: React.FC<ProfileStatisticsProps> = ({
                     onPress={() => handleMessageSubscriber(item)}
                     activeOpacity={0.8}
                   >
-                    <Ionicons name="chatbubble-outline" size={14} color="#fff" style={{ marginRight: 6 }} />
+                    <Ionicons name="chatbubble-outline" size={14} color={COLORS.textLight} style={{ marginRight: 6 }} />
                     <Text style={styles.btnText}>Message</Text>
                   </TouchableOpacity>
                 )}
@@ -610,7 +649,7 @@ export const ProfileStatistics: React.FC<ProfileStatisticsProps> = ({
             ))
           ) : (
             <View style={styles.emptyContainer}>
-              <Ionicons name="people-outline" size={40} color="#bbb" />
+              <Ionicons name="people-outline" size={40} color={COLORS.textMuted} />
               <Text style={styles.emptyText}>No subscribers found</Text>
             </View>
           )}
@@ -625,15 +664,15 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingTop: 10,
     paddingBottom: 20,
-    backgroundColor: '#fff',
+    backgroundColor: COLORS.background,
     gap: 16,
   },
   card: {
-    backgroundColor: '#f5f5f7',
+    backgroundColor: COLORS.surface,
     borderRadius: 16,
     padding: 20,
     borderWidth: 1,
-    borderColor: '#e5e5ea',
+    borderColor: COLORS.border,
   },
   cardHeader: {
     flexDirection: 'row',
@@ -644,12 +683,12 @@ const styles = StyleSheet.create({
   cardTitle: {
     fontSize: 14,
     fontWeight: '700',
-    color: '#1c1c1e',
+    color: COLORS.textPrimary,
   },
   cardDate: {
     fontSize: 13,
     fontWeight: '700',
-    color: '#000000',
+    color: COLORS.textPrimary,
   },
   statsGrid: {
     flexDirection: 'row',
@@ -663,11 +702,11 @@ const styles = StyleSheet.create({
   statValue: {
     fontSize: 32,
     fontWeight: '800',
-    color: '#000',
+    color: COLORS.textPrimary,
   },
   statLabel: {
     fontSize: 12,
-    color: '#8e8e93',
+    color: COLORS.textSecondary,
     marginTop: 4,
     fontWeight: '600',
   },
@@ -682,11 +721,11 @@ const styles = StyleSheet.create({
   moneyValue: {
     fontSize: 36,
     fontWeight: '800',
-    color: '#000',
+    color: COLORS.textPrimary,
   },
   moneyLabel: {
     fontSize: 13,
-    color: '#8e8e93',
+    color: COLORS.textSecondary,
     marginTop: 2,
     fontWeight: '600',
   },
@@ -694,11 +733,11 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#FFD60A', // Figma Yellow
+    backgroundColor: COLORS.badgeYellow, // Figma Yellow
     paddingVertical: 10,
     paddingHorizontal: 20,
     borderRadius: 20,
-    shadowColor: '#000',
+    shadowColor: COLORS.black,
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.1,
     shadowRadius: 1.5,
@@ -706,18 +745,18 @@ const styles = StyleSheet.create({
     minWidth: 120,
   },
   withdrawBtnDisabled: {
-    backgroundColor: '#e5e5ea',
+    backgroundColor: COLORS.inputBg,
     shadowOpacity: 0,
     elevation: 0,
   },
   setupBtn: {
-    backgroundColor: '#FFD60A',
+    backgroundColor: COLORS.badgeYellow,
     minWidth: 140,
   },
   withdrawText: {
     fontSize: 14,
     fontWeight: '700',
-    color: '#000',
+    color: COLORS.textLight,
   },
   withdrawIcon: {
     marginLeft: 6,
@@ -725,27 +764,27 @@ const styles = StyleSheet.create({
   },
   pendingText: {
     fontSize: 12,
-    color: '#ff9500',
+    color: COLORS.warning,
     marginTop: 4,
     fontWeight: '600',
   },
   retryBtn: {
-    backgroundColor: '#e65100',
+    backgroundColor: COLORS.danger,
     minWidth: 140,
   },
   verificationBanner: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    backgroundColor: '#fff3e0',
+    backgroundColor: COLORS.warningLight,
     borderRadius: 10,
     padding: 12,
     marginTop: 14,
     borderWidth: 1,
-    borderColor: '#ffe0b2',
+    borderColor: COLORS.primaryLight,
   },
   verificationBannerText: {
     fontSize: 12,
-    color: '#e65100',
+    color: COLORS.warning,
     fontWeight: '600',
     lineHeight: 17,
   },
@@ -756,7 +795,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 10,
     borderBottomWidth: 1,
-    borderBottomColor: '#e5e5ea',
+    borderBottomColor: COLORS.border,
   },
   payoutInfo: {
     flex: 1,
@@ -764,11 +803,11 @@ const styles = StyleSheet.create({
   payoutAmount: {
     fontSize: 16,
     fontWeight: '700',
-    color: '#000',
+    color: COLORS.textPrimary,
   },
   payoutDate: {
     fontSize: 12,
-    color: '#8e8e93',
+    color: COLORS.textSecondary,
     marginTop: 2,
     fontWeight: '500',
   },
@@ -776,30 +815,30 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: 12,
-    backgroundColor: '#f0f0f0',
+    backgroundColor: COLORS.inputBg,
   },
   payoutStatusPaid: {
-    backgroundColor: '#e8f5e9',
+    backgroundColor: COLORS.successLight,
   },
   payoutStatusProcessing: {
-    backgroundColor: '#fff3e0',
+    backgroundColor: COLORS.warningLight,
   },
   payoutStatusFailed: {
-    backgroundColor: '#fce4ec',
+    backgroundColor: COLORS.dangerLight,
   },
   payoutStatusText: {
     fontSize: 12,
     fontWeight: '600',
-    color: '#666',
+    color: COLORS.textSecondary,
   },
   payoutStatusTextPaid: {
-    color: '#2e7d32',
+    color: COLORS.success,
   },
   payoutStatusTextProcessing: {
-    color: '#e65100',
+    color: COLORS.warning,
   },
   payoutStatusTextFailed: {
-    color: '#c62828',
+    color: COLORS.danger,
   },
   subscribersSection: {
     marginTop: 10,
@@ -813,39 +852,39 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#00a2ff', // Figma light blue
+    backgroundColor: COLORS.info, // Figma light blue
     paddingVertical: 8,
     paddingHorizontal: 16,
     borderRadius: 20,
   },
   pillBlack: {
-    backgroundColor: '#000', // Black inactive pills
+    backgroundColor: COLORS.black, // Black inactive pills
   },
   pillActive: {
-    backgroundColor: '#007aff', // Active filter highlight blue
+    backgroundColor: COLORS.info, // Active filter highlight blue
     borderWidth: 1,
-    borderColor: '#fff',
+    borderColor: COLORS.textLight,
   },
   pillText: {
     fontSize: 13,
     fontWeight: '700',
-    color: '#fff',
+    color: COLORS.textLight,
   },
   list: {
     gap: 12,
   },
   subscriberCard: {
-    backgroundColor: '#f5f5f7',
+    backgroundColor: COLORS.surface,
     borderRadius: 16,
     padding: 16,
     borderWidth: 1,
-    borderColor: '#e5e5ea',
+    borderColor: COLORS.border,
   },
   avatar: {
     width: 48,
     height: 48,
     borderRadius: 24,
-    backgroundColor: '#eee',
+    backgroundColor: COLORS.inputBg,
   },
   cardHeaderInfo: {
     marginLeft: 12,
@@ -855,21 +894,21 @@ const styles = StyleSheet.create({
   displayName: {
     fontSize: 15,
     fontWeight: '700',
-    color: '#000',
+    color: COLORS.textPrimary,
   },
   subText: {
     fontSize: 12,
-    color: '#1c1c1e',
+    color: COLORS.textPrimary,
     fontWeight: '500',
   },
   priceText: {
     fontSize: 12,
-    color: '#1c1c1e',
+    color: COLORS.textPrimary,
     fontWeight: '500',
   },
   btnMessage: {
     flexDirection: 'row',
-    backgroundColor: '#00a2ff',
+    backgroundColor: COLORS.info,
     paddingVertical: 8,
     paddingHorizontal: 18,
     borderRadius: 16,
@@ -879,7 +918,7 @@ const styles = StyleSheet.create({
     alignSelf: 'flex-start',
   },
   btnText: {
-    color: '#fff',
+    color: COLORS.textLight,
     fontSize: 13,
     fontWeight: '700',
   },
@@ -891,7 +930,7 @@ const styles = StyleSheet.create({
   },
   emptyText: {
     fontSize: 14,
-    color: '#999',
+    color: COLORS.textMuted,
     fontWeight: '600',
   },
 });

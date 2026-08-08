@@ -17,6 +17,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { apiService } from '@/src/_services/apiService';
 import { DEFAULT_AVATAR_URL } from '@/lib/api';
+import COLORS from '@/src/theme/colors';
 
 
 interface CreateGroupModalProps {
@@ -201,7 +202,7 @@ export const CreateGroupModal: React.FC<CreateGroupModalProps> = ({
               <TextInput
                 style={styles.groupNameInput}
                 placeholder="Group name (Required)"
-                placeholderTextColor="#9ca3af"
+                placeholderTextColor={COLORS.textMuted}
                 value={groupName}
                 onChangeText={setGroupName}
                 maxLength={60}
@@ -211,7 +212,7 @@ export const CreateGroupModal: React.FC<CreateGroupModalProps> = ({
             <TextInput
               style={styles.groupSearchInput}
               placeholder="Search people..."
-              placeholderTextColor="#9ca3af"
+              placeholderTextColor={COLORS.textMuted}
               value={groupSearch}
               onChangeText={setGroupSearch}
               autoCorrect={false}
@@ -255,8 +256,8 @@ export const CreateGroupModal: React.FC<CreateGroupModalProps> = ({
                     <TouchableOpacity style={styles.memberRow} onPress={() => toggleGroupMember(u)} activeOpacity={0.8}>
                       <View style={{ width: 34, height: 34, borderRadius: 17, overflow: 'hidden', marginRight: 10 }}>
                         {isDefaultAvatar ? (
-                          <View style={{ width: 34, height: 34, borderRadius: 17, backgroundColor: '#788d9a', alignItems: 'center', justifyContent: 'center' }}>
-                            <Text style={{ color: '#fff', fontSize: 18, fontWeight: '700' }}>
+                          <View style={{ width: 34, height: 34, borderRadius: 17, backgroundColor: COLORS.textMuted, alignItems: 'center', justifyContent: 'center' }}>
+                            <Text style={{ color: COLORS.textLight, fontSize: 18, fontWeight: '700' }}>
                               {String(name || 'U').trim().charAt(0).toUpperCase()}
                             </Text>
                           </View>
@@ -276,7 +277,7 @@ export const CreateGroupModal: React.FC<CreateGroupModalProps> = ({
                       <Feather
                         name={selected ? 'check-circle' : 'circle'}
                         size={18}
-                        color={selected ? '#FF8D00' : '#9ca3af'}
+                        color={selected ? COLORS.primary : COLORS.textMuted}
                       />
                     </TouchableOpacity>
                   );
@@ -324,7 +325,7 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
   },
   groupSheet: {
-    backgroundColor: '#fff',
+    backgroundColor: COLORS.card,
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     paddingHorizontal: 16,
@@ -335,37 +336,37 @@ const styles = StyleSheet.create({
     width: 42,
     height: 4,
     borderRadius: 2,
-    backgroundColor: '#d1d5db',
+    backgroundColor: COLORS.border,
     alignSelf: 'center',
     marginBottom: 12,
   },
   groupTitle: {
     fontSize: 18,
     fontWeight: '800',
-    color: '#111827',
+    color: COLORS.textPrimary,
     marginBottom: 10,
   },
   groupNameInput: {
     borderWidth: 1,
-    borderColor: '#e5e7eb',
+    borderColor: COLORS.border,
     borderRadius: 12,
     paddingHorizontal: 12,
     paddingVertical: 10,
     fontSize: 15,
-    color: '#111827',
+    color: COLORS.textPrimary,
     marginBottom: 8,
-    backgroundColor: '#f8fafc',
+    backgroundColor: COLORS.surface,
   },
   groupSearchInput: {
     borderWidth: 1,
-    borderColor: '#e5e7eb',
+    borderColor: COLORS.border,
     borderRadius: 12,
     paddingHorizontal: 12,
     paddingVertical: 10,
     fontSize: 14,
-    color: '#111827',
+    color: COLORS.textPrimary,
     marginBottom: 8,
-    backgroundColor: '#fff',
+    backgroundColor: COLORS.card,
   },
   memberChipsWrap: {
     flexDirection: 'row',
@@ -377,7 +378,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    backgroundColor: '#e0f2fe',
+    backgroundColor: COLORS.primaryLight,
     borderRadius: 999,
     paddingHorizontal: 10,
     paddingVertical: 6,
@@ -385,7 +386,7 @@ const styles = StyleSheet.create({
   },
   memberChipText: {
     fontSize: 12,
-    color: '#0f172a',
+    color: COLORS.textPrimary,
     fontWeight: '400',
     maxWidth: 170,
   },
@@ -394,7 +395,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 10,
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: '#f1f5f9',
+    borderBottomColor: COLORS.border,
   },
   memberAvatar: {
     width: 34,
@@ -406,25 +407,25 @@ const styles = StyleSheet.create({
   memberName: {
     flex: 1,
     fontSize: 14,
-    color: '#111827',
+    color: COLORS.textPrimary,
     fontWeight: '400',
   },
   memberEmpty: {
     textAlign: 'center',
-    color: '#94a3b8',
+    color: COLORS.textMuted,
     fontSize: 13,
     paddingVertical: 18,
   },
   createGroupBtn: {
     marginTop: 12,
     borderRadius: 12,
-    backgroundColor: '#FF8D00',
+    backgroundColor: COLORS.primary,
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: 13,
   },
   createGroupBtnText: {
-    color: '#fff',
+    color: COLORS.textLight,
     fontSize: 15,
     fontWeight: '800',
   },

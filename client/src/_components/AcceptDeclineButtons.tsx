@@ -2,6 +2,7 @@ import { hapticLight, hapticMedium } from '@/lib/haptics';
 import React, { useState } from 'react';
 import { Text, TouchableOpacity, Alert } from 'react-native';
 import { useAppDialog } from '@/src/_components/AppDialogProvider';
+import { COLORS } from '@/src/theme/colors';
 
 interface AcceptDeclineButtonsProps {
   item: any;
@@ -16,7 +17,7 @@ const AcceptDeclineButtons: React.FC<AcceptDeclineButtonsProps> = ({ item, onAct
     <>
       <TouchableOpacity
         style={{
-          backgroundColor: '#007aff',
+          backgroundColor: COLORS.primary,
           paddingVertical: 6,
           paddingHorizontal: 18,
           borderRadius: 8,
@@ -42,12 +43,12 @@ const AcceptDeclineButtons: React.FC<AcceptDeclineButtonsProps> = ({ item, onAct
           }
         }}
       >
-        <Text style={{ color: '#fff', fontWeight: 'bold' }}>Accept</Text>
+        <Text style={{ color: COLORS.textLight, fontWeight: 'bold' }}>Accept</Text>
       </TouchableOpacity>
 
       <TouchableOpacity
         style={{
-          backgroundColor: '#FF3B30',
+          backgroundColor: COLORS.danger,
           paddingVertical: 6,
           paddingHorizontal: 18,
           borderRadius: 8,
@@ -72,7 +73,7 @@ const AcceptDeclineButtons: React.FC<AcceptDeclineButtonsProps> = ({ item, onAct
           }
         }}
       >
-        <Text style={{ color: '#fff', fontWeight: 'bold' }}>Decline</Text>
+        <Text style={{ color: COLORS.textLight, fontWeight: 'bold' }}>Decline</Text>
       </TouchableOpacity>
     </>
   );

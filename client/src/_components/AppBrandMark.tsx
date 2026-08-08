@@ -50,6 +50,7 @@ type Props = {
 /**
  * Trips logo mark + optional wordmark (PNG from `npm run assets:trips-png`).
  */
+import COLORS from '@/src/theme/colors';
 export function AppBrandMark({
   logoUri,
   size = 'md',
@@ -135,7 +136,7 @@ const styles = StyleSheet.create({
   },
   word: {
     fontWeight: '900',
-    color: '#000000',
+    color: COLORS.black,
     letterSpacing: -0.65,
   },
 });

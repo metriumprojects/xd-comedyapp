@@ -5,6 +5,7 @@ import { StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { AuthBrandHeader } from '@/src/_components/auth/AuthBrandHeader';
 import CustomButton from '@/src/_components/auth/CustomButton';
+import COLORS from '@/src/theme/colors';
 
 export default function PasswordResetSuccessScreen() {
   const router = useRouter();
@@ -21,7 +22,7 @@ export default function PasswordResetSuccessScreen() {
 
         <View style={styles.iconContainer}>
           <View style={styles.iconCircle}>
-            <Ionicons name="checkmark" size={60} color="#fff" />
+            <Ionicons name="checkmark" size={60} color={COLORS.textLight} />
           </View>
         </View>
 
@@ -48,7 +49,7 @@ export default function PasswordResetSuccessScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#fff',
+    backgroundColor: COLORS.background,
   },
   content: {
     flex: 1,

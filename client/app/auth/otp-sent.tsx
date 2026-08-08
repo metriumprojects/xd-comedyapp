@@ -6,6 +6,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { AuthBrandHeader } from '@/src/_components/auth/AuthBrandHeader';
 import CustomButton from '@/src/_components/auth/CustomButton';
 import { safeRouterBack } from '@/lib/safeRouterBack';
+import COLORS from '@/src/theme/colors';
 
 export default function OTPSentScreen() {
   const router = useRouter();
@@ -30,7 +31,7 @@ export default function OTPSentScreen() {
             onPress={() => safeRouterBack()}
             style={styles.backButton}
           >
-            <Ionicons name="arrow-back" size={24} color="#000" />
+            <Ionicons name="arrow-back" size={24} color={COLORS.textPrimary} />
           </TouchableOpacity>
         </View>
 
@@ -43,13 +44,13 @@ export default function OTPSentScreen() {
 
         <View style={styles.iconContainer}>
           <View style={styles.iconCircle}>
-            <Ionicons name="mail" size={50} color="#FF8D00" />
+            <Ionicons name="mail" size={50} color={COLORS.primary} />
           </View>
         </View>
 
         {/* Email Info */}
         <View style={styles.infoBox}>
-          <Ionicons name="information-circle-outline" size={20} color="#666" />
+          <Ionicons name="information-circle-outline" size={20} color={COLORS.textSecondary} />
           <Text style={styles.infoText}>
             Please check your inbox and spam folder for the verification code.
           </Text>
@@ -89,7 +90,7 @@ export default function OTPSentScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#fff',
+    backgroundColor: COLORS.background,
   },
   content: {
     flex: 1,
@@ -113,7 +114,7 @@ const styles = StyleSheet.create({
     width: 70,
     height: 70,
     borderRadius: 35,
-    backgroundColor: '#FFF5E6',
+    backgroundColor: COLORS.primaryLight,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -123,7 +124,7 @@ const styles = StyleSheet.create({
   },
   infoBox: {
     flexDirection: 'row',
-    backgroundColor: '#f9f9f9',
+    backgroundColor: COLORS.surface,
     borderRadius: 12,
     padding: 12,
     marginBottom: 15,
@@ -132,7 +133,7 @@ const styles = StyleSheet.create({
   infoText: {
     flex: 1,
     fontSize: 13,
-    color: '#666',
+    color: COLORS.textSecondary,
     marginLeft: 10,
     lineHeight: 20,
   },
@@ -147,20 +148,20 @@ const styles = StyleSheet.create({
   },
   resendText: {
     fontSize: 14,
-    color: '#666',
+    color: COLORS.textSecondary,
   },
   resendLink: {
     fontSize: 14,
-    color: '#FF8D00',
+    color: COLORS.primary,
     fontWeight: '600',
   },
   changeMethod: {
     alignItems: 'center',
+    paddingVertical: 10,
   },
   changeMethodText: {
     fontSize: 14,
-    color: '#007AFF',
+    color: COLORS.info,
     fontWeight: '500',
   },
 });
-

@@ -96,10 +96,9 @@ export async function signInWithEmailPassword(
     const isMockEmail = firebaseUser.email?.toLowerCase().endsWith('@comedyapp.com');
     if (!isMockEmail && !firebaseUser.emailVerified) {
       try {
-        const { sendEmailVerification: fbSendVerification } = require('firebase/auth');
-        await fbSendVerification(firebaseUser);
+        await apiService.post('/auth/send-custom-verification-email', { email: firebaseUser.email });
       } catch (err) {
-        console.warn('[signInWithEmailPassword] Failed to send verification email:', err);
+        console.warn('[signInWithEmailPassword] Failed to send custom verification email:', err);
       }
       try { await signOut(firebaseAuth); } catch (e) { }
       await AsyncStorage.multiRemove(['token', 'userId', 'userEmail', 'userAvatar', 'uid', 'firebaseUid']);
@@ -231,12 +230,11 @@ export async function registerWithEmailPassword(
       const avatarToStore = response.user?.avatar || response.user?.photoURL || response.user?.profilePicture || firebaseUser.photoURL || '';
       
       if (verifyEmail) {
-        // Send email verification
+        // Send custom HTML email verification via backend Nodemailer
         try {
-          const { sendEmailVerification: fbSendVerification } = require('firebase/auth');
-          await fbSendVerification(firebaseUser);
+          await apiService.post('/auth/send-custom-verification-email', { email: firebaseUser.email });
         } catch (e) {
-          console.warn('[registerWithEmailPassword] Failed to send verification email:', e);
+          console.warn('[registerWithEmailPassword] Failed to send custom verification email:', e);
         }
 
         // Clean up AsyncStorage and Firebase Auth to force verification on login

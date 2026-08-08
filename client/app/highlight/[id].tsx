@@ -7,6 +7,7 @@ import StoriesViewer from '@/src/_components/StoriesViewer';
 import { getHighlightStories } from '../../lib/firebaseHelpers/core';
 import { getCachedHighlightStories, storyForStoriesViewer } from '../../lib/storyViewer';
 import { safeRouterBack } from '@/lib/safeRouterBack';
+import COLORS from '@/src/theme/colors';
 
 export default function HighlightScreen() {
   const params = useLocalSearchParams();
@@ -48,7 +49,7 @@ export default function HighlightScreen() {
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
         <TouchableOpacity onPress={() => safeRouterBack()} style={styles.backBtn}>
-          <Feather name="arrow-left" size={24} color="#111" />
+          <Feather name="arrow-left" size={24} color={COLORS.textPrimary} />
         </TouchableOpacity>
         <Text style={styles.title}>Highlight</Text>
         <View style={{ width: 44 }} />
@@ -56,7 +57,7 @@ export default function HighlightScreen() {
 
       {loading ? (
         <View style={styles.center}>
-          <ActivityIndicator size="large" color="#111" />
+          <ActivityIndicator size="large" color={COLORS.textPrimary} />
           <Text style={styles.loadingText}>Loading highlight...</Text>
         </View>
       ) : viewerStories.length === 0 ? (
@@ -86,20 +87,20 @@ export default function HighlightScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#fff' },
+  container: { flex: 1, backgroundColor: COLORS.background },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 14,
     paddingVertical: 12,
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: '#eee',
+    borderBottomColor: COLORS.border,
   },
   backBtn: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
-  title: { fontWeight: '800', fontSize: 18, marginLeft: 6, color: '#111', flex: 1 },
+  title: { fontWeight: '800', fontSize: 18, marginLeft: 6, color: COLORS.textPrimary, flex: 1 },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 24 },
   loadingText: { marginTop: 10, color: '#777' },
   empty: { color: '#777', fontSize: 15, textAlign: 'center' },
-  openBtn: { backgroundColor: '#111', paddingHorizontal: 18, paddingVertical: 12, borderRadius: 12 },
-  openBtnText: { color: '#fff', fontWeight: '800' },
+  openBtn: { backgroundColor: COLORS.textPrimary, paddingHorizontal: 18, paddingVertical: 12, borderRadius: 12 },
+  openBtnText: { color: COLORS.textLight, fontWeight: '800' },
 });

@@ -14,6 +14,7 @@ import { hapticLight, hapticMedium, hapticSuccess } from '../lib/haptics';
 import { useAppDialog } from '@/src/_components/AppDialogProvider';
 import { safeRouterBack } from '@/lib/safeRouterBack';
 import { useQueryClient } from '@tanstack/react-query';
+import COLORS from '@/src/theme/colors';
 
 // Runtime import with fallback
 let ImagePicker: any = null;
@@ -326,8 +327,8 @@ export default function EditProfile() {
     // Show loading while either auth context or profile data is still loading
     return (
       <SafeAreaView style={[styles.safe, { alignItems: 'center', justifyContent: 'center' }]} edges={["top", "bottom"]}>
-        <ActivityIndicator size="large" color="#FF8D00" />
-        <Text style={{ marginTop: 16, color: '#666', fontSize: 14 }}>Loading your profile...</Text>
+        <ActivityIndicator size="large" color={COLORS.primary} />
+        <Text style={{ marginTop: 16, color: COLORS.textSecondary, fontSize: 14 }}>Loading your profile...</Text>
       </SafeAreaView>
     );
   }
@@ -350,7 +351,7 @@ export default function EditProfile() {
             }}
             style={styles.closeBtn}
           >
-            <Ionicons name="close" size={20} color="#333" />
+            <Ionicons name="close" size={20} color={COLORS.textPrimary} />
           </TouchableOpacity>
           <Text style={styles.headerTitle}>Edit profile</Text>
           <View style={{ width: 40 }} />
@@ -374,7 +375,7 @@ export default function EditProfile() {
               onChangeText={setName} 
               style={styles.input} 
               placeholder="Emma Lumna" 
-              placeholderTextColor="#999"
+              placeholderTextColor={COLORS.textMuted}
               editable={!loading}
             />
           </View>
@@ -386,7 +387,7 @@ export default function EditProfile() {
               onChangeText={setUsername} 
               style={styles.input} 
               placeholder="@username" 
-              placeholderTextColor="#999"
+              placeholderTextColor={COLORS.textMuted}
               autoCapitalize="none"
               editable={!loading}
             />
@@ -399,7 +400,7 @@ export default function EditProfile() {
               onChangeText={setBio} 
               style={styles.input} 
               placeholder="Add bio" 
-              placeholderTextColor="#999" 
+              placeholderTextColor={COLORS.textMuted} 
             />
           </View>
 
@@ -410,7 +411,7 @@ export default function EditProfile() {
               onChangeText={setWebsite}
               style={styles.input}
               placeholder="Add links"
-              placeholderTextColor="#999"
+              placeholderTextColor={COLORS.textMuted}
             />
           </View>
 
@@ -421,7 +422,7 @@ export default function EditProfile() {
               onChangeText={setLocation}
               style={styles.input}
               placeholder="City, Country"
-              placeholderTextColor="#999"
+              placeholderTextColor={COLORS.textMuted}
             />
           </View>
 
@@ -472,8 +473,8 @@ export default function EditProfile() {
               <Switch
                 value={isPrivate}
                 onValueChange={setIsPrivate}
-                trackColor={{ false: '#ddd', true: '#667eea' }}
-                thumbColor="#fff"
+                trackColor={{ false: COLORS.border, true: '#667eea' }}
+                thumbColor={COLORS.textLight}
               />
             </View>
           </View>
@@ -545,7 +546,7 @@ export default function EditProfile() {
             disabled={saving}
           >
             <LinearGradient
-              colors={['#FBBC04', '#FF8D00']}
+              colors={[COLORS.primary, COLORS.primary]}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 0 }}
               style={StyleSheet.absoluteFill}
@@ -558,9 +559,9 @@ export default function EditProfile() {
       {/* Loading overlay when fetching profile data (but auth is done) */}
       {loading && !authLoading && (
         <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.3)', justifyContent: 'center', alignItems: 'center', zIndex: 999 }}>
-          <View style={{ backgroundColor: '#fff', borderRadius: 12, padding: 20, alignItems: 'center' }}>
-            <ActivityIndicator size="large" color="#FF8D00" />
-            <Text style={{ marginTop: 12, color: '#666', fontSize: 14 }}>Loading profile data...</Text>
+          <View style={{ backgroundColor: COLORS.background, borderRadius: 12, padding: 20, alignItems: 'center' }}>
+            <ActivityIndicator size="large" color={COLORS.primary} />
+            <Text style={{ marginTop: 12, color: COLORS.textSecondary, fontSize: 14 }}>Loading profile data...</Text>
           </View>
         </View>
       )}
@@ -568,11 +569,11 @@ export default function EditProfile() {
   );
 }
 
-const PRIMARY = '#FF8D00';
-const SECONDARY = '#111';
+const PRIMARY = COLORS.primary;
+const SECONDARY = COLORS.textPrimary;
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: '#fff' },
+  safe: { flex: 1, backgroundColor: COLORS.background },
   container: { flex: 1 },
   headerRow: { 
     flexDirection: 'row', 
@@ -581,7 +582,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16, 
     paddingVertical: 14, 
     borderBottomWidth: 0.5, 
-    borderBottomColor: '#e0e0e0' 
+    borderBottomColor: COLORS.border 
   },
   closeBtn: { 
     width: 40, 
@@ -590,18 +591,18 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     borderRadius: 20,
     borderWidth: 1.5,
-    borderColor: '#ddd',
+    borderColor: COLORS.border,
     padding: 8
   },
   closeIcon: { 
     fontSize: 24, 
-    color: '#000', 
+    color: COLORS.black, 
     fontWeight: '300' 
   },
   headerTitle: { 
     fontWeight: '600', 
     fontSize: 16, 
-    color: '#000', 
+    color: COLORS.black, 
     textAlign: 'center',
     flex: 1
   },
@@ -621,7 +622,7 @@ const styles = StyleSheet.create({
     width: 100, 
     height: 100, 
     borderRadius: 50, 
-    backgroundColor: '#f5f5f5' 
+    backgroundColor: COLORS.surface 
   },
   formGroup: { 
     paddingHorizontal: 16, 
@@ -631,7 +632,7 @@ const styles = StyleSheet.create({
   },
   fieldLabel: { 
     fontSize: 13, 
-    color: '#444', 
+    color: COLORS.textSecondary, 
     fontWeight: '500', 
     marginBottom: 8,
     textAlign: 'left',
@@ -639,8 +640,8 @@ const styles = StyleSheet.create({
   },
   input: { 
     fontSize: 14, 
-    color: '#222', 
-    backgroundColor: '#f5f5f5',
+    color: COLORS.textPrimary, 
+    backgroundColor: COLORS.surface,
     borderRadius: 14,
     paddingHorizontal: 14,
     paddingVertical: 12,
@@ -656,7 +657,7 @@ const styles = StyleSheet.create({
     marginTop: 20,
     paddingHorizontal: 16,
     paddingVertical: 16,
-    backgroundColor: '#f5f5f5',
+    backgroundColor: COLORS.surface,
     borderRadius: 12,
     marginHorizontal: 16,
   },
@@ -673,12 +674,12 @@ const styles = StyleSheet.create({
   privacyLabel: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#222',
+    color: COLORS.textPrimary,
     marginBottom: 4,
   },
   privacyInfo: {
     fontSize: 13,
-    color: '#666',
+    color: COLORS.textSecondary,
     maxWidth: 220,
   },
   bottomBar: {
@@ -688,7 +689,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 16,
     borderTopWidth: 0.5,
-    borderTopColor: '#e0e0e0'
+    borderTopColor: COLORS.border
   },
   logoutBtn: { 
     paddingVertical: 12, 
@@ -696,7 +697,7 @@ const styles = StyleSheet.create({
   },
   logoutText: { 
     fontSize: 15, 
-    color: '#000', 
+    color: COLORS.black, 
     fontWeight: '400' 
   },
   shareBtn: { 
@@ -709,7 +710,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   shareText: { 
-    color: '#fff', 
+    color: COLORS.textLight, 
     fontWeight: '600', 
     fontSize: 15 
   },
@@ -725,21 +726,21 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 8,
     borderRadius: 20,
-    backgroundColor: '#f5f5f7',
+    backgroundColor: COLORS.inputBg,
     borderWidth: 1,
-    borderColor: '#e5e5ea',
+    borderColor: COLORS.border,
   },
   categoryChipSelected: {
-    backgroundColor: '#FF8D00',
-    borderColor: '#FF8D00',
+    backgroundColor: COLORS.primary,
+    borderColor: COLORS.primary,
   },
   categoryChipText: {
     fontSize: 13,
-    color: '#666',
+    color: COLORS.textSecondary,
     fontWeight: '500',
   },
   categoryChipTextSelected: {
-    color: '#fff',
+    color: COLORS.textLight,
     fontWeight: '600',
   },
 });

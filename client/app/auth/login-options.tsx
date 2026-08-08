@@ -8,6 +8,7 @@ import { AuthBrandHeader } from '@/src/_components/auth/AuthBrandHeader';
 import CustomButton from '@/src/_components/auth/CustomButton';
 import SocialButton from '@/src/_components/auth/SocialButton';
 import { safeRouterBack } from '@/lib/safeRouterBack';
+import COLORS from '@/src/theme/colors';
 
 export default function LoginOptionsScreen() {
   const router = useRouter();
@@ -56,7 +57,7 @@ export default function LoginOptionsScreen() {
               onPress={() => safeRouterBack()}
               style={styles.backButton}
             >
-              <Ionicons name="arrow-back" size={24} color="#000" />
+              <Ionicons name="arrow-back" size={24} color={COLORS.textPrimary} />
             </TouchableOpacity>
             
             <View style={styles.logoContainer}>
@@ -72,7 +73,7 @@ export default function LoginOptionsScreen() {
             <TextInput
               style={styles.input}
               placeholder="Please enter your email"
-              placeholderTextColor="#999"
+              placeholderTextColor={COLORS.textMuted}
               value={identifier}
               onChangeText={setIdentifier}
               keyboardType="email-address"
@@ -119,7 +120,7 @@ export default function LoginOptionsScreen() {
 
           {/* Footer */}
           <View style={styles.footer}>
-            <Text style={{ fontSize: 12, color: '#666', textAlign: 'center', marginTop: 15 }}>
+            <Text style={{ fontSize: 12, color: COLORS.textSecondary, textAlign: 'center', marginTop: 15 }}>
               By logging in, you agree to our{' '}
               <Text style={{ fontWeight: '600' }} onPress={() => router.push('/legal/terms' as any)}>Terms of Service</Text> and{' '}
               <Text style={{ fontWeight: '600' }} onPress={() => router.push('/legal/privacy' as any)}>Privacy Policy</Text>.
@@ -134,7 +135,7 @@ export default function LoginOptionsScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#fff',
+    backgroundColor: COLORS.background,
   },
   scrollContent: {
     flexGrow: 1,
@@ -162,7 +163,7 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: 24, // Shifted left to reduce space on icon side
+    marginRight: 24,
   },
   headerPlaceholder: {
     width: 44,
@@ -172,15 +173,15 @@ const styles = StyleSheet.create({
     marginBottom: 15,
   },
   input: {
-    backgroundColor: '#f5f5f5',
+    backgroundColor: COLORS.inputBg,
     borderRadius: 8,
     padding: 16,
     fontSize: 16,
-    color: '#000',
+    color: COLORS.textPrimary,
     marginBottom: 12,
   },
   errorText: {
-    color: '#e74c3c',
+    color: COLORS.danger,
     fontSize: 14,
     marginBottom: 10,
   },
@@ -189,7 +190,7 @@ const styles = StyleSheet.create({
   },
   noAccountText: {
     fontSize: 14,
-    color: '#666',
+    color: COLORS.textSecondary,
     textAlign: 'center',
     marginTop: 4,
   },
@@ -205,7 +206,7 @@ const styles = StyleSheet.create({
     paddingBottom: 10,
   },
   footerLink: {
-    color: '#FF8D00',
+    color: COLORS.primary,
     fontWeight: '600',
   },
 });

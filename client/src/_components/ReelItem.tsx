@@ -32,12 +32,14 @@ import { normalizeAvatarUrl, getOptimizedMediaUrl, isVideoUrl } from '../../lib/
 import { getVideoThumbnailUrl } from '../../lib/imageHelpers';
 import { ReelBufferSkeleton } from './HomeReelSkeleton';
 import { feedEventEmitter } from '../../lib/feedEventEmitter';
+import { hapticLight } from '@/lib/haptics';
 import { useUser } from './UserContext';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import AsyncStorage from '@/lib/storage';
 import { SubscriptionModal } from './profile/SubscriptionModal';
 import { subscriptionService } from '@/src/_services/subscriptionService';
+import COLORS from '@/src/theme/colors';
 import { resolveCanonicalUserId } from '@/lib/currentUser';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
@@ -113,10 +115,41 @@ export const ReelItem = React.memo<ReelItemProps>(({
   );
 
   const [showComments, setShowComments] = useState(false);
+  const [autoFocusComment, setAutoFocusComment] = useState(false);
   const [showShare, setShowShare] = useState(false);
   const [showMenu, setShowMenu] = useState(false);
   const [shareCount, setShareCount] = useState<number>(post?.shareCount || 0);
   const [isFollowing, setIsFollowing] = useState(post?.isFollowing || false);
+  const [isCaptionExpanded, setIsCaptionExpanded] = useState(false);
+
+  const rawHashtags = useMemo(() => {
+    const list: string[] = [];
+    if (Array.isArray(post?.hashtags)) {
+      post.hashtags.forEach((h: any) => {
+        if (typeof h === 'string') {
+          const clean = h.replace(/^#/, '').trim();
+          if (clean && !list.includes(clean)) list.push(clean);
+        }
+      });
+    }
+    if (Array.isArray(post?.tags)) {
+      post.tags.forEach((t: any) => {
+        if (typeof t === 'string') {
+          const clean = t.replace(/^#/, '').trim();
+          if (clean && !list.includes(clean)) list.push(clean);
+        }
+      });
+    }
+    const captionStr = post?.caption || post?.text || '';
+    const matches = captionStr.match(/#([a-zA-Z0-9_\u0600-\u06FF]+)/g);
+    if (matches) {
+      matches.forEach((m: string) => {
+        const clean = m.replace(/^#/, '').trim();
+        if (clean && !list.includes(clean)) list.push(clean);
+      });
+    }
+    return list;
+  }, [post?.hashtags, post?.tags, post?.caption, post?.text]);
   const [isSaved, setIsSaved] = useState(() => {
     if (post?.isSaved !== undefined) return post.isSaved;
     const myId = String(currentUser?._id || currentUser?.id || currentUser?.uid || currentUser?.firebaseUid || '');
@@ -131,6 +164,28 @@ export const ReelItem = React.memo<ReelItemProps>(({
   const [tomatoCount, setTomatoCount] = useState(post?.tomatoCount || 0);
   const [hasLaughed, setHasLaughed] = useState(false);
   const [hasTomatoed, setHasTomatoed] = useState(false);
+
+  // Floating +1 😂 rising animation states
+  const floatingAnim = useRef(new Animated.Value(0)).current;
+  const floatingOpacity = useRef(new Animated.Value(0)).current;
+
+  const triggerLaughAnimation = useCallback(() => {
+    floatingAnim.setValue(0);
+    floatingOpacity.setValue(1);
+
+    Animated.parallel([
+      Animated.timing(floatingAnim, {
+        toValue: -50,
+        duration: 850,
+        useNativeDriver: true,
+      }),
+      Animated.timing(floatingOpacity, {
+        toValue: 0,
+        duration: 850,
+        useNativeDriver: true,
+      }),
+    ]).start();
+  }, [floatingAnim, floatingOpacity]);
 
   // Views tracking state & ref
   const [viewsCount, setViewsCount] = useState(post?.viewsCount || 0);
@@ -167,6 +222,18 @@ export const ReelItem = React.memo<ReelItemProps>(({
   const [showSavedToast, setShowSavedToast] = useState(false);
   const [showCollectionModal, setShowCollectionModal] = useState(false);
   const toastTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const ratingDebounceTimerRef = useRef<any>(null);
+  const lastRatingTimeRef = useRef<number>(0);
+  const hasLaughedRef = useRef(false);
+  const hasTomatoedRef = useRef(false);
+
+  useEffect(() => {
+    hasLaughedRef.current = hasLaughed;
+  }, [hasLaughed]);
+
+  useEffect(() => {
+    hasTomatoedRef.current = hasTomatoed;
+  }, [hasTomatoed]);
 
   // Stories States & Fetching
   const [creatorStories, setCreatorStories] = useState<any[]>([]);
@@ -232,7 +299,7 @@ export const ReelItem = React.memo<ReelItemProps>(({
     };
   }, []);
 
-  // Synchronize local states when the post prop or currentUser changes
+  // Synchronize local states when switching to a different post or currentUser changes
   useEffect(() => {
     if (!post) return;
     const myId = String(currentUser?._id || currentUser?.id || currentUser?.uid || currentUser?.firebaseUid || '');
@@ -265,7 +332,7 @@ export const ReelItem = React.memo<ReelItemProps>(({
     setTomatoCount(post.tomatoCount || 0);
     setShareCount(post.shareCount || 0);
     setIsFollowing(post.isFollowing || false);
-  }, [post, currentUser]);
+  }, [post?._id, currentUser]);
 
   // Sync hasLaughed/hasTomatoed ONLY when switching to a different post (post._id changes)
   // This prevents the parent feed re-render from overwriting the user's local selection state
@@ -303,6 +370,11 @@ export const ReelItem = React.memo<ReelItemProps>(({
     const cid = String(post?.userId?._id || post?.userId || '');
     const sub = feedEventEmitter.onPostUpdated(post._id, (pid, data) => {
       if (!data) return;
+
+      // Ignore incoming counts if user recently rated, to prevent stale socket events from overwriting active UI
+      const timeSinceLastRate = Date.now() - lastRatingTimeRef.current;
+      const isRatingActive = timeSinceLastRate < 2500;
+
       if (data.isSaved !== undefined) {
         setIsSaved(data.isSaved);
       }
@@ -317,11 +389,13 @@ export const ReelItem = React.memo<ReelItemProps>(({
       } else if (data.commentsCount !== undefined) {
         setCommentCount(data.commentsCount);
       }
-      if (data.laughCount !== undefined) {
-        setLaughCount(data.laughCount);
-      }
-      if (data.tomatoCount !== undefined) {
-        setTomatoCount(data.tomatoCount);
+      if (!isRatingActive) {
+        if (data.laughCount !== undefined) {
+          setLaughCount(data.laughCount);
+        }
+        if (data.tomatoCount !== undefined) {
+          setTomatoCount(data.tomatoCount);
+        }
       }
       if (data.isFollowing !== undefined) {
         setIsFollowing(data.isFollowing);
@@ -365,7 +439,7 @@ export const ReelItem = React.memo<ReelItemProps>(({
       sub.remove();
       unsubFollow();
     };
-  }, [post?._id, post?.userId]);
+  }, [post?._id, post?.userId, post?.user, post?.creatorId, post?.creator]);
 
   // Subscribe to comment count updates for this post
   useEffect(() => {
@@ -541,54 +615,92 @@ export const ReelItem = React.memo<ReelItemProps>(({
   }, [isFollowing, post?.userId, activeUserId, post._id]);
 
   // Handle Laugh (😂) Rating Press
-  const handleLaughPress = useCallback(async () => {
+  const handleLaughPress = useCallback(() => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => { });
-    const newLaughed = !hasLaughed;
+
+    lastRatingTimeRef.current = Date.now();
+    const currentLaughed = hasLaughedRef.current;
+    const currentTomatoed = hasTomatoedRef.current;
+    const newLaughed = !currentLaughed;
+
+    // Synchronously update refs to prevent race conditions on rapid multi-taps
+    hasLaughedRef.current = newLaughed;
     setHasLaughed(newLaughed);
     setLaughCount((prev: number) => newLaughed ? prev + 1 : Math.max(0, prev - 1));
 
+    if (newLaughed) {
+      triggerLaughAnimation();
+    }
+
     // Toggle off tomato if user had rated it bad
-    if (newLaughed && hasTomatoed) {
+    if (newLaughed && currentTomatoed) {
+      hasTomatoedRef.current = false;
       setHasTomatoed(false);
       setTomatoCount((prev: number) => Math.max(0, prev - 1));
     }
 
-    try {
-      const res = await apiService.post(`/posts/${post._id}/rate`, { type: 'laugh', active: newLaughed });
-      // Only sync counts from server — client already knows its own selection state
-      if (res?.success && res?.data) {
-        if (res.data.laughCount !== undefined) setLaughCount(res.data.laughCount);
-        if (res.data.tomatoCount !== undefined) setTomatoCount(res.data.tomatoCount);
-      }
-    } catch (e) {
-      console.warn('[ReelItem] Rate laugh failed:', e);
+    // Debounce the backend API call so rapid taps produce 1 clean final request
+    if (ratingDebounceTimerRef.current) {
+      clearTimeout(ratingDebounceTimerRef.current);
     }
-  }, [hasLaughed, hasTomatoed, post._id]);
+
+    ratingDebounceTimerRef.current = setTimeout(async () => {
+      try {
+        const res = await apiService.post(`/posts/${post._id}/rate`, { type: 'laugh', active: newLaughed });
+        if (res?.success && res?.data) {
+          // Sync backend totals safely if selection has not changed in the meantime
+          if (hasLaughedRef.current === newLaughed) {
+            if (typeof res.data.laughCount === 'number') setLaughCount(res.data.laughCount);
+            if (typeof res.data.tomatoCount === 'number') setTomatoCount(res.data.tomatoCount);
+          }
+        }
+      } catch (e) {
+        console.warn('[ReelItem] Rate laugh failed:', e);
+      }
+    }, 300);
+  }, [post._id, triggerLaughAnimation]);
 
   // Handle Tomato (🍅) Rating Press
-  const handleTomatoPress = useCallback(async () => {
+  const handleTomatoPress = useCallback(() => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => { });
-    const newTomatoed = !hasTomatoed;
+
+    lastRatingTimeRef.current = Date.now();
+    const currentTomatoed = hasTomatoedRef.current;
+    const currentLaughed = hasLaughedRef.current;
+    const newTomatoed = !currentTomatoed;
+
+    // Synchronously update refs to prevent race conditions on rapid multi-taps
+    hasTomatoedRef.current = newTomatoed;
     setHasTomatoed(newTomatoed);
     setTomatoCount((prev: number) => newTomatoed ? prev + 1 : Math.max(0, prev - 1));
 
     // Toggle off laugh if user had rated it funny
-    if (newTomatoed && hasLaughed) {
+    if (newTomatoed && currentLaughed) {
+      hasLaughedRef.current = false;
       setHasLaughed(false);
       setLaughCount((prev: number) => Math.max(0, prev - 1));
     }
 
-    try {
-      const res = await apiService.post(`/posts/${post._id}/rate`, { type: 'tomato', active: newTomatoed });
-      // Only sync counts from server — client already knows its own selection state
-      if (res?.success && res?.data) {
-        if (res.data.laughCount !== undefined) setLaughCount(res.data.laughCount);
-        if (res.data.tomatoCount !== undefined) setTomatoCount(res.data.tomatoCount);
-      }
-    } catch (e) {
-      console.warn('[ReelItem] Rate tomato failed:', e);
+    // Debounce the backend API call so rapid taps produce 1 clean final request
+    if (ratingDebounceTimerRef.current) {
+      clearTimeout(ratingDebounceTimerRef.current);
     }
-  }, [hasTomatoed, hasLaughed, post._id]);
+
+    ratingDebounceTimerRef.current = setTimeout(async () => {
+      try {
+        const res = await apiService.post(`/posts/${post._id}/rate`, { type: 'tomato', active: newTomatoed });
+        if (res?.success && res?.data) {
+          // Sync backend totals safely if selection has not changed in the meantime
+          if (hasTomatoedRef.current === newTomatoed) {
+            if (typeof res.data.laughCount === 'number') setLaughCount(res.data.laughCount);
+            if (typeof res.data.tomatoCount === 'number') setTomatoCount(res.data.tomatoCount);
+          }
+        }
+      } catch (e) {
+        console.warn('[ReelItem] Rate tomato failed:', e);
+      }
+    }, 300);
+  }, [post._id]);
 
   const postUserName = post?.userName || post?.user?.displayName || post?.user?.name || post?.userId?.displayName || post?.userId?.name || 'User';
   const postUserAvatar = normalizeAvatarUrl(
@@ -748,7 +860,7 @@ export const ReelItem = React.memo<ReelItemProps>(({
   }, [creatorId, isOwner]);
 
   return (
-    <View style={{ width: SCREEN_WIDTH, height: containerHeight, backgroundColor: '#000' }}>
+    <View style={{ width: SCREEN_WIDTH, height: containerHeight, backgroundColor: COLORS.black }}>
       {/* Media elements: Image or Video */}
       {isImagePost ? (
         imageUrls.length > 0 ? (
@@ -772,8 +884,8 @@ export const ReelItem = React.memo<ReelItemProps>(({
             )}
           />
         ) : (
-          <View style={[StyleSheet.absoluteFill, { justifyContent: 'center', alignItems: 'center', backgroundColor: '#000' }]}>
-            <Text style={{ color: '#fff' }}>No Image Available</Text>
+          <View style={[StyleSheet.absoluteFill, { justifyContent: 'center', alignItems: 'center', backgroundColor: COLORS.black }]}>
+            <Text style={{ color: COLORS.textLight }}>No Image Available</Text>
           </View>
         )
       ) : videoUrl ? (
@@ -793,12 +905,12 @@ export const ReelItem = React.memo<ReelItemProps>(({
           <ExpoImage
             source={thumbUrl ? { uri: thumbUrl } : undefined}
             style={StyleSheet.absoluteFill}
-            contentFit="contain"
+            contentFit="cover"
           />
         )
       ) : (
-        <View style={[StyleSheet.absoluteFill, { justifyContent: 'center', alignItems: 'center', backgroundColor: '#000' }]}>
-          <Text style={{ color: '#fff' }}>No Video Available</Text>
+        <View style={[StyleSheet.absoluteFill, { justifyContent: 'center', alignItems: 'center', backgroundColor: COLORS.black }]}>
+          <Text style={{ color: COLORS.textLight }}>No Video Available</Text>
         </View>
       )}
 
@@ -826,7 +938,7 @@ export const ReelItem = React.memo<ReelItemProps>(({
       {!isPlaying && isLoaded && !isImagePost && (
         <View pointerEvents="none" style={styles.playPauseContainer}>
           <View style={styles.playPauseIcon}>
-            <Ionicons name="play" size={36} color="#fff" />
+            <Ionicons name="play" size={36} color={COLORS.textLight} />
           </View>
         </View>
       )}
@@ -841,7 +953,7 @@ export const ReelItem = React.memo<ReelItemProps>(({
           <Ionicons
             name={isMuted ? "volume-mute" : "volume-high"}
             size={18}
-            color="#ffffff"
+            color={COLORS.textLight}
           />
         </TouchableOpacity>
       )}
@@ -869,7 +981,7 @@ export const ReelItem = React.memo<ReelItemProps>(({
           ]}
           onPress={onToggleFullscreen}
         >
-          <Ionicons name="contract" size={24} color="#ffffff" />
+          <Ionicons name="contract" size={24} color={COLORS.textLight} />
         </TouchableOpacity>
       )}
 
@@ -881,7 +993,7 @@ export const ReelItem = React.memo<ReelItemProps>(({
             style={styles.fullscreenRoundBtn}
             onPress={() => setShowShare(true)}
           >
-            <Ionicons name="arrow-undo" size={26} color="#ffffff" />
+            <Ionicons name="arrow-undo" size={26} color={COLORS.textLight} />
           </TouchableOpacity>
 
           <TouchableOpacity
@@ -889,7 +1001,7 @@ export const ReelItem = React.memo<ReelItemProps>(({
             style={styles.fullscreenRoundBtn}
             onPress={() => setShowComments(true)}
           >
-            <Ionicons name="chatbubbles" size={24} color="#ffffff" />
+            <Ionicons name="chatbubbles" size={24} color={COLORS.textLight} />
           </TouchableOpacity>
         </View>
       )}
@@ -910,7 +1022,7 @@ export const ReelItem = React.memo<ReelItemProps>(({
             <View style={[styles.avatarContainer, creatorStories.length > 0 && { borderWidth: 0 }]}>
               {creatorStories.length > 0 ? (
               <LinearGradient
-                  colors={creatorStoriesSeen ? ['#D1D5DB', '#D1D5DB'] : ['#F58529', '#DD2A7B', '#8134AF']}
+                  colors={creatorStoriesSeen ? [COLORS.border, COLORS.border] : ['#F58529', '#DD2A7B', '#8134AF']}
                   style={styles.storyRing}
                 >
                   <TouchableOpacity
@@ -947,7 +1059,7 @@ export const ReelItem = React.memo<ReelItemProps>(({
                 <MaterialCommunityIcons
                   name="account-multiple-plus"
                   size={30}
-                  color={isFollowing ? "#4cd964" : "#ffffff"}
+                  color={isFollowing ? "#4cd964" : COLORS.textLight}
                 />
                 <Text style={[styles.actionText, isFollowing && { color: "#4cd964" }]}>
                   {isFollowing ? "Following" : "Follow"}
@@ -957,7 +1069,7 @@ export const ReelItem = React.memo<ReelItemProps>(({
 
             {/* Comment Button */}
             <TouchableOpacity style={styles.actionBtn} onPress={() => setShowComments(true)}>
-              <Ionicons name="chatbubbles" size={28} color="#ffffff" />
+              <Ionicons name="chatbubbles" size={28} color={COLORS.textLight} />
               <Text style={styles.actionText}>{commentCount}</Text>
             </TouchableOpacity>
 
@@ -966,7 +1078,7 @@ export const ReelItem = React.memo<ReelItemProps>(({
               <Ionicons
                 name={isLiked ? "heart" : "heart-outline"}
                 size={28}
-                color={isLiked ? "#ff3b30" : "#ffffff"}
+                color={isLiked ? COLORS.danger : COLORS.textLight}
               />
               <Text style={styles.actionText}>{likeCount}</Text>
             </TouchableOpacity>
@@ -976,14 +1088,14 @@ export const ReelItem = React.memo<ReelItemProps>(({
               <Ionicons
                 name={isSaved ? "bookmark" : "bookmark-outline"}
                 size={26}
-                color={isSaved ? "#f1c40f" : "#ffffff"}
+                color={isSaved ? "#f1c40f" : COLORS.textLight}
               />
               <Text style={styles.actionText}>{post?.savedCount ?? (isSaved ? 1 : 0)}</Text>
             </TouchableOpacity>
 
             {/* Share Button */}
             <TouchableOpacity style={styles.actionBtn} onPress={() => setShowShare(true)}>
-              <Ionicons name="arrow-redo" size={28} color="#ffffff" />
+              <Ionicons name="arrow-redo" size={28} color={COLORS.textLight} />
               <Text style={styles.actionText}>{shareCount}</Text>
             </TouchableOpacity>
 
@@ -992,13 +1104,18 @@ export const ReelItem = React.memo<ReelItemProps>(({
               <Ionicons
                 name="scan"
                 size={26}
-                color="#ffffff"
+                color={COLORS.textLight}
               />
             </TouchableOpacity>
 
             {/* Options button (3 dots) at the bottom */}
-            <TouchableOpacity style={styles.actionBtn} onPress={() => setShowMenu(true)}>
-              <Ionicons name="ellipsis-horizontal" size={26} color="#ffffff" />
+            <TouchableOpacity
+              style={styles.actionBtn}
+              onPress={() => setShowMenu(true)}
+              hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+              activeOpacity={0.7}
+            >
+              <Ionicons name="ellipsis-horizontal" size={26} color={COLORS.textLight} />
             </TouchableOpacity>
 
             {/* Followed Users Vertical Stories */}
@@ -1019,7 +1136,7 @@ export const ReelItem = React.memo<ReelItemProps>(({
                       }}
                     >
                       <LinearGradient
-                        colors={isFollowedStorySeen ? ['#D1D5DB', '#D1D5DB'] : ['#F58529', '#DD2A7B', '#8134AF']}
+                        colors={isFollowedStorySeen ? [COLORS.border, COLORS.border] : ['#F58529', '#DD2A7B', '#8134AF']}
                         style={styles.followedStoryRing}
                       >
                         <ExpoImage
@@ -1061,16 +1178,67 @@ export const ReelItem = React.memo<ReelItemProps>(({
             >
               <Text style={styles.usernameText}>@{postUserName}</Text>
             </TouchableOpacity>
-            <Text style={styles.captionText} numberOfLines={3}>
-              {post?.caption || post?.text || ''}
-            </Text>
+
+            {/* Caption & Hashtags integrated flow */}
+            {!!(post?.caption || post?.text || rawHashtags.length > 0) && (
+              <View style={{ marginTop: 2 }}>
+                {!!(post?.caption || post?.text) && (
+                  <TouchableOpacity
+                    activeOpacity={0.9}
+                    onPress={() => setIsCaptionExpanded(prev => !prev)}
+                  >
+                    <Text
+                      style={styles.captionText}
+                      numberOfLines={isCaptionExpanded ? undefined : 2}
+                    >
+                      {post?.caption || post?.text || ''}
+                    </Text>
+                  </TouchableOpacity>
+                )}
+
+                {/* Inline hashtags on next line (tight flow, no gap) */}
+                {rawHashtags.length > 0 && (
+                  <View style={{ flexDirection: 'row', flexWrap: 'wrap', marginTop: (post?.caption || post?.text) ? 2 : 0 }}>
+                    {rawHashtags.slice(0, 5).map((tag, idx) => (
+                      <TouchableOpacity
+                        key={`tag-${tag}-${idx}`}
+                        onPress={() => {
+                          hapticLight();
+                          router.push(`/hashtag-detail?tag=${encodeURIComponent(tag)}` as any);
+                        }}
+                        activeOpacity={0.7}
+                        hitSlop={{ top: 6, bottom: 6, left: 4, right: 4 }}
+                        style={{ marginRight: 6, paddingVertical: 1 }}
+                      >
+                        <Text style={styles.inlineHashtagText}>#{tag}</Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                )}
+
+                {/* Expand / Collapse toggle */}
+                {(post?.caption || post?.text || '').length > 60 && (
+                  <TouchableOpacity
+                    onPress={() => setIsCaptionExpanded(prev => !prev)}
+                    activeOpacity={0.7}
+                    hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+                    style={{ marginTop: 2 }}
+                  >
+                    <Text style={styles.moreText}>{isCaptionExpanded ? 'less' : '... more'}</Text>
+                  </TouchableOpacity>
+                )}
+              </View>
+            )}
           </View>
 
           <View style={styles.inputAndEmojiRow} pointerEvents="box-none">
             {/* Add comment mock-input bar */}
             <TouchableOpacity
               style={styles.commentInputBarLeft}
-              onPress={() => setShowComments(true)}
+              onPress={() => {
+                setAutoFocusComment(true);
+                setShowComments(true);
+              }}
               activeOpacity={0.8}
             >
               <Text style={styles.commentPlaceholder}>Add comment...</Text>
@@ -1078,12 +1246,35 @@ export const ReelItem = React.memo<ReelItemProps>(({
 
             {/* Laugh & Tomato rating buttons */}
             <View style={styles.ratingContainer} pointerEvents="box-none">
+              {/* Floating +1 Laugh Rising Badge */}
+              <Animated.View
+                pointerEvents="none"
+                style={[
+                  styles.floatingBadge,
+                  {
+                    opacity: floatingOpacity,
+                    transform: [{ translateY: floatingAnim }],
+                  },
+                ]}
+              >
+                <ExpoImage
+                  source={require('@/assets/images/Laugh.png')}
+                  style={{ width: 20, height: 20, marginRight: 4 }}
+                  contentFit="contain"
+                />
+                <Text style={styles.floatingBadgeText}>+1</Text>
+              </Animated.View>
+
               <TouchableOpacity
                 activeOpacity={0.7}
                 style={[styles.ratingBtn, hasLaughed && styles.ratingBtnActiveLaugh]}
                 onPress={handleLaughPress}
               >
-                <Text style={styles.ratingEmoji}>😂</Text>
+                <ExpoImage
+                  source={require('@/assets/images/Laugh.png')}
+                  style={{ width: 36, height: 36 }}
+                  contentFit="contain"
+                />
                 <Text style={styles.ratingCount}>{laughCount}</Text>
               </TouchableOpacity>
 
@@ -1092,7 +1283,11 @@ export const ReelItem = React.memo<ReelItemProps>(({
                 style={[styles.ratingBtn, hasTomatoed && styles.ratingBtnActiveTomato]}
                 onPress={handleTomatoPress}
               >
-                <Text style={styles.ratingEmoji}>🍅</Text>
+                <ExpoImage
+                  source={require('@/assets/images/Tomato.png')}
+                  style={{ width: 36, height: 36 }}
+                  contentFit="contain"
+                />
                 <Text style={styles.ratingCount}>{tomatoCount}</Text>
               </TouchableOpacity>
             </View>
@@ -1105,7 +1300,10 @@ export const ReelItem = React.memo<ReelItemProps>(({
         visible={showComments}
         animationType="slide"
         transparent={true}
-        onRequestClose={() => setShowComments(false)}
+        onRequestClose={() => {
+          setShowComments(false);
+          setAutoFocusComment(false);
+        }}
       >
         <KeyboardAvoidingView
           behavior={Platform.OS === 'ios' ? 'padding' : undefined}
@@ -1114,7 +1312,10 @@ export const ReelItem = React.memo<ReelItemProps>(({
           <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' }}>
             <Pressable
               style={{ flex: 1 }}
-              onPress={() => setShowComments(false)}
+              onPress={() => {
+                setShowComments(false);
+                setAutoFocusComment(false);
+              }}
             />
             <Animated.View
               style={[
@@ -1137,6 +1338,7 @@ export const ReelItem = React.memo<ReelItemProps>(({
                 currentUser={currentUser}
                 maxHeight={containerHeight * 0.8}
                 initialTab="comment"
+                autoFocusInput={autoFocusComment}
               />
             </Animated.View>
           </View>
@@ -1197,7 +1399,7 @@ export const ReelItem = React.memo<ReelItemProps>(({
                 }, 250);
               }}
             >
-              <Feather name="edit-3" size={20} color="#333" />
+              <Feather name="edit-3" size={20} color={COLORS.textPrimary} />
               <Text style={styles.menuItemText}>Edit Reel</Text>
             </TouchableOpacity>
           ) : (
@@ -1209,15 +1411,23 @@ export const ReelItem = React.memo<ReelItemProps>(({
                   "Report Reel",
                   "Why are you reporting this reel?",
                   [
-                    { text: "Spam", onPress: () => apiService.reportContent({ targetId: post._id, targetType: 'post', reason: 'spam' }) },
-                    { text: "Inappropriate", onPress: () => apiService.reportContent({ targetId: post._id, targetType: 'post', reason: 'inappropriate' }) },
+                    { text: "Spam", onPress: () => {
+                        apiService.reportContent({ targetId: post._id, targetType: 'post', reason: 'spam' });
+                        feedEventEmitter.emitFeedUpdate({ type: 'POST_DELETED', postId: post._id });
+                        Alert.alert("Reported", "This reel has been hidden from your feed.");
+                    }},
+                    { text: "Inappropriate", onPress: () => {
+                        apiService.reportContent({ targetId: post._id, targetType: 'post', reason: 'inappropriate' });
+                        feedEventEmitter.emitFeedUpdate({ type: 'POST_DELETED', postId: post._id });
+                        Alert.alert("Reported", "This reel has been hidden from your feed.");
+                    }},
                     { text: "Cancel", style: "cancel" }
                   ]
                 );
               }}
             >
-              <Feather name="flag" size={20} color="#ff3b30" />
-              <Text style={[styles.menuItemText, { color: '#ff3b30' }]}>Report Reel</Text>
+              <Feather name="flag" size={20} color={COLORS.danger} />
+              <Text style={[styles.menuItemText, { color: COLORS.danger }]}>Report Reel</Text>
             </TouchableOpacity>
           )}
 
@@ -1241,12 +1451,12 @@ export const ReelItem = React.memo<ReelItemProps>(({
           }}
         >
           <View style={styles.savedToastLeft}>
-            <Ionicons name="checkmark-circle" size={20} color="#fff" />
+            <Ionicons name="checkmark-circle" size={20} color={COLORS.textLight} />
             <Text style={styles.savedToastText}>Saved</Text>
           </View>
           <View style={styles.savedToastRight}>
             <Text style={styles.savedToastActionText}>Add to a collection</Text>
-            <Feather name="chevron-right" size={16} color="#fff" />
+            <Feather name="chevron-right" size={16} color={COLORS.textLight} />
           </View>
         </TouchableOpacity>
       )}
@@ -1277,7 +1487,7 @@ export const ReelItem = React.memo<ReelItemProps>(({
           />
           <View style={styles.lockedContent}>
             <View style={styles.lockBadge}>
-              <Ionicons name="lock-closed" size={32} color="#FFD60A" />
+              <Ionicons name="lock-closed" size={32} color={COLORS.warning} />
             </View>
             <Text style={styles.lockedTitle}>🌟 Subscribers Only</Text>
             <Text style={styles.lockedDesc}>
@@ -1428,11 +1638,13 @@ const ReelVideoPlayer: React.FC<ReelVideoPlayerProps> = ({
     };
   }, [player, setIsLoaded, setIsBuffering]);
 
+  const isLandscape = typeof aspectRatio === 'number' && aspectRatio > 1.1;
+
   return (
     <VideoView
       player={player}
       style={StyleSheet.absoluteFill}
-      contentFit="contain"
+      contentFit={isLandscape ? "contain" : "cover"}
       nativeControls={false}
     />
   );
@@ -1477,14 +1689,14 @@ const styles = StyleSheet.create({
     bottom: 80,
     width: 60,
     alignItems: 'center',
-    zIndex: 15,
+    zIndex: 30,
   },
   avatarContainer: {
     width: 50,
     height: 50,
     borderRadius: 25,
     borderWidth: 1.5,
-    borderColor: '#ffffff',
+    borderColor: COLORS.textLight,
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 8,
@@ -1506,7 +1718,7 @@ const styles = StyleSheet.create({
     width: 46,
     height: 46,
     borderRadius: 23,
-    backgroundColor: '#000',
+    backgroundColor: COLORS.black,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -1518,21 +1730,21 @@ const styles = StyleSheet.create({
   followBtn: {
     position: 'absolute',
     bottom: -6,
-    backgroundColor: '#0095f6',
+    backgroundColor: COLORS.info,
     borderRadius: 10,
     width: 18,
     height: 18,
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: '#fff'
+    borderColor: COLORS.textLight
   },
   actionBtn: {
     alignItems: 'center',
     justifyContent: 'center',
   },
   actionText: {
-    color: '#ffffff',
+    color: COLORS.textLight,
     fontSize: 12,
     fontWeight: '600',
     marginTop: 4,
@@ -1544,7 +1756,7 @@ const styles = StyleSheet.create({
     position: 'absolute',
     left: 16,
     right: 16,
-    bottom: 0,
+    bottom: 14,
     zIndex: 15,
     gap: 12
   },
@@ -1554,7 +1766,7 @@ const styles = StyleSheet.create({
     paddingRight: 60
   },
   usernameText: {
-    color: '#ffffff',
+    color: COLORS.textLight,
     fontSize: 16,
     fontWeight: '700',
     textShadowColor: 'rgba(0,0,0,0.6)',
@@ -1562,11 +1774,38 @@ const styles = StyleSheet.create({
     textShadowRadius: 2
   },
   captionText: {
-    color: '#ffffff',
+    color: COLORS.textLight,
     fontSize: 14,
     textShadowColor: 'rgba(0,0,0,0.6)',
     textShadowOffset: { width: 1, height: 1 },
     textShadowRadius: 2
+  },
+  inlineHashtagText: {
+    color: COLORS.white,
+    fontWeight: '700',
+    fontSize: 14,
+    textShadowColor: 'rgba(0,0,0,0.6)',
+    textShadowOffset: { width: 1, height: 1 },
+    textShadowRadius: 2,
+  },
+  hashtagsRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginTop: 6,
+    paddingVertical: 2,
+  },
+  hashtagTouch: {
+    paddingVertical: 4,
+    paddingHorizontal: 2,
+  },
+  moreText: {
+    color: 'rgba(255,255,255,0.85)',
+    fontSize: 13,
+    fontWeight: '700',
+    textShadowColor: 'rgba(0,0,0,0.6)',
+    textShadowOffset: { width: 1, height: 1 },
+    textShadowRadius: 2,
   },
   commentInputBar: {
     height: 48,
@@ -1593,7 +1832,7 @@ const styles = StyleSheet.create({
   },
   commentsSheet: {
     height: '80%',
-    backgroundColor: '#fff',
+    backgroundColor: COLORS.background,
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     overflow: 'hidden',
@@ -1607,16 +1846,16 @@ const styles = StyleSheet.create({
     width: '100%',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#fff'
+    backgroundColor: COLORS.background
   },
   commentsHandle: {
     height: 4,
     width: 40,
-    backgroundColor: '#ddd',
+    backgroundColor: COLORS.border,
     borderRadius: 2
   },
   menuSheet: {
-    backgroundColor: '#fff',
+    backgroundColor: COLORS.background,
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
     paddingBottom: 40,
@@ -1626,7 +1865,7 @@ const styles = StyleSheet.create({
   menuHandle: {
     height: 4,
     width: 40,
-    backgroundColor: '#ddd',
+    backgroundColor: COLORS.border,
     borderRadius: 2,
     alignSelf: 'center',
     marginVertical: 12
@@ -1640,7 +1879,7 @@ const styles = StyleSheet.create({
   menuItemText: {
     fontSize: 16,
     fontWeight: '500',
-    color: '#333'
+    color: COLORS.textPrimary
   },
   menuCancelBtn: {
     alignItems: 'center',
@@ -1650,7 +1889,7 @@ const styles = StyleSheet.create({
   menuCancelText: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#0095f6'
+    color: COLORS.info
   },
   centerMuteBtn: {
     position: 'absolute',
@@ -1697,32 +1936,47 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   ratingBtn: {
-    flexDirection: 'row',
+    flexDirection: 'column',
     alignItems: 'center',
-    backgroundColor: 'rgba(255,255,255,0.15)',
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.2)',
-    paddingHorizontal: 10,
-    height: 38,
-    borderRadius: 19,
-    gap: 4,
     justifyContent: 'center',
+    backgroundColor: 'transparent',
+    paddingHorizontal: 0,
+    minWidth: 32,
   },
   ratingBtnActiveLaugh: {
-    backgroundColor: 'rgba(251, 188, 4, 0.35)',
-    borderColor: '#fbbc04',
+    backgroundColor: 'transparent',
   },
   ratingBtnActiveTomato: {
-    backgroundColor: 'rgba(231, 76, 60, 0.35)',
-    borderColor: '#e74c3c',
+    backgroundColor: 'transparent',
+  },
+  floatingBadge: {
+    position: 'absolute',
+    top: -36,
+    left: -4,
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 149, 0, 0.95)',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 12,
+    zIndex: 99,
+  },
+  floatingBadgeText: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: '800',
   },
   ratingEmoji: {
     fontSize: 16,
   },
   ratingCount: {
-    color: '#ffffff',
-    fontSize: 12,
+    color: COLORS.textLight,
+    fontSize: 11,
     fontWeight: '700',
+    marginTop: 1,
+    textShadowColor: 'rgba(0,0,0,0.6)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 3,
   },
   carouselIndicator: {
     flexDirection: 'row',
@@ -1738,7 +1992,7 @@ const styles = StyleSheet.create({
     borderRadius: 3,
   },
   activeDot: {
-    backgroundColor: '#ffffff',
+    backgroundColor: COLORS.background,
     transform: [{ scale: 1.2 }],
   },
   inactiveDot: {
@@ -1757,7 +2011,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingHorizontal: 20,
     zIndex: 99,
-    shadowColor: '#000',
+    shadowColor: COLORS.black,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 4,
@@ -1769,7 +2023,7 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   savedToastText: {
-    color: '#fff',
+    color: COLORS.textLight,
     fontSize: 15,
     fontWeight: '600',
   },
@@ -1779,7 +2033,7 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   savedToastActionText: {
-    color: '#fff',
+    color: COLORS.textLight,
     fontSize: 14,
     fontWeight: '600',
   },
@@ -1798,7 +2052,7 @@ const styles = StyleSheet.create({
     borderRadius: 25,
     justifyContent: 'center',
     alignItems: 'center',
-    shadowColor: '#000',
+    shadowColor: COLORS.black,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.25,
     shadowRadius: 3.84,
@@ -1830,30 +2084,30 @@ const styles = StyleSheet.create({
   lockedTitle: {
     fontSize: 20,
     fontWeight: '700',
-    color: '#fff',
+    color: COLORS.textLight,
     marginBottom: 8,
     textAlign: 'center',
   },
   lockedDesc: {
     fontSize: 14,
-    color: '#bbb',
+    color: COLORS.textMuted,
     textAlign: 'center',
     lineHeight: 20,
     marginBottom: 24,
   },
   lockedSubscribeBtn: {
-    backgroundColor: '#FFD60A',
+    backgroundColor: COLORS.warning,
     borderRadius: 24,
     paddingVertical: 12,
     paddingHorizontal: 28,
-    shadowColor: '#000',
+    shadowColor: COLORS.black,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.25,
     shadowRadius: 3.84,
     elevation: 5,
   },
   lockedSubscribeText: {
-    color: '#000',
+    color: COLORS.black,
     fontSize: 15,
     fontWeight: '700',
   },
@@ -1885,7 +2139,7 @@ const styles = StyleSheet.create({
     height: 38,
     borderRadius: 19,
     borderWidth: 1.5,
-    borderColor: '#000',
+    borderColor: COLORS.black,
   },
 });
 

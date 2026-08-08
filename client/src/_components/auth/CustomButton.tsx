@@ -2,6 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import React from 'react';
 import { ActivityIndicator, StyleSheet, Text, TextStyle, TouchableOpacity, ViewStyle, View } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
+import COLORS from '@/src/theme/colors';
 
 interface CustomButtonProps {
 	title: string;
@@ -54,7 +55,7 @@ export default function CustomButton({
 		}
 	};
 
-	const defaultIconColor = variant === 'outline' ? '#000' : (variant === 'secondary' ? '#FF8D00' : '#fff');
+	const defaultIconColor = variant === 'outline' ? COLORS.textPrimary : (variant === 'secondary' ? COLORS.primary : COLORS.textLight);
 
 	return (
 		<TouchableOpacity
@@ -71,7 +72,7 @@ export default function CustomButton({
 		>
 			{(variant === 'primary' || variant === 'secondary') && (
 				<LinearGradient
-					colors={['#FBBC04', '#FF8D00']}
+					colors={COLORS.primaryGradient}
 					start={{ x: 0, y: 0 }}
 					end={{ x: 1, y: 0 }}
 					style={[
@@ -81,13 +82,13 @@ export default function CustomButton({
 					]}
 				>
 					{variant === 'secondary' && (
-						<View style={{ flex: 1, backgroundColor: '#fff', borderRadius: 6.5 }} />
+						<View style={{ flex: 1, backgroundColor: COLORS.card, borderRadius: 6.5 }} />
 					)}
 				</LinearGradient>
 			)}
 
 			{loading ? (
-				<ActivityIndicator color={variant === 'primary' ? '#fff' : (variant === 'secondary' ? '#FF8D00' : '#000')} />
+				<ActivityIndicator color={variant === 'primary' ? COLORS.textLight : (variant === 'secondary' ? COLORS.primary : COLORS.textPrimary)} />
 			) : (
 				<View style={styles.buttonContent}>
 					{icon && (
@@ -132,20 +133,20 @@ const styles = StyleSheet.create({
 	outlineButton: {
 		backgroundColor: 'transparent',
 		borderWidth: 1,
-		borderColor: '#e0e0e0',
+		borderColor: COLORS.border,
 	},
 	primaryText: {
-		color: '#fff',
+		color: COLORS.textLight,
 		fontSize: 16,
 		fontWeight: '600',
 	},
 	secondaryText: {
-		color: '#FF8D00',
+		color: COLORS.primary,
 		fontSize: 16,
 		fontWeight: '600',
 	},
 	outlineText: {
-		color: '#000',
+		color: COLORS.black,
 		fontSize: 16,
 		fontWeight: '600',
 	},

@@ -36,7 +36,7 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.hussain2125.comedyapp",
-      "buildNumber": "59",
+      "buildNumber": "60",
       "googleServicesFile": "./GoogleService-Info.plist",
       "config": {
         "googleMapsApiKey": "AIzaSyCQ1Fe55xOwt9fFfAiGIDVoEt01i2hL-zs"
@@ -51,6 +51,14 @@
         "NSLocationAlwaysUsageDescription": "Comedy App uses your location only while you are using the app for maps and suggestions.",
         "UIBackgroundModes": [
           "remote-notification"
+        ],
+        "CFBundleURLTypes": [
+          {
+            "CFBundleURLSchemes": [
+              "comedy-app",
+              "com.googleusercontent.apps.687403166680-479pbf6j2rid9qdhkn0sg7epa0nip776"
+            ]
+          }
         ]
       },
       "entitlements": {
@@ -70,15 +78,14 @@
       [
         "@react-native-google-signin/google-signin",
         {
-          "iosUrlScheme": "com.googleusercontent.apps.709095117662-k35juagf7ihkae81tfm9si43jkg7g177"
+          "iosUrlScheme": "com.googleusercontent.apps.687403166680-479pbf6j2rid9qdhkn0sg7epa0nip776"
         }
       ],
       [
         "expo-build-properties",
         {
           "ios": {
-            "useFrameworks": "static",
-            "newArchEnabled": true
+            "useFrameworks": "static"
           },
           "android": {
             "newArchEnabled": true,

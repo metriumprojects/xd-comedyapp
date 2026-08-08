@@ -4,6 +4,7 @@ import { Image as ExpoImage } from 'expo-image';
 import { useRouter } from 'expo-router';
 import { getOptimizedImageUrl } from '../../../lib/imageHelpers';
 import { DEFAULT_AVATAR_URL } from '../../../lib/api';
+import COLORS from '@/src/theme/colors';
 
 const IMAGE_PLACEHOLDER = 'L5H2EC=PM+yV0g-mq.wG9c010J}I';
 
@@ -111,9 +112,9 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     borderWidth: 2.5,
     borderColor: '#ffa726',
-    backgroundColor: '#fff',
+    backgroundColor: COLORS.background,
     overflow: 'hidden',
-    shadowColor: '#000',
+    shadowColor: COLORS.black,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.2,
     shadowRadius: 3,
@@ -131,10 +132,10 @@ const styles = StyleSheet.create({
     height: 20,
     borderRadius: 10,
     borderWidth: 2,
-    borderColor: '#fff',
-    backgroundColor: '#fff',
+    borderColor: COLORS.textLight,
+    backgroundColor: COLORS.background,
     overflow: 'hidden',
-    shadowColor: '#000',
+    shadowColor: COLORS.black,
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.2,
     shadowRadius: 1,

@@ -1,6 +1,7 @@
 import React from 'react';
 import { StyleSheet, Text, View, ViewStyle, Animated } from 'react-native';
 import { useOfflineBanner } from '../../hooks/useOffline';
+import COLORS from '@/src/theme/colors';
 
 interface Props {
   text?: string;
@@ -42,22 +43,22 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: '#000',
+    shadowColor: COLORS.black,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 4,
     elevation: 3,
   },
   offline: {
-    backgroundColor: '#1F2937', // Dark gray for offline
+    backgroundColor: COLORS.textPrimary, // Dark gray for offline
     borderWidth: 1,
-    borderColor: '#374151',
+    borderColor: COLORS.border,
   },
   online: {
-    backgroundColor: '#10B981', // Emerald green for restored
+    backgroundColor: COLORS.success, // Emerald green for restored
   },
   text: { 
-    color: '#FFFFFF', 
+    color: COLORS.textLight, 
     fontWeight: '700', 
     textAlign: 'center',
     fontSize: 13,

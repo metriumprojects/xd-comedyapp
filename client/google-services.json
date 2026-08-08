@@ -1,13 +1,13 @@
 {
   "project_info": {
-    "project_number": "1023020264511",
-    "project_id": "comedyapp-6e9b8",
-    "storage_bucket": "comedyapp-6e9b8.firebasestorage.app"
+    "project_number": "687403166680",
+    "project_id": "comedyapp-cce32",
+    "storage_bucket": "comedyapp-cce32.firebasestorage.app"
   },
   "client": [
     {
       "client_info": {
-        "mobilesdk_app_id": "1:1023020264511:android:26b80b203629a0f2e5dc8a",
+        "mobilesdk_app_id": "1:687403166680:android:79f67bf8b57deba77f20ad",
         "android_client_info": {
           "package_name": "com.hussain2125.comedyapp"
         }
@@ -15,7 +15,7 @@
       "oauth_client": [],
       "api_key": [
         {
-          "current_key": "AIzaSyCoByRAFNfsr-kmW6qhEpsSGKieL1HZXL8"
+          "current_key": "AIzaSyCEpc6-Xku3PYmhMaVx4g0YdCUvpamyWj4"
         }
       ],
       "services": {

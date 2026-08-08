@@ -2,6 +2,7 @@ import React, { createContext, useCallback, useContext, useMemo, useRef, useStat
 import { Animated, Modal, Pressable, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import COLORS from '@/src/theme/colors';
 
 type AppDialogButton = {
   text: string;
@@ -166,24 +167,24 @@ const styles = StyleSheet.create({
     width: '100%',
     maxWidth: 420,
     borderRadius: 18,
-    backgroundColor: '#fff',
+    backgroundColor: COLORS.background,
     paddingHorizontal: 16,
     paddingTop: 16,
-    shadowColor: '#000',
+    shadowColor: COLORS.black,
     shadowOpacity: 0.18,
     shadowRadius: 18,
     shadowOffset: { width: 0, height: 10 },
     elevation: 10,
   },
   headerRow: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 10 },
-  titleText: { fontSize: 17, fontWeight: '800', color: '#111', flex: 1 },
-  messageText: { fontSize: 14.5, color: '#333', lineHeight: 20 },
+  titleText: { fontSize: 17, fontWeight: '800', color: COLORS.textPrimary, flex: 1 },
+  messageText: { fontSize: 14.5, color: COLORS.textPrimary, lineHeight: 20 },
   buttonsRow: { flexDirection: 'row', justifyContent: 'flex-end', gap: 10, marginTop: 16 },
   button: { minWidth: 86, paddingHorizontal: 14, paddingVertical: 10, borderRadius: 12, alignItems: 'center' },
-  primaryBtn: { backgroundColor: '#111' },
+  primaryBtn: { backgroundColor: COLORS.textPrimary },
   secondaryBtn: { backgroundColor: '#f2f2f2' },
   buttonText: { fontSize: 14, fontWeight: '700' },
-  primaryText: { color: '#fff' },
-  secondaryText: { color: '#111' },
+  primaryText: { color: COLORS.textLight },
+  secondaryText: { color: COLORS.textPrimary },
 });
 

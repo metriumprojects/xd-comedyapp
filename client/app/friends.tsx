@@ -14,6 +14,7 @@ import { hapticLight, hapticMedium } from '@/lib/haptics';
 import { useAppDialog } from '@/src/_components/AppDialogProvider';
 import { safeRouterBack } from '@/lib/safeRouterBack';
 import { feedEventEmitter } from '../lib/feedEventEmitter';
+import COLORS from '@/src/theme/colors';
 
 
 const DEFAULT_AVATAR = DEFAULT_AVATAR_URL;
@@ -133,49 +134,47 @@ export default function FriendsScreen() {
     if (!currentUserId || targetUserId === currentUserId) return;
 
     hapticMedium();
-    setFollowLoadingIds(prev => new Set(prev).add(targetUserId));
+    const nextFollowing = !isCurrentlyFollowing;
 
+    // 1. Optimistic Update IMMEDIATELY (0ms UI latency!)
+    const updateUserList = (list: UserItem[]) =>
+      list.map(u => u.uid === targetUserId ? { ...u, isFollowing: nextFollowing } : u);
+
+    setFollowers(prev => updateUserList(prev));
+    setFollowing(prev => updateUserList(prev));
+    setFriends(prev => {
+      if (!nextFollowing) {
+        return prev.filter(u => u.uid !== targetUserId);
+      } else {
+        const targetInFollowers = followers.find(f => f.uid === targetUserId);
+        if (targetInFollowers) {
+          return [...prev, { ...targetInFollowers, isFollowing: true, isFollowingYou: true }];
+        }
+        return prev;
+      }
+    });
+
+    feedEventEmitter.emitUserFollowChanged(targetUserId, nextFollowing);
+    feedEventEmitter.emit('feedUpdated');
+
+    // 2. Network call in background
     try {
       if (isCurrentlyFollowing) {
         await unfollowUser(currentUserId, targetUserId);
       } else {
         await followUser(currentUserId, targetUserId);
       }
-
-      // Update local state
-      const updateUserList = (list: UserItem[]) =>
-        list.map(u => u.uid === targetUserId ? { ...u, isFollowing: !isCurrentlyFollowing } : u);
-
-      setFollowers(updateUserList(followers));
-      setFollowing(updateUserList(following));
-      setFriends(prev => {
-        if (isCurrentlyFollowing) {
-          // Removing from friends
-          return prev.filter(u => u.uid !== targetUserId);
-        } else {
-          // Check if should add to friends (mutual follow)
-          const targetInFollowers = followers.find(f => f.uid === targetUserId);
-          if (targetInFollowers) {
-            return [...prev, { ...targetInFollowers, isFollowing: true, isFollowingYou: true }];
-          }
-          return prev;
-        }
-      });
-
-      // Emit follow changes to update counts and feed screens
-      feedEventEmitter.emitUserFollowChanged(targetUserId, !isCurrentlyFollowing);
-      feedEventEmitter.emit('feedUpdated');
-
     } catch (error) {
       console.error('Error toggling follow:', error);
+      // Rollback on error
+      const rollbackUserList = (list: UserItem[]) =>
+        list.map(u => u.uid === targetUserId ? { ...u, isFollowing: isCurrentlyFollowing } : u);
+
+      setFollowers(prev => rollbackUserList(prev));
+      setFollowing(prev => rollbackUserList(prev));
+      feedEventEmitter.emitUserFollowChanged(targetUserId, isCurrentlyFollowing);
       Alert.alert('Error', 'Failed to update follow status');
     }
-
-    setFollowLoadingIds(prev => {
-      const newSet = new Set(prev);
-      newSet.delete(targetUserId);
-      return newSet;
-    });
   };
 
   const handleUnblock = async (targetUserId: string) => {
@@ -322,7 +321,7 @@ export default function FriendsScreen() {
             disabled={isFollowLoading}
           >
             {isFollowLoading ? (
-              <ActivityIndicator size="small" color={item.isFollowing ? '#000' : '#fff'} />
+              <ActivityIndicator size="small" color={item.isFollowing ? COLORS.black : COLORS.textLight} />
             ) : (
               <Text style={[
                 styles.followBtnText,
@@ -340,7 +339,7 @@ export default function FriendsScreen() {
             style={styles.removeBtn}
             onPress={() => handleRemoveFollower(item.uid)}
           >
-            <Feather name="x" size={18} color="#999" />
+            <Feather name="x" size={18} color={COLORS.textMuted} />
           </TouchableOpacity>
         )}
       </TouchableOpacity>
@@ -370,7 +369,7 @@ export default function FriendsScreen() {
 
     return (
       <View style={styles.emptyContainer}>
-        <Ionicons name={msg.icon as any} size={64} color="#ccc" />
+        <Ionicons name={msg.icon as any} size={64} color={COLORS.border} />
         <Text style={styles.emptyTitle}>{msg.title}</Text>
         <Text style={styles.emptySubtitle}>{msg.subtitle}</Text>
       </View>
@@ -390,7 +389,7 @@ export default function FriendsScreen() {
           }}
           style={styles.backBtn}
         >
-          <Feather name="arrow-left" size={24} color="#000" />
+          <Feather name="arrow-left" size={24} color={COLORS.black} />
         </TouchableOpacity>
         <Text style={styles.headerTitle} numberOfLines={1}>{profileName}</Text>
         <View style={{ width: 24 }} />
@@ -426,11 +425,11 @@ export default function FriendsScreen() {
 
       {/* Search */}
       <View style={styles.searchContainer}>
-        <Feather name="search" size={18} color="#999" style={styles.searchIcon} />
+        <Feather name="search" size={18} color={COLORS.textMuted} style={styles.searchIcon} />
         <TextInput
           style={styles.searchInput}
           placeholder="Search"
-          placeholderTextColor="#999"
+          placeholderTextColor={COLORS.textMuted}
           value={searchQuery}
           onChangeText={setSearchQuery}
         />
@@ -441,7 +440,7 @@ export default function FriendsScreen() {
               setSearchQuery('');
             }}
           >
-            <Feather name="x" size={18} color="#999" />
+            <Feather name="x" size={18} color={COLORS.textMuted} />
           </TouchableOpacity>
         )}
       </View>
@@ -449,7 +448,7 @@ export default function FriendsScreen() {
       {/* List */}
       {loading ? (
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#FF8D00" />
+          <ActivityIndicator size="large" color={COLORS.primary} />
         </View>
       ) : (
         <FlashList
@@ -469,17 +468,17 @@ export default function FriendsScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#fff',
+    backgroundColor: COLORS.background,
   },
   youPill: {
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 999,
-    backgroundColor: '#f1f1f1',
+    backgroundColor: COLORS.inputBg,
   },
   youPillText: {
     fontSize: 12,
-    color: '#666',
+    color: COLORS.textSecondary,
     fontWeight: '600',
   },
   header: {
@@ -488,8 +487,8 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingHorizontal: 16,
     paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#f0f0f0',
+    borderBottomWidth: 0,
+    borderBottomColor: 'transparent',
   },
   backBtn: {
     padding: 4,
@@ -497,7 +496,7 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#000',
+    color: COLORS.textPrimary,
     flex: 1,
     textAlign: 'center',
     marginHorizontal: 16,
@@ -505,7 +504,7 @@ const styles = StyleSheet.create({
   tabsContainer: {
     flexDirection: 'row',
     borderBottomWidth: 1,
-    borderBottomColor: '#f0f0f0',
+    borderBottomColor: COLORS.border,
   },
   tab: {
     flex: 1,
@@ -515,21 +514,21 @@ const styles = StyleSheet.create({
     borderBottomColor: 'transparent',
   },
   activeTab: {
-    borderBottomColor: '#000',
+    borderBottomColor: COLORS.textPrimary,
   },
   tabText: {
     fontSize: 13,
     fontWeight: '500',
-    color: '#999',
+    color: COLORS.textMuted,
   },
   activeTabText: {
-    color: '#000',
+    color: COLORS.textPrimary,
     fontWeight: '600',
   },
   searchContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#f5f5f5',
+    backgroundColor: COLORS.inputBg,
     marginHorizontal: 16,
     marginVertical: 12,
     paddingHorizontal: 12,
@@ -542,7 +541,7 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingVertical: 10,
     fontSize: 15,
-    color: '#000',
+    color: COLORS.textPrimary,
   },
   loadingContainer: {
     flex: 1,
@@ -569,14 +568,14 @@ const styles = StyleSheet.create({
     width: 54,
     height: 54,
     borderRadius: 27,
-    backgroundColor: '#E8EDFF',
+    backgroundColor: COLORS.primaryLight,
     alignItems: 'center',
     justifyContent: 'center',
   },
   avatarInitials: {
     fontSize: 18,
     fontWeight: '700',
-    color: '#2F3A8F',
+    color: COLORS.primary,
   },
   userInfo: {
     flex: 1,
@@ -585,16 +584,16 @@ const styles = StyleSheet.create({
   userName: {
     fontSize: 15,
     fontWeight: '600',
-    color: '#000',
+    color: COLORS.textPrimary,
   },
   userHandle: {
     fontSize: 13,
-    color: '#666',
+    color: COLORS.textSecondary,
     marginTop: 2,
   },
   mutualBadge: {
     fontSize: 11,
-    color: '#FF8D00',
+    color: COLORS.primary,
     marginTop: 2,
     fontWeight: '500',
   },
@@ -606,29 +605,29 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   followBtnPrimary: {
-    backgroundColor: '#FF8D00',
+    backgroundColor: COLORS.primary,
   },
   followingBtn: {
-    backgroundColor: '#f0f0f0',
+    backgroundColor: COLORS.inputBg,
   },
   followBtnText: {
     fontSize: 13,
     fontWeight: '600',
-    color: '#fff',
+    color: COLORS.textLight,
   },
   followingBtnText: {
-    color: '#000',
+    color: COLORS.textPrimary,
   },
   unblockBtn: {
     paddingHorizontal: 16,
     paddingVertical: 8,
     borderRadius: 8,
-    backgroundColor: '#f0f0f0',
+    backgroundColor: COLORS.inputBg,
   },
   unblockBtnText: {
     fontSize: 13,
     fontWeight: '600',
-    color: '#0095f6',
+    color: COLORS.info,
   },
   removeBtn: {
     padding: 8,
@@ -643,12 +642,12 @@ const styles = StyleSheet.create({
   emptyTitle: {
     fontSize: 18,
     fontWeight: '600',
-    color: '#000',
+    color: COLORS.textPrimary,
     marginTop: 16,
   },
   emptySubtitle: {
     fontSize: 14,
-    color: '#999',
+    color: COLORS.textMuted,
     marginTop: 8,
     textAlign: 'center',
     paddingHorizontal: 40,

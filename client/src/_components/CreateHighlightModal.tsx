@@ -21,6 +21,7 @@ import { useAppDialog } from '@/src/_components/AppDialogProvider';
 import { createHighlight, uploadImage, getUserStories } from '../../lib/firebaseHelpers/index';
 import { getKeyboardOffset } from '../../utils/responsive';
 import { getVideoThumbnailUrl } from '../../lib/imageHelpers';
+import COLORS from '@/src/theme/colors';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
@@ -153,7 +154,11 @@ export default function CreateHighlightModal({
     );
   };
 
+  const isSubmittingRef = React.useRef(false);
+
   const handleCreate = async () => {
+    if (loading || isSubmittingRef.current) return;
+
     if (!name.trim()) {
       Alert.alert('Error', 'Please enter a highlight name');
       return;
@@ -169,6 +174,7 @@ export default function CreateHighlightModal({
       return;
     }
 
+    isSubmittingRef.current = true;
     setLoading(true);
 
     try {
@@ -199,6 +205,7 @@ export default function CreateHighlightModal({
     } catch (error: any) {
       Alert.alert('Error', error.message || 'Failed to create highlight');
     } finally {
+      isSubmittingRef.current = false;
       setLoading(false);
     }
   };
@@ -207,17 +214,17 @@ export default function CreateHighlightModal({
     if (loadingStories) {
       return (
         <View style={{ marginVertical: 35, alignItems: 'center' }}>
-          <ActivityIndicator size="small" color="#FF8D00" />
-          <Text style={{ marginTop: 8, color: '#999', fontSize: 13 }}>Loading archive...</Text>
+          <ActivityIndicator size="small" color={COLORS.primary} />
+          <Text style={{ marginTop: 8, color: COLORS.textMuted, fontSize: 13 }}>Loading archive...</Text>
         </View>
       );
     }
     if (stories.length === 0) {
       return (
         <View style={{ alignItems: 'center', paddingVertical: 35, marginTop: 20 }}>
-          <Ionicons name="images-outline" size={40} color="#ccc" />
-          <Text style={{ color: '#999', fontSize: 14, marginTop: 10, textAlign: 'center' }}>No stories available to add to highlights.</Text>
-          <Text style={{ color: '#bbb', fontSize: 12, marginTop: 4, textAlign: 'center', paddingHorizontal: 20 }}>Only uploaded stories can be saved to your highlights.</Text>
+          <Ionicons name="images-outline" size={40} color={COLORS.border} />
+          <Text style={{ color: COLORS.textMuted, fontSize: 14, marginTop: 10, textAlign: 'center' }}>No stories available to add to highlights.</Text>
+          <Text style={{ color: COLORS.textMuted, fontSize: 12, marginTop: 4, textAlign: 'center', paddingHorizontal: 20 }}>Only uploaded stories can be saved to your highlights.</Text>
         </View>
       );
     }
@@ -225,7 +232,7 @@ export default function CreateHighlightModal({
     const itemWidth = (SCREEN_WIDTH - 40 - 16) / 3; // 40 horizontal padding, 16 gap
     return (
       <View style={{ marginTop: 24, paddingTop: 20 }}>
-        <Text style={{ fontSize: 15, fontWeight: '700', color: '#111', marginBottom: 12 }}>Select Stories</Text>
+        <Text style={{ fontSize: 15, fontWeight: '700', color: COLORS.textPrimary, marginBottom: 12 }}>Select Stories</Text>
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
           {stories.map((story) => {
             const storyId = String(story.id || story._id);
@@ -241,9 +248,9 @@ export default function CreateHighlightModal({
                   height: itemWidth * 1.3,
                   borderRadius: 8,
                   overflow: 'hidden',
-                  backgroundColor: '#f5f5f5',
+                  backgroundColor: COLORS.surface,
                   borderWidth: isSelected ? 3 : 0,
-                  borderColor: '#007aff',
+                  borderColor: COLORS.info,
                   position: 'relative',
                   marginBottom: 8,
                 }}
@@ -255,21 +262,21 @@ export default function CreateHighlightModal({
                   position: 'absolute', 
                   top: 6, 
                   right: 6, 
-                  backgroundColor: isSelected ? '#007aff' : 'rgba(0,0,0,0.3)', 
+                  backgroundColor: isSelected ? COLORS.info : 'rgba(0,0,0,0.3)', 
                   borderRadius: 10, 
                   width: 20, 
                   height: 20, 
                   justifyContent: 'center', 
                   alignItems: 'center',
                   borderWidth: isSelected ? 0 : 1.5,
-                  borderColor: '#fff'
+                  borderColor: COLORS.textLight
                 }}>
-                  {isSelected && <Ionicons name="checkmark" size={12} color="#fff" />}
+                  {isSelected && <Ionicons name="checkmark" size={12} color={COLORS.textLight} />}
                 </View>
 
                 {story.mediaType === 'video' && (
                   <View style={{ position: 'absolute', bottom: 6, left: 6 }}>
-                    <Ionicons name="play" size={14} color="#fff" />
+                    <Ionicons name="play" size={14} color={COLORS.textLight} />
                   </View>
                 )}
               </TouchableOpacity>
@@ -283,25 +290,22 @@ export default function CreateHighlightModal({
   return (
     <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
       <View style={styles.modalRoot}>
-        {/* Full-screen dark backdrop that never shrinks */}
+        {/* Full-screen dark backdrop */}
         <TouchableOpacity
           style={styles.backdrop}
           activeOpacity={1}
           onPress={onClose}
         />
 
-        <KeyboardAvoidingView
-          style={styles.keyboardAvoidingView}
-          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        >
+        <View style={styles.keyboardAvoidingView}>
           <TouchableOpacity style={styles.dismissArea} activeOpacity={1} onPress={onClose} />
 
           <View style={[styles.container, { paddingBottom: Math.max(insets.bottom, 20) }]}>
-            {/* Solid white background extension below container to cover screen area when pushed up by keyboard */}
+            {/* Solid white background extension below container */}
             <View style={styles.bottomSolidExtension} />
             <View style={styles.handle} />
 
-            {/* Custom Header from Screenshot */}
+            {/* Custom Header */}
             <View style={styles.header}>
               <TouchableOpacity onPress={onClose} disabled={loading}>
                 <Text style={styles.headerActionText}>Cancel</Text>
@@ -309,17 +313,19 @@ export default function CreateHighlightModal({
               <Text style={styles.headerTitle}>New highlight</Text>
               <TouchableOpacity onPress={handleCreate} disabled={loading || !name.trim() || selectedStoryIds.size === 0}>
                 {loading ? (
-                  <ActivityIndicator size="small" color="#FF8D00" />
+                  <ActivityIndicator size="small" color={COLORS.primary} />
                 ) : (
-                  <Text style={[styles.headerActionText, styles.headerSaveText, (name.trim() && selectedStoryIds.size > 0) && { color: '#007aff', fontWeight: '700' }]}>Save</Text>
+                  <Text style={[styles.headerActionText, styles.headerSaveText, (name.trim() && selectedStoryIds.size > 0) && { color: COLORS.info, fontWeight: '700' }]}>Save</Text>
                 )}
               </TouchableOpacity>
             </View>
 
             <ScrollView 
               showsVerticalScrollIndicator={false}
-              contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: Math.max(insets.bottom, 20) }}
+              contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: Math.max(insets.bottom, 30) }}
               keyboardShouldPersistTaps="handled"
+              automaticallyAdjustKeyboardInsets={true}
+              keyboardDismissMode="on-drag"
             >
               {/* Central Cover Preview */}
               <TouchableOpacity style={styles.coverContainer} onPress={handlePickImage}>
@@ -327,7 +333,7 @@ export default function CreateHighlightModal({
                   <Image source={{ uri: coverImage }} style={styles.coverImage} />
                 ) : (
                   <View style={styles.placeholderCover}>
-                    <Ionicons name="image-outline" size={48} color="#ccc" />
+                    <Ionicons name="image-outline" size={48} color={COLORS.border} />
                   </View>
                 )}
               </TouchableOpacity>
@@ -337,7 +343,7 @@ export default function CreateHighlightModal({
                 <TextInput
                   style={styles.input}
                   placeholder="Highlight name"
-                  placeholderTextColor="#999"
+                  placeholderTextColor={COLORS.textMuted}
                   value={name}
                   onChangeText={setName}
                   maxLength={30}
@@ -346,12 +352,12 @@ export default function CreateHighlightModal({
 
               <TouchableOpacity style={styles.settingBtn} onPress={handleVisibilitySelect}>
                 <View style={styles.settingLeft}>
-                  <Ionicons name="eye-outline" size={22} color="#000" />
+                  <Ionicons name="eye-outline" size={22} color={COLORS.black} />
                   <Text style={styles.settingText}>Visibility</Text>
                 </View>
                 <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                  <Text style={{ color: '#007aff', fontSize: 15, marginRight: 8, fontWeight: '500' }}>{visibility}</Text>
-                  <Ionicons name="chevron-forward" size={20} color="#666" />
+                  <Text style={{ color: COLORS.info, fontSize: 15, marginRight: 8, fontWeight: '500' }}>{visibility}</Text>
+                  <Ionicons name="chevron-forward" size={20} color={COLORS.textSecondary} />
                 </View>
               </TouchableOpacity>
 
@@ -359,7 +365,7 @@ export default function CreateHighlightModal({
               {renderStoriesGrid()}
             </ScrollView>
           </View>
-        </KeyboardAvoidingView>
+        </View>
       </View>
     </Modal>
   );
@@ -382,11 +388,10 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   container: {
-    backgroundColor: '#fff',
+    backgroundColor: COLORS.background,
     borderTopLeftRadius: 30,
     borderTopRightRadius: 30,
-    maxHeight: SCREEN_HEIGHT * 0.9,
-    minHeight: 420,
+    height: SCREEN_HEIGHT * 0.88,
     position: 'relative',
   },
   bottomSolidExtension: {
@@ -395,12 +400,12 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     height: 600,
-    backgroundColor: '#ffffff',
+    backgroundColor: COLORS.background,
   },
   handle: {
     width: 40,
     height: 4,
-    backgroundColor: '#eee',
+    backgroundColor: COLORS.border,
     borderRadius: 2,
     alignSelf: 'center',
     marginVertical: 12,
@@ -415,15 +420,15 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontSize: 17,
     fontWeight: '700',
-    color: '#000',
+    color: COLORS.textPrimary,
   },
   headerActionText: {
     fontSize: 16,
-    color: '#333',
+    color: COLORS.textSecondary,
     fontWeight: '500',
   },
   headerSaveText: {
-    color: '#8e8e8e',
+    color: COLORS.textMuted,
     fontWeight: '600',
   },
   coverContainer: {
@@ -433,8 +438,8 @@ const styles = StyleSheet.create({
     alignSelf: 'center',
     marginTop: 20,
     marginBottom: 25,
-    backgroundColor: '#f5f5f5',
-    shadowColor: '#000',
+    backgroundColor: COLORS.inputBg,
+    shadowColor: COLORS.black,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.1,
     shadowRadius: 10,
@@ -452,7 +457,7 @@ const styles = StyleSheet.create({
   },
   inputWrapper: {
     borderWidth: 1,
-    borderColor: '#eee',
+    borderColor: COLORS.border,
     borderRadius: 12,
     paddingHorizontal: 15,
     marginBottom: 10,
@@ -460,7 +465,7 @@ const styles = StyleSheet.create({
   input: {
     height: 50,
     fontSize: 15,
-    color: '#000',
+    color: COLORS.textPrimary,
   },
   settingBtn: {
     flexDirection: 'row',
@@ -475,7 +480,7 @@ const styles = StyleSheet.create({
   },
   settingText: {
     fontSize: 16,
-    color: '#000',
+    color: COLORS.textPrimary,
     marginLeft: 15,
     fontWeight: '500',
   },

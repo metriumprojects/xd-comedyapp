@@ -9,6 +9,7 @@ import { getUserProfile as getUserProfileAPI } from '../../../src/_services/fire
 import CountryFlag from '../../../src/_components/CountryFlag';
 import { LinearGradient } from 'expo-linear-gradient';
 import { safeRouterBack } from '@/lib/safeRouterBack';
+import COLORS from '@/src/theme/colors';
 
 type PassportLocation = Stamp;
 
@@ -159,7 +160,7 @@ export default function UserLocationsScreen() {
     <SafeAreaView style={styles.container} edges={['top']}>
       <View style={styles.header}>
         <TouchableOpacity onPress={() => safeRouterBack()} style={styles.backBtn}>
-          <Feather name="arrow-left" size={24} color="#000" />
+          <Feather name="arrow-left" size={24} color={COLORS.textPrimary} />
         </TouchableOpacity>
         <Text style={styles.title}>Locations</Text>
         <View style={{ width: 40 }} />
@@ -167,11 +168,11 @@ export default function UserLocationsScreen() {
 
       {loading ? (
         <View style={styles.center}>
-          <ActivityIndicator size="large" color="#FF8D00" />
+          <ActivityIndicator size="large" color={COLORS.primary} />
         </View>
       ) : !canView ? (
         <View style={styles.center}>
-          <Feather name="lock" size={48} color="#FF8D00" style={{ marginBottom: 12 }} />
+          <Feather name="lock" size={48} color={COLORS.primary} style={{ marginBottom: 12 }} />
           <Text style={styles.privateTitle}>Private Account</Text>
           <Text style={styles.privateText}>Follow this user to see their locations.</Text>
         </View>
@@ -179,17 +180,17 @@ export default function UserLocationsScreen() {
         <FlatList
           data={groupedLocations}
           keyExtractor={(item, index) => `${item.title}-${index}`}
-          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#FF8D00" />}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={COLORS.primary} />}
           ListHeaderComponent={
             <View style={styles.premiumCardContainer}>
               <LinearGradient
-                colors={['#FF8D00', '#FF4500']}
+                colors={[COLORS.primary, '#FF4500']}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 1 }}
                 style={styles.premiumCard}
               >
                 <View style={styles.premiumCardHeader}>
-                  <Feather name="globe" size={20} color="#fff" style={{ opacity: 0.9, marginRight: 8 }} />
+                  <Feather name="globe" size={20} color={COLORS.textLight} style={{ opacity: 0.9, marginRight: 8 }} />
                   <Text style={styles.premiumCardLabel}>TRAVEL JOURNEY</Text>
                 </View>
                 
@@ -240,7 +241,7 @@ export default function UserLocationsScreen() {
                   
                   return (
                     <View key={`${city._id}-${cIndex}`} style={styles.cityRow}>
-                      <Feather name="map-pin" size={14} color="#FF8D00" style={{ marginRight: 10 }} />
+                      <Feather name="map-pin" size={14} color={COLORS.primary} style={{ marginRight: 10 }} />
                       <View style={styles.cityInfo}>
                         <Text style={styles.cityTitle}>{city.name}</Text>
                         {(regionText || dateText) ? (
@@ -260,7 +261,7 @@ export default function UserLocationsScreen() {
           }}
           ListEmptyComponent={
             <View style={styles.center}>
-              <Feather name="map" size={48} color="#FF8D00" style={{ marginBottom: 12, opacity: 0.5 }} />
+              <Feather name="map" size={48} color={COLORS.primary} style={{ marginBottom: 12, opacity: 0.5 }} />
               <Text style={styles.emptyTitle}>No Locations Yet</Text>
               <Text style={styles.emptyText}>Add a stamp in Passport to see it here.</Text>
             </View>
@@ -273,24 +274,24 @@ export default function UserLocationsScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#f8f9fa' },
+  container: { flex: 1, backgroundColor: COLORS.surface },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 16,
     paddingVertical: 14,
-    backgroundColor: '#fff',
+    backgroundColor: COLORS.card,
     borderBottomWidth: 1,
-    borderBottomColor: '#f1f1f1',
+    borderBottomColor: COLORS.border,
     elevation: 2,
-    shadowColor: '#000',
+    shadowColor: COLORS.black,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.02,
     shadowRadius: 5,
   },
   backBtn: { padding: 4 },
-  title: { fontSize: 18, fontWeight: '700', color: '#1f2937' },
+  title: { fontSize: 18, fontWeight: '700', color: COLORS.textPrimary },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 32, paddingVertical: 60 },
   
   premiumCardContainer: {
@@ -301,7 +302,7 @@ const styles = StyleSheet.create({
   premiumCard: {
     borderRadius: 16,
     padding: 20,
-    shadowColor: '#FF8D00',
+    shadowColor: COLORS.primary,
     shadowOffset: { width: 0, height: 6 },
     shadowOpacity: 0.15,
     shadowRadius: 12,
@@ -315,7 +316,7 @@ const styles = StyleSheet.create({
   premiumCardLabel: {
     fontSize: 12,
     fontWeight: '800',
-    color: '#fff',
+    color: COLORS.textLight,
     letterSpacing: 1.2,
   },
   premiumStatsRow: {
@@ -330,7 +331,7 @@ const styles = StyleSheet.create({
   premiumStatValue: {
     fontSize: 26,
     fontWeight: '800',
-    color: '#fff',
+    color: COLORS.textLight,
   },
   premiumStatLabel: {
     fontSize: 12,
@@ -345,18 +346,18 @@ const styles = StyleSheet.create({
   },
   
   countryGroup: {
-    backgroundColor: '#fff',
+    backgroundColor: COLORS.card,
     borderRadius: 16,
     marginHorizontal: 16,
     marginVertical: 8,
     padding: 16,
-    shadowColor: '#000',
+    shadowColor: COLORS.black,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.03,
     shadowRadius: 8,
     elevation: 2,
     borderWidth: 1,
-    borderColor: '#f3f4f6',
+    borderColor: COLORS.border,
   },
   countryHeader: {
     flexDirection: 'row',
@@ -368,11 +369,11 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: '#fff',
+    backgroundColor: COLORS.card,
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,
-    borderColor: '#ffe6cc',
+    borderColor: COLORS.primaryLight,
     position: 'relative',
   },
   stampIconGrad: {
@@ -388,16 +389,16 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: -4,
     right: -4,
-    backgroundColor: '#FF8D00',
+    backgroundColor: COLORS.primary,
     borderRadius: 8,
     paddingHorizontal: 5,
     paddingVertical: 1,
     borderWidth: 1.5,
-    borderColor: '#fff',
+    borderColor: COLORS.textLight,
   },
-  miniBadgeText: { fontSize: 8, fontWeight: '800', color: '#fff' },
-  countryTitle: { fontSize: 16, fontWeight: '700', color: '#1f2937' },
-  countryDate: { fontSize: 11, color: '#9ca3af', marginTop: 2 },
+  miniBadgeText: { fontSize: 8, fontWeight: '800', color: COLORS.textLight },
+  countryTitle: { fontSize: 16, fontWeight: '700', color: COLORS.textPrimary },
+  countryDate: { fontSize: 11, color: COLORS.textMuted, marginTop: 2 },
   
   cityRow: {
     flexDirection: 'row',
@@ -408,19 +409,19 @@ const styles = StyleSheet.create({
   cityInfo: {
     flex: 1,
   },
-  cityTitle: { fontSize: 14, fontWeight: '600', color: '#374151' },
-  cityDate: { fontSize: 11, color: '#9ca3af', marginTop: 2 },
+  cityTitle: { fontSize: 14, fontWeight: '600', color: COLORS.textSecondary },
+  cityDate: { fontSize: 11, color: COLORS.textMuted, marginTop: 2 },
   cityBadge: {
-    backgroundColor: '#fff4eb',
+    backgroundColor: COLORS.primaryLight,
     borderRadius: 12,
     paddingHorizontal: 8,
     paddingVertical: 3,
     marginLeft: 8,
   },
-  cityBadgeText: { fontSize: 10, fontWeight: '700', color: '#FF8D00' },
+  cityBadgeText: { fontSize: 10, fontWeight: '700', color: COLORS.primary },
 
-  emptyTitle: { fontSize: 16, fontWeight: '700', color: '#1f2937', marginTop: 12 },
-  emptyText: { fontSize: 13, color: '#6b7280', marginTop: 6, textAlign: 'center' },
-  privateTitle: { fontSize: 16, fontWeight: '700', color: '#1f2937', marginTop: 12 },
-  privateText: { fontSize: 13, color: '#6b7280', marginTop: 6, textAlign: 'center' },
+  emptyTitle: { fontSize: 16, fontWeight: '700', color: COLORS.textPrimary, marginTop: 12 },
+  emptyText: { fontSize: 13, color: COLORS.textSecondary, marginTop: 6, textAlign: 'center' },
+  privateTitle: { fontSize: 16, fontWeight: '700', color: COLORS.textPrimary, marginTop: 12 },
+  privateText: { fontSize: 13, color: COLORS.textSecondary, marginTop: 6, textAlign: 'center' },
 });

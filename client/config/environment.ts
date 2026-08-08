@@ -137,10 +137,10 @@ const LEGACY_GOOGLE_MAPS_KEY =
 
 /** Web client (type 3) from Firebase `google-services.json` — required for native Google Sign-In + Firebase ID token. */
 const DEFAULT_GOOGLE_WEB_CLIENT_ID =
-  '709095117662-2l84b3ua08t9icu8tpqtpchrmtdciep0.apps.googleusercontent.com';
+  '687403166680-pr2he4gj866emk29fbubj1ks14581607.apps.googleusercontent.com';
 /** iOS OAuth client from Firebase / GoogleService-Info.plist — used by @react-native-google-signin on iOS. */
 const DEFAULT_GOOGLE_IOS_CLIENT_ID =
-  '709095117662-k35juagf7ihkae81tfm9si43jkg7g177.apps.googleusercontent.com';
+  '687403166680-479pbf6j2rid9qdhkn0sg7epa0nip776.apps.googleusercontent.com';
 
 export const GOOGLE_SIGN_IN_CONFIG = {
   webClientId: getEnvVar('EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID', DEFAULT_GOOGLE_WEB_CLIENT_ID),

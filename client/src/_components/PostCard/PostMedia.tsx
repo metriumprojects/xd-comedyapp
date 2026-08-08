@@ -181,22 +181,23 @@ interface ImageItemProps {
   onPress: () => void;
   priority?: "high" | "normal";
   thumbnailUrl?: string;
+  isFullScreen?: boolean;
 }
 
-const ImageItem: React.FC<ImageItemProps> = ({ url, containerHeight, onPress, priority = "normal", thumbnailUrl }) => {
+const ImageItem: React.FC<ImageItemProps> = ({ url, containerHeight, onPress, priority = "normal", thumbnailUrl, isFullScreen }) => {
   const mediaUri = getMediaUrl(url);
   const thumbUri = thumbnailUrl ? getMediaUrl(thumbnailUrl) : undefined;
   return (
     <TouchableOpacity
       activeOpacity={0.95}
       onPress={onPress}
-      style={{ width: SCREEN_WIDTH, height: containerHeight }}
+      style={{ width: SCREEN_WIDTH, height: containerHeight, backgroundColor: '#000' }}
     >
       <ExpoImage
         source={{ uri: mediaUri }}
         placeholder={thumbUri ? { uri: thumbUri } : undefined}
         style={{ width: SCREEN_WIDTH, height: containerHeight }}
-        contentFit="cover"
+        contentFit="contain"
         cachePolicy="memory-disk"
         priority={priority}
         recyclingKey={url}
@@ -219,6 +220,7 @@ interface PostMediaProps {
   toggleMute: () => void;
   videoRef: React.RefObject<Video>;
   isLocked?: boolean;
+  isFullScreen?: boolean;
 }
 
 const PostMedia: React.FC<PostMediaProps> = ({
@@ -231,6 +233,7 @@ const PostMedia: React.FC<PostMediaProps> = ({
   videoRef,
   onDoubleTap,
   isLocked = false,
+  isFullScreen = false,
 }) => {
   const isFocused = useIsFocused();
   const [isPlaying, setIsPlaying] = useState(true);
@@ -259,7 +262,7 @@ const PostMedia: React.FC<PostMediaProps> = ({
 
   const firstItem = media[0];
   const displayRatio = getDisplayRatio(detectedRatio || firstItem?.aspectRatio);
-  const displayHeight = mediaHeight || (SCREEN_WIDTH / displayRatio);
+  const displayHeight = isFullScreen ? Dimensions.get('window').height : (mediaHeight || (SCREEN_WIDTH / displayRatio));
 
   const renderItem = useCallback(({ item, index }: { item: MediaItem; index: number }) => {
     const isVideo = item.type === 'video'
@@ -267,7 +270,7 @@ const PostMedia: React.FC<PostMediaProps> = ({
       || item.url?.toLowerCase().includes('.mov')
       || item.url?.includes('video/upload');
 
-    const containerHeight = mediaHeight || getMediaHeight(media[0]?.aspectRatio);
+    const containerHeight = isFullScreen ? Dimensions.get('window').height : (mediaHeight || getMediaHeight(media[0]?.aspectRatio));
     const normalizedIndex = index % media.length;
     const shouldAutoPlay = isFocused && normalizedIndex === localActiveIndex && !isLocked;
 
@@ -295,6 +298,7 @@ const PostMedia: React.FC<PostMediaProps> = ({
         onPress={() => handlePress(index)}
         priority={index === 0 ? "high" : "normal"}
         thumbnailUrl={item.thumbnailUrl}
+        isFullScreen={isFullScreen}
       />
     );
   }, [media, mediaHeight, isFocused, localActiveIndex, isPlaying, isMuted, toggleMute, videoRef, handlePress]);

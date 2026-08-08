@@ -25,6 +25,20 @@ router.post('/highlights', verifyToken, async (req, res) => {
     
     // Support both 'stories' and 'storyIds' from frontend
     const storiesArray = stories || storyIds || [];
+
+    // Deduplication check: if identical highlight was created in the last 5 seconds, return existing one
+    const recentDuplicate = await Highlight.findOne({
+      userId,
+      title,
+      createdAt: { $gte: new Date(Date.now() - 5000) }
+    }).lean();
+
+    if (recentDuplicate) {
+      return res.status(200).json({
+        success: true,
+        data: { ...recentDuplicate, id: String(recentDuplicate._id) }
+      });
+    }
     
     const highlight = new Highlight({ 
       userId, 
@@ -58,6 +72,20 @@ router.post('/users/:userId/highlights', verifyToken, async (req, res) => {
     
     // Support both 'stories' and 'storyIds' from frontend
     const storiesArray = stories || storyIds || [];
+
+    // Deduplication check: if identical highlight was created in the last 5 seconds, return existing one
+    const recentDuplicate = await Highlight.findOne({
+      userId,
+      title,
+      createdAt: { $gte: new Date(Date.now() - 5000) }
+    }).lean();
+
+    if (recentDuplicate) {
+      return res.status(200).json({
+        success: true,
+        data: { ...recentDuplicate, id: String(recentDuplicate._id) }
+      });
+    }
     
     // Create highlight with title, optional cover image, and visibility
     const highlight = new Highlight({ 

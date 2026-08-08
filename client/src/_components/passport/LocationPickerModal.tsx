@@ -14,6 +14,7 @@ import {
 } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { isReadableLocationLabel } from '@/src/utils/passportUtils';
+import COLORS from '@/src/theme/colors';
 
 interface LocationPickerModalProps {
   visible: boolean;
@@ -80,11 +81,11 @@ export const LocationPickerModal: React.FC<LocationPickerModalProps> = ({
 
             {/* Search Bar */}
             <View style={styles.modalSearchContainer}>
-              <Feather name="search" size={18} color="#FF8D00" style={{ marginRight: 12 }} />
+              <Feather name="search" size={18} color={COLORS.primary} style={{ marginRight: 12 }} />
               <TextInput
                 style={styles.modalSearchInput}
                 placeholder="Search places"
-                placeholderTextColor="#999"
+                placeholderTextColor={COLORS.textMuted}
                 value={searchQuery}
                 onChangeText={setSearchQuery}
                 editable={!locationLoading}
@@ -96,7 +97,7 @@ export const LocationPickerModal: React.FC<LocationPickerModalProps> = ({
             {/* Locations list */}
             {locationLoading && nearbyPlaces.length === 0 && !areaGeo ? (
               <View style={styles.modalLoadingContainer}>
-                <ActivityIndicator size="large" color="#FF8D00" />
+                <ActivityIndicator size="large" color={COLORS.primary} />
                 <Text style={styles.modalLoadingText}>Fetching nearby locations...</Text>
               </View>
             ) : (
@@ -114,7 +115,7 @@ export const LocationPickerModal: React.FC<LocationPickerModalProps> = ({
                   >
                     <View style={styles.cityStampRowLeft}>
                       <View style={[styles.selectionRadio, includeCityStamp && styles.selectionRadioSelected]}>
-                        {includeCityStamp ? <Feather name="check" size={16} color="#fff" /> : null}
+                        {includeCityStamp ? <Feather name="check" size={16} color={COLORS.textLight} /> : null}
                       </View>
                       <View style={{ flex: 1, marginLeft: 12 }}>
                         <Text style={styles.cityStampRowTitle}>City stamp</Text>
@@ -126,11 +127,11 @@ export const LocationPickerModal: React.FC<LocationPickerModalProps> = ({
                 )}
                 <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 16, marginBottom: 12 }}>
                   <Text style={styles.modallocationLabel}>Nearby places (~200 m)</Text>
-                  {locationLoading && <ActivityIndicator size="small" color="#FF8D00" style={{ marginLeft: 8 }} />}
+                  {locationLoading && <ActivityIndicator size="small" color={COLORS.primary} style={{ marginLeft: 8 }} />}
                 </View>
                 {filteredPlaces.length === 0 ? (
                   <View style={styles.modalEmptyInline}>
-                    <Feather name="map-pin" size={36} color="#ddd" />
+                    <Feather name="map-pin" size={36} color={COLORS.border} />
                     <Text style={styles.modalEmptyText}>
                       {locationLoading
                         ? 'Loading nearby venues…'
@@ -151,7 +152,7 @@ export const LocationPickerModal: React.FC<LocationPickerModalProps> = ({
                     >
                       <View style={styles.locationItemLeft}>
                         <View style={styles.locationIcon}>
-                          <Feather name="map-pin" size={18} color="#FF8D00" />
+                          <Feather name="map-pin" size={18} color={COLORS.primary} />
                         </View>
                         <View style={styles.locationItemText}>
                           <Text style={styles.locationName}>{place.placeName}</Text>
@@ -166,7 +167,7 @@ export const LocationPickerModal: React.FC<LocationPickerModalProps> = ({
                           selectedLocation?.placeId === place.placeId && styles.selectionRadioSelected,
                         ]}
                       >
-                        {selectedLocation?.placeId === place.placeId && <Feather name="check" size={16} color="#fff" />}
+                        {selectedLocation?.placeId === place.placeId && <Feather name="check" size={16} color={COLORS.textLight} />}
                       </View>
                     </TouchableOpacity>
                   ))
@@ -186,7 +187,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0,0,0,0.5)',
   },
   modalBottomSheet: {
-    backgroundColor: '#fff',
+    backgroundColor: COLORS.background,
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     height: '85%',
@@ -199,12 +200,12 @@ const styles = StyleSheet.create({
     paddingTop: 18,
     paddingBottom: 12,
     borderBottomWidth: 1,
-    borderBottomColor: '#f0f0f0',
+    borderBottomColor: COLORS.inputBg,
   },
   modalTitle: {
     fontSize: 16,
     fontWeight: '800',
-    color: '#000',
+    color: COLORS.black,
     flex: 1,
     textAlign: 'center',
   },
@@ -212,25 +213,25 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
   },
   modalCloseText: {
-    color: '#FF8D00',
+    color: COLORS.primary,
     fontSize: 16,
     fontWeight: '600',
   },
   modalAddBtn: {
-    backgroundColor: '#FF8D00',
+    backgroundColor: COLORS.primary,
     paddingHorizontal: 16,
     paddingVertical: 8,
     borderRadius: 20,
   },
   modalAddText: {
-    color: '#fff',
+    color: COLORS.textLight,
     fontWeight: '700',
     fontSize: 14,
   },
   modalSearchContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#f5f5f5',
+    backgroundColor: COLORS.surface,
     marginHorizontal: 20,
     marginTop: 16,
     marginBottom: 8,
@@ -241,7 +242,7 @@ const styles = StyleSheet.create({
   modalSearchInput: {
     flex: 1,
     fontSize: 15,
-    color: '#111',
+    color: COLORS.textPrimary,
   },
   modalLoadingContainer: {
     flex: 1,
@@ -252,7 +253,7 @@ const styles = StyleSheet.create({
   modalLoadingText: {
     marginTop: 12,
     fontSize: 14,
-    color: '#666',
+    color: COLORS.textSecondary,
     fontWeight: '500',
   },
   modalLocationsList: {
@@ -262,7 +263,7 @@ const styles = StyleSheet.create({
   modallocationLabel: {
     fontSize: 13,
     fontWeight: '800',
-    color: '#666',
+    color: COLORS.textSecondary,
     textTransform: 'uppercase',
     letterSpacing: 1,
   },
@@ -270,15 +271,15 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: '#fff',
+    backgroundColor: COLORS.background,
     borderWidth: 1,
-    borderColor: '#eee',
+    borderColor: COLORS.border,
     borderRadius: 16,
     padding: 16,
     marginTop: 8,
   },
   cityStampRowSelected: {
-    borderColor: '#FF8D00',
+    borderColor: COLORS.primary,
     backgroundColor: '#F0F6FA',
   },
   cityStampRowLeft: {
@@ -287,7 +288,7 @@ const styles = StyleSheet.create({
   },
   cityStampRowTitle: {
     fontSize: 12,
-    color: '#FF8D00',
+    color: COLORS.primary,
     fontWeight: '700',
     textTransform: 'uppercase',
     marginBottom: 2,
@@ -295,11 +296,11 @@ const styles = StyleSheet.create({
   cityStampRowName: {
     fontSize: 16,
     fontWeight: '700',
-    color: '#111',
+    color: COLORS.textPrimary,
   },
   cityStampRowHint: {
     fontSize: 12,
-    color: '#888',
+    color: COLORS.textMuted,
     marginTop: 2,
   },
   locationItem: {
@@ -308,10 +309,10 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingVertical: 14,
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: '#eee',
+    borderBottomColor: COLORS.border,
   },
   locationItemSelected: {
-    backgroundColor: '#fafafa',
+    backgroundColor: COLORS.surface,
   },
   locationItemLeft: {
     flexDirection: 'row',
@@ -334,25 +335,25 @@ const styles = StyleSheet.create({
   locationName: {
     fontSize: 15,
     fontWeight: '700',
-    color: '#111',
+    color: COLORS.textPrimary,
     marginBottom: 4,
   },
   locationAddress: {
     fontSize: 13,
-    color: '#888',
+    color: COLORS.textMuted,
   },
   selectionRadio: {
     width: 24,
     height: 24,
     borderRadius: 12,
     borderWidth: 2,
-    borderColor: '#ddd',
+    borderColor: COLORS.border,
     alignItems: 'center',
     justifyContent: 'center',
   },
   selectionRadioSelected: {
-    backgroundColor: '#FF8D00',
-    borderColor: '#FF8D00',
+    backgroundColor: COLORS.primary,
+    borderColor: COLORS.primary,
   },
   modalEmptyInline: {
     alignItems: 'center',
@@ -362,7 +363,7 @@ const styles = StyleSheet.create({
   modalEmptyText: {
     marginTop: 12,
     fontSize: 14,
-    color: '#888',
+    color: COLORS.textMuted,
     textAlign: 'center',
     paddingHorizontal: 20,
   },

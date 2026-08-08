@@ -4,6 +4,7 @@ import { Image as ExpoImage } from 'expo-image';
 import { Feather } from '@expo/vector-icons';
 import { hapticLight } from '@/lib/haptics';
 import { DEFAULT_AVATAR_URL } from '@/lib/api';
+import COLORS from '@/src/theme/colors';
 
 interface ProfileSectionsProps {
   sections: any[];
@@ -53,7 +54,8 @@ const ProfileSections: React.FC<ProfileSectionsProps> = ({
         const isActive = selectedSection === s.name;
         const isSubscriptionFolder = !!(s as any).isSubscriptionFolder || (!!subscriptionSectionName && s.name === subscriptionSectionName);
         const firstPostInRange = sectionSourcePosts.find(p => s.postIds?.includes?.(getPostId(p)));
-        const coverUri = s.coverImage || firstPostInRange?.imageUrl || DEFAULT_AVATAR_URL;
+        const rawCover = s.coverImage || firstPostInRange?.imageUrl || firstPostInRange?.mediaUrl || firstPostInRange?.media?.[0]?.url || firstPostInRange?.mediaUrls?.[0] || null;
+        const hasCover = !!rawCover && rawCover !== DEFAULT_AVATAR_URL && !rawCover.includes('avatardefault');
         const showLock = isSubscriptionFolder && !isOwnProfile && !isSubscribed;
 
         return (
@@ -70,15 +72,25 @@ const ProfileSections: React.FC<ProfileSectionsProps> = ({
               styles.imageContainer,
               isActive && styles.activeImageContainer
             ]}>
-              <ExpoImage
-                source={{ uri: coverUri }}
-                style={styles.image}
-                contentFit="cover"
-                transition={0}
-              />
+              {hasCover ? (
+                <ExpoImage
+                  source={{ uri: rawCover }}
+                  style={styles.image}
+                  contentFit="cover"
+                  transition={0}
+                />
+              ) : (
+                <View style={styles.placeholderContainer}>
+                  <Feather 
+                    name={isSubscriptionFolder ? "star" : "folder"} 
+                    size={22} 
+                    color={isActive ? COLORS.primary : COLORS.textMuted} 
+                  />
+                </View>
+              )}
               {showLock && (
                 <View style={styles.lockOverlay}>
-                  <Feather name="lock" size={14} color="#fff" />
+                  <Feather name="lock" size={14} color={COLORS.textLight} />
                 </View>
               )}
             </View>
@@ -141,11 +153,19 @@ const styles = StyleSheet.create({
   },
   activeImageContainer: {
     borderWidth: 2,
-    borderColor: '#007aff',
+    borderColor: COLORS.primary,
   },
   image: {
     width: '100%',
     height: '100%',
+  },
+  placeholderContainer: {
+    width: '100%',
+    height: '100%',
+    backgroundColor: COLORS.inputBg,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 16,
   },
   labelRow: {
     marginTop: 4,
@@ -157,7 +177,7 @@ const styles = StyleSheet.create({
   label: {
     fontSize: 11,
     fontWeight: '400',
-    color: '#333',
+    color: COLORS.textPrimary,
     textAlign: 'center',
     maxWidth: 64,
   },
@@ -177,7 +197,7 @@ const styles = StyleSheet.create({
   },
   activeLabel: {
     fontWeight: '700',
-    color: '#007aff',
+    color: COLORS.primary,
   },
   newButtonContainer: {
     width: 64,

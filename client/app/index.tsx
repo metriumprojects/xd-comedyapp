@@ -4,6 +4,7 @@ import { View } from "react-native";
 import AsyncStorage from '@/lib/storage';
 import { resolveCanonicalUserId } from '../lib/currentUser';
 import { HomeReelSkeleton } from '@/src/_components/HomeReelSkeleton';
+import COLORS from '@/src/theme/colors';
 
 export default function Index() {
   const router = useRouter();
@@ -42,7 +43,7 @@ export default function Index() {
   if (!checking) return null;
 
   return (
-    <View style={{ flex: 1, backgroundColor: '#000' }}>
+    <View style={{ flex: 1, backgroundColor: COLORS.black }}>
       <HomeReelSkeleton />
     </View>
   );

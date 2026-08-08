@@ -19,6 +19,7 @@ import AsyncStorage from '@/lib/storage';
 import { apiService } from '@/src/_services/apiService';
 import { createGroupConversation } from '@/lib/firebaseHelpers/conversation';
 import { DEFAULT_AVATAR_URL } from '@/lib/api';
+import COLORS from '@/src/theme/colors';
 
 
 const DEFAULT_AVATAR = DEFAULT_AVATAR_URL;
@@ -212,7 +213,7 @@ export default function NewGroupScreen() {
           {!!item.username && <Text style={styles.userUsername} numberOfLines={1}>{item.username}</Text>}
         </View>
         <View style={[styles.checkbox, checked && styles.checkboxChecked]}>
-          {checked ? <Ionicons name="checkmark" size={20} color="#fff" /> : null}
+          {checked ? <Ionicons name="checkmark" size={20} color={COLORS.textLight} /> : null}
         </View>
       </TouchableOpacity>
     );
@@ -227,7 +228,7 @@ export default function NewGroupScreen() {
       >
         <View style={styles.headerRow}>
           <TouchableOpacity style={styles.backBtn} onPress={() => safeRouterBack()}>
-            <Feather name="arrow-left" size={30} color="#111" />
+            <Feather name="arrow-left" size={30} color={COLORS.textPrimary} />
           </TouchableOpacity>
           <Text style={styles.headerTitle}>New group</Text>
           <View style={{ width: 36 }} />
@@ -262,7 +263,7 @@ export default function NewGroupScreen() {
                 <View key={`sel_${u.id}`} style={styles.selectedItem}>
                   <Image source={{ uri: u.avatar || DEFAULT_AVATAR }} style={styles.selectedAvatar} />
                   <TouchableOpacity style={styles.selectedClose} onPress={() => toggleUser(u)}>
-                    <Ionicons name="close" size={20} color="#fff" />
+                    <Ionicons name="close" size={20} color={COLORS.textLight} />
                   </TouchableOpacity>
                   <Text numberOfLines={1} style={styles.selectedName}>{u.displayName}</Text>
                 </View>
@@ -303,7 +304,7 @@ export default function NewGroupScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#fff',
+    backgroundColor: COLORS.background,
   },
   headerRow: {
     flexDirection: 'row',
@@ -322,7 +323,7 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontSize: 20,
     fontWeight: '500',
-    color: '#111',
+    color: COLORS.textPrimary,
   },
   content: {
     flex: 1,
@@ -332,7 +333,7 @@ const styles = StyleSheet.create({
   groupNameInput: {
     fontSize: 17,
     fontWeight: '400',
-    color: '#111',
+    color: COLORS.textPrimary,
     borderBottomWidth: 1,
     borderBottomColor: '#c8c8c8',
     paddingVertical: 10,
@@ -350,7 +351,7 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 18,
     fontWeight: '400',
-    color: '#111',
+    color: COLORS.textPrimary,
     paddingVertical: 10,
   },
   selectedRow: {
@@ -380,19 +381,19 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 2,
-    borderColor: '#fff',
+    borderColor: COLORS.textLight,
   },
   selectedName: {
     marginTop: 6,
     fontSize: 15,
     fontWeight: '400',
-    color: '#111',
+    color: COLORS.textPrimary,
     maxWidth: 86,
   },
   suggestedTitle: {
     fontSize: 18,
     fontWeight: '500',
-    color: '#111',
+    color: COLORS.textPrimary,
     marginVertical: 10,
   },
   userRow: {
@@ -417,7 +418,7 @@ const styles = StyleSheet.create({
   userName: {
     fontSize: 17,
     fontWeight: '400',
-    color: '#111',
+    color: COLORS.textPrimary,
   },
   userUsername: {
     marginTop: 2,
@@ -430,14 +431,14 @@ const styles = StyleSheet.create({
     height: 36,
     borderRadius: 6,
     borderWidth: 2,
-    borderColor: '#7a828a',
+    borderColor: COLORS.textSecondary,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#fff',
+    backgroundColor: COLORS.background,
   },
   checkboxChecked: {
-    backgroundColor: '#111827',
-    borderColor: '#111827',
+    backgroundColor: COLORS.textPrimary,
+    borderColor: COLORS.textPrimary,
   },
   bottomBar: {
     paddingHorizontal: 16,
@@ -445,7 +446,7 @@ const styles = StyleSheet.create({
     paddingBottom: Platform.OS === 'ios' ? 16 : 12,
     borderTopWidth: 1,
     borderTopColor: '#efefef',
-    backgroundColor: '#fff',
+    backgroundColor: COLORS.background,
   },
   sendBtn: {
     height: 54,
@@ -458,7 +459,7 @@ const styles = StyleSheet.create({
     opacity: 0.65,
   },
   sendBtnText: {
-    color: '#fff',
+    color: COLORS.textLight,
     fontSize: 16,
     fontWeight: '500',
   },

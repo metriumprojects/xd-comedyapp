@@ -1,10 +1,11 @@
 import { StyleSheet, Dimensions } from 'react-native';
+import COLORS from '@/src/theme/colors';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 export const styles = StyleSheet.create({
   cardContainer: {
-    backgroundColor: '#fff',
+    backgroundColor: COLORS.background,
     marginBottom: 20,
   },
 
@@ -13,7 +14,7 @@ export const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 10,
     paddingVertical: 10,
-    backgroundColor: '#fff',
+    backgroundColor: COLORS.background,
   },
   cardHeaderAvatar: {
     width: 40,
@@ -31,7 +32,7 @@ export const styles = StyleSheet.create({
   cardHeaderName: {
     fontSize: 14,
     fontWeight: '500',
-    color: '#111',
+    color: COLORS.textPrimary,
     lineHeight: 19,
     marginBottom: 0,
   },
@@ -42,24 +43,24 @@ export const styles = StyleSheet.create({
   },
   cardHeaderLocation: {
     fontSize: 12,
-    color: '#444',
+    color: COLORS.textSecondary,
     fontWeight: '400',
   },
   cardHeaderDot: {
     width: 3,
     height: 3,
     borderRadius: 1.5,
-    backgroundColor: '#aaa',
+    backgroundColor: COLORS.textMuted,
     marginHorizontal: 5,
   },
   cardHeaderDate: {
     fontSize: 12,
-    color: '#222',
+    color: COLORS.textPrimary,
     fontWeight: '400',
   },
   imageWrap: {
     width: '100%',
-    backgroundColor: "#000",
+    backgroundColor: COLORS.black,
     justifyContent: "center",
     alignItems: "center",
     alignSelf: 'center',
@@ -92,13 +93,13 @@ export const styles = StyleSheet.create({
   reactionContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#f8f9fa',
+    backgroundColor: COLORS.surface,
     paddingHorizontal: 6,
     paddingVertical: 2,
     borderRadius: 20,
     marginRight: 10,
     borderWidth: 1,
-    borderColor: '#eee',
+    borderColor: COLORS.border,
   },
   currentEmoji: {
     fontSize: 14,
@@ -110,7 +111,7 @@ export const styles = StyleSheet.create({
   reactionTotal: {
     fontSize: 11,
     fontWeight: '700',
-    color: '#333',
+    color: COLORS.textPrimary,
   },
   iconRowRight: {
     flexDirection: 'row',
@@ -122,12 +123,9 @@ export const styles = StyleSheet.create({
     gap: 3,
   },
   captionWrap: {
-    backgroundColor: '#f0f2f5',
-    padding: 12,
-    borderRadius: 12,
-    marginHorizontal: 12,
-    marginTop: 10,
-    marginBottom: 0,
+    marginHorizontal: 14,
+    marginTop: 8,
+    marginBottom: 4,
   },
   caption: {
     fontSize: 14,
@@ -135,11 +133,11 @@ export const styles = StyleSheet.create({
     fontWeight: '400',
     letterSpacing: 0.14,
     textAlign: 'left',
-    color: '#111',
+    color: COLORS.textPrimary,
   },
   captionMore: {
     fontSize: 14,
-    color: '#888',
+    color: COLORS.textMuted,
     marginTop: 2,
     fontWeight: '500',
   },
@@ -167,10 +165,10 @@ export const styles = StyleSheet.create({
   actionCount: {
     fontSize: 10,
     fontWeight: '600',
-    color: '#111',
+    color: COLORS.textPrimary,
   },
   cardInner: {
-    backgroundColor: '#fff',
+    backgroundColor: COLORS.background,
     width: '100%',
     alignSelf: 'center',
     paddingHorizontal: 0,
@@ -184,7 +182,7 @@ export const styles = StyleSheet.create({
   reactionCount: {
     fontSize: 14,
     fontWeight: '700',
-    color: '#111',
+    color: COLORS.textPrimary,
   },
   muteButton: {
     position: 'absolute',
@@ -229,7 +227,7 @@ export const styles = StyleSheet.create({
   },
   videoProgressBarFill: {
     height: '100%',
-    backgroundColor: '#fff',
+    backgroundColor: COLORS.background,
   },
   videoControlsBar: {
     position: 'absolute',
@@ -253,11 +251,11 @@ export const styles = StyleSheet.create({
   },
   videoProgressFill: {
     height: '100%',
-    backgroundColor: '#fff',
+    backgroundColor: COLORS.background,
     borderRadius: 2,
   },
   videoTimeText: {
-    color: '#fff',
+    color: COLORS.textLight,
     fontSize: 11,
     fontWeight: '500',
     minWidth: 35,
@@ -294,30 +292,30 @@ export const styles = StyleSheet.create({
   lockedTitle: {
     fontSize: 20,
     fontWeight: '700',
-    color: '#fff',
+    color: COLORS.textLight,
     marginBottom: 8,
     textAlign: 'center',
   },
   lockedDesc: {
     fontSize: 14,
-    color: '#bbb',
+    color: COLORS.textMuted,
     textAlign: 'center',
     lineHeight: 20,
     marginBottom: 24,
   },
   lockedSubscribeBtn: {
-    backgroundColor: '#FFD60A',
+    backgroundColor: COLORS.warning,
     borderRadius: 24,
     paddingVertical: 12,
     paddingHorizontal: 28,
-    shadowColor: '#000',
+    shadowColor: COLORS.black,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.25,
     shadowRadius: 3.84,
     elevation: 5,
   },
   lockedSubscribeText: {
-    color: '#000',
+    color: COLORS.black,
     fontSize: 15,
     fontWeight: '700',
   },

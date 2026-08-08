@@ -14,6 +14,7 @@ import { hapticLight } from '../lib/haptics';
 import { safeRouterBack } from '@/lib/safeRouterBack';
 import { normalizeMediaUrl, isVideoUrl } from '../lib/utils/media';
 import { getVideoThumbnailUrl } from '../lib/imageHelpers';
+import COLORS from '@/src/theme/colors';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -147,7 +148,7 @@ export default function HashtagDetailsScreen() {
     <View style={styles.grid}>
       {Array.from({ length: 9 }).map((_, idx) => (
         <View key={idx} style={styles.gridItem}>
-          <View style={{ backgroundColor: '#f0f0f0', width: '100%', height: '100%' }} />
+          <View style={{ backgroundColor: COLORS.inputBg, width: '100%', height: '100%' }} />
         </View>
       ))}
     </View>
@@ -164,7 +165,7 @@ export default function HashtagDetailsScreen() {
           }}
           style={styles.backBtn}
         >
-          <Feather name="arrow-left" size={24} color="#000" />
+          <Feather name="arrow-left" size={24} color={COLORS.black} />
         </TouchableOpacity>
         <View style={styles.headerTitleContainer}>
           <Text style={styles.headerTitleText}>#{tagString}</Text>
@@ -194,7 +195,7 @@ export default function HashtagDetailsScreen() {
           renderSkeletonGrid()
         ) : posts.length === 0 ? (
           <View style={styles.centerContent}>
-            <Feather name="hash" size={48} color="#ccc" />
+            <Feather name="hash" size={48} color={COLORS.border} />
             <Text style={styles.emptyText}>No posts found</Text>
           </View>
         ) : (
@@ -219,7 +220,7 @@ export default function HashtagDetailsScreen() {
                 />
                 {(post.mediaType === 'video' || isVideoUrl(post.imageUrl)) && (
                   <View style={styles.playIconOverlay}>
-                    <Ionicons name="play" size={16} color="#fff" />
+                    <Ionicons name="play" size={16} color={COLORS.textLight} />
                   </View>
                 )}
               </TouchableOpacity>
@@ -272,9 +273,9 @@ export default function HashtagDetailsScreen() {
                 setCommentModalVisible(false);
               }}
             />
-            <View style={{ backgroundColor: '#fff', height: '80%', borderTopLeftRadius: 20, borderTopRightRadius: 20 }}>
-              <View style={{ width: 40, height: 4, backgroundColor: '#eee', borderRadius: 2, alignSelf: 'center', marginVertical: 10 }} />
-              <View style={{ flexDirection: 'row', justifyContent: 'space-between', paddingHorizontal: 16, paddingBottom: 10, borderBottomWidth: 0.5, borderBottomColor: '#eee' }}>
+            <View style={{ backgroundColor: COLORS.background, height: '80%', borderTopLeftRadius: 20, borderTopRightRadius: 20 }}>
+              <View style={{ width: 40, height: 4, backgroundColor: COLORS.border, borderRadius: 2, alignSelf: 'center', marginVertical: 10 }} />
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between', paddingHorizontal: 16, paddingBottom: 10, borderBottomWidth: 0.5, borderBottomColor: COLORS.border }}>
                 <Text style={{ fontWeight: '700', fontSize: 16 }}>Comments</Text>
                 <TouchableOpacity
                   onPress={() => {
@@ -282,7 +283,7 @@ export default function HashtagDetailsScreen() {
                     setCommentModalVisible(false);
                   }}
                 >
-                  <Ionicons name="close" size={24} color="#333" />
+                  <Ionicons name="close" size={24} color={COLORS.textPrimary} />
                 </TouchableOpacity>
               </View>
               <CommentSection
@@ -302,15 +303,15 @@ export default function HashtagDetailsScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#fff',
+    backgroundColor: COLORS.background,
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 16,
     paddingVertical: 12,
-    borderBottomWidth: 0.5,
-    borderBottomColor: '#eee',
+    borderBottomWidth: 0,
+    borderBottomColor: 'transparent',
   },
   backBtn: {
     padding: 4,
@@ -323,8 +324,8 @@ const styles = StyleSheet.create({
   },
   headerTitleText: {
     fontSize: 16,
-    fontWeight: '400',
-    color: '#ddd', // matches the light color in screenshot
+    fontWeight: '700',
+    color: COLORS.textPrimary,
   },
   headerRightPlaceholder: {
     width: 32,
@@ -337,7 +338,7 @@ const styles = StyleSheet.create({
   hashtagBox: {
     width: 120,
     height: 120,
-    backgroundColor: '#f5f5f5',
+    backgroundColor: COLORS.surface,
     borderRadius: 0,
     justifyContent: 'center',
     alignItems: 'center',
@@ -345,7 +346,7 @@ const styles = StyleSheet.create({
   hashtagIcon: {
     fontSize: 80,
     fontWeight: '300',
-    color: '#000',
+    color: COLORS.black,
   },
   infoContent: {
     flex: 1,
@@ -354,17 +355,17 @@ const styles = StyleSheet.create({
   tagNameBold: {
     fontSize: 22,
     fontWeight: 'bold',
-    color: '#000',
+    color: COLORS.black,
     marginBottom: 4,
   },
   postCountText: {
     fontSize: 16,
-    color: '#888',
+    color: COLORS.textMuted,
     marginBottom: 20,
   },
   divider: {
-    height: 1,
-    backgroundColor: '#eee',
+    height: 0,
+    backgroundColor: 'transparent',
   },
   grid: {
     flexDirection: 'row',
@@ -373,7 +374,7 @@ const styles = StyleSheet.create({
   gridItem: {
     width: SCREEN_WIDTH / 3,
     aspectRatio: 1,
-    padding: 1,
+    padding: 0,
   },
   gridImage: {
     width: '100%',
@@ -387,7 +388,7 @@ const styles = StyleSheet.create({
   emptyText: {
     marginTop: 12,
     fontSize: 16,
-    color: '#999',
+    color: COLORS.textMuted,
   },
   playIconOverlay: {
     position: 'absolute',

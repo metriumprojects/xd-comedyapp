@@ -7,6 +7,7 @@ import { useUser } from "./UserContext";
 import { apiService } from "../_services/apiService";
 import SaveToCollectionModal from "./SaveToCollectionModal";
 import { feedEventEmitter } from '../../lib/feedEventEmitter';
+import COLORS from '@/src/theme/colors';
 
 async function savePost(postId: string, userId: string) {
   try {
@@ -97,7 +98,7 @@ export default function SaveButton({ post, currentUser }: any) {
         <Ionicons
           name={saved ? "bookmark" : "bookmark-outline"}
           size={22}
-          color={saved ? "#FF8D00" : "#222"}
+          color={saved ? COLORS.primary : COLORS.textPrimary}
         />
       </TouchableOpacity>
 

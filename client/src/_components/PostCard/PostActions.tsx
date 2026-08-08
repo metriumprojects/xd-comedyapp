@@ -3,6 +3,7 @@ import { View, Text, TouchableOpacity } from 'react-native';
 import { Ionicons, Feather, MaterialCommunityIcons } from "@expo/vector-icons";
 import { styles } from './PostCard.styles';
 import SaveButton from '../SaveButton';
+import COLORS from '@/src/theme/colors';
 
 interface PostActionsProps {
   isLiked: boolean;
@@ -53,13 +54,13 @@ const PostActions: React.FC<PostActionsProps> = ({
           <Ionicons 
             name={isLiked ? "heart" : "heart-outline"} 
             size={24} 
-            color={isLiked ? "#ff4d4d" : "#222"} 
+            color={isLiked ? "#ff4d4d" : COLORS.textPrimary} 
           />
           {likeCount > 0 && <Text style={styles.actionCount}>{likeCount}</Text>}
         </TouchableOpacity>
         
         <TouchableOpacity onPress={onCommentPress} style={styles.actionItem}>
-          <Ionicons name="chatbubble-outline" size={22} color="#000" />
+          <Ionicons name="chatbubble-outline" size={22} color={COLORS.black} />
           {commentCount > 0 && <Text style={styles.actionCount}>{commentCount}</Text>}
         </TouchableOpacity>
 
@@ -82,12 +83,12 @@ const PostActions: React.FC<PostActionsProps> = ({
                 </View>
               ))}
             </View>
-            <Text style={{ fontSize: 13, color: '#666', fontWeight: '600', marginLeft: 6 }}>{reactions.length}</Text>
+            <Text style={{ fontSize: 13, color: COLORS.textSecondary, fontWeight: '600', marginLeft: 6 }}>{reactions.length}</Text>
           </TouchableOpacity>
         )}
 
         <TouchableOpacity onPress={onSharePress} style={styles.actionItem}>
-          <Ionicons name="paper-plane-outline" size={22} color="#222" />
+          <Ionicons name="paper-plane-outline" size={22} color={COLORS.textPrimary} />
           {post?.shareCount > 0 && <Text style={styles.actionCount}>{post.shareCount}</Text>}
         </TouchableOpacity>
       </View>

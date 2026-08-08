@@ -1,5 +1,6 @@
 import React from 'react';
 import { Image, StyleSheet, TouchableOpacity } from 'react-native';
+import COLORS from '@/src/theme/colors';
 
 interface AvatarUploadProps {
   avatar: string;
@@ -14,7 +15,7 @@ const AvatarUpload: React.FC<AvatarUploadProps> = ({ avatar, onPickImage }) => (
 
 const styles = StyleSheet.create({
   avatarContainer: { alignItems: 'center', justifyContent: 'center', marginBottom: 16 },
-  avatar: { width: 100, height: 100, borderRadius: 50, backgroundColor: '#eee' },
+  avatar: { width: 100, height: 100, borderRadius: 50, backgroundColor: COLORS.border },
 });
 
 export default AvatarUpload;

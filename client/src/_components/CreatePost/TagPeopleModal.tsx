@@ -4,6 +4,7 @@ import { Feather } from '@expo/vector-icons';
 import { hapticLight } from '@/lib/haptics';
 import { getModalHeight } from '@/utils/responsive';
 import { DEFAULT_AVATAR_URL } from '@/lib/api';
+import COLORS from '@/src/theme/colors';
 
 interface UserType {
   uid: string;
@@ -54,7 +55,7 @@ const TagPeopleModal: React.FC<TagPeopleModalProps> = ({
         <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'flex-end' }}>
           <Pressable style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }} onPress={onClose} />
           <View style={{
-            backgroundColor: '#fff',
+            backgroundColor: COLORS.background,
             borderTopLeftRadius: 32,
             borderTopRightRadius: 32,
             maxHeight: getModalHeight(0.85),
@@ -66,16 +67,16 @@ const TagPeopleModal: React.FC<TagPeopleModalProps> = ({
               style={{ paddingHorizontal: 20, paddingTop: 16 }}
             >
               <View style={{ width: '100%', height: 32, justifyContent: 'center' }}>
-                <View style={{ width: 40, height: 4, backgroundColor: '#e0e0e0', borderRadius: 2, alignSelf: 'center' }} />
+                <View style={{ width: 40, height: 4, backgroundColor: COLORS.border, borderRadius: 2, alignSelf: 'center' }} />
               </View>
-              <Text style={{ fontWeight: '500', fontSize: 16, marginBottom: 20, color: '#000', textAlign: 'center' }}>Tag someone</Text>
+              <Text style={{ fontWeight: '500', fontSize: 16, marginBottom: 20, color: COLORS.black, textAlign: 'center' }}>Tag someone</Text>
 
-              <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: '#f9f9f9', borderRadius: 24, paddingHorizontal: 16, paddingVertical: 12, marginBottom: 10, borderWidth: 1, borderColor: '#f0f0f0' }}>
-                <Feather name="search" size={18} color="#000" style={{ marginRight: 10 }} />
+              <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: '#f9f9f9', borderRadius: 24, paddingHorizontal: 16, paddingVertical: 12, marginBottom: 10, borderWidth: 1, borderColor: COLORS.inputBg }}>
+                <Feather name="search" size={18} color={COLORS.black} style={{ marginRight: 10 }} />
                 <TextInput
-                  style={{ flex: 1, fontSize: 15, color: '#000' }}
+                  style={{ flex: 1, fontSize: 15, color: COLORS.black }}
                   placeholder="Search"
-                  placeholderTextColor="#666"
+                  placeholderTextColor={COLORS.textSecondary}
                   value={userSearch}
                   onChangeText={onSearchChange}
                 />
@@ -84,7 +85,7 @@ const TagPeopleModal: React.FC<TagPeopleModalProps> = ({
 
             <View style={{ flex: 1, paddingHorizontal: 20 }}>
               {loadingUserResults ? (
-                <ActivityIndicator size="small" color="#FF8D00" style={{ marginTop: 20 }} />
+                <ActivityIndicator size="small" color={COLORS.primary} style={{ marginTop: 20 }} />
               ) : (
                 <FlatList
                   data={userResults}
@@ -104,32 +105,32 @@ const TagPeopleModal: React.FC<TagPeopleModalProps> = ({
                           else setTaggedUsers(taggedUsers.filter(u => u.uid !== item.uid));
                         }}
                       >
-                        <Image source={{ uri: item.photoURL || DEFAULT_AVATAR_URL }} style={{ width: 44, height: 44, borderRadius: 16, marginRight: 16, backgroundColor: '#eee' }} />
+                        <Image source={{ uri: item.photoURL || DEFAULT_AVATAR_URL }} style={{ width: 44, height: 44, borderRadius: 16, marginRight: 16, backgroundColor: COLORS.border }} />
                         <View style={{ flex: 1 }}>
-                          <Text style={{ fontSize: 15, fontWeight: '400', color: '#111' }} numberOfLines={1}>{item.displayName || item.userName || item.uid}</Text>
-                          {!!item.userName && <Text style={{ fontSize: 13, color: '#666', marginTop: 2 }} numberOfLines={1}>@{item.userName}</Text>}
+                          <Text style={{ fontSize: 15, fontWeight: '400', color: COLORS.textPrimary }} numberOfLines={1}>{item.displayName || item.userName || item.uid}</Text>
+                          {!!item.userName && <Text style={{ fontSize: 13, color: COLORS.textSecondary, marginTop: 2 }} numberOfLines={1}>@{item.userName}</Text>}
                         </View>
                         {isSelected && (
-                          <View style={{ width: 24, height: 24, borderRadius: 12, backgroundColor: '#FF8D00', alignItems: 'center', justifyContent: 'center' }}>
-                            <Feather name="check" size={14} color="#fff" />
+                          <View style={{ width: 24, height: 24, borderRadius: 12, backgroundColor: COLORS.primary, alignItems: 'center', justifyContent: 'center' }}>
+                            <Feather name="check" size={14} color={COLORS.textLight} />
                           </View>
                         )}
                       </TouchableOpacity>
                     );
                   }}
-                  ListEmptyComponent={<Text style={{ color: '#888', marginTop: 12, textAlign: 'center' }}>No results</Text>}
+                  ListEmptyComponent={<Text style={{ color: COLORS.textMuted, marginTop: 12, textAlign: 'center' }}>No results</Text>}
                   contentContainerStyle={{ paddingBottom: 20 }}
                 />
               )}
               <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 16 }}>
                 <TouchableOpacity onPress={onClose}>
-                  <Text style={{ color: '#111', fontWeight: '700', fontSize: 15 }}>Cancel</Text>
+                  <Text style={{ color: COLORS.textPrimary, fontWeight: '700', fontSize: 15 }}>Cancel</Text>
                 </TouchableOpacity>
                 <TouchableOpacity
                   onPress={onClose}
-                  style={{ backgroundColor: '#FF8D00', borderRadius: 8, paddingHorizontal: 24, paddingVertical: 10 }}
+                  style={{ backgroundColor: COLORS.primary, borderRadius: 8, paddingHorizontal: 24, paddingVertical: 10 }}
                 >
-                  <Text style={{ color: '#fff', fontWeight: '600', fontSize: 15 }}>Save</Text>
+                  <Text style={{ color: COLORS.textLight, fontWeight: '600', fontSize: 15 }}>Save</Text>
                 </TouchableOpacity>
               </View>
             </View>

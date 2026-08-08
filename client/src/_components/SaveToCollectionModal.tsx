@@ -26,6 +26,7 @@ import { CollectionListScreen } from './collections/CollectionListScreen';
 import { NewCollectionScreen } from './collections/NewCollectionScreen';
 import { VisibilitySettingsScreen } from './collections/VisibilitySettingsScreen';
 import { InviteCollaboratorsScreen } from './collections/InviteCollaboratorsScreen';
+import COLORS from '@/src/theme/colors';
 
 const { height: SCREEN_H } = Dimensions.get('window');
 type Screen = 'list' | 'new' | 'visibility' | 'invite';
@@ -332,7 +333,7 @@ export default function SaveToCollectionModal({
                           right: 0,
                           bottom: -1000,
                           height: 1000,
-                          backgroundColor: '#fff',
+                          backgroundColor: COLORS.card,
                           zIndex: -1,
                       }} />
                 </Animated.View>
@@ -349,16 +350,16 @@ export default function SaveToCollectionModal({
   
   const styles = StyleSheet.create({
       backdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end', overflow: 'visible' },
-      sheet: { backgroundColor: '#fff', borderTopLeftRadius: 20, borderTopRightRadius: 20, minHeight: SCREEN_H * 0.75, maxHeight: SCREEN_H * 0.92 },
+      sheet: { backgroundColor: COLORS.card, borderTopLeftRadius: 20, borderTopRightRadius: 20, minHeight: SCREEN_H * 0.75, maxHeight: SCREEN_H * 0.92 },
       dragBarContainer: { width: '100%', height: 30, alignItems: 'center', justifyContent: 'center' },
-      dragBar: { width: 40, height: 5, backgroundColor: '#ddd', borderRadius: 3, alignSelf: 'center' },
+      dragBar: { width: 40, height: 5, backgroundColor: COLORS.border, borderRadius: 3, alignSelf: 'center' },
       header: { flexDirection: 'row', alignItems: 'center', height: 56 },
       headerBtn: { width: 130, paddingHorizontal: 16, justifyContent: 'center' },
-      headerLeft: { fontSize: 15, color: '#666' },
-      headerRight: { fontSize: 15, color: '#FF8D00', fontWeight: '700', textAlign: 'right' },
-      headerRightDisabled: { color: '#ccc' },
+      headerLeft: { fontSize: 15, color: COLORS.textSecondary },
+      headerRight: { fontSize: 15, color: COLORS.primary, fontWeight: '700', textAlign: 'right' },
+      headerRightDisabled: { color: COLORS.textMuted },
       headerTitleWrap: { flex: 1, alignItems: 'center' },
-      headerTitle: { fontSize: 17, fontWeight: '800', color: '#111' },
+      headerTitle: { fontSize: 17, fontWeight: '800', color: COLORS.textPrimary },
       toast: { position: 'absolute', bottom: 100, alignSelf: 'center', backgroundColor: 'rgba(0,0,0,0.8)', paddingHorizontal: 20, paddingVertical: 10, borderRadius: 20 },
-      toastText: { color: '#fff', fontSize: 14, fontWeight: '600' },
+      toastText: { color: COLORS.textLight, fontSize: 14, fontWeight: '600' },
   });

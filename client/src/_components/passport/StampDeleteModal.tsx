@@ -1,6 +1,7 @@
 import React from 'react';
 import { Modal, TouchableOpacity, View, Text, StyleSheet } from 'react-native';
 import { Feather } from '@expo/vector-icons';
+import COLORS from '@/src/theme/colors';
 
 interface StampDeleteModalProps {
   visible: boolean;
@@ -23,7 +24,7 @@ export const StampDeleteModal: React.FC<StampDeleteModalProps> = ({
         <TouchableOpacity activeOpacity={1} onPress={(e) => e.stopPropagation()} style={styles.deleteSheet}>
           <View style={styles.deleteHeader}>
             <View style={styles.deleteIcon}>
-              <Feather name="trash-2" size={18} color="#fff" />
+              <Feather name="trash-2" size={18} color={COLORS.textLight} />
             </View>
             <View style={{ flex: 1 }}>
               <Text style={styles.deleteTitle}>Delete stamp?</Text>
@@ -55,10 +56,10 @@ const styles = StyleSheet.create({
     padding: 16,
   },
   deleteSheet: {
-    backgroundColor: '#fff',
+    backgroundColor: COLORS.background,
     borderRadius: 18,
     padding: 16,
-    shadowColor: '#000',
+    shadowColor: COLORS.black,
     shadowOpacity: 0.15,
     shadowRadius: 16,
     elevation: 10,
@@ -74,28 +75,28 @@ const styles = StyleSheet.create({
     borderRadius: 18,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#ff3b30',
+    backgroundColor: COLORS.danger,
   },
   deleteTitle: {
     fontSize: 16,
     fontWeight: '800',
-    color: '#111',
+    color: COLORS.textPrimary,
   },
   deleteSub: {
     marginTop: 3,
     fontSize: 13,
-    color: '#666',
+    color: COLORS.textSecondary,
     lineHeight: 18,
   },
   deleteBtn: {
     height: 46,
     borderRadius: 12,
-    backgroundColor: '#ff3b30',
+    backgroundColor: COLORS.danger,
     alignItems: 'center',
     justifyContent: 'center',
   },
   deleteBtnText: {
-    color: '#fff',
+    color: COLORS.textLight,
     fontWeight: '800',
     fontSize: 15,
   },
@@ -108,7 +109,7 @@ const styles = StyleSheet.create({
     marginTop: 10,
   },
   deleteCancelText: {
-    color: '#111',
+    color: COLORS.textPrimary,
     fontWeight: '700',
     fontSize: 15,
   },

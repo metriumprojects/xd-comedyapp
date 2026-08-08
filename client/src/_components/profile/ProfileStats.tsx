@@ -2,6 +2,7 @@ import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { hapticLight } from '@/lib/haptics';
+import COLORS from '@/src/theme/colors';
 
 interface ProfileStatsProps {
   locationsCount: number;
@@ -35,7 +36,7 @@ const ProfileStats: React.FC<ProfileStatsProps> = ({
   if (!canViewStats) {
     return (
       <View style={styles.privateContainer}>
-        <Ionicons name="lock-closed" size={32} color="#999" />
+        <Ionicons name="lock-closed" size={32} color={COLORS.textMuted} />
         <Text style={styles.privateText}>This account is private</Text>
         <Text style={styles.subText}>Follow to see their stats and posts</Text>
       </View>
@@ -76,13 +77,13 @@ const styles = StyleSheet.create({
     paddingTop: 5,
     paddingBottom: 10,
     paddingHorizontal: 16,
-    backgroundColor: '#fff',
+    backgroundColor: COLORS.background,
     gap: 6,
   },
   statItem: {
     alignItems: 'center',
     flex: 1,
-    backgroundColor: '#f5f5f5',
+    backgroundColor: COLORS.surface,
     paddingVertical: 12,
     paddingHorizontal: 4,
     borderRadius: 12,
@@ -90,11 +91,11 @@ const styles = StyleSheet.create({
   statNum: {
     fontSize: 15,
     fontWeight: '700',
-    color: '#000',
+    color: COLORS.black,
   },
   statLbl: {
     fontSize: 10,
-    color: '#666',
+    color: COLORS.textSecondary,
     marginTop: 2,
   },
   privateContainer: {
@@ -105,12 +106,12 @@ const styles = StyleSheet.create({
   privateText: {
     marginTop: 8,
     fontSize: 14,
-    color: '#999',
+    color: COLORS.textMuted,
     textAlign: 'center',
   },
   subText: {
     fontSize: 13,
-    color: '#999',
+    color: COLORS.textMuted,
     textAlign: 'center',
     marginTop: 4,
   }

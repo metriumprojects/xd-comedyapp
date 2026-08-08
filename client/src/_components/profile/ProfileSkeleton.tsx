@@ -1,5 +1,6 @@
 import React, { useEffect, useRef } from 'react';
 import { View, StyleSheet, Animated, Dimensions, ScrollView } from 'react-native';
+import COLORS from '@/src/theme/colors';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const POST_SIZE = (SCREEN_WIDTH - 48) / 2;
@@ -95,7 +96,7 @@ export const ProfileSkeleton: React.FC = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#fff',
+    backgroundColor: COLORS.background,
   },
   headerBlock: {
     flexDirection: 'row',
@@ -107,7 +108,7 @@ const styles = StyleSheet.create({
     width: 80,
     height: 80,
     borderRadius: 40,
-    backgroundColor: '#e1e9ee',
+    backgroundColor: COLORS.inputBg,
   },
   infoWrapper: {
     flex: 1,
@@ -118,13 +119,13 @@ const styles = StyleSheet.create({
     width: '60%',
     height: 20,
     borderRadius: 4,
-    backgroundColor: '#e1e9ee',
+    backgroundColor: COLORS.inputBg,
   },
   usernameLine: {
     width: '40%',
     height: 12,
     borderRadius: 4,
-    backgroundColor: '#e1e9ee',
+    backgroundColor: COLORS.inputBg,
   },
   statsRow: {
     flexDirection: 'row',
@@ -137,7 +138,7 @@ const styles = StyleSheet.create({
     flex: 1,
     height: 38,
     borderRadius: 8,
-    backgroundColor: '#e1e9ee',
+    backgroundColor: COLORS.inputBg,
   },
   actionsRow: {
     flexDirection: 'row',
@@ -150,13 +151,13 @@ const styles = StyleSheet.create({
     width: 90,
     height: 32,
     borderRadius: 16,
-    backgroundColor: '#e1e9ee',
+    backgroundColor: COLORS.inputBg,
   },
   actionBtnShort: {
     width: 95,
     height: 32,
     borderRadius: 16,
-    backgroundColor: '#e1e9ee',
+    backgroundColor: COLORS.inputBg,
   },
   chipsScroll: {
     flexDirection: 'row',
@@ -168,7 +169,7 @@ const styles = StyleSheet.create({
     width: 60,
     height: 28,
     borderRadius: 14,
-    backgroundColor: '#e1e9ee',
+    backgroundColor: COLORS.inputBg,
   },
   bioContainer: {
     paddingHorizontal: 16,
@@ -179,19 +180,19 @@ const styles = StyleSheet.create({
     width: '90%',
     height: 12,
     borderRadius: 4,
-    backgroundColor: '#e1e9ee',
+    backgroundColor: COLORS.inputBg,
   },
   bioLineShort: {
     width: '75%',
     height: 12,
     borderRadius: 4,
-    backgroundColor: '#e1e9ee',
+    backgroundColor: COLORS.inputBg,
   },
   bioLineTiny: {
     width: '50%',
     height: 12,
     borderRadius: 4,
-    backgroundColor: '#e1e9ee',
+    backgroundColor: COLORS.inputBg,
   },
   highlightsContainer: {
     flexDirection: 'row',
@@ -207,19 +208,19 @@ const styles = StyleSheet.create({
     width: 56,
     height: 56,
     borderRadius: 28,
-    backgroundColor: '#e1e9ee',
+    backgroundColor: COLORS.inputBg,
   },
   highlightText: {
     width: 40,
     height: 10,
     borderRadius: 2,
-    backgroundColor: '#e1e9ee',
+    backgroundColor: COLORS.inputBg,
   },
   tabsRow: {
     flexDirection: 'row',
     borderTopWidth: 1,
     borderBottomWidth: 1,
-    borderColor: '#f0f0f0',
+    borderColor: COLORS.border,
     marginTop: 24,
     paddingVertical: 12,
   },
@@ -228,7 +229,7 @@ const styles = StyleSheet.create({
     height: 20,
     marginHorizontal: 32,
     borderRadius: 4,
-    backgroundColor: '#e1e9ee',
+    backgroundColor: COLORS.inputBg,
   },
   gridContainer: {
     flexDirection: 'row',
@@ -242,7 +243,7 @@ const styles = StyleSheet.create({
     width: POST_SIZE,
     height: POST_SIZE,
     borderRadius: 12,
-    backgroundColor: '#e1e9ee',
+    backgroundColor: COLORS.inputBg,
   },
 });
 export default ProfileSkeleton;

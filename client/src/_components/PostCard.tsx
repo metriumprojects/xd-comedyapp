@@ -16,6 +16,7 @@ import { useUser } from "./UserContext";
 import { likePost, unlikePost, sendPostMessage } from "../../lib/firebaseHelpers";
 import { apiService } from '@/src/_services/apiService';
 import { BACKEND_URL } from "../../lib/api";
+import COLORS from '@/src/theme/colors';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -30,6 +31,7 @@ interface PostCardProps {
   onCommentPress?: (postId: string, avatar: string) => void;
   mirror?: boolean;
   containerHeight?: number;
+  onCloseOuterModal?: () => void;
 }
 
 
@@ -40,7 +42,8 @@ const PostCard: React.FC<PostCardProps> = ({
   highlightedCommentId, 
   onCommentPress,
   mirror = false,
-  containerHeight
+  containerHeight,
+  onCloseOuterModal
 }) => {
 
   const router = useRouter();
@@ -300,7 +303,8 @@ const PostCard: React.FC<PostCardProps> = ({
         targetType: 'post',
         reason: reason
       });
-      Alert.alert("Report Submitted", "Thank you for helping us keep the community safe. We will review this post shortly.");
+      feedEventEmitter.emitFeedUpdate({ type: 'POST_DELETED', postId: post._id || post.id });
+      Alert.alert("Report Submitted", "This post has been reported and hidden from your feed.");
     } catch (err) {
       Alert.alert("Error", "Failed to submit report. Please try again.");
     }
@@ -373,7 +377,7 @@ const PostCard: React.FC<PostCardProps> = ({
               zIndex: 50,
             }}
           >
-            <Ionicons name="person-outline" size={16} color="#fff" />
+            <Ionicons name="person-outline" size={16} color={COLORS.textLight} />
           </TouchableOpacity>
         )}
 
@@ -412,15 +416,15 @@ const PostCard: React.FC<PostCardProps> = ({
                     alignItems: 'center',
                     borderWidth: 0.5,
                     borderColor: 'rgba(255, 255, 255, 0.2)',
-                    shadowColor: '#000',
+                    shadowColor: COLORS.black,
                     shadowOffset: { width: 0, height: 2 },
                     shadowOpacity: 0.3,
                     shadowRadius: 3,
                     elevation: 4,
                   }}
                 >
-                  <Ionicons name="person" size={10} color="#fff" style={{ marginRight: 4 }} />
-                  <Text style={{ color: '#fff', fontSize: 11, fontWeight: '600' }}>
+                  <Ionicons name="person" size={10} color={COLORS.textLight} style={{ marginRight: 4 }} />
+                  <Text style={{ color: COLORS.textLight, fontSize: 11, fontWeight: '600' }}>
                     {taggedUser.username || taggedUser.displayName || 'user'}
                   </Text>
                 </TouchableOpacity>
@@ -431,7 +435,7 @@ const PostCard: React.FC<PostCardProps> = ({
       </View>
 
 
-      <View style={{ backgroundColor: '#fff' }}>
+      <View style={{ backgroundColor: COLORS.background }}>
         <PostActions 
           isLiked={isLiked}
           onLikePress={handleLike}
@@ -472,13 +476,13 @@ const PostCard: React.FC<PostCardProps> = ({
           onPress={() => setShowPostMenu(false)} 
         />
         <View style={{ 
-          backgroundColor: '#fff', 
+          backgroundColor: COLORS.background, 
           borderTopLeftRadius: 20, 
           borderTopRightRadius: 20, 
           paddingBottom: 40,
           marginTop: 'auto'
         }}>
-          <View style={{ height: 4, width: 40, backgroundColor: '#ddd', borderRadius: 2, alignSelf: 'center', marginVertical: 12 }} />
+          <View style={{ height: 4, width: 40, backgroundColor: COLORS.border, borderRadius: 2, alignSelf: 'center', marginVertical: 12 }} />
           
           {isOwner ? (
             <>
@@ -494,7 +498,7 @@ const PostCard: React.FC<PostCardProps> = ({
                   }, 250);
                 }}
               >
-                <Feather name="edit-3" size={22} color="#333" />
+                <Feather name="edit-3" size={22} color={COLORS.textPrimary} />
                 <Text style={{ marginLeft: 15, fontSize: 16, fontWeight: '500' }}>Edit</Text>
               </TouchableOpacity>
 
@@ -537,7 +541,7 @@ const PostCard: React.FC<PostCardProps> = ({
                   }, 650); // Increased from 300ms to 650ms to ensure full options modal dismissal transition
                 }}
               >
-                <Feather name="share-2" size={22} color="#333" />
+                <Feather name="share-2" size={22} color={COLORS.textPrimary} />
                 <Text style={{ marginLeft: 15, fontSize: 16, fontWeight: '500' }}>Share</Text>
               </TouchableOpacity>
 
@@ -605,7 +609,7 @@ const PostCard: React.FC<PostCardProps> = ({
             style={{ marginTop: 10, padding: 18, alignItems: 'center' }}
             onPress={() => setShowPostMenu(false)}
           >
-            <Text style={{ fontSize: 16, fontWeight: '600', color: '#0095f6' }}>Cancel</Text>
+            <Text style={{ fontSize: 16, fontWeight: '600', color: COLORS.info }}>Cancel</Text>
           </TouchableOpacity>
         </View>
       </Modal>
@@ -633,7 +637,7 @@ const PostCard: React.FC<PostCardProps> = ({
             <Animated.View
               style={{
                 height: '80%',
-                backgroundColor: '#fff',
+                backgroundColor: COLORS.background,
                 borderTopLeftRadius: 30,
                 borderTopRightRadius: 30,
                 overflow: 'hidden',
@@ -648,10 +652,10 @@ const PostCard: React.FC<PostCardProps> = ({
                   width: '100%',
                   alignItems: 'center',
                   justifyContent: 'center',
-                  backgroundColor: '#fff',
+                  backgroundColor: COLORS.background,
                 }}
               >
-                <View style={{ height: 5, width: 40, backgroundColor: '#ddd', borderRadius: 3 }} />
+                <View style={{ height: 5, width: 40, backgroundColor: COLORS.border, borderRadius: 3 }} />
               </View>
 
               <CommentSection
@@ -672,9 +676,9 @@ const PostCard: React.FC<PostCardProps> = ({
         transparent={true}
         onRequestClose={() => setShowFullScreen(null)}
       >
-        <View style={{ flex: 1, backgroundColor: '#000', justifyContent: 'center' }}>
+        <View style={{ flex: 1, backgroundColor: COLORS.black, justifyContent: 'center' }}>
           <Pressable style={{ position: 'absolute', top: 50, right: 20, zIndex: 10 }} onPress={() => setShowFullScreen(null)}>
-            <Ionicons name="close-circle" size={40} color="#fff" />
+            <Ionicons name="close-circle" size={40} color={COLORS.textLight} />
           </Pressable>
           {showFullScreen !== null && (
             <PostMedia 
@@ -685,6 +689,7 @@ const PostCard: React.FC<PostCardProps> = ({
               isMuted={isMuted}
               toggleMute={() => setIsMuted(!isMuted)}
               videoRef={videoRef}
+              isFullScreen={true}
             />
           )}
         </View>
@@ -702,13 +707,19 @@ const PostCard: React.FC<PostCardProps> = ({
           sharePayload={post}
           modalVariant="home"
           onAddToStory={() => {
-            router.push({
-              pathname: '/story-creator',
-              params: {
-                sharePostId: post._id || post.id || '',
-                sharePostData: encodeURIComponent(JSON.stringify(post))
-              }
-            } as any);
+            setShowShare(false);
+            if (onCloseOuterModal) {
+              onCloseOuterModal();
+            }
+            setTimeout(() => {
+              router.push({
+                pathname: '/story-creator',
+                params: {
+                  sharePostId: post._id || post.id || '',
+                  sharePostData: encodeURIComponent(JSON.stringify(post))
+                }
+              } as any);
+            }, Platform.OS === 'ios' ? 250 : 100);
           }}
         />
       )}

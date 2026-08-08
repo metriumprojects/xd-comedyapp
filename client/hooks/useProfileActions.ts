@@ -47,46 +47,64 @@ export const useProfileActions = ({
   const handleFollowToggle = async () => {
     if (!currentUserId || !viewedUserId || followLoading || isOwnProfile) return;
     hapticMedium();
+
+    const wasFollowing = isFollowing;
+    const nextFollowing = !wasFollowing;
+
+    // 1. Optimistic Update IMMEDIATELY (0ms UI latency!)
+    setIsFollowing(nextFollowing);
+
+    // Optimistically update followersCount in profile data
+    setProfile((prev: any) => {
+      if (!prev) return prev;
+      const currentCount = Number(prev.followersCount ?? prev.followers ?? 0);
+      const newCount = nextFollowing ? currentCount + 1 : Math.max(0, currentCount - 1);
+      return {
+        ...prev,
+        isFollowing: nextFollowing,
+        followersCount: newCount,
+      };
+    });
+
     setFollowLoading(true);
     try {
-      if (isPrivate && !isFollowing) {
+      if (isPrivate && !wasFollowing) {
         const res = await sendFollowRequest(currentUserId, viewedUserId);
         if (res.success) {
           setFollowRequestPending(true);
           Alert.alert('Request Sent', 'Your follow request has been sent to this private account.');
+        } else {
+          // Rollback on failure
+          setIsFollowing(wasFollowing);
+          setProfile((prev: any) => prev ? { ...prev, isFollowing: wasFollowing } : prev);
         }
       } else {
-        if (isFollowing) {
+        if (wasFollowing) {
           const res = await unfollowUser(currentUserId, viewedUserId);
-          setApprovedFollower(false);
           if (res.success) {
-            setIsFollowing(false);
+            setApprovedFollower(false);
             feedEventEmitter.emitUserFollowChanged(viewedUserId, false);
-            // Fetch updated profile with aggregated counts
-            const profileRes = await apiService.get(`/users/${viewedUserId}/aggregated`, { 
-              requesterUserId: currentUserId 
-            });
-            if (profileRes.success && profileRes.data) {
-              setProfile(profileRes.data);
-            }
+          } else {
+            // Rollback on failure
+            setIsFollowing(wasFollowing);
+            setProfile((prev: any) => prev ? { ...prev, isFollowing: wasFollowing } : prev);
           }
         } else {
           const res = await followUser(currentUserId, viewedUserId);
           if (res.success) {
-            setIsFollowing(true);
             feedEventEmitter.emitUserFollowChanged(viewedUserId, true);
-            // Fetch updated profile with aggregated counts
-            const profileRes = await apiService.get(`/users/${viewedUserId}/aggregated`, { 
-              requesterUserId: currentUserId 
-            });
-            if (profileRes.success && profileRes.data) {
-              setProfile(profileRes.data);
-            }
+          } else {
+            // Rollback on failure
+            setIsFollowing(wasFollowing);
+            setProfile((prev: any) => prev ? { ...prev, isFollowing: wasFollowing } : prev);
           }
         }
       }
     } catch (err) {
       console.error('[handleFollowToggle] Error:', err);
+      // Rollback on failure
+      setIsFollowing(wasFollowing);
+      setProfile((prev: any) => prev ? { ...prev, isFollowing: wasFollowing } : prev);
       Alert.alert('Error', 'Failed to update follow status.');
     } finally {
       setFollowLoading(false);

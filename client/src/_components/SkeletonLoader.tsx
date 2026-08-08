@@ -1,5 +1,6 @@
 import React, { useEffect, useRef } from 'react';
 import { View, Animated, StyleSheet, ViewStyle } from 'react-native';
+import COLORS from '@/src/theme/colors';
 
 interface SkeletonProps {
   width?: number | string;
@@ -46,6 +47,6 @@ export const Skeleton = ({ width, height, borderRadius = 4, style }: SkeletonPro
 
 const styles = StyleSheet.create({
   skeleton: {
-    backgroundColor: '#E1E9EE',
+    backgroundColor: COLORS.inputBg,
   },
 });

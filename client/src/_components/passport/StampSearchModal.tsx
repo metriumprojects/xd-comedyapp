@@ -12,6 +12,7 @@ import {
 } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { Stamp } from '@/lib/firebaseHelpers/passport';
+import COLORS from '@/src/theme/colors';
 
 interface StampSearchModalProps {
   visible: boolean;
@@ -46,17 +47,17 @@ export const StampSearchModal: React.FC<StampSearchModalProps> = ({
                 <Text style={styles.searchModalSub}>Find your travel milestones</Text>
               </View>
               <TouchableOpacity onPress={onClose} style={styles.searchModalCloseBtn}>
-                <Feather name="x" size={20} color="#666" />
+                <Feather name="x" size={20} color={COLORS.textSecondary} />
               </TouchableOpacity>
             </View>
 
             <View style={styles.searchBarWrapper}>
               <View style={styles.searchBarInner}>
-                <Feather name="search" size={18} color="#FF8D00" />
+                <Feather name="search" size={18} color={COLORS.primary} />
                 <TextInput
                   style={styles.searchBarInput}
                   placeholder="Search countries, cities, or places..."
-                  placeholderTextColor="#999"
+                  placeholderTextColor={COLORS.textMuted}
                   value={searchQuery}
                   onChangeText={setSearchQuery}
                   autoFocus
@@ -65,7 +66,7 @@ export const StampSearchModal: React.FC<StampSearchModalProps> = ({
                 />
                 {!!searchQuery && Platform.OS === 'android' && (
                   <TouchableOpacity onPress={() => setSearchQuery('')}>
-                    <Feather name="x-circle" size={16} color="#ccc" />
+                    <Feather name="x-circle" size={16} color={COLORS.border} />
                   </TouchableOpacity>
                 )}
               </View>
@@ -89,7 +90,7 @@ export const StampSearchModal: React.FC<StampSearchModalProps> = ({
                         <Feather
                           name={s.type === 'country' ? 'globe' : s.type === 'city' ? 'map' : 'map-pin'}
                           size={16}
-                          color="#FF8D00"
+                          color={COLORS.primary}
                         />
                       </View>
                       <View style={styles.searchResultText}>
@@ -100,12 +101,12 @@ export const StampSearchModal: React.FC<StampSearchModalProps> = ({
                           {s.parentCountry ? ` • ${s.parentCountry}` : ''}
                         </Text>
                       </View>
-                      <Feather name="chevron-right" size={16} color="#CCC" />
+                      <Feather name="chevron-right" size={16} color={COLORS.border} />
                     </TouchableOpacity>
                   ))
                 ) : (
                   <View style={styles.searchEmptyState}>
-                    <Feather name="search" size={48} color="#EEE" />
+                    <Feather name="search" size={48} color={COLORS.border} />
                     <Text style={styles.searchEmptyText}>No stamps match your search</Text>
                     <Text style={styles.searchEmptySub}>Try searching for a different location</Text>
                   </View>
@@ -113,7 +114,7 @@ export const StampSearchModal: React.FC<StampSearchModalProps> = ({
               ) : (
                 <View style={styles.searchPlaceholderState}>
                   <View style={styles.searchHistoryIcon}>
-                    <Feather name="compass" size={24} color="#CCC" />
+                    <Feather name="compass" size={24} color={COLORS.border} />
                   </View>
                   <Text style={styles.searchPlaceholderText}>Start typing to search your passport</Text>
                 </View>
@@ -133,7 +134,7 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
   },
   searchModalContent: {
-    backgroundColor: '#fff',
+    backgroundColor: COLORS.card,
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     height: '80%',
@@ -142,7 +143,7 @@ const styles = StyleSheet.create({
     width: 40,
     height: 4,
     borderRadius: 2,
-    backgroundColor: '#ddd',
+    backgroundColor: COLORS.border,
     alignSelf: 'center',
     marginTop: 12,
   },
@@ -157,18 +158,18 @@ const styles = StyleSheet.create({
   searchModalTitle: {
     fontSize: 20,
     fontWeight: '800',
-    color: '#111',
+    color: COLORS.textPrimary,
   },
   searchModalSub: {
     fontSize: 13,
-    color: '#666',
+    color: COLORS.textSecondary,
     marginTop: 2,
   },
   searchModalCloseBtn: {
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: '#f5f5f5',
+    backgroundColor: COLORS.inputBg,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -179,7 +180,7 @@ const styles = StyleSheet.create({
   searchBarInner: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#f0f4f8',
+    backgroundColor: COLORS.inputBg,
     borderRadius: 12,
     paddingHorizontal: 12,
     height: 44,
@@ -189,7 +190,7 @@ const styles = StyleSheet.create({
     height: '100%',
     marginLeft: 8,
     fontSize: 15,
-    color: '#111',
+    color: COLORS.textPrimary,
   },
   searchResultsList: {
     flex: 1,
@@ -201,13 +202,13 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     paddingHorizontal: 20,
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: '#f0f0f0',
+    borderBottomColor: COLORS.border,
   },
   searchResultIcon: {
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: '#f0f4f8',
+    backgroundColor: COLORS.inputBg,
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 12,
@@ -218,12 +219,12 @@ const styles = StyleSheet.create({
   searchResultName: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#111',
+    color: COLORS.textPrimary,
     marginBottom: 2,
   },
   searchResultInfo: {
     fontSize: 13,
-    color: '#666',
+    color: COLORS.textSecondary,
   },
   searchPlaceholderState: {
     alignItems: 'center',
@@ -234,14 +235,14 @@ const styles = StyleSheet.create({
     width: 64,
     height: 64,
     borderRadius: 32,
-    backgroundColor: '#f8f8f8',
+    backgroundColor: COLORS.inputBg,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 16,
   },
   searchPlaceholderText: {
     fontSize: 15,
-    color: '#888',
+    color: COLORS.textMuted,
     fontWeight: '500',
   },
   searchEmptyState: {
@@ -252,12 +253,12 @@ const styles = StyleSheet.create({
   searchEmptyText: {
     fontSize: 16,
     fontWeight: '700',
-    color: '#111',
+    color: COLORS.textPrimary,
     marginTop: 16,
   },
   searchEmptySub: {
     fontSize: 14,
-    color: '#666',
+    color: COLORS.textSecondary,
     marginTop: 4,
   },
 });

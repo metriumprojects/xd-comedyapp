@@ -28,6 +28,7 @@ import {
 } from "../../lib/firebaseHelpers/comments";
 
 import { apiService } from '@/src/_services/apiService';
+import COLORS from '@/src/theme/colors';
 import { feedEventEmitter } from "../../lib/feedEventEmitter";
 import CommentAvatar from "./CommentAvatar";
 import { useUser } from "./UserContext";
@@ -63,6 +64,7 @@ export interface CommentSectionProps {
   showInput?: boolean;
   initialTab?: 'comment' | 'reactions';
   isStory?: boolean;
+  autoFocusInput?: boolean;
 }
 
 export const CommentSection: React.FC<CommentSectionProps> = ({
@@ -73,6 +75,7 @@ export const CommentSection: React.FC<CommentSectionProps> = ({
   showInput = true,
   initialTab = 'comment',
   isStory = false,
+  autoFocusInput = false,
 }) => {
   const [activeTab, setActiveTab] = useState<'comment' | 'reactions'>(isStory ? 'comment' : initialTab);
   const [comments, setComments] = useState<Comment[]>([]);
@@ -408,18 +411,18 @@ export const CommentSection: React.FC<CommentSectionProps> = ({
             {selectedComment?.userId === currentUserId ? (
               <>
                 <TouchableOpacity style={styles.menuOption} onPress={() => { setEditValue(selectedComment?.text || ""); setIsEditing(true); setShowOptions(false); }}>
-                  <Feather name="edit-2" size={22} color="#222" />
+                  <Feather name="edit-2" size={22} color={COLORS.textPrimary} />
                   <Text style={styles.menuOptionText}>Edit</Text>
                 </TouchableOpacity>
                 <TouchableOpacity style={[styles.menuOption, { borderBottomWidth: 0 }]} onPress={() => handleDelete(selectedComment!, selectedComment?.isReply, selectedComment?.parentId)}>
-                  <Feather name="trash-2" size={22} color="#FF3B30" />
-                  <Text style={[styles.menuOptionText, { color: '#FF3B30' }]}>Delete</Text>
+                  <Feather name="trash-2" size={22} color={COLORS.danger} />
+                  <Text style={[styles.menuOptionText, { color: COLORS.danger }]}>Delete</Text>
                 </TouchableOpacity>
               </>
             ) : (
               <TouchableOpacity style={[styles.menuOption, { borderBottomWidth: 0 }]} onPress={() => handleReportComment(selectedComment!)}>
-                <Feather name="flag" size={22} color="#FF4B4B" />
-                <Text style={[styles.menuOptionText, { color: '#FF4B4B' }]}>Report Comment</Text>
+                <Feather name="flag" size={22} color={COLORS.danger} />
+                <Text style={[styles.menuOptionText, { color: COLORS.danger }]}>Report Comment</Text>
               </TouchableOpacity>
             )}
           </View>
@@ -471,11 +474,12 @@ export const CommentSection: React.FC<CommentSectionProps> = ({
               />
             )}
             contentContainerStyle={{ paddingBottom: 20 }}
-            ListEmptyComponent={loading ? <ActivityIndicator style={{ marginTop: 20 }} color="#000" /> : <Text style={styles.emptyText}>No comments yet</Text>}
+            ListEmptyComponent={loading ? <ActivityIndicator style={{ marginTop: 20 }} color={COLORS.textPrimary} /> : <Text style={styles.emptyText}>No comments yet</Text>}
             estimatedItemSize={80}
           />
           {showInput && (
             <CommentInput
+              autoFocus={autoFocusInput}
               newComment={newComment}
               setNewComment={setNewComment}
               replyTo={replyTo}
@@ -503,7 +507,7 @@ export const CommentSection: React.FC<CommentSectionProps> = ({
                 <Text style={styles.reactionEmojiText}>{item.emoji}</Text>
               </View>
             )}
-            ListEmptyComponent={loading ? <ActivityIndicator style={{ marginTop: 20 }} color="#000" /> : <View style={styles.emptyReactionContainer}><Ionicons name="star" size={60} color="#FFD700" /><Text style={styles.emptyReactionTitle}>No reactions yet</Text><Text style={styles.emptyReactionSub}>Be the first to react!</Text></View>}
+            ListEmptyComponent={loading ? <ActivityIndicator style={{ marginTop: 20 }} color={COLORS.textPrimary} /> : <View style={styles.emptyReactionContainer}><Ionicons name="star" size={60} color="#FFD700" /><Text style={styles.emptyReactionTitle}>No reactions yet</Text><Text style={styles.emptyReactionSub}>Be the first to react!</Text></View>}
             estimatedItemSize={60}
           />
           <View style={styles.reactionEmojiBar}>
@@ -516,7 +520,7 @@ export const CommentSection: React.FC<CommentSectionProps> = ({
               style={styles.reactionPlusBtn}
               onPress={() => setShowEmojiPicker(true)}
             >
-              <Ionicons name="add" size={28} color="#000" />
+              <Ionicons name="add" size={28} color={COLORS.textPrimary} />
             </TouchableOpacity>
           </View>
           <EmojiPicker
@@ -534,30 +538,30 @@ export const CommentSection: React.FC<CommentSectionProps> = ({
 };
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#fff' },
+  container: { flex: 1, backgroundColor: COLORS.background },
   tabHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 15 },
-  tabContainer: { flexDirection: 'row', backgroundColor: '#f0f0f0', borderRadius: 25, padding: 4, gap: 8 },
+  tabContainer: { flexDirection: 'row', backgroundColor: COLORS.inputBg, borderRadius: 25, padding: 4, gap: 8 },
   tabButton: { paddingHorizontal: 20, paddingVertical: 8, borderRadius: 22 },
-  tabButtonActive: { backgroundColor: '#000' },
-  tabText: { fontWeight: '600', color: '#888', fontSize: 13 },
-  tabTextActive: { color: '#fff' },
-  emptyText: { textAlign: 'center', marginTop: 40, color: '#999', fontSize: 16 },
+  tabButtonActive: { backgroundColor: COLORS.textPrimary },
+  tabText: { fontWeight: '600', color: COLORS.textMuted, fontSize: 13 },
+  tabTextActive: { color: COLORS.textLight },
+  emptyText: { textAlign: 'center', marginTop: 40, color: COLORS.textMuted, fontSize: 16 },
   reactionItem: { flexDirection: 'row', padding: 15, alignItems: 'center' },
   reactionAvatar: { width: 40, height: 40, borderRadius: 20, marginRight: 12 },
-  reactionName: { fontWeight: '600', flex: 1 },
+  reactionName: { fontWeight: '600', flex: 1, color: COLORS.textPrimary },
   reactionEmojiText: { fontSize: 20 },
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center' },
-  floatingMenu: { backgroundColor: '#fff', borderRadius: 16, width: '70%', padding: 4 },
-  menuOption: { flexDirection: 'row', alignItems: 'center', paddingVertical: 14, paddingHorizontal: 20, borderBottomWidth: 1, borderBottomColor: '#f0f0f0' },
-  menuOptionText: { marginLeft: 16, fontSize: 16, fontWeight: '500' },
+  floatingMenu: { backgroundColor: COLORS.card, borderRadius: 16, width: '70%', padding: 4 },
+  menuOption: { flexDirection: 'row', alignItems: 'center', paddingVertical: 14, paddingHorizontal: 20, borderBottomWidth: 1, borderBottomColor: COLORS.border },
+  menuOptionText: { marginLeft: 16, fontSize: 16, fontWeight: '500', color: COLORS.textPrimary },
   editContainer: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', padding: 20 },
-  editBox: { backgroundColor: '#fff', borderRadius: 15, padding: 20 },
-  editTitle: { fontSize: 18, fontWeight: '700', marginBottom: 15 },
-  editInput: { borderWidth: 1, borderColor: '#eee', borderRadius: 10, padding: 12, minHeight: 100, textAlignVertical: 'top' },
+  editBox: { backgroundColor: COLORS.card, borderRadius: 15, padding: 20 },
+  editTitle: { fontSize: 18, fontWeight: '700', marginBottom: 15, color: COLORS.textPrimary },
+  editInput: { borderWidth: 1, borderColor: COLORS.border, borderRadius: 10, padding: 12, minHeight: 100, textAlignVertical: 'top', color: COLORS.textPrimary },
   editActions: { flexDirection: 'row', justifyContent: 'flex-end', marginTop: 15, gap: 10 },
-  cancelText: { color: '#666', fontWeight: '600', padding: 10 },
-  saveBtn: { backgroundColor: '#000', paddingHorizontal: 20, paddingVertical: 10, borderRadius: 20 },
-  saveBtnText: { color: '#fff', fontWeight: '600' },
+  cancelText: { color: COLORS.textSecondary, fontWeight: '600', padding: 10 },
+  saveBtn: { backgroundColor: COLORS.textPrimary, paddingHorizontal: 20, paddingVertical: 10, borderRadius: 20 },
+  saveBtnText: { color: COLORS.textLight, fontWeight: '600' },
   reactionEmojiBar: {
     flexDirection: 'row',
     justifyContent: 'space-around',
@@ -565,20 +569,20 @@ const styles = StyleSheet.create({
     paddingVertical: 15,
     paddingHorizontal: 10,
     borderTopWidth: 1,
-    borderTopColor: '#eee',
-    backgroundColor: '#fff'
+    borderTopColor: COLORS.border,
+    backgroundColor: COLORS.background
   },
   reactionPlusBtn: {
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: '#f0f0f0',
+    backgroundColor: COLORS.inputBg,
     alignItems: 'center',
     justifyContent: 'center'
   },
   emptyReactionContainer: { flex: 1, alignItems: 'center', justifyContent: 'center', marginTop: 80 },
-  emptyReactionTitle: { fontSize: 18, fontWeight: '700', color: '#666', marginTop: 15 },
-  emptyReactionSub: { fontSize: 14, color: '#999', marginTop: 5 },
+  emptyReactionTitle: { fontSize: 18, fontWeight: '700', color: COLORS.textSecondary, marginTop: 15 },
+  emptyReactionSub: { fontSize: 14, color: COLORS.textMuted, marginTop: 5 },
 });
 
 export default CommentSection;

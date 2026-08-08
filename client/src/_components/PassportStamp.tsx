@@ -13,6 +13,7 @@ import Svg, {
 } from 'react-native-svg';
 import { BACKEND_URL } from '../../lib/api';
 import { formatDisplayDate } from '../../lib/utils/date';
+import COLORS from '@/src/theme/colors';
 
 const { width } = Dimensions.get('window');
 
@@ -44,11 +45,11 @@ const formatDateLocal = (date: Date | string): string => {
 export const PassportStamp = React.memo(({ stamp, size = 140, type = 'circular' }: { stamp: Stamp, size?: number, type?: 'circular' | 'oval' }) => {
   const [useExternal, setUseExternal] = useState(stamp.type === 'country');
   const colorMap: Record<string, string> = {
-    country: '#0E9F6E',
-    city: '#1E63D7',
+    country: COLORS.success,
+    city: COLORS.info,
     place: '#7A3DB8',
   };
-  const color = colorMap[stamp.type] || '#D64545';
+  const color = colorMap[stamp.type] || COLORS.danger;
   const stampUri = `${BACKEND_URL}/stamps/${encodeURIComponent(stamp.name)}.svg`;
   const created = new Date(stamp.createdAt);
   const dateText = Number.isNaN(created.getTime())
@@ -188,7 +189,7 @@ const styles = StyleSheet.create({
     zIndex: 10,
   },
   counterText: {
-    color: '#fff',
+    color: COLORS.textLight,
     fontSize: 10,
     fontWeight: 'bold',
   },

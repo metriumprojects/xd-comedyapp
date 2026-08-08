@@ -42,42 +42,58 @@ router.get('/search', verifyToken, cacheMiddleware(60), async (req, res) => {
       return res.json({ success: true, data: [] });
     }
 
-    // Search by displayName, email, bio, or username
-    // Sanitize q to prevent ReDoS/Injection
-    const safeQ = q.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    // Strip leading @ for username search (e.g. "@john" → "john")
+    const rawQ = q.trim().replace(/^@/, '');
+
+    // Sanitize to prevent ReDoS
+    const safeQ = rawQ.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     const searchRegex = new RegExp(safeQ, 'i');
 
-    console.log('[GET /search] Searching for:', q, 'requester:', requesterUserId);
-    
-    // Log search event
-    logEvent('USER_SEARCH', { query: q, limit }, requesterUserId);
+    console.log('[GET /search] Searching for:', rawQ, 'requester:', requesterUserId);
 
-    // Build query to exclude current user
-    const searchQuery = {
+    // Log search event
+    logEvent('USER_SEARCH', { query: rawQ, limit }, requesterUserId);
+
+    // Partial match across all name/username fields
+    const conditions = {
       $or: [
         { displayName: searchRegex },
-        { email: searchRegex },
+        { username: searchRegex },
+        { name: searchRegex },
+        { userName: searchRegex },
         { bio: searchRegex },
-        { username: searchRegex }
+        { email: searchRegex }
       ]
     };
 
-    // Exclude current user from search results
+    // Exclude the requesting user from results (using $nor so either match excludes them)
     if (requesterUserId) {
-      searchQuery.$and = [
-        { _id: { $ne: mongoose.Types.ObjectId.isValid(requesterUserId) ? new mongoose.Types.ObjectId(requesterUserId) : null } },
-        { firebaseUid: { $ne: requesterUserId } }
-      ];
+      const excludeClauses = [];
+      if (mongoose.Types.ObjectId.isValid(requesterUserId)) {
+        excludeClauses.push({ _id: new mongoose.Types.ObjectId(requesterUserId) });
+      }
+      excludeClauses.push({ firebaseUid: requesterUserId });
+      excludeClauses.push({ uid: requesterUserId });
+      conditions.$nor = excludeClauses;
     }
 
-    const users = await User.find(searchQuery)
-      .limit(parseInt(limit) || 20)
-      .select('_id firebaseUid displayName avatar bio followersCount followingCount isPrivate')
+    const users = await User.find(conditions)
+      .limit(Math.min(parseInt(limit) || 20, 50))
+      .select('_id firebaseUid uid displayName name username userName avatar photoURL bio followersCount followingCount isPrivate')
+      .lean()
       .exec();
 
     console.log('[GET /search] Found', users.length, 'users (excluding self)');
 
-    res.json({ success: true, data: users });
+    // Normalize fields for client
+    const normalized = users.map(u => ({
+      ...u,
+      uid: u.firebaseUid || u.uid || String(u._id),
+      displayName: u.displayName || u.name || u.userName || u.username || 'User',
+      photoURL: u.avatar || u.photoURL || null,
+    }));
+
+    res.json({ success: true, data: normalized });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
   }

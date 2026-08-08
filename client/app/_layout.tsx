@@ -28,6 +28,7 @@ import { Audio } from 'expo-av';
 import { disconnectSocket, getSocket, initializeSocket } from '@/src/_services/socketService';
 import { AppDialogProvider } from '@/src/_components/AppDialogProvider';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import COLORS from '@/src/theme/colors';
 import { StripeProvider } from '@stripe/stripe-react-native';
 import { useAppStore } from '@/store/useAppStore';
 import { resolveCanonicalUserId } from '@/lib/currentUser';
@@ -232,7 +233,7 @@ export default function RootLayout() {
   }, []);
 
   useEffect(() => {
-    SystemUI.setBackgroundColorAsync('#ffffff').catch(() => {});
+    SystemUI.setBackgroundColorAsync(COLORS.background).catch(() => {});
   }, []);
 
   return (
@@ -242,8 +243,8 @@ export default function RootLayout() {
         <UserProvider>
           <AppDialogProvider>
             <GestureHandlerRootView style={{ flex: 1 }}>
-              <StatusBar style="dark" backgroundColor="#ffffff" translucent={false} />
-              <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: '#fff' } }}>
+              <StatusBar style="dark" backgroundColor={COLORS.background} translucent={false} />
+              <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: COLORS.background } }}>
                 <Stack.Screen name="index" options={{ animation: 'none' }} />
                 <Stack.Screen name="auth/welcome" />
                 <Stack.Screen name="auth/login-options" />
@@ -271,8 +272,6 @@ export default function RootLayout() {
                 <Stack.Screen name="dm" options={{ headerShown: false }} />
                 <Stack.Screen name="notifications" options={{ headerShown: false }} />
                 <Stack.Screen name="post-detail" options={{ headerShown: false, animation: 'slide_from_right' }} />
-                <Stack.Screen name="location/[placeId]" options={{ headerShown: false }} />
-                <Stack.Screen name="hashtag-detail" options={{ headerShown: false }} />
               </Stack>
             </GestureHandlerRootView>
           </AppDialogProvider>

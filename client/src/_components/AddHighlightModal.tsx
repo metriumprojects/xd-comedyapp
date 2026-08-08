@@ -1,6 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import React, { useState } from 'react';
 import { KeyboardAvoidingView, Modal, Platform, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import COLORS from '@/src/theme/colors';
 
 interface AddHighlightModalProps {
   visible: boolean;
@@ -34,7 +35,7 @@ export default function AddHighlightModal({ visible, onClose, onAdd }: AddHighli
               <Text style={styles.addText}>Add</Text>
             </TouchableOpacity>
             <TouchableOpacity style={styles.closeBtn} onPress={onClose}>
-              <Ionicons name="close" size={24} color="#222" />
+              <Ionicons name="close" size={24} color={COLORS.textPrimary} />
             </TouchableOpacity>
           </View>
         </View>
@@ -45,10 +46,10 @@ export default function AddHighlightModal({ visible, onClose, onAdd }: AddHighli
 
 const styles = StyleSheet.create({
   overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.18)', justifyContent: 'center', alignItems: 'center' },
-  container: { backgroundColor: '#fff', borderRadius: 18, padding: 24, width: '80%', alignItems: 'center', shadowColor: '#000', shadowOpacity: 0.08, shadowRadius: 8, elevation: 8 },
+  container: { backgroundColor: COLORS.background, borderRadius: 18, padding: 24, width: '80%', alignItems: 'center', shadowColor: COLORS.black, shadowOpacity: 0.08, shadowRadius: 8, elevation: 8 },
   header: { fontWeight: '700', fontSize: 20, color: '#FF6B00', marginBottom: 16 },
-  input: { width: '100%', borderWidth: 1, borderColor: '#eee', borderRadius: 8, padding: 10, marginBottom: 16 },
+  input: { width: '100%', borderWidth: 1, borderColor: COLORS.border, borderRadius: 8, padding: 10, marginBottom: 16 },
   addBtn: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#FF6B00', borderRadius: 8, paddingVertical: 10, paddingHorizontal: 20, marginBottom: 12 },
-  addText: { color: '#fff', fontWeight: '600', fontSize: 16, marginLeft: 8 },
+  addText: { color: COLORS.textLight, fontWeight: '600', fontSize: 16, marginLeft: 8 },
   closeBtn: { marginTop: 8 },
 });

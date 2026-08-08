@@ -15,9 +15,10 @@ const sendMessageSchema = z.object({
     thumbnailUrl: z.string().nullable().optional(),
     tempId: z.string().nullable().optional(),
     replyTo: z.object({
-      messageId: z.string(),
-      text: z.string(),
-      senderId: z.string()
+      id: z.string(),
+      text: z.string().optional(),
+      senderId: z.string().optional(),
+      mediaUrl: z.string().optional()
     }).optional(),
     sharedPost: z.object({
       postId: z.string().nullable().optional(),

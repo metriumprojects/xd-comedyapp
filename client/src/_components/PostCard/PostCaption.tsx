@@ -30,6 +30,7 @@ const PostCaption: React.FC<PostCaptionProps> = ({
     <View style={styles.captionWrap}>
       {caption ? (
         <Text style={styles.caption} numberOfLines={isExpanded ? undefined : 2}>
+          <Text style={{ fontWeight: '700' }}>{postUserName} </Text>
           {caption}
         </Text>
       ) : null}

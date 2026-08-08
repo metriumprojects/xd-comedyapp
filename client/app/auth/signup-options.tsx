@@ -8,6 +8,7 @@ import { AuthBrandHeader } from '@/src/_components/auth/AuthBrandHeader';
 import CustomButton from '@/src/_components/auth/CustomButton';
 import SocialButton from '@/src/_components/auth/SocialButton';
 import { safeRouterBack } from '@/lib/safeRouterBack';
+import COLORS from '@/src/theme/colors';
 
 export default function SignUpOptionsScreen() {
   const router = useRouter();
@@ -41,7 +42,7 @@ export default function SignUpOptionsScreen() {
               onPress={() => safeRouterBack()}
               style={styles.backButton}
             >
-              <Ionicons name="arrow-back" size={24} color="#000" />
+              <Ionicons name="arrow-back" size={24} color={COLORS.textPrimary} />
             </TouchableOpacity>
           </View>
 
@@ -56,7 +57,7 @@ export default function SignUpOptionsScreen() {
             <TextInput
               style={styles.emailInput}
               placeholder="Please enter your email"
-              placeholderTextColor="#999"
+              placeholderTextColor={COLORS.textMuted}
               value={email}
               onChangeText={setEmail}
               keyboardType="email-address"
@@ -108,7 +109,7 @@ export default function SignUpOptionsScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#fff',
+    backgroundColor: COLORS.background,
   },
   scrollContent: {
     flexGrow: 1,
@@ -133,11 +134,11 @@ const styles = StyleSheet.create({
     marginBottom: 15,
   },
   emailInput: {
-    backgroundColor: '#f5f5f5',
+    backgroundColor: COLORS.inputBg,
     borderRadius: 8,
     padding: 16,
     fontSize: 16,
-    color: '#000',
+    color: COLORS.textPrimary,
     marginBottom: 10,
   },
   methodButton: {
@@ -154,16 +155,16 @@ const styles = StyleSheet.create({
   },
   noAccountText: {
     fontSize: 14,
-    color: '#666',
+    color: COLORS.textSecondary,
     textAlign: 'center',
     marginTop: 10,
   },
   footerText: {
     fontSize: 14,
-    color: '#666',
+    color: COLORS.textSecondary,
   },
   footerLink: {
-    color: '#FF8D00',
+    color: COLORS.primary,
     fontWeight: '600',
   },
 });

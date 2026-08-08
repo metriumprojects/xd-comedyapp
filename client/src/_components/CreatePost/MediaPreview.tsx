@@ -14,6 +14,7 @@ const { width: windowWidth } = Dimensions.get('window');
  * app cache directory so expo-video can access it.
  * Returns a file:// URI.
  */
+import COLORS from '@/src/theme/colors';
 async function copyVideoToCache(nativeUri: string): Promise<string> {
   const hash = nativeUri.replace(/[^a-zA-Z0-9]/g, '_').slice(-60);
   const dest = `${FileSystem.cacheDirectory}vidcache_${hash}.mp4`;
@@ -159,7 +160,7 @@ const PreviewVideoPlayer = React.memo(({ videoUrl, height }: { videoUrl: string;
   };
 
   return (
-    <View style={{ width: windowWidth, height, backgroundColor: '#000000' }}>
+    <View style={{ width: windowWidth, height, backgroundColor: COLORS.black }}>
       <TouchableOpacity
         activeOpacity={1}
         onPress={togglePlayPause}
@@ -176,7 +177,7 @@ const PreviewVideoPlayer = React.memo(({ videoUrl, height }: { videoUrl: string;
         {/* Clean Pause icon overlay when user pauses */}
         {!isPlayingState && (
           <View pointerEvents="none" style={styles.playButtonOverlay}>
-            <Ionicons name="play" size={28} color="#ffffff" style={{ marginLeft: 3 }} />
+            <Ionicons name="play" size={28} color={COLORS.textLight} style={{ marginLeft: 3 }} />
           </View>
         )}
 
@@ -186,7 +187,7 @@ const PreviewVideoPlayer = React.memo(({ videoUrl, height }: { videoUrl: string;
           style={styles.muteButton}
           activeOpacity={0.7}
         >
-          <Ionicons name={isMuted ? "volume-mute" : "volume-high"} size={18} color="#ffffff" />
+          <Ionicons name={isMuted ? "volume-mute" : "volume-high"} size={18} color={COLORS.textLight} />
         </TouchableOpacity>
 
         {/* Clean Bottom Video Length & Native Pan Progress Seeker Bar */}
@@ -280,7 +281,7 @@ const MediaPreviewItem = React.memo(({
   }, [uri, isVideo, providedThumbnail]);
 
   return (
-    <View style={{ width: windowWidth, height, backgroundColor: '#000000', justifyContent: 'center', alignItems: 'center' }}>
+    <View style={{ width: windowWidth, height, backgroundColor: COLORS.black, justifyContent: 'center', alignItems: 'center' }}>
       {isVideo ? (
         isPlaying && playableUri && !isNativeUri(playableUri) ? (
           <PreviewVideoPlayer videoUrl={playableUri} height={height} />
@@ -302,9 +303,9 @@ const MediaPreviewItem = React.memo(({
             {/* Play Button or Loading Overlay */}
             <View style={styles.playButtonOverlay}>
               {resolving ? (
-                <ActivityIndicator size="small" color="#ffffff" />
+                <ActivityIndicator size="small" color={COLORS.textLight} />
               ) : (
-                <Ionicons name="play" size={28} color="#ffffff" style={{ marginLeft: 3 }} />
+                <Ionicons name="play" size={28} color={COLORS.textLight} style={{ marginLeft: 3 }} />
               )}
             </View>
           </TouchableOpacity>
@@ -322,7 +323,7 @@ const MediaPreviewItem = React.memo(({
           style={styles.removeButton}
           onPress={() => onRemove(index)}
         >
-          <Feather name="trash-2" size={18} color="#fff" />
+          <Feather name="trash-2" size={18} color={COLORS.textLight} />
         </TouchableOpacity>
       )}
     </View>
@@ -333,7 +334,7 @@ const MediaPreview: React.FC<MediaPreviewProps> = ({ uris, thumbnails, isVideo, 
   if (uris.length === 0) return null;
 
   return (
-    <View style={{ height, width: windowWidth, backgroundColor: '#000000' }}>
+    <View style={{ height, width: windowWidth, backgroundColor: COLORS.black }}>
       <ScrollView horizontal pagingEnabled showsHorizontalScrollIndicator={false}>
         {uris.map((uri, index) => (
           <MediaPreviewItem
@@ -374,7 +375,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     zIndex: 5,
-    shadowColor: '#000',
+    shadowColor: COLORS.black,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.3,
     shadowRadius: 4,
@@ -407,7 +408,7 @@ const styles = StyleSheet.create({
     zIndex: 10,
   },
   timeText: {
-    color: '#ffffff',
+    color: COLORS.textLight,
     fontSize: 11,
     fontWeight: '600',
     minWidth: 32,
@@ -431,7 +432,7 @@ const styles = StyleSheet.create({
     position: 'absolute',
     left: 0,
     height: 4,
-    backgroundColor: '#FF8D00',
+    backgroundColor: COLORS.primary,
     borderRadius: 2,
   },
   seekerKnob: {
@@ -439,9 +440,9 @@ const styles = StyleSheet.create({
     width: 12,
     height: 12,
     borderRadius: 6,
-    backgroundColor: '#ffffff',
+    backgroundColor: COLORS.background,
     marginLeft: -6,
-    shadowColor: '#000',
+    shadowColor: COLORS.black,
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.4,
     shadowRadius: 2,
@@ -452,7 +453,7 @@ const styles = StyleSheet.create({
     height: 18,
     borderRadius: 9,
     marginLeft: -9,
-    backgroundColor: '#ffffff',
+    backgroundColor: COLORS.background,
   }
 });
 

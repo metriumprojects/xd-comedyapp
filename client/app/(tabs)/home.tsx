@@ -23,10 +23,13 @@ import ReelItem from "../../src/_components/ReelItem";
 import { HomeReelSkeleton } from "../../src/_components/HomeReelSkeleton";
 import NotificationsModal from "../../src/_components/NotificationsModal";
 import GroupsDrawer from "../../src/_components/GroupsDrawer";
+import UploadProgressBanner from "../../src/_components/UploadProgressBanner";
 
 import { useHomeFeed } from '@/hooks/useHomeFeed';
 import { useCategories } from '@/hooks/useCategories';
 import { useFeedEvents } from '@/hooks/useFeedEvents';
+import { feedEventEmitter } from '@/lib/feedEventEmitter';
+import COLORS from '@/src/theme/colors';
 import { useNetworkStatus } from '../../hooks/useOffline';
 import { resolveCanonicalUserId } from '../../lib/currentUser';
 import { apiService } from '@/src/_services/apiService';
@@ -369,20 +372,86 @@ export default function Home() {
         <HomeReelSkeleton height={containerHeight} />
       ) : (
         <View style={styles.emptyContainer}>
-          <Ionicons name="videocam-off-outline" size={48} color="#888" />
-          <Text style={styles.emptyText}>No comedy reels found</Text>
-          <TouchableOpacity
-            style={styles.refreshBtn}
-            onPress={handleRefresh}
-          >
-            <Text style={styles.refreshBtnText}>Refresh</Text>
-          </TouchableOpacity>
+          <View style={styles.emptyIconBadge}>
+            <Ionicons
+              name={
+                !isOnline ? "wifi-outline" :
+                searchQuery ? "search-outline" :
+                filter ? "options-outline" : "film-outline"
+              }
+              size={36}
+              color={COLORS.primary}
+            />
+          </View>
+
+          <Text style={styles.emptyTitle}>
+            {!isOnline
+              ? "You're Currently Offline"
+              : searchQuery
+              ? `No results for "${searchQuery}"`
+              : filter
+              ? `No reels in "${filter}"`
+              : "No Comedy Reels Found"}
+          </Text>
+
+          <Text style={styles.emptySubtitle}>
+            {!isOnline
+              ? "Please check your internet connection to watch comedy reels."
+              : searchQuery
+              ? "Check your spelling or try searching for a different keyword or creator."
+              : filter
+              ? "Be the first to post in this category or try exploring other topics!"
+              : "Check back soon for new clips, or tap below to refresh your feed."}
+          </Text>
+
+          <View style={styles.emptyActionsRow}>
+            <TouchableOpacity
+              style={styles.primaryActionBtn}
+              onPress={() => {
+                if (searchQuery || filter) {
+                  setSearchQuery("");
+                  router.push("/(tabs)/home");
+                } else {
+                  router.push("/create-post" as any);
+                }
+              }}
+            >
+              {!(searchQuery || filter) && (
+                <Ionicons name="add-circle" size={18} color={COLORS.white} style={{ marginRight: 6 }} />
+              )}
+              <Text style={styles.primaryActionText}>
+                {searchQuery || filter ? "Clear Filters" : "Create Reel"}
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.secondaryActionBtn}
+              onPress={() => {
+                if (searchQuery || filter) {
+                  router.push("/create-post" as any);
+                } else {
+                  handleRefresh();
+                }
+              }}
+            >
+              <Ionicons
+                name={searchQuery || filter ? "add-circle-outline" : "refresh-outline"}
+                size={18}
+                color={COLORS.white}
+                style={{ marginRight: 6 }}
+              />
+              <Text style={styles.secondaryActionText}>
+                {searchQuery || filter ? "Create Post" : "Refresh Feed"}
+              </Text>
+            </TouchableOpacity>
+          </View>
         </View>
       )}
 
       {/* 2. Absolute Top Overlays (Header controls, Search, Categories) */}
       {!isFullscreenMode && (
         <View style={[styles.topOverlays, { paddingTop: insets.top || 8 }]} pointerEvents="box-none">
+          <UploadProgressBanner />
 
           {/* Header navigation and controls */}
           <View style={styles.headerRow} pointerEvents="box-none">
@@ -394,7 +463,7 @@ export default function Home() {
                   setSearchQuery("");
                 }}
               >
-                <Ionicons name="arrow-back" size={24} color="#ffffff" />
+                <Ionicons name="arrow-back" size={24} color={COLORS.white} />
               </TouchableOpacity>
             ) : (
               <View style={{ width: 36 }} />
@@ -412,7 +481,7 @@ export default function Home() {
                   } catch { }
                 }}
               >
-                <Feather name="bell" size={22} color="#ffffff" />
+                <Feather name="bell" size={22} color={COLORS.white} />
                 {unreadCount > 0 && (
                   <View style={styles.badge}>
                     <Text style={styles.badgeText}>
@@ -427,14 +496,22 @@ export default function Home() {
                 style={styles.headerBtn}
                 onPress={() => router.push('/inbox')}
               >
-                <Feather name="message-square" size={20} color="#ffffff" />
+                <Feather name="message-square" size={20} color={COLORS.white} />
                 {unreadMsg > 0 && (
-                  <View style={[styles.badge, { backgroundColor: '#FF8D00' }]}>
+                  <View style={[styles.badge, { backgroundColor: COLORS.primary }]}>
                     <Text style={styles.badgeText}>
                       {unreadMsg > 99 ? '99+' : unreadMsg}
                     </Text>
                   </View>
                 )}
+              </TouchableOpacity>
+              
+              {/* 3 Dots Menu */}
+              <TouchableOpacity
+                style={styles.headerBtn}
+                onPress={() => feedEventEmitter.emit('openSettingsMenu')}
+              >
+                <Feather name="more-vertical" size={22} color={COLORS.white} />
               </TouchableOpacity>
             </View>
           </View>
@@ -456,9 +533,6 @@ export default function Home() {
                 <Ionicons name="close-circle" size={14} color="rgba(255,255,255,0.6)" />
               </TouchableOpacity>
             )}
-            <TouchableOpacity style={styles.searchBtn} onPress={handleSearchSubmit}>
-              <Text style={styles.searchBtnText}>Search</Text>
-            </TouchableOpacity>
           </View>
 
           {/* Horizontal scrollable category chips */}
@@ -512,31 +586,73 @@ export default function Home() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#000000",
+    backgroundColor: COLORS.black,
   },
   emptyContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#000000',
-    paddingHorizontal: 24,
+    backgroundColor: COLORS.black,
+    paddingHorizontal: 32,
   },
-  emptyText: {
-    color: '#888888',
-    fontSize: 16,
-    marginTop: 12,
-    marginBottom: 20,
-    textAlign: 'center',
+  emptyIconBadge: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: 'rgba(255, 141, 0, 0.12)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 141, 0, 0.25)',
   },
-  refreshBtn: {
-    backgroundColor: '#ffffff',
-    paddingHorizontal: 24,
-    paddingVertical: 12,
-    borderRadius: 24,
-  },
-  refreshBtnText: {
-    color: '#000000',
+  emptyTitle: {
+    color: COLORS.white,
+    fontSize: 18,
     fontWeight: '700',
+    textAlign: 'center',
+    marginBottom: 8,
+  },
+  emptySubtitle: {
+    color: 'rgba(255, 255, 255, 0.6)',
+    fontSize: 13,
+    lineHeight: 19,
+    textAlign: 'center',
+    marginBottom: 24,
+  },
+  emptyActionsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 12,
+    marginTop: 8,
+  },
+  primaryActionBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: COLORS.primary,
+    paddingHorizontal: 20,
+    paddingVertical: 11,
+    borderRadius: 22,
+  },
+  primaryActionText: {
+    color: COLORS.white,
+    fontWeight: '700',
+    fontSize: 14,
+  },
+  secondaryActionBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.12)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.25)',
+    paddingHorizontal: 18,
+    paddingVertical: 10,
+    borderRadius: 22,
+  },
+  secondaryActionText: {
+    color: COLORS.white,
+    fontWeight: '600',
     fontSize: 14,
   },
   topOverlays: {
@@ -568,18 +684,18 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: -4,
     right: -4,
-    backgroundColor: '#ff3b30',
+    backgroundColor: COLORS.danger,
     minWidth: 18,
     height: 18,
     borderRadius: 9,
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 1.5,
-    borderColor: '#ffffff',
+    borderColor: COLORS.white,
     paddingHorizontal: 4,
   },
   badgeText: {
-    color: '#ffffff',
+    color: COLORS.white,
     fontSize: 9,
     fontWeight: '800',
     textAlign: 'center',
@@ -603,7 +719,7 @@ const styles = StyleSheet.create({
   },
   searchInput: {
     flex: 1,
-    color: '#ffffff',
+    color: COLORS.white,
     fontSize: 14,
     height: '100%',
     padding: 0,
@@ -619,7 +735,7 @@ const styles = StyleSheet.create({
     paddingLeft: 8,
   },
   searchBtnText: {
-    color: '#ffffff',
+    color: COLORS.white,
     fontSize: 14,
     fontWeight: '400',
   },
@@ -643,15 +759,15 @@ const styles = StyleSheet.create({
     marginRight: 8,
   },
   categoryChipActive: {
-    backgroundColor: '#ffffff',
-    borderColor: '#ffffff',
+    backgroundColor: COLORS.white,
+    borderColor: COLORS.white,
   },
   categoryChipText: {
-    color: '#ffffff',
+    color: COLORS.white,
     fontSize: 13,
     fontWeight: '600',
   },
   categoryChipTextActive: {
-    color: '#000000',
+    color: COLORS.black,
   },
 });

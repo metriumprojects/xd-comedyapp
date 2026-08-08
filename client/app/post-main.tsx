@@ -4,6 +4,7 @@ import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import ErrorBoundary from '@/src/_components/ErrorBoundary';
 import PostCard from '@/src/_components/PostCard';
+import COLORS from '@/src/theme/colors';
 
 export default function PostScreen() {
   const router = useRouter();
@@ -64,10 +65,10 @@ export default function PostScreen() {
   if (loading) return (
     <SafeAreaView style={styles.container} edges={["top", "bottom"]}>
       <View style={{ padding: 24 }}>
-        <View style={{ width: '100%', height: 200, borderRadius: 12, backgroundColor: '#eee', marginBottom: 16 }} />
-        <View style={{ width: 120, height: 24, borderRadius: 8, backgroundColor: '#eee', marginBottom: 12 }} />
-        <View style={{ width: '80%', height: 16, borderRadius: 6, backgroundColor: '#eee', marginBottom: 8 }} />
-        <View style={{ width: '60%', height: 16, borderRadius: 6, backgroundColor: '#eee', marginBottom: 8 }} />
+        <View style={{ width: '100%', height: 200, borderRadius: 12, backgroundColor: COLORS.border, marginBottom: 16 }} />
+        <View style={{ width: 120, height: 24, borderRadius: 8, backgroundColor: COLORS.border, marginBottom: 12 }} />
+        <View style={{ width: '80%', height: 16, borderRadius: 6, backgroundColor: COLORS.border, marginBottom: 8 }} />
+        <View style={{ width: '60%', height: 16, borderRadius: 6, backgroundColor: COLORS.border, marginBottom: 8 }} />
       </View>
     </SafeAreaView>
   );
@@ -102,9 +103,9 @@ export default function PostScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#fff' },
-  notFound: { color: '#999', fontSize: 16, textAlign: 'center', marginTop: 40 },
+  container: { flex: 1, backgroundColor: COLORS.background },
+  notFound: { color: COLORS.textMuted, fontSize: 16, textAlign: 'center', marginTop: 40 },
   content: { padding: 16 },
   header: { fontSize: 20, fontWeight: 'bold', marginBottom: 12 },
-  highlight: { fontWeight: 'bold', color: '#222', marginBottom: 8 },
+  highlight: { fontWeight: 'bold', color: COLORS.textPrimary, marginBottom: 8 },
 });

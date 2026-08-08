@@ -17,7 +17,10 @@ const registerFirebaseSchema = z.object({
     email: z.string().nullable().optional(),
     displayName: z.string().nullable().optional(),
     avatar: z.string().nullable().optional(),
-    username: z.string().min(3, 'Username must be at least 3 characters').max(30, 'Username must be at most 30 characters').regex(/^[a-zA-Z0-9_]+$/, 'Username can only contain letters, numbers, and underscores').optional(),
+    username: z.string()
+      .transform(val => (val ? val.trim().replace(/\s+/g, '_') : val))
+      .pipe(z.string().min(3, 'Username must be at least 3 characters').max(30, 'Username must be at most 30 characters').regex(/^[a-zA-Z0-9_.]+$/, 'Username can only contain letters, numbers, and underscores'))
+      .optional(),
   })
 });
 
@@ -52,7 +55,9 @@ const resetPasswordSchema = z.object({
 
 const usernameSignupSchema = z.object({
   body: z.object({
-    username: z.string().min(3, 'Username must be at least 3 characters').max(30, 'Username must be at most 30 characters').regex(/^[a-zA-Z0-9_]+$/, 'Username can only contain letters, numbers, and underscores'),
+    username: z.string()
+      .transform(val => (val ? val.trim().replace(/\s+/g, '_') : val))
+      .pipe(z.string().min(3, 'Username must be at least 3 characters').max(30, 'Username must be at most 30 characters').regex(/^[a-zA-Z0-9_.]+$/, 'Username can only contain letters, numbers, and underscores')),
     password: z.string().min(6, 'Password must be at least 6 characters').max(128, 'Password must be at most 128 characters'),
     name: z.string().max(60, 'Name must be at most 60 characters').optional(),
     avatar: z.string().nullable().optional(),

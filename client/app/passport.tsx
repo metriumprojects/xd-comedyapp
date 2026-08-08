@@ -40,6 +40,7 @@ import { toDate, formatDisplayDate, getRelativeTime } from '../lib/utils/date';
 import { StampDeleteModal } from '@/src/_components/passport/StampDeleteModal';
 import { StampSearchModal } from '@/src/_components/passport/StampSearchModal';
 import { LocationPickerModal } from '@/src/_components/passport/LocationPickerModal';
+import COLORS from '@/src/theme/colors';
 
 import {
   normalizeCountryName,
@@ -591,7 +592,7 @@ export default function PassportScreen() {
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity style={styles.headerBtn} onPress={handleBack}>
-          <Feather name="arrow-left" size={20} color="#000" />
+          <Feather name="arrow-left" size={20} color={COLORS.black} />
         </TouchableOpacity>
         
         <View style={styles.headerTitleContainer}>
@@ -602,7 +603,7 @@ export default function PassportScreen() {
         <View style={{ flexDirection: 'row', alignItems: 'center' }}>
 
           <TouchableOpacity style={styles.headerBtn} onPress={openStampSearch}>
-            <Feather name="search" size={20} color="#000" />
+            <Feather name="search" size={20} color={COLORS.black} />
           </TouchableOpacity>
         </View>
       </View>
@@ -613,19 +614,19 @@ export default function PassportScreen() {
         <View style={styles.verifiedBanner}>
           <View style={styles.verifiedRow}>
             <View style={styles.checkCircle}>
-              <Feather name="check" size={10} color="#fff" />
+              <Feather name="check" size={10} color={COLORS.textLight} />
             </View>
             <Text style={styles.verifiedText}>All locations are 100% verified</Text>
           </View>
           <View style={[styles.verifiedRow, { marginTop: 6 }]}>
-            <Feather name="shield" size={12} color="#000" style={{ marginRight: 6 }} />
+            <Feather name="shield" size={12} color={COLORS.black} style={{ marginRight: 6 }} />
             <Text style={styles.verifiedText}>Our system detects VPNs so no cheating</Text>
           </View>
         </View>
 
         {isOwner && !selectedCountry && showTravelHint && (
           <View style={styles.travelHintBox} accessibilityLabel="Background travel detection for passport stamps">
-            <Feather name="navigation" size={14} color="#FF8D00" style={{ marginRight: 8, marginTop: 2 }} />
+            <Feather name="navigation" size={14} color={COLORS.primary} style={{ marginRight: 8, marginTop: 2 }} />
             <View style={{ flex: 1 }}>
               <Text style={styles.travelHintText}>
                 Turn on location access while using Comedy App and optional notifications to unlock automatic travel stamps whenever you arrive in a new country while the app is open. After signing in, just open the Home screen once so we can refresh your location and keep your journey up to date.
@@ -650,7 +651,7 @@ export default function PassportScreen() {
               onPress={() => { hapticLight(); setShowTravelHint(false); }}
               style={{ marginLeft: 8, padding: 4 }}
             >
-              <Ionicons name="close" size={18} color="#FF8D00" />
+              <Ionicons name="close" size={18} color={COLORS.primary} />
             </TouchableOpacity>
           </View>
         )}
@@ -665,7 +666,7 @@ export default function PassportScreen() {
             <View style={styles.suggestionInner}>
               <View style={[styles.suggestionLeft, { flex: 1 }]}>
                 <View style={styles.stampIconContainer}>
-                  <Feather name="map" size={20} color="#000" />
+                  <Feather name="map" size={20} color={COLORS.black} />
                 </View>
                 <View style={{ marginLeft: 12, flex: 1 }}>
                   <Text style={styles.suggestionTitle} numberOfLines={2}>
@@ -676,7 +677,7 @@ export default function PassportScreen() {
                   </Text>
                 </View>
               </View>
-              <Feather name="chevron-right" size={20} color="#CCC" style={{ marginLeft: 8 }} />
+              <Feather name="chevron-right" size={20} color={COLORS.border} style={{ marginLeft: 8 }} />
             </View>
           </TouchableOpacity>
         )}
@@ -707,7 +708,7 @@ export default function PassportScreen() {
 
         {/* Stamps Grid */}
         {loading ? (
-          <ActivityIndicator style={{ marginTop: 50 }} color="#FF8D00" />
+          <ActivityIndicator style={{ marginTop: 50 }} color={COLORS.primary} />
         ) : (
           <View style={styles.stampsGrid}>
             {filtered.map((stamp, i) => {
@@ -734,11 +735,11 @@ export default function PassportScreen() {
                   {/* Metadata Pills */}
                   <View style={[styles.pillsRow, selectedCountry && { marginTop: 15 }]}>
                     <View style={styles.pill}>
-                      <Feather name="map-pin" size={10} color="#666" />
+                      <Feather name="map-pin" size={10} color={COLORS.textSecondary} />
                       <Text style={styles.pillText}>{stamp.parentCountry || stamp.name}</Text>
                     </View>
                     <View style={styles.pill}>
-                      <Feather name="calendar" size={10} color="#000" />
+                      <Feather name="calendar" size={10} color={COLORS.black} />
                       <Text style={styles.pillText}>
                         {formatDisplayDate(stamp.createdAt, 'dd MMM yyyy')}
                       </Text>
@@ -753,7 +754,7 @@ export default function PassportScreen() {
 
             {filtered.length === 0 && (
               <View style={styles.emptyState}>
-                <Feather name="map" size={40} color="#ddd" />
+                <Feather name="map" size={40} color={COLORS.border} />
                 <Text style={styles.emptyText}>No {(activeFilter || 'All').toLowerCase()} stamps yet</Text>
               </View>
             )}
@@ -789,12 +790,12 @@ export default function PassportScreen() {
             activeOpacity={0.85}
           >
             <LinearGradient
-              colors={['#FBBC04', '#FF8D00']}
+              colors={[COLORS.primary, COLORS.primary]}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 0 }}
               style={styles.fabPillGradient}
             >
-              <Ionicons name="locate" size={18} color="#fff" />
+              <Ionicons name="locate" size={18} color={COLORS.textLight} />
               <Text style={styles.fabText}>Add a stamp</Text>
             </LinearGradient>
           </TouchableOpacity>
@@ -824,71 +825,71 @@ export default function PassportScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#fff' },
+  container: { flex: 1, backgroundColor: COLORS.background },
   header: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     paddingHorizontal: 20, paddingVertical: 12,
   },
   headerBtn: {
     width: 40, height: 40, borderRadius: 20,
-    backgroundColor: '#F5F5F5', alignItems: 'center', justifyContent: 'center',
+    backgroundColor: COLORS.inputBg, alignItems: 'center', justifyContent: 'center',
   },
   headerTitleContainer: { flex: 1, alignItems: 'center' },
-  headerSubtitle: { fontSize: 10, color: '#888', textTransform: 'uppercase', letterSpacing: 1 },
-  headerTitle: { fontSize: 18, fontWeight: '700', color: '#111' },
+  headerSubtitle: { fontSize: 10, color: COLORS.textMuted, textTransform: 'uppercase', letterSpacing: 1 },
+  headerTitle: { fontSize: 18, fontWeight: '700', color: COLORS.textPrimary },
 
   verifiedBanner: {
     marginHorizontal: 20,
     marginTop: 10,
     padding: 12,
-    backgroundColor: '#fff',
+    backgroundColor: COLORS.card,
     borderRadius: 12,
   },
   verifiedRow: { flexDirection: 'row', alignItems: 'center' },
   checkCircle: {
     width: 16, height: 16, borderRadius: 8,
-    backgroundColor: '#000', alignItems: 'center', justifyContent: 'center',
+    backgroundColor: COLORS.textPrimary, alignItems: 'center', justifyContent: 'center',
     marginRight: 8,
   },
-  verifiedText: { fontSize: 13, color: '#666', fontWeight: '500' },
+  verifiedText: { fontSize: 13, color: COLORS.textSecondary, fontWeight: '500' },
 
   travelHintBox: {
     marginHorizontal: 20,
     marginTop: 12,
     padding: 12,
-    backgroundColor: '#F0F6FA',
+    backgroundColor: COLORS.primaryLight,
     borderRadius: 12,
     flexDirection: 'row',
     alignItems: 'flex-start',
   },
   travelHintText: {
-    color: '#FF8D00',
+    color: COLORS.primary,
     fontSize: 13,
     lineHeight: 18,
     fontWeight: '500',
   },
   enableLocBtn: {
     marginTop: 8,
-    backgroundColor: '#FF8D00',
+    backgroundColor: COLORS.primary,
     paddingVertical: 6,
     paddingHorizontal: 12,
     borderRadius: 12,
     alignSelf: 'flex-start',
   },
   enableLocBtnText: {
-    color: '#fff',
+    color: COLORS.textLight,
     fontSize: 12,
     fontWeight: '700',
   },
 
   suggestionBox: { marginHorizontal: 20, marginTop: 15, borderRadius: 16, overflow: 'hidden' },
-  suggestionGradient: { padding: 16, backgroundColor: '#F8F9FA', borderRadius: 16 },
+  suggestionGradient: { padding: 16, backgroundColor: COLORS.surface, borderRadius: 16 },
   suggestionContent: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  suggestionSub: { color: '#666', fontSize: 11, fontWeight: '500', lineHeight: 15, marginTop: 4 },
-  suggestionTitle: { color: '#000', fontSize: 16, fontWeight: '700' },
+  suggestionSub: { color: COLORS.textSecondary, fontSize: 11, fontWeight: '500', lineHeight: 15, marginTop: 4 },
+  suggestionTitle: { color: COLORS.textPrimary, fontSize: 16, fontWeight: '700' },
   addCircle: {
     width: 36, height: 36, borderRadius: 18,
-    backgroundColor: '#000', alignItems: 'center', justifyContent: 'center',
+    backgroundColor: COLORS.textPrimary, alignItems: 'center', justifyContent: 'center',
   },
 
   statsRow: {
@@ -898,8 +899,8 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   statBox: { alignItems: 'center', flex: 1 },
-  statVal: { fontSize: 18, fontWeight: '800', color: '#111' },
-  statLab: { fontSize: 12, color: '#888', marginTop: 2 },
+  statVal: { fontSize: 18, fontWeight: '800', color: COLORS.textPrimary },
+  statLab: { fontSize: 12, color: COLORS.textMuted, marginTop: 2 },
 
   tabBar: {
     marginTop: 25,
@@ -914,13 +915,13 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingVertical: 8,
     borderRadius: 20,
-    backgroundColor: '#f5f5f5',
+    backgroundColor: COLORS.inputBg,
   },
   tabItemActive: { 
-    backgroundColor: 'rgba(255, 141, 0, 0.15)', 
+    backgroundColor: COLORS.primaryLight, 
   },
-  tabText: { fontSize: 14, fontWeight: '600', color: '#666' },
-  tabTextActive: { color: '#FF8D00' },
+  tabText: { fontSize: 14, fontWeight: '600', color: COLORS.textSecondary },
+  tabTextActive: { color: COLORS.primary },
 
   deleteOverlay: {
     flex: 1,
@@ -929,10 +930,10 @@ const styles = StyleSheet.create({
     padding: 16,
   },
   deleteSheet: {
-    backgroundColor: '#fff',
+    backgroundColor: COLORS.card,
     borderRadius: 18,
     padding: 16,
-    shadowColor: '#000',
+    shadowColor: COLORS.black,
     shadowOpacity: 0.15,
     shadowRadius: 16,
     elevation: 10,
@@ -948,41 +949,41 @@ const styles = StyleSheet.create({
     borderRadius: 18,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#ff3b30',
+    backgroundColor: COLORS.danger,
   },
   deleteTitle: {
     fontSize: 16,
     fontWeight: '800',
-    color: '#111',
+    color: COLORS.textPrimary,
   },
   deleteSub: {
     marginTop: 3,
     fontSize: 13,
-    color: '#666',
+    color: COLORS.textSecondary,
     lineHeight: 18,
   },
   deleteBtn: {
     height: 46,
     borderRadius: 12,
-    backgroundColor: '#ff3b30',
+    backgroundColor: COLORS.danger,
     alignItems: 'center',
     justifyContent: 'center',
   },
   deleteBtnText: {
-    color: '#fff',
+    color: COLORS.textLight,
     fontWeight: '800',
     fontSize: 15,
   },
   deleteCancelBtn: {
     height: 46,
     borderRadius: 12,
-    backgroundColor: '#f2f2f7',
+    backgroundColor: COLORS.inputBg,
     alignItems: 'center',
     justifyContent: 'center',
     marginTop: 10,
   },
   deleteCancelText: {
-    color: '#111',
+    color: COLORS.textPrimary,
     fontWeight: '700',
     fontSize: 15,
   },
@@ -1012,7 +1013,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#f9f9f9',
     borderRadius: 14,
     borderWidth: 1,
-    borderColor: '#eee',
+    borderColor: COLORS.border,
   },
   listItemContent: {
     flexDirection: 'row',
@@ -1031,9 +1032,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 16,
-    backgroundColor: '#fff',
+    backgroundColor: COLORS.background,
     borderWidth: 1,
-    borderColor: '#eee',
+    borderColor: COLORS.border,
     overflow: 'hidden',
   },
   listItemText: {
@@ -1042,29 +1043,29 @@ const styles = StyleSheet.create({
   listItemName: {
     fontSize: 15,
     fontWeight: '700',
-    color: '#000',
+    color: COLORS.black,
     marginBottom: 2,
   },
   listItemType: {
     fontSize: 12,
-    color: '#FF8D00',
+    color: COLORS.primary,
     fontWeight: '600',
     marginBottom: 4,
   },
   listItemDate: {
     fontSize: 11,
-    color: '#999',
+    color: COLORS.textMuted,
     fontWeight: '500',
   },
   countBadge: {
-    backgroundColor: '#FF8D00',
+    backgroundColor: COLORS.primary,
     paddingHorizontal: 10,
     paddingVertical: 6,
     borderRadius: 12,
     marginLeft: 12,
   },
   countBadgeText: {
-    color: '#fff',
+    color: COLORS.textLight,
     fontSize: 13,
     fontWeight: '700',
   },
@@ -1092,7 +1093,7 @@ const styles = StyleSheet.create({
     paddingVertical: 2,
     elevation: 3,
   },
-  counterText: { fontSize: 10, fontWeight: '800', color: '#fff' },
+  counterText: { fontSize: 10, fontWeight: '800', color: COLORS.textLight },
   pillsRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
@@ -1106,30 +1107,30 @@ const styles = StyleSheet.create({
   pill: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#fff',
+    backgroundColor: COLORS.background,
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 12,
     gap: 6,
     borderWidth: 1,
-    borderColor: '#eee',
-    shadowColor: '#000',
+    borderColor: COLORS.border,
+    shadowColor: COLORS.black,
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.05,
     shadowRadius: 1,
     elevation: 1,
   },
-  pillText: { fontSize: 13, color: '#333', fontWeight: '500' },
+  pillText: { fontSize: 13, color: COLORS.textPrimary, fontWeight: '500' },
 
   suggestionInner: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: '#F8F9FA',
+    backgroundColor: COLORS.surface,
     padding: 16,
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: '#F0F0F0',
+    borderColor: COLORS.inputBg,
   },
   suggestionLeft: {
     flexDirection: 'row',
@@ -1139,19 +1140,19 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: '#fff',
+    backgroundColor: COLORS.background,
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,
-    borderColor: '#eee',
+    borderColor: COLORS.border,
     elevation: 2,
-    shadowColor: '#000',
+    shadowColor: COLORS.black,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 4,
   },
   emptyState: { alignItems: 'center', width: '100%', marginTop: 40 },
-  emptyText: { fontSize: 14, color: '#999', marginTop: 10 },
+  emptyText: { fontSize: 14, color: COLORS.textMuted, marginTop: 10 },
 
   fabContainer: {
     position: 'absolute',
@@ -1163,7 +1164,7 @@ const styles = StyleSheet.create({
   },
   fabPillShadow: {
     elevation: 8,
-    shadowColor: '#000',
+    shadowColor: COLORS.black,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 8,
@@ -1178,7 +1179,7 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   fabText: {
-    color: '#fff',
+    color: COLORS.textLight,
     fontSize: 16,
     fontWeight: '700',
   },
@@ -1190,7 +1191,7 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
   },
   modalBottomSheet: {
-    backgroundColor: '#fff',
+    backgroundColor: COLORS.background,
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
     maxHeight: '85%',
@@ -1198,7 +1199,7 @@ const styles = StyleSheet.create({
   },
   modalContainer: {
     flex: 1,
-    backgroundColor: '#fff',
+    backgroundColor: COLORS.background,
   },
   modalHeader: {
     flexDirection: 'row',
@@ -1207,21 +1208,21 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingVertical: 16,
     borderBottomWidth: 1,
-    borderBottomColor: '#eee',
+    borderBottomColor: COLORS.border,
   },
   modalCloseBtn: {
     paddingVertical: 4,
   },
   modalCloseText: {
     fontSize: 16,
-    color: '#FF8D00',
+    color: COLORS.primary,
     fontWeight: '600',
   },
   modalTitle: {
     flex: 1,
     fontSize: 18,
     fontWeight: '700',
-    color: '#000',
+    color: COLORS.black,
     textAlign: 'center',
   },
   modalAddBtn: {
@@ -1230,7 +1231,7 @@ const styles = StyleSheet.create({
   },
   modalAddText: {
     fontSize: 16,
-    color: '#FF8D00',
+    color: COLORS.primary,
     fontWeight: '600',
   },
   modalSearchContainer: {
@@ -1248,7 +1249,7 @@ const styles = StyleSheet.create({
   modalSearchInput: {
     flex: 1,
     fontSize: 15,
-    color: '#000',
+    color: COLORS.black,
     padding: 0,
   },
   modalLoadingContainer: {
@@ -1258,7 +1259,7 @@ const styles = StyleSheet.create({
   },
   modalLoadingText: {
     fontSize: 14,
-    color: '#999',
+    color: COLORS.textMuted,
     marginTop: 12,
   },
   modalEmptyContainer: {
@@ -1268,7 +1269,7 @@ const styles = StyleSheet.create({
   },
   modalEmptyText: {
     fontSize: 14,
-    color: '#999',
+    color: COLORS.textMuted,
     marginTop: 12,
     textAlign: 'center',
     paddingHorizontal: 8,
@@ -1291,7 +1292,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#f9f9f9',
     borderRadius: 12,
     borderWidth: 1.5,
-    borderColor: '#eee',
+    borderColor: COLORS.border,
   },
   cityStampRowSelected: {
     backgroundColor: '#f0f4f8',
@@ -1312,18 +1313,18 @@ const styles = StyleSheet.create({
   cityStampRowName: {
     fontSize: 16,
     fontWeight: '700',
-    color: '#111',
+    color: COLORS.textPrimary,
     marginTop: 2,
   },
   cityStampRowHint: {
     fontSize: 12,
-    color: '#888',
+    color: COLORS.textMuted,
     marginTop: 4,
   },
   modallocationLabel: {
     fontSize: 13,
     fontWeight: '600',
-    color: '#000',
+    color: COLORS.black,
     marginTop: 0,
     marginBottom: 0,
     flexShrink: 1,
@@ -1338,11 +1339,11 @@ const styles = StyleSheet.create({
     backgroundColor: '#f9f9f9',
     borderRadius: 12,
     borderWidth: 1.5,
-    borderColor: '#eee',
+    borderColor: COLORS.border,
   },
   locationItemSelected: {
     backgroundColor: '#f0f4f8',
-    borderColor: '#FF8D00',
+    borderColor: COLORS.primary,
   },
   locationItemLeft: {
     flexDirection: 'row',
@@ -1353,12 +1354,12 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: '#fff',
+    backgroundColor: COLORS.background,
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 12,
     borderWidth: 1,
-    borderColor: '#eee',
+    borderColor: COLORS.border,
   },
   locationItemText: {
     flex: 1,
@@ -1366,26 +1367,26 @@ const styles = StyleSheet.create({
   locationName: {
     fontSize: 15,
     fontWeight: '600',
-    color: '#000',
+    color: COLORS.black,
     marginBottom: 2,
   },
   locationAddress: {
     fontSize: 12,
-    color: '#888',
+    color: COLORS.textMuted,
   },
   selectionRadio: {
     width: 24,
     height: 24,
     borderRadius: 12,
     borderWidth: 2,
-    borderColor: '#ddd',
+    borderColor: COLORS.border,
     alignItems: 'center',
     justifyContent: 'center',
     marginLeft: 12,
   },
   selectionRadioSelected: {
-    borderColor: '#FF8D00',
-    backgroundColor: '#FF8D00',
+    borderColor: COLORS.primary,
+    backgroundColor: COLORS.primary,
   },
 
   // Redesigned Search Modal Styles
@@ -1395,7 +1396,7 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
   },
   searchModalContent: {
-    backgroundColor: '#fff',
+    backgroundColor: COLORS.background,
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     height: '90%',
@@ -1405,7 +1406,7 @@ const styles = StyleSheet.create({
     width: 40,
     height: 5,
     borderRadius: 2.5,
-    backgroundColor: '#E0E0E0',
+    backgroundColor: COLORS.border,
     alignSelf: 'center',
     marginBottom: 12,
   },
@@ -1419,12 +1420,12 @@ const styles = StyleSheet.create({
   searchModalTitle: {
     fontSize: 22,
     fontWeight: '800',
-    color: '#000',
+    color: COLORS.black,
     letterSpacing: -0.5,
   },
   searchModalSub: {
     fontSize: 13,
-    color: '#888',
+    color: COLORS.textMuted,
     marginTop: 2,
     fontWeight: '500',
   },
@@ -1432,7 +1433,7 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: '#F5F5F5',
+    backgroundColor: COLORS.surface,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -1443,17 +1444,17 @@ const styles = StyleSheet.create({
   searchBarInner: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#F8F9FA',
+    backgroundColor: COLORS.surface,
     borderRadius: 16,
     paddingHorizontal: 16,
     height: 52,
     borderWidth: 1,
-    borderColor: '#F0F0F0',
+    borderColor: COLORS.inputBg,
   },
   searchBarInput: {
     flex: 1,
     fontSize: 16,
-    color: '#000',
+    color: COLORS.black,
     marginLeft: 12,
     fontWeight: '500',
   },
@@ -1466,7 +1467,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 16,
     borderBottomWidth: 1,
-    borderBottomColor: '#F0F0F0',
+    borderBottomColor: COLORS.inputBg,
   },
   searchResultIcon: {
     width: 40,
@@ -1483,11 +1484,11 @@ const styles = StyleSheet.create({
   searchResultName: {
     fontSize: 16,
     fontWeight: '700',
-    color: '#000',
+    color: COLORS.black,
   },
   searchResultInfo: {
     fontSize: 13,
-    color: '#666',
+    color: COLORS.textSecondary,
     marginTop: 2,
     fontWeight: '500',
   },
@@ -1499,12 +1500,12 @@ const styles = StyleSheet.create({
   searchEmptyText: {
     fontSize: 17,
     fontWeight: '700',
-    color: '#111',
+    color: COLORS.textPrimary,
     marginTop: 16,
   },
   searchEmptySub: {
     fontSize: 14,
-    color: '#888',
+    color: COLORS.textMuted,
     marginTop: 6,
     textAlign: 'center',
   },
@@ -1524,7 +1525,7 @@ const styles = StyleSheet.create({
   },
   searchPlaceholderText: {
     fontSize: 15,
-    color: '#999',
+    color: COLORS.textMuted,
     fontWeight: '500',
     textAlign: 'center',
   },

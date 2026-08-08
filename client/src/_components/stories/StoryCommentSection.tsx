@@ -2,6 +2,7 @@ import React from 'react';
 import { View, Text, FlatList, Image, TextInput, TouchableOpacity, StyleSheet, Modal, KeyboardAvoidingView, Platform, Dimensions } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { DEFAULT_AVATAR_URL } from '@/lib/api';
+import COLORS from '@/src/theme/colors';
 
 const { height } = Dimensions.get('window');
 
@@ -62,11 +63,11 @@ const StoryCommentSection: React.FC<StoryCommentSectionProps> = ({
                 value={commentText}
                 onChangeText={setCommentText}
                 placeholder="Add a comment..."
-                placeholderTextColor="#999"
+                placeholderTextColor={COLORS.textMuted}
                 style={styles.textInput}
               />
               <TouchableOpacity onPress={onSendComment} disabled={!commentText.trim()}>
-                <Feather name="send" size={22} color={commentText.trim() ? "#007aff" : "#999"} />
+                <Feather name="send" size={22} color={commentText.trim() ? COLORS.info : COLORS.textMuted} />
               </TouchableOpacity>
             </View>
           </View>
@@ -79,30 +80,30 @@ const StoryCommentSection: React.FC<StoryCommentSectionProps> = ({
 const styles = StyleSheet.create({
   overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)' },
   modalContent: {
-    backgroundColor: '#fff',
+    backgroundColor: COLORS.card,
     borderTopLeftRadius: 25,
     borderTopRightRadius: 25,
     height: height * 0.7,
     paddingTop: 10,
   },
   handle: {
-    width: 40, height: 4, backgroundColor: '#eee', borderRadius: 2, alignSelf: 'center', marginBottom: 10,
+    width: 40, height: 4, backgroundColor: COLORS.border, borderRadius: 2, alignSelf: 'center', marginBottom: 10,
   },
   title: {
-    fontSize: 16, fontWeight: '700', textAlign: 'center', marginBottom: 15,
+    fontSize: 16, fontWeight: '700', textAlign: 'center', marginBottom: 15, color: COLORS.textPrimary,
   },
   commentItem: { flexDirection: 'row', marginBottom: 20 },
   avatar: { width: 32, height: 32, borderRadius: 16, marginRight: 12 },
-  userName: { fontWeight: '700', fontSize: 13, marginBottom: 2 },
-  text: { fontSize: 14, color: '#333', lineHeight: 18 },
-  meta: { fontSize: 11, color: '#999', marginTop: 4 },
+  userName: { fontWeight: '700', fontSize: 13, marginBottom: 2, color: COLORS.textPrimary },
+  text: { fontSize: 14, color: COLORS.textSecondary, lineHeight: 18 },
+  meta: { fontSize: 11, color: COLORS.textMuted, marginTop: 4 },
   inputArea: {
-    flexDirection: 'row', padding: 16, alignItems: 'center', borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: '#eee',
+    flexDirection: 'row', padding: 16, alignItems: 'center', borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: COLORS.border,
   },
   textInput: {
-    flex: 1, height: 40, backgroundColor: '#f5f5f5', borderRadius: 20, paddingHorizontal: 15, marginRight: 12, fontSize: 14,
+    flex: 1, height: 40, backgroundColor: COLORS.inputBg, borderRadius: 20, paddingHorizontal: 15, marginRight: 12, fontSize: 14, color: COLORS.textPrimary,
   },
-  emptyText: { textAlign: 'center', color: '#999', marginTop: 30 },
+  emptyText: { textAlign: 'center', color: COLORS.textMuted, marginTop: 30 },
 });
 
 export default React.memo(StoryCommentSection);

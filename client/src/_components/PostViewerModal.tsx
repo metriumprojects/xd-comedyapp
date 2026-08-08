@@ -8,6 +8,7 @@ import { feedEventEmitter } from '../../lib/feedEventEmitter';
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import PostCard from './PostCard';
+import COLORS from '@/src/theme/colors';
 
 interface Post {
   id: string;
@@ -127,7 +128,7 @@ export default function PostViewerModal({
             }}
             style={styles.backBtn}
           >
-            <Ionicons name="arrow-back" size={24} color="#111" />
+            <Ionicons name="arrow-back" size={24} color={COLORS.textPrimary} />
           </TouchableOpacity>
           <Text style={styles.headerTitle}>{title}</Text>
           <View style={{ width: 40 }} />
@@ -151,6 +152,7 @@ export default function PostViewerModal({
               post={item}
               currentUser={authUser}
               showMenu={true}
+              onCloseOuterModal={onClose}
               onCommentPress={(pid, avatar) => {
                 setCommentModalPostId(pid);
                 setCommentModalAvatar(avatar);
@@ -168,7 +170,7 @@ export default function PostViewerModal({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#fff',
+    backgroundColor: COLORS.background,
   },
   header: {
     flexDirection: 'row',
@@ -177,8 +179,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
     paddingBottom: 12,
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: '#eee',
-    backgroundColor: '#fff',
+    borderBottomColor: COLORS.border,
+    backgroundColor: COLORS.background,
     zIndex: 10,
   },
   backBtn: {
@@ -187,6 +189,6 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontSize: 16,
     fontWeight: '700',
-    color: '#111',
+    color: COLORS.textPrimary,
   },
 });

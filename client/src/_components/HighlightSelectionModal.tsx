@@ -13,6 +13,7 @@ import {
   View
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import COLORS from '@/src/theme/colors';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
@@ -49,7 +50,7 @@ export default function HighlightSelectionModal({
   const renderEmptyState = () => (
     <View style={styles.emptyContainer}>
       <View style={styles.iconCircle}>
-        <Ionicons name="chevron-down" size={32} color="#000" />
+        <Ionicons name="chevron-down" size={32} color={COLORS.textPrimary} />
       </View>
       <Text style={styles.emptyTitle}>Organize and save your stories</Text>
       <Text style={styles.emptySubtitle}>
@@ -72,7 +73,7 @@ export default function HighlightSelectionModal({
     >
       <Image source={{ uri: item.coverImage }} style={styles.highlightCover} />
       <Text style={styles.highlightTitle} numberOfLines={1}>{item.title}</Text>
-      <Ionicons name="add-circle-outline" size={24} color="#666" style={styles.addIcon} />
+      <Ionicons name="add-circle-outline" size={24} color={COLORS.textMuted} style={styles.addIcon} />
     </TouchableOpacity>
   );
 
@@ -93,7 +94,7 @@ export default function HighlightSelectionModal({
         </View>
 
         {loading ? (
-          <ActivityIndicator size="large" color="#FF8D00" style={{ marginVertical: 40 }} />
+          <ActivityIndicator size="large" color={COLORS.primary} style={{ marginVertical: 40 }} />
         ) : hasHighlights ? (
           <FlatList
             data={highlights}
@@ -135,7 +136,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   sheet: {
-    backgroundColor: '#fff',
+    backgroundColor: COLORS.card,
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     minHeight: 300,
@@ -144,7 +145,7 @@ const styles = StyleSheet.create({
   handle: {
     width: 40,
     height: 4,
-    backgroundColor: '#eee',
+    backgroundColor: COLORS.border,
     borderRadius: 2,
     alignSelf: 'center',
     marginVertical: 12,
@@ -159,12 +160,12 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontSize: 16,
     fontWeight: '700',
-    color: '#000',
+    color: COLORS.textPrimary,
   },
   newBtnText: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#007aff',
+    color: COLORS.info,
   },
   listContent: {
     paddingHorizontal: 20,
@@ -175,20 +176,20 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 12,
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: '#f5f5f5',
+    borderBottomColor: COLORS.border,
   },
   highlightCover: {
     width: 48,
     height: 48,
     borderRadius: 8,
-    backgroundColor: '#f0f0f0',
+    backgroundColor: COLORS.inputBg,
   },
   highlightTitle: {
     flex: 1,
     marginLeft: 15,
     fontSize: 15,
     fontWeight: '500',
-    color: '#333',
+    color: COLORS.textPrimary,
   },
   addIcon: {
     marginLeft: 10,
@@ -203,7 +204,7 @@ const styles = StyleSheet.create({
     height: 60,
     borderRadius: 30,
     borderWidth: 1.5,
-    borderColor: '#000',
+    borderColor: COLORS.textPrimary,
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 20,
@@ -211,19 +212,19 @@ const styles = StyleSheet.create({
   emptyTitle: {
     fontSize: 16,
     fontWeight: '700',
-    color: '#000',
+    color: COLORS.textPrimary,
     marginBottom: 8,
     textAlign: 'center',
   },
   emptySubtitle: {
     fontSize: 14,
-    color: '#666',
+    color: COLORS.textSecondary,
     textAlign: 'center',
     marginBottom: 25,
     lineHeight: 20,
   },
   createButton: {
-    backgroundColor: '#2b5a9e',
+    backgroundColor: COLORS.primary,
     paddingVertical: 14,
     paddingHorizontal: 30,
     borderRadius: 10,
@@ -231,7 +232,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   createButtonText: {
-    color: '#fff',
+    color: COLORS.textLight,
     fontSize: 15,
     fontWeight: '600',
   },

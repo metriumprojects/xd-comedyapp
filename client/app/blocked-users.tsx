@@ -9,6 +9,7 @@ import { userService } from '../lib/userService';
 import { DEFAULT_AVATAR_URL } from '@/lib/api';
 import { useAppDialog } from '@/src/_components/AppDialogProvider';
 import { safeRouterBack } from '@/lib/safeRouterBack';
+import COLORS from '@/src/theme/colors';
 
 
 interface BlockedUser {
@@ -104,7 +105,7 @@ export default function BlockedUsersScreen() {
             {/* Header */}
             <View style={styles.header}>
                 <TouchableOpacity onPress={() => safeRouterBack()} style={styles.backBtn}>
-                    <Feather name="arrow-left" size={24} color="#000" />
+                    <Feather name="arrow-left" size={24} color={COLORS.black} />
                 </TouchableOpacity>
                 <Text style={styles.headerTitle}>Blocked Users</Text>
                 <View style={{ width: 24 }} />
@@ -112,7 +113,7 @@ export default function BlockedUsersScreen() {
 
             {loading ? (
                 <View style={styles.loadingContainer}>
-                    <ActivityIndicator size="large" color="#FF8D00" />
+                    <ActivityIndicator size="large" color={COLORS.primary} />
                 </View>
             ) : (
                 <FlatList
@@ -121,7 +122,7 @@ export default function BlockedUsersScreen() {
                     contentContainerStyle={styles.listContent}
                     ListEmptyComponent={
                         <View style={styles.emptyContainer}>
-                            <Feather name="slash" size={64} color="#ccc" />
+                            <Feather name="slash" size={64} color={COLORS.border} />
                             <Text style={styles.emptyTitle}>No Blocked Users</Text>
                             <Text style={styles.emptySubtitle}>
                                 When you block someone, they&apos;ll appear here
@@ -148,7 +149,7 @@ export default function BlockedUsersScreen() {
                                 disabled={unblocking === item.userId}
                             >
                                 {unblocking === item.userId ? (
-                                    <ActivityIndicator size="small" color="#007aff" />
+                                    <ActivityIndicator size="small" color={COLORS.info} />
                                 ) : (
                                     <Text style={styles.unblockText}>Unblock</Text>
                                 )}
@@ -164,7 +165,7 @@ export default function BlockedUsersScreen() {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: '#fff',
+        backgroundColor: COLORS.background,
     },
     header: {
         flexDirection: 'row',
@@ -173,7 +174,7 @@ const styles = StyleSheet.create({
         paddingHorizontal: 16,
         paddingVertical: 12,
         borderBottomWidth: 1,
-        borderBottomColor: '#e0e0e0',
+        borderBottomColor: COLORS.border,
     },
     backBtn: {
         padding: 4,
@@ -181,7 +182,7 @@ const styles = StyleSheet.create({
     headerTitle: {
         fontSize: 18,
         fontWeight: '700',
-        color: '#000',
+        color: COLORS.textPrimary,
     },
     loadingContainer: {
         flex: 1,
@@ -201,12 +202,12 @@ const styles = StyleSheet.create({
     emptyTitle: {
         fontSize: 20,
         fontWeight: '700',
-        color: '#222',
+        color: COLORS.textPrimary,
         marginTop: 16,
     },
     emptySubtitle: {
         fontSize: 14,
-        color: '#888',
+        color: COLORS.textMuted,
         marginTop: 8,
         textAlign: 'center',
     },
@@ -216,13 +217,13 @@ const styles = StyleSheet.create({
         paddingHorizontal: 16,
         paddingVertical: 12,
         borderBottomWidth: 1,
-        borderBottomColor: '#f0f0f0',
+        borderBottomColor: COLORS.border,
     },
     avatar: {
         width: 50,
         height: 50,
         borderRadius: 25,
-        backgroundColor: '#eee',
+        backgroundColor: COLORS.inputBg,
     },
     userInfo: {
         flex: 1,
@@ -231,26 +232,26 @@ const styles = StyleSheet.create({
     userName: {
         fontSize: 16,
         fontWeight: '600',
-        color: '#222',
+        color: COLORS.textPrimary,
     },
     userHandle: {
         fontSize: 14,
-        color: '#666',
+        color: COLORS.textSecondary,
         marginTop: 2,
     },
     unblockBtn: {
         paddingHorizontal: 20,
         paddingVertical: 8,
         borderRadius: 8,
-        backgroundColor: '#f0f0f0',
+        backgroundColor: COLORS.inputBg,
         borderWidth: 1,
-        borderColor: '#d0d0d0',
+        borderColor: COLORS.border,
         minWidth: 90,
         alignItems: 'center',
     },
     unblockText: {
         fontSize: 14,
         fontWeight: '600',
-        color: '#007aff',
+        color: COLORS.info,
     },
 });

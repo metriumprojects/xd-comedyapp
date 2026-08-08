@@ -8,6 +8,7 @@ import { AuthBrandHeader } from '@/src/_components/auth/AuthBrandHeader';
 import { AuthKeyboardScroll } from '@/src/_components/auth/AuthKeyboardScroll';
 import CustomButton from '@/src/_components/auth/CustomButton';
 import { safeRouterBack } from '@/lib/safeRouterBack';
+import COLORS from '@/src/theme/colors';
 
 export default function PasswordSignUpScreen() {
   const router = useRouter();
@@ -50,7 +51,10 @@ export default function PasswordSignUpScreen() {
               {
                 text: "OK",
                 onPress: () => {
-                  router.replace('/auth/welcome');
+                  router.replace({
+                    pathname: '/auth/verify-login',
+                    params: { email }
+                  });
                 }
               }
             ]
@@ -84,7 +88,7 @@ export default function PasswordSignUpScreen() {
               onPress={() => safeRouterBack()}
               style={styles.backButton}
             >
-              <Ionicons name="arrow-back" size={24} color="#000" />
+              <Ionicons name="arrow-back" size={24} color={COLORS.black} />
             </TouchableOpacity>
           </View>
 
@@ -98,7 +102,7 @@ export default function PasswordSignUpScreen() {
               <TextInput
                 style={[styles.input, styles.passwordInput]}
                 placeholder="Enter your password"
-                placeholderTextColor="#999"
+                placeholderTextColor={COLORS.textMuted}
                 value={password}
                 onChangeText={setPassword}
                 secureTextEntry={!showPassword}
@@ -114,7 +118,7 @@ export default function PasswordSignUpScreen() {
                 <Ionicons
                   name={showPassword ? 'eye-off-outline' : 'eye-outline'}
                   size={20}
-                  color="#999"
+                  color={COLORS.textMuted}
                 />
               </TouchableOpacity>
             </View>
@@ -129,7 +133,7 @@ export default function PasswordSignUpScreen() {
               <TextInput
                 style={[styles.input, styles.passwordInput]}
                 placeholder="Confirm your password"
-                placeholderTextColor="#999"
+                placeholderTextColor={COLORS.textMuted}
                 value={confirmPassword}
                 onChangeText={setConfirmPassword}
                 secureTextEntry={!showConfirm}
@@ -145,7 +149,7 @@ export default function PasswordSignUpScreen() {
                 <Ionicons
                   name={showConfirm ? 'eye-off-outline' : 'eye-outline'}
                   size={20}
-                  color="#999"
+                  color={COLORS.textMuted}
                 />
               </TouchableOpacity>
             </View>
@@ -191,7 +195,7 @@ export default function PasswordSignUpScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#fff',
+    backgroundColor: COLORS.background,
   },
   scrollContent: {
     flexGrow: 1,
@@ -217,11 +221,11 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   input: {
-    backgroundColor: '#f5f5f5',
+    backgroundColor: COLORS.inputBg,
     borderRadius: 8,
     padding: 16,
     fontSize: 16,
-    color: '#000',
+    color: COLORS.textPrimary,
   },
   inputWrapper: {
     position: 'relative',
@@ -239,11 +243,11 @@ const styles = StyleSheet.create({
   },
   hint: {
     fontSize: 12,
-    color: '#FF8D00',
+    color: COLORS.primary,
     marginTop: 4,
   },
   errorText: {
-    color: '#e74c3c',
+    color: COLORS.danger,
     fontSize: 14,
     marginBottom: 12,
   },
@@ -258,10 +262,10 @@ const styles = StyleSheet.create({
   },
   footerText: {
     fontSize: 14,
-    color: '#666',
+    color: COLORS.textSecondary,
   },
   footerLink: {
-    color: '#FF8D00',
+    color: COLORS.primary,
     fontWeight: '600',
   },
 });

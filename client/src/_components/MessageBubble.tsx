@@ -9,6 +9,7 @@ import { DEFAULT_AVATAR_URL } from '@/lib/api';
 import { apiService } from '@/src/_services/apiService';
 import { normalizeMediaUrl, isVideoUrl } from '@/lib/utils/media';
 import { getVideoThumbnailUrl } from '@/lib/imageHelpers';
+import COLORS from '@/src/theme/colors';
 
 type Props = {
   text?: string;
@@ -552,12 +553,31 @@ function MessageBubbleInner({
           >
             {isSelf && (resolvedMediaType !== 'post' && resolvedMediaType !== 'story') && (
               <LinearGradient
-                colors={['#FBBC04', '#FF8D00']}
+                colors={COLORS.primaryGradient}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 0 }}
                 style={StyleSheet.absoluteFillObject}
               />
             )}
+            
+            {replyTo && (
+              <View style={[
+                styles.replyQuote, 
+                isSelf ? styles.replyQuoteSelf : styles.replyQuoteOther,
+                compact && { marginTop: 4, marginHorizontal: 4 }
+              ]}>
+                <View style={[styles.replyQuoteBar, isSelf ? { backgroundColor: 'rgba(255,255,255,0.7)' } : { backgroundColor: COLORS.primary }]} />
+                <View style={{ flexShrink: 1, minWidth: 100 }}>
+                  <Text style={[styles.replyQuoteUser, isSelf ? { color: '#fff' } : { color: COLORS.primary }]} numberOfLines={1}>
+                    {replyTo.senderId === currentUserId ? 'You' : (username || 'Them')}
+                  </Text>
+                  <Text style={[styles.replyQuoteText, isSelf ? { color: 'rgba(255,255,255,0.8)' } : { color: COLORS.textSecondary }]} numberOfLines={2}>
+                    {replyTo.text || (replyTo.mediaUrl ? 'Attachment' : 'Message')}
+                  </Text>
+                </View>
+              </View>
+            )}
+
              {resolvedMediaType === 'image' && resolvedMediaUrl && (
               <TouchableOpacity onPress={() => onPressImage?.(resolvedMediaUrl)}>
                 <ExpoImage source={{ uri: resolvedMediaUrl }} style={styles.msgImage} contentFit="cover" cachePolicy="memory-disk" transition={150} />
@@ -606,7 +626,7 @@ function MessageBubbleInner({
                   <Ionicons
                     name={audioUnavailable ? 'alert-circle' : (playbackUrl ? (playing ? 'pause' : 'play') : 'mic')}
                     size={18}
-                    color={isSelf ? '#fff' : '#111'}
+                    color={isSelf ? COLORS.textLight : COLORS.textPrimary}
                   />
                 </View>
 
@@ -629,7 +649,7 @@ function MessageBubbleInner({
                               { height },
                               {
                                 backgroundColor: isSelf
-                                  ? (isFilled ? '#ffffff' : 'rgba(255,255,255,0.45)')
+                                  ? (isFilled ? COLORS.white : 'rgba(255,255,255,0.45)')
                                   : (isFilled ? '#111111' : 'rgba(0,0,0,0.14)')
                               }
                             ]}
@@ -671,7 +691,7 @@ function MessageBubbleInner({
                     <ExpoImage source={{ uri: sharedPostThumb }} style={styles.sharedPostImage} contentFit="cover" cachePolicy="memory-disk" transition={150} />
                     {sharedPostMediaCount > 1 && (
                       <View style={styles.multiMediaBadge}>
-                        <Ionicons name="copy-outline" size={12} color="#fff" />
+                        <Ionicons name="copy-outline" size={12} color={COLORS.textLight} />
                         <Text style={styles.multiMediaBadgeText}>{sharedPostMediaCount}</Text>
                       </View>
                     )}
@@ -723,13 +743,13 @@ function MessageBubbleInner({
                 {/* Video indicator */}
                 {(resolvedStory.mediaType === 'video' || resolvedStory.videoUrl || resolvedStory.video) && (
                   <View style={styles.storyVideoIcon}>
-                    <Ionicons name="play" size={14} color="#fff" />
+                    <Ionicons name="play" size={14} color={COLORS.textLight} />
                   </View>
                 )}
                 {/* Footer label */}
                 <View style={styles.storyCardFooter}>
                   <View style={styles.storyBadge}>
-                    <Feather name="aperture" size={12} color="#fff" />
+                    <Feather name="aperture" size={12} color={COLORS.textLight} />
                     <Text style={styles.storyBadgeText}>Story</Text>
                   </View>
                 </View>
@@ -740,7 +760,7 @@ function MessageBubbleInner({
             {resolvedMediaType === 'story' && storyLoading && !resolvedStory && !storyExpired && (
               <View style={[styles.storyCard, styles.storyCardUnavailable]}>
                 <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
-                  <Feather name="loader" size={24} color="#aaa" />
+                  <Feather name="loader" size={24} color={COLORS.textMuted} />
                   <Text style={styles.storyUnavailableText}>Loading story...</Text>
                 </View>
               </View>
@@ -751,7 +771,7 @@ function MessageBubbleInner({
               <View style={[styles.storyCard, styles.storyCardUnavailable]}>
                 <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 20 }}>
                   <View style={styles.storyUnavailableIcon}>
-                    <Feather name="camera-off" size={28} color="#999" />
+                    <Feather name="camera-off" size={28} color={COLORS.textMuted} />
                   </View>
                   <Text style={styles.storyUnavailableTitle}>Story unavailable</Text>
                   <Text style={styles.storyUnavailableText}>This story is no longer available</Text>
@@ -777,7 +797,7 @@ function MessageBubbleInner({
               {isSelf && (
                 <View style={styles.statusIcons}>
                   {read ? (
-                    <Ionicons name="checkmark-done" size={14} color="#fff" />
+                    <Ionicons name="checkmark-done" size={14} color={COLORS.textLight} />
                   ) : delivered ? (
                     <Ionicons name="checkmark-done" size={14} color="rgba(255,255,255,0.6)" />
                   ) : sent ? (
@@ -815,18 +835,18 @@ function MessageBubbleInner({
             animationType="fade"
             onRequestClose={() => setPlayVideoModalVisible(false)}
           >
-            <View style={{ flex: 1, backgroundColor: '#000', justifyContent: 'center', alignItems: 'center' }}>
+            <View style={{ flex: 1, backgroundColor: COLORS.black, justifyContent: 'center', alignItems: 'center' }}>
               <TouchableOpacity 
                 style={{ position: 'absolute', top: 50, right: 20, zIndex: 10, padding: 10 }}
                 onPress={() => setPlayVideoModalVisible(false)}
               >
-                <Ionicons name="close" size={30} color="#fff" />
+                <Ionicons name="close" size={30} color={COLORS.textLight} />
               </TouchableOpacity>
               
               {!videoLoaded && (
                 <ActivityIndicator 
                   size="large" 
-                  color="#FF8D00" 
+                  color={COLORS.primary} 
                   style={{ position: 'absolute', zIndex: 5 }} 
                 />
               )}
@@ -901,11 +921,11 @@ const styles = StyleSheet.create({
     minWidth: 40,
   },
   msgBubbleLeft: {
-    backgroundColor: '#efefef',
+    backgroundColor: COLORS.inputBg,
     borderBottomLeftRadius: 4,
   },
   msgBubbleRight: {
-    backgroundColor: '#FF8D00',
+    backgroundColor: COLORS.primary,
     borderBottomRightRadius: 4,
     overflow: 'hidden',
   },
@@ -916,12 +936,12 @@ const styles = StyleSheet.create({
   },
   msgText: {
     fontSize: 15,
-    color: '#000',
+    color: COLORS.textPrimary,
     lineHeight: 20,
   },
   msgTextSelf: {
     fontSize: 15,
-    color: '#fff',
+    color: COLORS.textLight,
     lineHeight: 20,
   },
   editedText: {
@@ -934,7 +954,7 @@ const styles = StyleSheet.create({
     textAlign: 'right',
   },
   editedTextOther: {
-    color: '#8e8e8e',
+    color: COLORS.textMuted,
   },
   msgFooter: {
     flexDirection: 'row',
@@ -945,7 +965,7 @@ const styles = StyleSheet.create({
   },
   msgTime: {
     fontSize: 10,
-    color: '#8e8e8e',
+    color: COLORS.textMuted,
   },
   msgTimeSelf: {
     fontSize: 10,
@@ -956,7 +976,7 @@ const styles = StyleSheet.create({
   },
   statusSent: { fontSize: 10, color: 'rgba(255,255,255,0.5)' },
   statusDelivered: { fontSize: 10, color: 'rgba(255,255,255,0.5)' },
-  statusRead: { fontSize: 10, color: '#fff', fontWeight: '800' },
+  statusRead: { fontSize: 10, color: COLORS.textLight, fontWeight: '800' },
   statusPending: { fontSize: 8 },
   replyBox: {
     backgroundColor: 'rgba(0,0,0,0.05)',
@@ -964,7 +984,7 @@ const styles = StyleSheet.create({
     padding: 6,
     marginBottom: 4,
     borderLeftWidth: 3,
-    borderLeftColor: '#FF8D00',
+    borderLeftColor: COLORS.primary,
   },
   replyBoxSelf: {
     backgroundColor: 'rgba(255,255,255,0.15)',
@@ -973,7 +993,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0,0,0,0.05)',
   },
   replyName: { fontSize: 11, fontWeight: '700', marginBottom: 2 },
-  replyText: { fontSize: 12, color: '#666' },
+  replyText: { fontSize: 12, color: COLORS.textSecondary },
   msgImage: {
     width: 240,
     height: 240,
@@ -984,7 +1004,7 @@ const styles = StyleSheet.create({
     width: 240,
     height: 320,
     borderRadius: 16,
-    backgroundColor: '#000',
+    backgroundColor: COLORS.black,
     alignItems: 'center',
     justifyContent: 'center',
     position: 'relative',
@@ -1004,7 +1024,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1.5,
-    borderColor: '#fff',
+    borderColor: COLORS.textLight,
   },
   premiumAudioContainer: {
     flexDirection: 'row',
@@ -1022,7 +1042,7 @@ const styles = StyleSheet.create({
     borderRadius: 17,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#fff',
+    backgroundColor: COLORS.background,
     marginRight: 10,
   },
   audioPlayCircleSelf: {
@@ -1053,13 +1073,13 @@ const styles = StyleSheet.create({
     color: '#8e8e8e',
   },
   premiumPostContainer: {
-    backgroundColor: '#fff',
+    backgroundColor: COLORS.background,
     width: 260,
     borderRadius: 20,
     overflow: 'hidden',
     borderWidth: 0.5,
-    borderColor: '#eee',
-    shadowColor: '#000',
+    borderColor: COLORS.border,
+    shadowColor: COLORS.black,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.05,
     shadowRadius: 8,
@@ -1089,7 +1109,7 @@ const styles = StyleSheet.create({
   },
   multiMediaBadgeText: {
     marginLeft: 4,
-    color: '#fff',
+    color: COLORS.textLight,
     fontSize: 11,
     fontWeight: '700',
   },
@@ -1100,7 +1120,7 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     overflow: 'hidden',
     position: 'relative',
-    backgroundColor: '#000',
+    backgroundColor: COLORS.black,
   },
   storyCardImage: {
     width: '100%',
@@ -1148,6 +1168,34 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     marginRight: 8,
   },
+  replyQuote: {
+    flexDirection: 'row',
+    marginHorizontal: 8,
+    marginTop: 8,
+    marginBottom: 4,
+    padding: 8,
+    borderRadius: 8,
+    backgroundColor: 'rgba(0,0,0,0.05)',
+  },
+  replyQuoteSelf: {
+    backgroundColor: 'rgba(255,255,255,0.15)',
+  },
+  replyQuoteOther: {
+    backgroundColor: 'rgba(0,0,0,0.05)',
+  },
+  replyQuoteBar: {
+    width: 3,
+    borderRadius: 2,
+    marginRight: 8,
+  },
+  replyQuoteUser: {
+    fontSize: 11,
+    fontWeight: '800',
+    marginBottom: 2,
+  },
+  replyQuoteText: {
+    fontSize: 13,
+  },
   storyCardAvatar: {
     width: 28,
     height: 28,
@@ -1156,7 +1204,7 @@ const styles = StyleSheet.create({
   storyCardUsername: {
     fontSize: 13,
     fontWeight: '700',
-    color: '#fff',
+    color: COLORS.textLight,
     flex: 1,
     textShadowColor: 'rgba(0,0,0,0.6)',
     textShadowOffset: { width: 0, height: 1 },
@@ -1193,16 +1241,16 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   storyBadgeText: {
-    color: '#fff',
+    color: COLORS.textLight,
     fontSize: 11,
     fontWeight: '600',
   },
   storyCardUnavailable: {
-    backgroundColor: '#f0f0f0',
+    backgroundColor: COLORS.inputBg,
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,
-    borderColor: '#e0e0e0',
+    borderColor: COLORS.border,
   },
   storyUnavailableIcon: {
     width: 56,
@@ -1216,12 +1264,12 @@ const styles = StyleSheet.create({
   storyUnavailableTitle: {
     fontSize: 14,
     fontWeight: '700',
-    color: '#333',
+    color: COLORS.textPrimary,
     marginBottom: 4,
   },
   storyUnavailableText: {
     fontSize: 12,
-    color: '#888',
+    color: COLORS.textMuted,
     textAlign: 'center',
   },
   sharedPostCaptionBar: {
@@ -1235,7 +1283,7 @@ const styles = StyleSheet.create({
   },
   sharedPostCaptionUser: {
     fontWeight: '700',
-    color: '#111827',
+    color: COLORS.textPrimary,
   },
   bubbleShareBtnCircle: {
     width: 36,
@@ -1250,14 +1298,14 @@ const styles = StyleSheet.create({
     position: 'absolute',
     bottom: -14,
     flexDirection: 'row',
-    backgroundColor: '#fff',
+    backgroundColor: COLORS.background,
     borderRadius: 12,
     paddingHorizontal: 6,
     paddingVertical: 2,
     borderWidth: 0.5,
-    borderColor: '#eee',
+    borderColor: COLORS.border,
     elevation: 3,
-    shadowColor: '#000',
+    shadowColor: COLORS.black,
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.12,
     shadowRadius: 2,

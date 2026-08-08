@@ -22,7 +22,9 @@ import { getUserConversations } from '../../lib/firebaseHelpers/conversation';
 import { getUserNotifications } from '../../lib/firebaseHelpers/notification';
 import { logoutUser } from '@/src/_services/firebaseAuthService';
 import { getNotificationDisplayText } from '../../lib/notificationText';
+import { feedEventEmitter } from '@/lib/feedEventEmitter';
 import { useUIStore } from '../../store/useUIStore';
+import COLORS from '@/src/theme/colors';
 
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
@@ -31,8 +33,8 @@ const isLargeDevice = SCREEN_WIDTH >= 414;
 const ICON_SIZE = isSmallDevice ? 18 : (isLargeDevice ? 22 : 20);
 const CHEVRON_SIZE = isSmallDevice ? 18 : 20;
 
-const TAB_ACTIVE_COLOR = '#FFFFFF';
-const TAB_INACTIVE_COLOR = '#8E8E93';
+const TAB_ACTIVE_COLOR = COLORS.textLight;
+const TAB_INACTIVE_COLOR = COLORS.textMuted;
 const TAB_LABEL_SIZE = 11;
 const TOP_MENU_HEIGHT = isSmallDevice ? 50 : 56;
 
@@ -82,6 +84,15 @@ export default function TabsLayout() {
   const router = useRouter();
   const pathname = usePathname();
   const [menuVisible, setMenuVisible] = useState(false);
+
+  useEffect(() => {
+    const sub = feedEventEmitter.addListener('openSettingsMenu', () => {
+      setMenuVisible(true);
+    });
+    return () => {
+      sub.remove();
+    };
+  }, []);
   const [groupsDrawerVisible, setGroupsDrawerVisible] = useState(false);
   const [showStoriesViewer, setShowStoriesViewer] = useState(false);
   const [selectedStories, setSelectedStories] = useState<any[]>([]);
@@ -102,10 +113,10 @@ export default function TabsLayout() {
   const currentSafeTop = Math.max(insets.top, 12);
   const totalHeaderHeight = currentHeaderHeight + currentSafeTop;
 
-  /** Standard-height bottom bar (content ~56pt) + safe inset; sync with floating UI `bottom`. */
+  /** Standard-height bottom bar (content ~46pt) + safe inset; sync with floating UI `bottom`. */
   const bottomTabLayout = useMemo(() => {
-    const bottomTabSafe = Math.max(insets.bottom, Platform.OS === 'android' ? 8 : 10);
-    const contentMin = 54;
+    const bottomTabSafe = Math.max(insets.bottom, 4);
+    const contentMin = 46;
     const height = contentMin + bottomTabSafe;
     return { bottomTabSafe, height };
   }, [insets.bottom]);
@@ -118,7 +129,7 @@ export default function TabsLayout() {
       paddingBottom: isTabBarVisible ? bottomTabLayout.bottomTabSafe : 0,
       paddingTop: isTabBarVisible ? 6 : 0,
       paddingHorizontal: isTabBarVisible ? 12 : 0,
-      backgroundColor: '#000000',
+      backgroundColor: COLORS.black,
       borderTopWidth: 0,
       borderTopColor: 'transparent' as const,
       elevation: 0,
@@ -231,7 +242,7 @@ export default function TabsLayout() {
   }, [params?.storyId]);
 
   return (
-    <View style={{ flex: 1, backgroundColor: '#000' }}>
+    <View style={{ flex: 1, backgroundColor: COLORS.black }}>
       {/* Non-sticky header: part of layout flow (not absolute overlay) */}
       {!hideTopOverlay && (
         <View style={{ height: totalHeaderHeight, overflow: 'hidden' }}>
@@ -247,7 +258,7 @@ export default function TabsLayout() {
               headerShown: false,
               // Header is now in-flow and animates its own height.
               sceneStyle: {
-                backgroundColor: '#000',
+                backgroundColor: COLORS.black,
                 paddingTop: 0,
               },
               tabBarActiveTintColor: TAB_ACTIVE_COLOR,
@@ -255,13 +266,13 @@ export default function TabsLayout() {
               tabBarShowLabel: true,
               tabBarItemStyle: {
                 flex: 1,
-                justifyContent: 'flex-start',
-                paddingTop: 0,
+                justifyContent: 'center',
+                paddingTop: 2,
               },
               tabBarLabelStyle: {
                 fontSize: TAB_LABEL_SIZE,
-                marginTop: 2,
-                marginBottom: 10,
+                marginTop: 1,
+                marginBottom: 2,
               },
               tabBarIconStyle: {
                 marginTop: 0,
@@ -442,140 +453,147 @@ export default function TabsLayout() {
 
       {/* Modern clean bottom sheet for settings/activity */}
       {menuVisible && (
-        <View style={styles.menuOverlay}>
-          <TouchableOpacity
-            style={{ flex: 1, width: '100%' }}
-            activeOpacity={1}
-            onPress={() => setMenuVisible(false)}
-          />
-          <View style={{ width: '100%' }}>
-            <View style={[styles.igSheet, { paddingBottom: Math.max(insets.bottom, isSmallDevice ? 24 : 32) + 12 }]}>
-              {/* Handle */}
-              <View style={styles.handleContainer}>
-                <View style={styles.igHandle} />
-              </View>
-
-              {/* Menu Items Container */}
-              <View style={styles.menuItemsContainer}>
-                {/* Settings Group */}
-                <View style={styles.menuGroup}>
-                  <TouchableOpacity
-                    style={styles.igItem}
-                    activeOpacity={0.7}
-                    onPress={() => { logAnalyticsEvent('open_settings'); setMenuVisible(false); router.push('/settings'); }}
-                  >
-                    <LinearGradient
-                      colors={['rgba(251, 188, 4, 0.15)', 'rgba(255, 141, 0, 0.15)']}
-                      start={{ x: 0, y: 0 }}
-                      end={{ x: 1, y: 0 }}
-                      style={styles.iconContainer}
-                    >
-                      <Feather name="settings" size={ICON_SIZE} color="#FF8D00" />
-                    </LinearGradient>
-                    <Text style={styles.igText}>Settings</Text>
-                    <Feather name="chevron-right" size={CHEVRON_SIZE} color="#ccc" style={styles.chevron} />
-                  </TouchableOpacity>
+        <Modal
+          visible={menuVisible}
+          transparent
+          animationType="slide"
+          onRequestClose={() => setMenuVisible(false)}
+        >
+          <View style={styles.menuOverlay}>
+            <TouchableOpacity
+              style={{ flex: 1, width: '100%' }}
+              activeOpacity={1}
+              onPress={() => setMenuVisible(false)}
+            />
+            <View style={{ width: '100%' }}>
+              <View style={[styles.igSheet, { paddingBottom: Math.max(insets.bottom, isSmallDevice ? 24 : 32) + 12 }]}>
+                {/* Handle */}
+                <View style={styles.handleContainer}>
+                  <View style={styles.igHandle} />
                 </View>
 
-                {/* Content Group */}
-                <View style={styles.menuGroup}>
-                  <TouchableOpacity
-                    style={styles.igItem}
-                    activeOpacity={0.7}
-                    onPress={() => { logAnalyticsEvent('open_saved'); setMenuVisible(false); router.push('/saved'); }}
-                  >
-                    <LinearGradient
-                      colors={['rgba(251, 188, 4, 0.15)', 'rgba(255, 141, 0, 0.15)']}
-                      start={{ x: 0, y: 0 }}
-                      end={{ x: 1, y: 0 }}
-                      style={styles.iconContainer}
+                {/* Menu Items Container */}
+                <View style={styles.menuItemsContainer}>
+                  {/* Settings Group */}
+                  <View style={styles.menuGroup}>
+                    <TouchableOpacity
+                      style={styles.igItem}
+                      activeOpacity={0.7}
+                      onPress={() => { logAnalyticsEvent('open_settings'); setMenuVisible(false); router.push('/settings'); }}
                     >
-                      <Feather name="bookmark" size={ICON_SIZE} color="#FF8D00" />
-                    </LinearGradient>
-                    <Text style={styles.igText}>Saved Posts</Text>
-                    <Feather name="chevron-right" size={CHEVRON_SIZE} color="#ccc" style={styles.chevron} />
-                  </TouchableOpacity>
-                </View>
-
-                {/* Legal Group */}
-                <View style={styles.menuGroup}>
-                  <TouchableOpacity
-                    style={styles.igItem}
-                    activeOpacity={0.7}
-                    onPress={() => { logAnalyticsEvent('open_privacy'); setMenuVisible(false); router.push('/legal/privacy' as any); }}
-                  >
-                    <LinearGradient
-                      colors={['rgba(251, 188, 4, 0.15)', 'rgba(255, 141, 0, 0.15)']}
-                      start={{ x: 0, y: 0 }}
-                      end={{ x: 1, y: 0 }}
-                      style={styles.iconContainer}
-                    >
-                      <Feather name="shield" size={ICON_SIZE} color="#FF8D00" />
-                    </LinearGradient>
-                    <Text style={styles.igText}>Privacy Policy</Text>
-                    <Feather name="chevron-right" size={CHEVRON_SIZE} color="#ccc" style={styles.chevron} />
-                  </TouchableOpacity>
-
-                  <View style={styles.separator} />
-
-                  <TouchableOpacity
-                    style={styles.igItem}
-                    activeOpacity={0.7}
-                    onPress={() => { logAnalyticsEvent('open_terms'); setMenuVisible(false); router.push('/legal/terms' as any); }}
-                  >
-                    <LinearGradient
-                      colors={['rgba(251, 188, 4, 0.15)', 'rgba(255, 141, 0, 0.15)']}
-                      start={{ x: 0, y: 0 }}
-                      end={{ x: 1, y: 0 }}
-                      style={styles.iconContainer}
-                    >
-                      <Feather name="file-text" size={ICON_SIZE} color="#FF8D00" />
-                    </LinearGradient>
-                    <Text style={styles.igText}>Terms of Service</Text>
-                    <Feather name="chevron-right" size={CHEVRON_SIZE} color="#ccc" style={styles.chevron} />
-                  </TouchableOpacity>
-                </View>
-
-                {/* Logout Button */}
-                <TouchableOpacity
-                  style={styles.igItemLogout}
-                  activeOpacity={0.7}
-                  onPress={async () => {
-                    setMenuVisible(false);
-                    try {
-                      logAnalyticsEvent('logout');
-                      // Use imported logoutUser
-                      const result = await logoutUser();
-                      if (result.success) {
-                        console.log('Logged out successfully');
-                        router.replace('/auth/welcome' as any);
-                      } else {
-                        Alert.alert('Error', 'Logout failed');
-                      }
-                    } catch (error) {
-                      console.error('Logout error:', error);
-                      Alert.alert('Error', 'Failed to log out. Please try again.');
-                    }
-                  }}
-                >
-                  <View style={[styles.iconContainer, { backgroundColor: '#fee' }]}>
-                    <Feather name="log-out" size={ICON_SIZE} color="#e74c3c" />
+                      <LinearGradient
+                        colors={['rgba(251, 188, 4, 0.15)', 'rgba(255, 141, 0, 0.15)']}
+                        start={{ x: 0, y: 0 }}
+                        end={{ x: 1, y: 0 }}
+                        style={styles.iconContainer}
+                      >
+                        <Feather name="settings" size={ICON_SIZE} color={COLORS.primary} />
+                      </LinearGradient>
+                      <Text style={styles.igText}>Settings</Text>
+                      <Feather name="chevron-right" size={CHEVRON_SIZE} color={COLORS.border} style={styles.chevron} />
+                    </TouchableOpacity>
                   </View>
-                  <Text style={styles.igTextLogout}>Log Out</Text>
-                </TouchableOpacity>
 
-                {/* Cancel Button */}
-                <TouchableOpacity
-                  style={styles.cancelButton}
-                  activeOpacity={0.7}
-                  onPress={() => { logAnalyticsEvent('close_menu'); setMenuVisible(false); }}
-                >
-                  <Text style={styles.cancelText}>Cancel</Text>
-                </TouchableOpacity>
+                  {/* Content Group */}
+                  <View style={styles.menuGroup}>
+                    <TouchableOpacity
+                      style={styles.igItem}
+                      activeOpacity={0.7}
+                      onPress={() => { logAnalyticsEvent('open_saved'); setMenuVisible(false); router.push('/saved'); }}
+                    >
+                      <LinearGradient
+                        colors={['rgba(251, 188, 4, 0.15)', 'rgba(255, 141, 0, 0.15)']}
+                        start={{ x: 0, y: 0 }}
+                        end={{ x: 1, y: 0 }}
+                        style={styles.iconContainer}
+                      >
+                        <Feather name="bookmark" size={ICON_SIZE} color={COLORS.primary} />
+                      </LinearGradient>
+                      <Text style={styles.igText}>Saved Posts</Text>
+                      <Feather name="chevron-right" size={CHEVRON_SIZE} color={COLORS.border} style={styles.chevron} />
+                    </TouchableOpacity>
+                  </View>
+
+                  {/* Legal Group */}
+                  <View style={styles.menuGroup}>
+                    <TouchableOpacity
+                      style={styles.igItem}
+                      activeOpacity={0.7}
+                      onPress={() => { logAnalyticsEvent('open_privacy'); setMenuVisible(false); router.push('/legal/privacy' as any); }}
+                    >
+                      <LinearGradient
+                        colors={['rgba(251, 188, 4, 0.15)', 'rgba(255, 141, 0, 0.15)']}
+                        start={{ x: 0, y: 0 }}
+                        end={{ x: 1, y: 0 }}
+                        style={styles.iconContainer}
+                      >
+                        <Feather name="shield" size={ICON_SIZE} color={COLORS.primary} />
+                      </LinearGradient>
+                      <Text style={styles.igText}>Privacy Policy</Text>
+                      <Feather name="chevron-right" size={CHEVRON_SIZE} color={COLORS.border} style={styles.chevron} />
+                    </TouchableOpacity>
+
+                    <View style={styles.separator} />
+
+                    <TouchableOpacity
+                      style={styles.igItem}
+                      activeOpacity={0.7}
+                      onPress={() => { logAnalyticsEvent('open_terms'); setMenuVisible(false); router.push('/legal/terms' as any); }}
+                    >
+                      <LinearGradient
+                        colors={['rgba(251, 188, 4, 0.15)', 'rgba(255, 141, 0, 0.15)']}
+                        start={{ x: 0, y: 0 }}
+                        end={{ x: 1, y: 0 }}
+                        style={styles.iconContainer}
+                      >
+                        <Feather name="file-text" size={ICON_SIZE} color={COLORS.primary} />
+                      </LinearGradient>
+                      <Text style={styles.igText}>Terms of Service</Text>
+                      <Feather name="chevron-right" size={CHEVRON_SIZE} color={COLORS.border} style={styles.chevron} />
+                    </TouchableOpacity>
+                  </View>
+
+                  {/* Logout Button */}
+                  <TouchableOpacity
+                    style={styles.igItemLogout}
+                    activeOpacity={0.7}
+                    onPress={async () => {
+                      setMenuVisible(false);
+                      try {
+                        logAnalyticsEvent('logout');
+                        // Use imported logoutUser
+                        const result = await logoutUser();
+                        if (result.success) {
+                          console.log('Logged out successfully');
+                          router.replace('/auth/welcome' as any);
+                        } else {
+                          Alert.alert('Error', 'Logout failed');
+                        }
+                      } catch (error) {
+                        console.error('Logout error:', error);
+                        Alert.alert('Error', 'Failed to log out. Please try again.');
+                      }
+                    }}
+                  >
+                    <View style={[styles.iconContainer, { backgroundColor: '#fee' }]}>
+                      <Feather name="log-out" size={ICON_SIZE} color="#e74c3c" />
+                    </View>
+                    <Text style={styles.igTextLogout}>Log Out</Text>
+                  </TouchableOpacity>
+
+                  {/* Cancel Button */}
+                  <TouchableOpacity
+                    style={styles.cancelButton}
+                    activeOpacity={0.7}
+                    onPress={() => { logAnalyticsEvent('close_menu'); setMenuVisible(false); }}
+                  >
+                    <Text style={styles.cancelText}>Cancel</Text>
+                  </TouchableOpacity>
+                </View>
               </View>
             </View>
           </View>
-        </View>
+        </Modal>
       )}
 
       {/* Groups Drawer */}
@@ -639,12 +657,12 @@ function TopMenu({ setMenuVisible, setGroupsDrawerVisible }: { setMenuVisible: (
           justifyContent: 'center',
           zIndex: 200,
           borderWidth: 1.5,
-          borderColor: '#ffffff',
+          borderColor: COLORS.textLight,
         }}
       >
         <Text
           style={{
-            color: '#fff',
+            color: COLORS.textLight,
             fontWeight: '800',
             fontSize,
             textAlign: 'center',
@@ -767,23 +785,21 @@ function TopMenu({ setMenuVisible, setGroupsDrawerVisible }: { setMenuVisible: (
           </TouchableOpacity>
         )}
       </View>
-      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
         <TouchableOpacity style={styles.topBtn} onPress={() => { logAnalyticsEvent('open_groups_drawer'); setGroupsDrawerVisible(true); }}>
-          <Feather name="users" size={20} color="#000" />
+          <Feather name="users" size={20} color={COLORS.black} />
         </TouchableOpacity>
         <TouchableOpacity style={styles.topBtn} onPress={async () => { logAnalyticsEvent('open_notifications'); setNotificationsModalVisible(true); try { await markAllAsRead(); await fetchNotifications({ force: true }); } catch { } }}>
-          <Feather name="bell" size={20} color="#000" />
-          {renderCountBadge(unreadCount, '#ff3b30', isSmallDevice ? -4 : -6, isSmallDevice ? -4 : -6)}
+          <Feather name="bell" size={20} color={COLORS.textPrimary} />
+          {renderCountBadge(unreadCount, COLORS.danger, isSmallDevice ? -4 : -6, isSmallDevice ? -4 : -6)}
         </TouchableOpacity>
         <TouchableOpacity style={styles.topBtn} onPress={() => { logAnalyticsEvent('open_inbox'); router.push('/inbox' as any); }}>
-          <Feather name="message-square" size={20} color="#000" />
-          {renderCountBadge(unreadMsg, '#FF8D00', isSmallDevice ? -4 : -6, isSmallDevice ? -4 : -6)}
+          <Feather name="message-square" size={20} color={COLORS.textPrimary} />
+          {renderCountBadge(unreadMsg, COLORS.primary, isSmallDevice ? -4 : -6, isSmallDevice ? -4 : -6)}
         </TouchableOpacity>
-        {isProfileScreen && (
-          <TouchableOpacity style={[styles.topBtn, { zIndex: 101 }]} onPress={() => { logAnalyticsEvent('open_menu'); setMenuVisible(true); }}>
-            <Feather name="more-vertical" size={20} color="#000" />
-          </TouchableOpacity>
-        )}
+        <TouchableOpacity style={[styles.topBtn, { zIndex: 101 }]} onPress={() => { logAnalyticsEvent('open_menu'); setMenuVisible(true); }}>
+          <Feather name="more-vertical" size={20} color={COLORS.textPrimary} />
+        </TouchableOpacity>
       </View>
 
       {/* Notifications Modal */}
@@ -804,7 +820,7 @@ function TopMenu({ setMenuVisible, setGroupsDrawerVisible }: { setMenuVisible: (
 const styles = StyleSheet.create({
   topMenu: {
     height: isSmallDevice ? 50 : 56,
-    backgroundColor: '#fff',
+    backgroundColor: COLORS.background,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
@@ -823,7 +839,7 @@ const styles = StyleSheet.create({
     zIndex: 90,
     borderWidth: 1.5,
     borderColor: 'rgba(255, 255, 255, 0.4)', // Reflective border
-    shadowColor: '#000',
+    shadowColor: COLORS.black,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.1,
     shadowRadius: 8,
@@ -857,13 +873,13 @@ const styles = StyleSheet.create({
   },
   igSheet: {
     width: '100%',
-    backgroundColor: '#f8f9fa',
+    backgroundColor: COLORS.surface,
     borderTopLeftRadius: isSmallDevice ? 18 : 24,
     borderTopRightRadius: isSmallDevice ? 18 : 24,
     paddingTop: isSmallDevice ? 40 : 48,
     paddingBottom: isSmallDevice ? 24 : 32,
     maxHeight: SCREEN_HEIGHT * 0.85,
-    shadowColor: '#000',
+    shadowColor: COLORS.black,
     shadowOpacity: 0.2,
     shadowRadius: 20,
     shadowOffset: { width: 0, height: -4 },
@@ -877,18 +893,18 @@ const styles = StyleSheet.create({
     width: isSmallDevice ? 32 : 36,
     height: 4,
     borderRadius: 2,
-    backgroundColor: '#d1d5db',
+    backgroundColor: COLORS.border,
   },
   menuItemsContainer: {
     paddingHorizontal: isSmallDevice ? 12 : 16,
     paddingTop: isSmallDevice ? 8 : 12,
   },
   menuGroup: {
-    backgroundColor: '#fff',
+    backgroundColor: COLORS.background,
     borderRadius: isSmallDevice ? 10 : 12,
     marginBottom: isSmallDevice ? 10 : 12,
     overflow: 'hidden',
-    shadowColor: '#000',
+    shadowColor: COLORS.black,
     shadowOpacity: 0.03,
     shadowRadius: 4,
     shadowOffset: { width: 0, height: 1 },
@@ -899,7 +915,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: isSmallDevice ? 12 : 14,
     paddingHorizontal: isSmallDevice ? 14 : 16,
-    backgroundColor: '#fff',
+    backgroundColor: COLORS.background,
   },
   iconContainer: {
     width: isSmallDevice ? 32 : (isLargeDevice ? 40 : 36),
@@ -920,7 +936,7 @@ const styles = StyleSheet.create({
   },
   separator: {
     height: 0.5,
-    backgroundColor: '#e5e7eb',
+    backgroundColor: COLORS.border,
     marginLeft: isSmallDevice ? 54 : (isLargeDevice ? 68 : 64),
   },
   igItemLogout: {
@@ -928,7 +944,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: isSmallDevice ? 12 : 14,
     paddingHorizontal: isSmallDevice ? 14 : 16,
-    backgroundColor: '#fff',
+    backgroundColor: COLORS.background,
     borderRadius: isSmallDevice ? 10 : 12,
     marginBottom: isSmallDevice ? 10 : 12,
     shadowColor: '#e74c3c',
@@ -944,24 +960,24 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   cancelButton: {
-    backgroundColor: '#fff',
+    backgroundColor: COLORS.background,
     borderRadius: isSmallDevice ? 10 : 12,
     paddingVertical: isSmallDevice ? 14 : 16,
     alignItems: 'center',
-    shadowColor: '#000',
+    shadowColor: COLORS.black,
     shadowOpacity: 0.03,
     shadowRadius: 4,
     shadowOffset: { width: 0, height: 1 },
     elevation: 1,
   },
   cancelText: {
-    color: '#6b7280',
+    color: COLORS.textSecondary,
     fontSize: isSmallDevice ? 15 : (isLargeDevice ? 17 : 16),
     fontWeight: '600',
   },
   notificationsModal: {
     flex: 1,
-    backgroundColor: '#fff',
+    backgroundColor: COLORS.background,
     marginTop: isSmallDevice ? 50 : 60,
   },
   notificationsHeader: {
@@ -971,7 +987,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: '#eee',
+    borderBottomColor: COLORS.border,
   },
   notificationsTitle: {
     fontSize: 20,
@@ -987,7 +1003,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 12,
     borderBottomWidth: 0.5,
-    borderBottomColor: '#f0f0f0',
+    borderBottomColor: COLORS.inputBg,
   },
   notificationContent: {
     flex: 1,
@@ -1000,19 +1016,19 @@ const styles = StyleSheet.create({
   },
   notificationType: {
     fontSize: 12,
-    color: '#FF8D00',
+    color: COLORS.primary,
     fontWeight: '600',
     marginBottom: 2,
   },
   notificationTime: {
     fontSize: 12,
-    color: '#999',
+    color: COLORS.textMuted,
   },
   unreadDot: {
     width: 10,
     height: 10,
     borderRadius: 5,
-    backgroundColor: '#FF8D00',
+    backgroundColor: COLORS.primary,
     marginLeft: 8,
   },
   emptyNotifications: {
@@ -1024,7 +1040,7 @@ const styles = StyleSheet.create({
   emptyNotificationsText: {
     marginTop: 16,
     fontSize: 16,
-    color: '#999',
+    color: COLORS.textMuted,
     fontWeight: '500',
   },
   miniOverlay: {
@@ -1035,8 +1051,8 @@ const styles = StyleSheet.create({
     height: isSmallDevice ? 280 : 320,
     borderRadius: 12,
     overflow: 'hidden',
-    backgroundColor: '#000',
-    shadowColor: '#000',
+    backgroundColor: COLORS.black,
+    shadowColor: COLORS.black,
     shadowOpacity: 0.2,
     shadowRadius: 8,
     shadowOffset: { width: 0, height: 2 },

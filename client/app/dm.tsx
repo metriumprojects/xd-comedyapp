@@ -43,6 +43,7 @@ import { useDMMedia } from '../hooks/useDMMedia';
 import { normalizeMediaUrl, normalizeAvatarUrl } from '../lib/utils/media';
 import { toDate, getRelativeTime } from '../lib/utils/date';
 import { OfflineBanner } from '@/src/_components/OfflineBanner';
+import COLORS from '@/src/theme/colors';
 import { 
   subscribeToMessages as socketSubscribeToMessages,
   initializeSocket,
@@ -590,15 +591,15 @@ export default function DM() {
     // Only show global loader if we have NO messages and are loading.
     // This allows cached messages to show instantly like Instagram.
     if (loading && messages.length === 0) {
-      return <View style={styles.centered}><ActivityIndicator size="large" color="#FF8D00" /></View>;
+      return <View style={styles.centered}><ActivityIndicator size="large" color={COLORS.primary} /></View>;
     }
     
     if (!conversationId && !loading) {
        return (
          <View style={styles.centered}>
            <Text style={{ color: '#94a3b8', marginBottom: 12 }}>Could not start chat</Text>
-           <TouchableOpacity onPress={() => router.back()} style={{ backgroundColor: '#FF8D00', padding: 10, borderRadius: 8 }}>
-             <Text style={{ color: '#fff' }}>Go Back</Text>
+           <TouchableOpacity onPress={() => router.back()} style={{ backgroundColor: COLORS.primary, padding: 10, borderRadius: 8 }}>
+             <Text style={{ color: COLORS.textLight }}>Go Back</Text>
            </TouchableOpacity>
          </View>
        );
@@ -705,8 +706,8 @@ export default function DM() {
             <View style={styles.optionsHandle} />
             <Text style={styles.optionsTitle}>Chat Settings</Text>
             <TouchableOpacity style={styles.optionsItem} onPress={handleClearChat}>
-              <Ionicons name="trash-outline" size={24} color="#ff3b30" />
-              <Text style={[styles.optionsLabel, { color: '#ff3b30' }]}>Clear Chat</Text>
+              <Ionicons name="trash-outline" size={24} color={COLORS.danger} />
+              <Text style={[styles.optionsLabel, { color: COLORS.danger }]}>Clear Chat</Text>
             </TouchableOpacity>
           </View>
         </Pressable>
@@ -714,9 +715,9 @@ export default function DM() {
 
       {/* Full Screen Image Viewer */}
       <Modal visible={!!viewerImage} transparent animationType="fade">
-        <View style={{ flex: 1, backgroundColor: '#000', justifyContent: 'center', alignItems: 'center' }}>
+        <View style={{ flex: 1, backgroundColor: COLORS.black, justifyContent: 'center', alignItems: 'center' }}>
           <TouchableOpacity style={{ position: 'absolute', top: 50, right: 20, zIndex: 10 }} onPress={() => setViewerImage(null)}>
-            <Ionicons name="close" size={32} color="#fff" />
+            <Ionicons name="close" size={32} color={COLORS.textLight} />
           </TouchableOpacity>
           <Image source={{ uri: viewerImage! }} style={{ width: '100%', height: '80%', resizeMode: 'contain' }} />
         </View>
@@ -747,18 +748,18 @@ export default function DM() {
                    setTimeout(() => setShowEmojiPicker(true), 300);
                  }}
                >
-                 <Ionicons name="add" size={22} color="#666" />
+                 <Ionicons name="add" size={22} color={COLORS.textSecondary} />
                </TouchableOpacity>
              </View>
              {/* Action Items */}
              <TouchableOpacity style={styles.instaMenuItem} onPress={() => { setReplyingTo(selectedMessage); setShowMessageMenu(false); }}>
                <Text style={styles.instaMenuLabel}>Reply</Text>
-               <Ionicons name="arrow-undo-outline" size={22} color="#000" />
+               <Ionicons name="arrow-undo-outline" size={22} color={COLORS.black} />
              </TouchableOpacity>
              {selectedMessage?.senderId === currentUserId && (
                <TouchableOpacity style={styles.instaMenuItem} onPress={() => { setEditingMessage(selectedMessage); setInput(selectedMessage.text); setShowMessageMenu(false); }}>
                  <Text style={styles.instaMenuLabel}>Edit</Text>
-                 <Ionicons name="create-outline" size={22} color="#000" />
+                 <Ionicons name="create-outline" size={22} color={COLORS.black} />
                </TouchableOpacity>
              )}
            </View>
@@ -769,21 +770,21 @@ export default function DM() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#fff' },
+  container: { flex: 1, backgroundColor: COLORS.background },
   centered: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   dateWrap: { alignSelf: 'center', marginVertical: 24 },
-  dateText: { fontSize: 12, color: '#8e8e8e', fontWeight: '500' },
+  dateText: { fontSize: 12, color: COLORS.textMuted, fontWeight: '500' },
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
-  optionsContainer: { backgroundColor: '#fff', borderTopLeftRadius: 20, borderTopRightRadius: 20, paddingTop: 10, paddingBottom: 40, paddingHorizontal: 20 },
-  optionsHandle: { width: 40, height: 4, backgroundColor: '#dbdbdb', borderRadius: 2, alignSelf: 'center', marginBottom: 20 },
-  optionsTitle: { fontSize: 16, fontWeight: '700', textAlign: 'center', marginBottom: 20, color: '#000' },
+  optionsContainer: { backgroundColor: COLORS.card, borderTopLeftRadius: 20, borderTopRightRadius: 20, paddingTop: 10, paddingBottom: 40, paddingHorizontal: 20 },
+  optionsHandle: { width: 40, height: 4, backgroundColor: COLORS.border, borderRadius: 2, alignSelf: 'center', marginBottom: 20 },
+  optionsTitle: { fontSize: 16, fontWeight: '700', textAlign: 'center', marginBottom: 20, color: COLORS.textPrimary },
   optionsItem: { flexDirection: 'row', alignItems: 'center', paddingVertical: 15 },
-  optionsLabel: { marginLeft: 15, fontSize: 16, fontWeight: '500', color: '#000' },
-  instaMenuOptions: { backgroundColor: '#fff', borderRadius: 15, overflow: 'hidden', marginHorizontal: 20, marginBottom: 20 },
-  instaMenuItem: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 12, borderTopWidth: 0.5, borderTopColor: '#f0f0f0' },
-  instaMenuLabel: { fontSize: 16, fontWeight: '500', color: '#000' },
+  optionsLabel: { marginLeft: 15, fontSize: 16, fontWeight: '500', color: COLORS.textPrimary },
+  instaMenuOptions: { backgroundColor: COLORS.card, borderRadius: 15, overflow: 'hidden', marginHorizontal: 20, marginBottom: 20 },
+  instaMenuItem: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 12, borderTopWidth: 0.5, borderTopColor: COLORS.border },
+  instaMenuLabel: { fontSize: 16, fontWeight: '500', color: COLORS.textPrimary },
   reactionBar: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 12, paddingHorizontal: 8, gap: 4 },
   reactionBtn: { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center' },
   reactionEmoji: { fontSize: 24 },
-  reactionBtnPlus: { width: 36, height: 36, borderRadius: 18, backgroundColor: '#f0f0f0', alignItems: 'center', justifyContent: 'center', marginLeft: 4 },
+  reactionBtnPlus: { width: 36, height: 36, borderRadius: 18, backgroundColor: COLORS.inputBg, alignItems: 'center', justifyContent: 'center', marginLeft: 4 },
 });

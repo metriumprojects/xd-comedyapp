@@ -1,6 +1,7 @@
 import * as Haptics from 'expo-haptics';
 import React from 'react';
 import { ActivityIndicator, StyleSheet, Text, TouchableOpacity } from 'react-native';
+import COLORS from '@/src/theme/colors';
 
 interface FollowButtonProps {
   status: 'none' | 'pending' | 'approved';
@@ -22,14 +23,14 @@ const FollowButton: React.FC<FollowButtonProps> = ({ status, loading, onPress })
       }}
       disabled={loading}
     >
-      {loading ? <ActivityIndicator color="#fff" /> : <Text style={styles.text}>{label}</Text>}
+      {loading ? <ActivityIndicator color={COLORS.textLight} /> : <Text style={styles.text}>{label}</Text>}
     </TouchableOpacity>
   );
 };
 
 const styles = StyleSheet.create({
   button: {
-    backgroundColor: '#007AFF',
+    backgroundColor: COLORS.primary,
     paddingVertical: 10,
     paddingHorizontal: 24,
     borderRadius: 24,
@@ -37,7 +38,7 @@ const styles = StyleSheet.create({
     marginVertical: 8,
   },
   text: {
-    color: '#fff',
+    color: COLORS.textLight,
     fontWeight: 'bold',
     fontSize: 16,
   },

@@ -22,6 +22,7 @@ import * as ImagePicker from 'expo-image-picker';
 import * as ImageManipulator from 'expo-image-manipulator';
 import { createStory } from '@/lib/firebaseHelpers';
 import { feedEventEmitter } from '@/lib/feedEventEmitter';
+import COLORS from '@/src/theme/colors';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 const isSmallDevice = SCREEN_HEIGHT < 700;
@@ -72,14 +73,14 @@ export const UploadStoryModal: React.FC<UploadStoryModalProps> = ({
 }) => {
   return (
     <Modal visible={visible} animationType="slide" transparent={false} onRequestClose={onClose}>
-      <SafeAreaView style={{ flex: 1, backgroundColor: '#fff' }}>
+      <SafeAreaView style={{ flex: 1, backgroundColor: COLORS.background }}>
         <KeyboardAvoidingView
           behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
           style={{ flex: 1 }}
         >
           <View style={styles.modalHeader}>
             <TouchableOpacity onPress={onClose} disabled={uploading}>
-              <Feather name="x" size={24} color="#333" />
+              <Feather name="x" size={24} color={COLORS.textPrimary} />
             </TouchableOpacity>
             <Text style={styles.modalTitle}>New Story</Text>
             <View style={{ width: 24 }} />
@@ -123,7 +124,7 @@ export const UploadStoryModal: React.FC<UploadStoryModalProps> = ({
                       }
                     }}
                   >
-                    <Feather name="edit-2" size={16} color="#007aff" />
+                    <Feather name="edit-2" size={16} color={COLORS.info} />
                     <Text style={styles.changeMediaText}>Change</Text>
                   </TouchableOpacity>
                 </View>
@@ -137,7 +138,7 @@ export const UploadStoryModal: React.FC<UploadStoryModalProps> = ({
                   value={selectedMedia?.caption || ''}
                   onChangeText={text => setSelectedMedia((prev: any) => prev ? { ...prev, caption: text } : prev)}
                   style={styles.inputField}
-                  placeholderTextColor="#999"
+                  placeholderTextColor={COLORS.textMuted}
                   multiline
                 />
               </View>
@@ -147,13 +148,13 @@ export const UploadStoryModal: React.FC<UploadStoryModalProps> = ({
                 <Text style={styles.inputLabel}>Location (Optional)</Text>
                 <View style={{ position: 'relative' }}>
                   <View style={styles.locationInputContainer}>
-                    <Feather name="map-pin" size={18} color="#666" />
+                    <Feather name="map-pin" size={18} color={COLORS.textSecondary} />
                     <TextInput
                       placeholder="Add location..."
                       value={locationQuery}
                       onChangeText={setLocationQuery}
                       style={styles.locationInput}
-                      placeholderTextColor="#999"
+                      placeholderTextColor={COLORS.textMuted}
                     />
                   </View>
                   {locationSuggestions.length > 0 && (
@@ -173,7 +174,7 @@ export const UploadStoryModal: React.FC<UploadStoryModalProps> = ({
                               setLocationSuggestions([]);
                             }}
                           >
-                            <Feather name="map-pin" size={16} color="#007aff" style={{ marginRight: 8 }} />
+                            <Feather name="map-pin" size={16} color={COLORS.info} style={{ marginRight: 8 }} />
                             <View style={{ flex: 1 }}>
                               <Text style={styles.locationName}>{item.name}</Text>
                               <Text style={styles.locationAddress} numberOfLines={1}>{item.address}</Text>
@@ -189,7 +190,7 @@ export const UploadStoryModal: React.FC<UploadStoryModalProps> = ({
               {/* Upload Progress */}
               {uploading && (
                 <View style={styles.uploadingArea}>
-                  <ActivityIndicator size="small" color="#007aff" style={{ marginBottom: 8 }} />
+                  <ActivityIndicator size="small" color={COLORS.info} style={{ marginBottom: 8 }} />
                   <Text style={styles.uploadingText}>Uploading {uploadProgress}%</Text>
                   <View style={styles.uploadingBarBg}>
                     <View style={[styles.uploadingBar, { width: `${uploadProgress}%` }]} />
@@ -261,12 +262,12 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingVertical: responsiveValues.spacing,
     paddingHorizontal: responsiveValues.modalPadding,
-    backgroundColor: '#fff',
+    backgroundColor: COLORS.background,
   },
   modalTitle: {
     fontSize: responsiveValues.titleSize,
     fontWeight: '700',
-    color: '#222',
+    color: COLORS.textPrimary,
   },
   mediaPreviewContainer: {
     marginTop: responsiveValues.spacingLarge,
@@ -276,7 +277,7 @@ const styles = StyleSheet.create({
     width: '100%',
     height: responsiveValues.imageHeight,
     borderRadius: 12,
-    backgroundColor: '#f5f5f5',
+    backgroundColor: COLORS.surface,
   },
   changeMediaButton: {
     flexDirection: 'row',
@@ -287,7 +288,7 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   changeMediaText: {
-    color: '#007aff',
+    color: COLORS.info,
     fontSize: 15,
     fontWeight: '600',
   },
@@ -300,34 +301,34 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     fontSize: responsiveValues.labelSize,
     marginBottom: 8,
-    color: '#666',
+    color: COLORS.textSecondary,
   },
   inputField: {
     minHeight: responsiveValues.inputHeight,
     fontSize: responsiveValues.inputSize,
-    backgroundColor: '#f5f5f5',
+    backgroundColor: COLORS.surface,
     borderRadius: 12,
     paddingHorizontal: responsiveValues.spacing,
     paddingVertical: 12,
     borderWidth: 1,
-    borderColor: '#e0e0e0',
-    color: '#222',
+    borderColor: COLORS.border,
+    color: COLORS.textPrimary,
   },
   locationInputContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#f5f5f5',
+    backgroundColor: COLORS.surface,
     borderRadius: 12,
     paddingHorizontal: responsiveValues.spacing,
     borderWidth: 1,
-    borderColor: '#e0e0e0',
+    borderColor: COLORS.border,
     gap: 10,
     height: responsiveValues.inputHeight,
   },
   locationInput: {
     flex: 1,
     fontSize: responsiveValues.inputSize,
-    color: '#222',
+    color: COLORS.textPrimary,
     height: '100%',
   },
   uploadingArea: {
@@ -337,34 +338,34 @@ const styles = StyleSheet.create({
   },
   uploadingText: {
     marginBottom: 8,
-    color: '#666',
+    color: COLORS.textSecondary,
     fontWeight: '600',
     fontSize: 14,
   },
   uploadingBarBg: {
     width: '100%',
     height: 6,
-    backgroundColor: '#e0e0e0',
+    backgroundColor: COLORS.border,
     borderRadius: 3,
     overflow: 'hidden',
   },
   uploadingBar: {
     height: 6,
-    backgroundColor: '#007aff',
+    backgroundColor: COLORS.info,
     borderRadius: 3,
   },
   shareButton: {
     width: '100%',
-    backgroundColor: '#007aff',
+    backgroundColor: COLORS.info,
     paddingVertical: 14,
     borderRadius: 12,
     alignItems: 'center',
   },
   shareButtonDisabled: {
-    backgroundColor: '#ccc',
+    backgroundColor: COLORS.border,
   },
   shareButtonText: {
-    color: '#fff',
+    color: COLORS.textLight,
     fontWeight: '700',
     fontSize: 16,
   },
@@ -373,10 +374,10 @@ const styles = StyleSheet.create({
     top: responsiveValues.inputHeight + 4,
     left: 0,
     right: 0,
-    backgroundColor: '#fff',
+    backgroundColor: COLORS.background,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#e0e0e0',
+    borderColor: COLORS.border,
     maxHeight: 200,
     zIndex: 1000,
     elevation: 4,
@@ -386,15 +387,15 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     padding: 12,
     borderBottomWidth: 1,
-    borderBottomColor: '#f0f0f0',
+    borderBottomColor: COLORS.inputBg,
   },
   locationName: {
-    color: '#222',
+    color: COLORS.textPrimary,
     fontSize: 14,
     fontWeight: '600',
   },
   locationAddress: {
-    color: '#999',
+    color: COLORS.textMuted,
     fontSize: 12,
   },
 });

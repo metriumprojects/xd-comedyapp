@@ -1,8 +1,9 @@
 import React from 'react';
 import { ActivityIndicator, StyleSheet, View } from 'react-native';
+import COLORS from '@/src/theme/colors';
 
 export function CenteredLoader({
-  color = '#FF8D00',
+  color = COLORS.primary,
   size = 'large',
 }: {
   color?: string;

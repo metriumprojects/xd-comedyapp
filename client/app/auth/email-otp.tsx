@@ -8,6 +8,7 @@ import { AuthBrandHeader } from '@/src/_components/auth/AuthBrandHeader';
 import { AuthKeyboardScroll } from '@/src/_components/auth/AuthKeyboardScroll';
 import CustomButton from '@/src/_components/auth/CustomButton';
 import { safeRouterBack } from '@/lib/safeRouterBack';
+import COLORS from '@/src/theme/colors';
 
 export default function EmailOTPScreen() {
   const router = useRouter();
@@ -156,7 +157,7 @@ export default function EmailOTPScreen() {
                 onPress={() => safeRouterBack()}
                 style={styles.backButton}
               >
-                <Ionicons name="arrow-back" size={24} color="#000" />
+                <Ionicons name="arrow-back" size={24} color={COLORS.black} />
               </TouchableOpacity>
             </View>
 
@@ -171,7 +172,7 @@ export default function EmailOTPScreen() {
             {/* Email Icon */}
             <View style={styles.iconContainer}>
               <View style={styles.iconCircle}>
-                <Ionicons name="mail" size={40} color="#FF8D00" />
+                <Ionicons name="mail" size={40} color={COLORS.primary} />
               </View>
               <Text style={styles.iconText}>Check your email inbox</Text>
             </View>
@@ -228,14 +229,14 @@ export default function EmailOTPScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#fff',
+    backgroundColor: COLORS.background,
   },
   scrollContent: {
     flexGrow: 1,
   },
   content: {
     flex: 1,
-    padding: 15,
+    padding: 20,
     paddingBottom: 10,
   },
   header: {
@@ -257,14 +258,14 @@ const styles = StyleSheet.create({
     width: 60,
     height: 60,
     borderRadius: 30,
-    backgroundColor: '#fff5e6',
+    backgroundColor: COLORS.primaryLight,
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 8,
   },
   iconText: {
     fontSize: 14,
-    color: '#666',
+    color: COLORS.textSecondary,
   },
   otpContainer: {
     marginBottom: 20,
@@ -272,7 +273,7 @@ const styles = StyleSheet.create({
   label: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#000',
+    color: COLORS.textPrimary,
     marginBottom: 12,
   },
   otpInputRow: {
@@ -284,20 +285,20 @@ const styles = StyleSheet.create({
     width: 50,
     height: 56,
     borderWidth: 1,
-    borderColor: '#ddd',
+    borderColor: COLORS.border,
     borderRadius: 8,
     textAlign: 'center',
     fontSize: 24,
     fontWeight: '600',
-    color: '#000',
-    backgroundColor: '#fff',
+    color: COLORS.textPrimary,
+    backgroundColor: COLORS.background,
   },
   otpInputFilled: {
-    borderColor: '#FF8D00',
-    backgroundColor: '#fff5e6',
+    borderColor: COLORS.primary,
+    backgroundColor: COLORS.primaryLight,
   },
   errorText: {
-    color: '#e74c3c',
+    color: COLORS.danger,
     fontSize: 12,
     marginTop: 8,
   },
@@ -311,12 +312,11 @@ const styles = StyleSheet.create({
   },
   resendText: {
     fontSize: 14,
-    color: '#666',
+    color: COLORS.textSecondary,
   },
   resendLink: {
     fontSize: 14,
-    color: '#FF8D00',
+    color: COLORS.primary,
     fontWeight: '600',
   },
 });
-

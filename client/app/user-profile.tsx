@@ -4,6 +4,7 @@ import { StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import AsyncStorage from '@/lib/storage';
 import Profile from './(tabs)/profile';
+import COLORS from '@/src/theme/colors';
 
 // Wrapper route so viewing another user's profile doesn't activate the bottom Profile tab.
 // Also add safe-area and vertical spacing so content is not flush to edges.
@@ -59,5 +60,5 @@ export default function UserProfileWrapper() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#fff' },
+  container: { flex: 1, backgroundColor: COLORS.background },
 });

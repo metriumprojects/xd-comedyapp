@@ -11,9 +11,12 @@ import { getCachedData, setCachedData, useOfflineBanner, useNetworkStatus } from
 import { OfflineBanner } from '@/src/_components/OfflineBanner';
 import { safeRouterBack } from '@/lib/safeRouterBack';
 import { resolveCanonicalUserId } from '../lib/currentUser';
+import COLORS from '@/src/theme/colors';
 
 export default function PostDetailScreen() {
-  const { id, openComments } = useLocalSearchParams();
+  const params = useLocalSearchParams();
+  const id = (params.id || params.postId) as string;
+  const openComments = params.openComments;
   const router = useRouter();
   const [currentUser, setCurrentUser] = useState<any>(null);
   const [post, setPost] = useState<any>(null);
@@ -152,7 +155,7 @@ export default function PostDetailScreen() {
   if (loading) {
     return (
       <SafeAreaView style={styles.container} edges={["top", "bottom"]}>
-        <ActivityIndicator size="small" color="#999" style={{ marginTop: 40 }} />
+        <ActivityIndicator size="small" color={COLORS.textMuted} style={{ marginTop: 40 }} />
       </SafeAreaView>
     );
   }
@@ -202,17 +205,17 @@ export default function PostDetailScreen() {
                 setCommentModalVisible(false);
               }}
             />
-            <View style={{ backgroundColor: '#fff', height: '80%', borderTopLeftRadius: 20, borderTopRightRadius: 20 }}>
-              <View style={{ width: 40, height: 4, backgroundColor: '#eee', borderRadius: 2, alignSelf: 'center', marginVertical: 10 }} />
-              <View style={{ flexDirection: 'row', justifyContent: 'space-between', paddingHorizontal: 16, paddingBottom: 10, borderBottomWidth: 0.5, borderBottomColor: '#eee' }}>
-                <Text style={{ fontWeight: '700', fontSize: 16 }}>Comments</Text>
+            <View style={{ backgroundColor: COLORS.card, height: '80%', borderTopLeftRadius: 20, borderTopRightRadius: 20 }}>
+              <View style={{ width: 40, height: 4, backgroundColor: COLORS.border, borderRadius: 2, alignSelf: 'center', marginVertical: 10 }} />
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between', paddingHorizontal: 16, paddingBottom: 10, borderBottomWidth: 0.5, borderBottomColor: COLORS.border }}>
+                <Text style={{ fontWeight: '700', fontSize: 16, color: COLORS.textPrimary }}>Comments</Text>
                 <TouchableOpacity
                   onPress={() => {
                     hapticLight();
                     setCommentModalVisible(false);
                   }}
                 >
-                  <Ionicons name="close" size={24} color="#333" />
+                  <Ionicons name="close" size={24} color={COLORS.textSecondary} />
                 </TouchableOpacity>
               </View>
               <CommentSection
@@ -232,6 +235,6 @@ export default function PostDetailScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#fff',
+    backgroundColor: COLORS.background,
   },
 });

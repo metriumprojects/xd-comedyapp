@@ -1,5 +1,6 @@
 import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
+import COLORS from '@/src/theme/colors';
 
 const HeaderBar = ({ title }: { title: string }) => (
   <View style={styles.container}>
@@ -11,15 +12,15 @@ const styles = StyleSheet.create({
   container: {
     paddingTop: 32,
     paddingBottom: 16,
-    backgroundColor: '#fff',
+    backgroundColor: COLORS.background,
     alignItems: 'center',
     borderBottomWidth: 1,
-    borderBottomColor: '#eee',
+    borderBottomColor: COLORS.border,
   },
   title: {
     fontSize: 22,
     fontWeight: 'bold',
-    color: '#222',
+    color: COLORS.textPrimary,
   },
 });
 

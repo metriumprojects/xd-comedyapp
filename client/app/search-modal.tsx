@@ -1,19 +1,19 @@
 import { DEFAULT_AVATAR_URL } from '../lib/api';
 import { Feather, Ionicons } from "@expo/vector-icons";
-import { useRouter, useFocusEffect } from "expo-router";
+import { useRouter, useFocusEffect, useLocalSearchParams } from "expo-router";
 import * as Haptics from 'expo-haptics';
 import React, { useEffect, useMemo, useState, useCallback, useRef } from "react";
 import AsyncStorage from '@/lib/storage';
-import { 
-  View, 
-  Text, 
-  TouchableOpacity, 
-  ScrollView, 
-  TextInput, 
-  StyleSheet, 
-  Keyboard, 
-  Platform, 
-  ActivityIndicator, 
+import {
+  View,
+  Text,
+  TouchableOpacity,
+  ScrollView,
+  TextInput,
+  StyleSheet,
+  Keyboard,
+  Platform,
+  ActivityIndicator,
   FlatList,
   Alert,
   Dimensions,
@@ -23,6 +23,7 @@ import {
 import { Image as ExpoImage } from 'expo-image';
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { searchUsers } from "../lib/firebaseHelpers/index";
+import COLORS from "@/src/theme/colors";
 import { safeRouterBack } from '@/lib/safeRouterBack';
 import { apiService } from '@/src/_services/apiService';
 import PostViewerModal from '@/src/_components/PostViewerModal';
@@ -40,14 +41,18 @@ type User = {
   isPrivate?: boolean;
 };
 
-type SearchFilter = 'videos' | 'users' | 'location' | 'laugh' | 'tomato';
+interface SearchModalProps {
+  initialQuery?: string;
+}
 
-export default function SearchModal() {
+export default function SearchModal({ initialQuery: propQuery }: SearchModalProps = {}) {
   const router = useRouter();
+  const params = useLocalSearchParams();
   const insets = useSafeAreaInsets();
 
-  const [q, setQ] = useState<string>('');
-  const [filter, setFilter] = useState<SearchFilter>('videos');
+  const queryFromParams = (propQuery || params.initialQuery || params.q || params.query || '') as string;
+  const [q, setQ] = useState<string>(queryFromParams);
+  const [filter, setFilter] = useState<'videos' | 'users' | 'all'>('videos');
   const inputRef = useRef<TextInput>(null);
 
   useFocusEffect(
@@ -82,20 +87,30 @@ export default function SearchModal() {
       if (val) {
         try {
           setHistory(JSON.parse(val));
-        } catch {}
+        } catch { }
       }
-    }).catch(() => {});
+    }).catch(() => { });
   }, []);
 
-  // Reset when screen is focused
+  // Auto-execute search when initial query parameter is passed
+  useEffect(() => {
+    if (queryFromParams && queryFromParams.trim().length > 0) {
+      setQ(queryFromParams);
+      handleSearchSubmit(queryFromParams);
+    }
+  }, [queryFromParams]);
+
+  // Reset state when screen is focused without query parameter
   useFocusEffect(
     useCallback(() => {
-      setQ('');
-      setHasSearched(false);
-      setPostsResults([]);
-      setUsersResults([]);
-      setError(false);
-    }, [])
+      if (!queryFromParams) {
+        setQ('');
+        setHasSearched(false);
+        setPostsResults([]);
+        setUsersResults([]);
+        setError(false);
+      }
+    }, [queryFromParams])
   );
 
   const handleSearchSubmit = async (queryText = q) => {
@@ -107,7 +122,7 @@ export default function SearchModal() {
     setHistory(prev => {
       const filtered = prev.filter(h => h.toLowerCase() !== trimmed.toLowerCase());
       const next = [trimmed, ...filtered].slice(0, 10);
-      AsyncStorage.setItem(SEARCH_HISTORY_KEY, JSON.stringify(next)).catch(() => {});
+      AsyncStorage.setItem(SEARCH_HISTORY_KEY, JSON.stringify(next)).catch(() => { });
       return next;
     });
 
@@ -128,11 +143,10 @@ export default function SearchModal() {
         const res = await apiService.get('/posts/search', {
           params: { q: trimmed, filter }
         });
-        if (res.success && Array.isArray(res.data)) {
-          setPostsResults(res.data);
-        } else {
-          setPostsResults([]);
-        }
+        const list = Array.isArray(res?.data)
+          ? res.data
+          : (Array.isArray(res?.data?.data) ? res.data.data : (Array.isArray(res) ? res : []));
+        setPostsResults(list);
       }
     } catch (err) {
       console.error('[SearchModal] Search error:', err);
@@ -152,7 +166,7 @@ export default function SearchModal() {
   const deleteHistoryItem = (itemToDelete: string) => {
     setHistory(prev => {
       const next = prev.filter(h => h !== itemToDelete);
-      AsyncStorage.setItem(SEARCH_HISTORY_KEY, JSON.stringify(next)).catch(() => {});
+      AsyncStorage.setItem(SEARCH_HISTORY_KEY, JSON.stringify(next)).catch(() => { });
       return next;
     });
   };
@@ -208,7 +222,7 @@ export default function SearchModal() {
           {/* Stats Overlay */}
           <View style={styles.statsOverlayRow}>
             <View style={styles.statOverlayItem}>
-              <Feather name="play" size={10} color="#fff" style={{ marginRight: 2 }} />
+              <Feather name="play" size={10} color={COLORS.textLight} style={{ marginRight: 2 }} />
               <Text style={styles.statOverlayText}>{formatCount(views)}</Text>
             </View>
             <View style={{ flex: 1 }} />
@@ -244,12 +258,12 @@ export default function SearchModal() {
     <SafeAreaView style={styles.container} edges={['left', 'right']}>
       <View style={{ flex: 1, paddingTop: Math.max(insets.top + 2, 0) }}>
         <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
-          
+
           {/* Header Bar */}
           <View style={styles.searchHeader}>
             <TouchableOpacity
               onPress={() => {
-                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => { });
                 if (hasSearched) {
                   setHasSearched(false);
                 } else {
@@ -258,17 +272,17 @@ export default function SearchModal() {
               }}
               style={styles.backBtn}
             >
-              <Feather name="arrow-left" size={24} color="#333" />
+              <Feather name="arrow-left" size={24} color={COLORS.textPrimary} />
             </TouchableOpacity>
 
             <View style={styles.searchBarContainer}>
-              <Feather name="search" size={18} color="#666" style={styles.searchIcon} />
+              <Feather name="search" size={18} color={COLORS.textSecondary} style={styles.searchIcon} />
               <TextInput
                 ref={inputRef}
                 autoFocus={true}
                 style={styles.searchInput}
-                placeholder="Search"
-                placeholderTextColor="#999"
+                placeholder={filter === 'users' ? 'Search creators, comedians, friends...' : filter === 'videos' ? 'Search funny clips, standup...' : 'Search funny clips, creators & hashtags...'}
+                placeholderTextColor={COLORS.textMuted}
                 value={q}
                 onChangeText={setQ}
                 onSubmitEditing={() => handleSearchSubmit()}
@@ -284,15 +298,19 @@ export default function SearchModal() {
             </View>
 
             <TouchableOpacity
-              onPress={() => handleSearchSubmit()}
-              style={styles.searchSubmitBtn}
+              onPress={() => {
+                if (q.trim().length > 0) handleSearchSubmit();
+              }}
+              style={[styles.searchSubmitBtn, q.trim().length === 0 && styles.searchSubmitBtnDisabled]}
+              disabled={q.trim().length === 0}
+              activeOpacity={q.trim().length === 0 ? 1 : 0.7}
             >
-              <Text style={styles.searchSubmitBtnText}>Search</Text>
+              <Text style={[styles.searchSubmitBtnText, q.trim().length === 0 && styles.searchSubmitBtnTextDisabled]}>Search</Text>
             </TouchableOpacity>
           </View>
 
           {/* Body Content */}
-          <View style={{ flex: 1, backgroundColor: '#fff' }}>
+          <View style={{ flex: 1, backgroundColor: COLORS.background }}>
             {!hasSearched ? (
               /* Search History List */
               <FlatList
@@ -305,7 +323,7 @@ export default function SearchModal() {
                       style={styles.historyClickable}
                       onPress={() => handleSearchSubmit(item)}
                     >
-                      <Feather name="clock" size={16} color="#8e8e93" style={{ marginRight: 12 }} />
+                      <Feather name="clock" size={16} color={COLORS.textMuted} style={{ marginRight: 12 }} />
                       <Text style={styles.historyText}>{item}</Text>
                     </TouchableOpacity>
                     <TouchableOpacity
@@ -323,7 +341,7 @@ export default function SearchModal() {
                 }
                 ListEmptyComponent={
                   <View style={styles.emptyContainer}>
-                    <Feather name="search" size={48} color="#e5e5ea" style={{ marginBottom: 12 }} />
+                    <Feather name="search" size={48} color={COLORS.border} style={{ marginBottom: 12 }} />
                     <Text style={styles.emptyText}>Search comedy videos, creators, or tags</Text>
                   </View>
                 }
@@ -350,7 +368,7 @@ export default function SearchModal() {
                         <TouchableOpacity
                           key={item.key}
                           onPress={() => {
-                            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+                            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => { });
                             setFilter(item.key as SearchFilter);
                           }}
                           style={[
@@ -375,11 +393,11 @@ export default function SearchModal() {
                 {/* List/Grid of Results */}
                 {loading ? (
                   <View style={styles.loadingContainer}>
-                    <ActivityIndicator size="large" color="#FF8D00" />
+                    <ActivityIndicator size="large" color={COLORS.primary} />
                   </View>
                 ) : error ? (
                   <View style={styles.emptyContainer}>
-                    <Text style={{ color: '#ff3b30', fontSize: 15 }}>Failed to load results. Please try again.</Text>
+                    <Text style={{ color: COLORS.danger, fontSize: 15 }}>Failed to load results. Please try again.</Text>
                   </View>
                 ) : filter === 'users' ? (
                   /* Users Results list */
@@ -395,7 +413,7 @@ export default function SearchModal() {
                           <TouchableOpacity
                             style={{ flexDirection: 'row', flex: 1, alignItems: 'center' }}
                             onPress={() => {
-                              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+                              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => { });
                               if (isOwn) {
                                 router.push('/(tabs)/profile');
                               } else {
@@ -465,14 +483,14 @@ export default function SearchModal() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#fff',
+    backgroundColor: COLORS.background,
   },
   searchHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 12,
     paddingVertical: 10,
-    backgroundColor: '#fff',
+    backgroundColor: COLORS.card,
   },
   backBtn: {
     padding: 6,
@@ -482,7 +500,7 @@ const styles = StyleSheet.create({
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#f2f2f7',
+    backgroundColor: COLORS.inputBg,
     borderRadius: 10,
     paddingHorizontal: 10,
     height: 38,
@@ -493,7 +511,7 @@ const styles = StyleSheet.create({
   searchInput: {
     flex: 1,
     fontSize: 15,
-    color: '#000',
+    color: COLORS.textPrimary,
     padding: 0,
   },
   clearBtn: {
@@ -503,16 +521,23 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     paddingHorizontal: 12,
     marginLeft: 8,
+    borderRadius: 8,
+  },
+  searchSubmitBtnDisabled: {
+    opacity: 0.35,
   },
   searchSubmitBtnText: {
     fontSize: 15,
     fontWeight: '600',
-    color: '#FF8D00',
+    color: COLORS.primary,
+  },
+  searchSubmitBtnTextDisabled: {
+    color: COLORS.textMuted,
   },
   historyHeader: {
     fontSize: 13,
     fontWeight: '600',
-    color: '#8e8e93',
+    color: COLORS.textSecondary,
     paddingHorizontal: 16,
     paddingTop: 16,
     paddingBottom: 8,
@@ -524,7 +549,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 12,
     borderBottomWidth: 0.5,
-    borderBottomColor: '#f2f2f7',
+    borderBottomColor: COLORS.border,
   },
   historyClickable: {
     flexDirection: 'row',
@@ -533,7 +558,7 @@ const styles = StyleSheet.create({
   },
   historyText: {
     fontSize: 16,
-    color: '#333',
+    color: COLORS.textPrimary,
   },
   historyDeleteBtn: {
     padding: 8,
@@ -547,15 +572,15 @@ const styles = StyleSheet.create({
   },
   emptyText: {
     fontSize: 15,
-    color: '#8e8e93',
+    color: COLORS.textSecondary,
     textAlign: 'center',
     lineHeight: 20,
   },
   filterPillsContainer: {
     paddingVertical: 10,
-    backgroundColor: '#fff',
+    backgroundColor: COLORS.card,
     borderBottomWidth: 0.5,
-    borderBottomColor: '#f2f2f7',
+    borderBottomColor: COLORS.border,
   },
   filterPillsRow: {
     paddingHorizontal: 12,
@@ -570,22 +595,22 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   filterPillActive: {
-    backgroundColor: '#FF8D00',
-    borderColor: '#FF8D00',
+    backgroundColor: COLORS.primary,
+    borderColor: COLORS.primary,
   },
   filterPillInactive: {
-    backgroundColor: '#fff',
-    borderColor: '#e5e5ea',
+    backgroundColor: COLORS.card,
+    borderColor: COLORS.border,
   },
   filterPillText: {
     fontSize: 14,
     fontWeight: '500',
   },
   filterPillTextActive: {
-    color: '#fff',
+    color: COLORS.textLight,
   },
   filterPillTextInactive: {
-    color: '#333',
+    color: COLORS.textSecondary,
   },
   loadingContainer: {
     flex: 1,
@@ -597,22 +622,22 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 12,
     borderBottomWidth: 0.5,
-    borderBottomColor: '#f2f2f7',
+    borderBottomColor: COLORS.border,
   },
   avatarImage: {
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: '#f2f2f7',
+    backgroundColor: COLORS.inputBg,
   },
   userDisplayName: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#111',
+    color: COLORS.textPrimary,
   },
   userBio: {
     fontSize: 13,
-    color: '#8e8e93',
+    color: COLORS.textSecondary,
     marginTop: 2,
   },
   gridColumnWrapper: {
@@ -629,7 +654,7 @@ const styles = StyleSheet.create({
     height: 200,
     borderRadius: 8,
     overflow: 'hidden',
-    backgroundColor: '#f2f2f7',
+    backgroundColor: COLORS.inputBg,
     position: 'relative',
   },
   thumbnail: {
@@ -652,14 +677,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   statOverlayText: {
-    color: '#fff',
+    color: COLORS.textLight,
     fontSize: 10,
     fontWeight: '600',
   },
   gridCaption: {
     fontSize: 13,
     fontWeight: '500',
-    color: '#111',
+    color: COLORS.textPrimary,
     marginTop: 6,
     lineHeight: 17,
   },
@@ -672,7 +697,7 @@ const styles = StyleSheet.create({
     width: 24,
     height: 24,
     borderRadius: 12,
-    backgroundColor: '#f2f2f7',
+    backgroundColor: COLORS.inputBg,
     marginRight: 8,
   },
   creatorInfo: {
@@ -681,11 +706,11 @@ const styles = StyleSheet.create({
   creatorName: {
     fontSize: 12,
     fontWeight: '400',
-    color: '#666',
+    color: COLORS.textSecondary,
   },
   timeText: {
     fontSize: 10,
-    color: '#999',
+    color: COLORS.textMuted,
     marginTop: 1,
   },
 });

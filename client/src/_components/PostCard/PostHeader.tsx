@@ -5,6 +5,7 @@ import { Feather } from "@expo/vector-icons";
 import { styles } from './PostCard.styles';
 import { DEFAULT_AVATAR_URL } from '../../../lib/api';
 import VerifiedBadge from '../VerifiedBadge';
+import COLORS from '@/src/theme/colors';
 
 interface PostHeaderProps {
   post: any;
@@ -57,7 +58,7 @@ const PostHeader: React.FC<PostHeaderProps> = ({
               </Text>
               {post?.locationData?.verified && (
                 <View style={{ marginLeft: 3 }}>
-                  <VerifiedBadge size={12} color="#000" />
+                  <VerifiedBadge size={12} color={COLORS.black} />
                 </View>
               )}
               <View style={styles.cardHeaderDot} />
@@ -68,7 +69,7 @@ const PostHeader: React.FC<PostHeaderProps> = ({
       </View>
       {showMenu && (
         <TouchableOpacity onPress={onMenuPress} style={{ padding: 4 }}>
-          <Feather name="more-vertical" size={20} color="#666" />
+          <Feather name="more-vertical" size={20} color={COLORS.textSecondary} />
         </TouchableOpacity>
       )}
     </View>

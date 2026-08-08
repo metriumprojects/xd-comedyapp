@@ -3,6 +3,7 @@ import { TouchableOpacity, StyleSheet, Dimensions, View, Text } from 'react-nati
 import { Image as ExpoImage } from 'expo-image';
 import { Feather } from '@expo/vector-icons';
 import { getVideoThumbnailUrl } from '../../../lib/imageHelpers';
+import COLORS from '@/src/theme/colors';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const GRID_SIZE = (SCREEN_WIDTH - 4) / 2; // 2 columns
@@ -96,14 +97,14 @@ const ProfileGridItem = React.memo(({
           alignItems: 'center',
           gap: 2,
         }}>
-          <Feather name="lock" size={10} color="#FFD60A" />
-          <Text style={{ color: '#FFD60A', fontSize: 9, fontWeight: '700' }}>PRO</Text>
+          <Feather name="lock" size={10} color={COLORS.warning} />
+          <Text style={{ color: COLORS.warning, fontSize: 9, fontWeight: '700' }}>PRO</Text>
         </View>
       )}
       {/* Play/Reactions Stat Overlays */}
       <View style={styles.thumbnailOverlayBottom}>
         <View style={styles.statLeft}>
-          <Feather name="play" size={10} color="#fff" style={{ marginRight: 2 }} />
+          <Feather name="play" size={10} color={COLORS.textLight} style={{ marginRight: 2 }} />
           <Text style={styles.statText}>{formattedViews}</Text>
         </View>
         <View style={styles.statRight}>
@@ -122,9 +123,9 @@ const styles = StyleSheet.create({
     width: GRID_SIZE,
     height: GRID_SIZE,
     borderWidth: 1,
-    borderColor: '#fff',
+    borderColor: COLORS.textLight,
     position: 'relative',
-    backgroundColor: '#fafafa',
+    backgroundColor: COLORS.surface,
   },
   gridImage: {
     width: '100%',
@@ -152,7 +153,7 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   statText: {
-    color: '#fff',
+    color: COLORS.textLight,
     fontSize: 9,
     fontWeight: '600',
   },

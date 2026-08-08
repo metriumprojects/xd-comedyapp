@@ -2,6 +2,7 @@ import React from 'react';
 import { View, TextInput, TouchableOpacity, StyleSheet, Text, Animated, ScrollView } from 'react-native';
 import { Feather, Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
+import COLORS from '@/src/theme/colors';
 
 type DMInputProps = {
   input: string;
@@ -44,7 +45,7 @@ const DMInput: React.FC<DMInputProps> = ({
     <ScrollView 
       keyboardShouldPersistTaps="handled" 
       scrollEnabled={false} 
-      style={{ backgroundColor: '#fff', flexGrow: 0 }}
+      style={{ backgroundColor: COLORS.card, flexGrow: 0 }}
       contentContainerStyle={styles.container}
     >
       {replyingTo && (
@@ -54,7 +55,7 @@ const DMInput: React.FC<DMInputProps> = ({
             <Text style={styles.replyText} numberOfLines={1}>{replyingTo.text}</Text>
           </View>
           <TouchableOpacity onPress={onCancelReply}>
-            <Feather name="x" size={16} color="#8e8e8e" />
+            <Feather name="x" size={16} color={COLORS.textMuted} />
           </TouchableOpacity>
         </View>
       )}
@@ -63,12 +64,12 @@ const DMInput: React.FC<DMInputProps> = ({
         {!input.trim() && !recording && (
           <TouchableOpacity style={styles.iconBtn} onPress={onCameraPress}>
             <LinearGradient
-              colors={['#FBBC04', '#FF8D00']}
+              colors={[COLORS.primary, COLORS.primary]}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 0 }}
               style={styles.cameraCircle}
             >
-              <Feather name="camera" size={20} color="#fff" />
+              <Feather name="camera" size={20} color={COLORS.textLight} />
             </LinearGradient>
           </TouchableOpacity>
         )}
@@ -84,7 +85,7 @@ const DMInput: React.FC<DMInputProps> = ({
             <TextInput
               style={styles.textInput}
               placeholder="Message..."
-              placeholderTextColor="#8e8e8e"
+              placeholderTextColor={COLORS.textMuted}
               value={input}
               onChangeText={setInput}
               multiline
@@ -94,10 +95,10 @@ const DMInput: React.FC<DMInputProps> = ({
           {!input.trim() && !recording && (
             <View style={styles.rightIcons}>
               <TouchableOpacity style={styles.innerIcon} onPress={onMicPressIn}>
-                <Feather name="mic" size={20} color="#000" />
+                <Feather name="mic" size={20} color={COLORS.textPrimary} />
               </TouchableOpacity>
               <TouchableOpacity style={styles.innerIcon} onPress={onMediaPress}>
-                <Feather name="image" size={20} color="#000" />
+                <Feather name="image" size={20} color={COLORS.textPrimary} />
               </TouchableOpacity>
             </View>
           )}
@@ -122,7 +123,7 @@ const styles = StyleSheet.create({
   container: {
     paddingHorizontal: 12,
     paddingVertical: 10,
-    backgroundColor: '#fff',
+    backgroundColor: COLORS.background,
     borderTopWidth: 0.5,
     borderTopColor: '#efefef',
   },
@@ -134,7 +135,7 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     marginBottom: 10,
     borderLeftWidth: 4,
-    borderLeftColor: '#FF8D00',
+    borderLeftColor: COLORS.primary,
   },
   replyContent: {
     flex: 1,
@@ -142,13 +143,13 @@ const styles = StyleSheet.create({
   replyLabel: {
     fontSize: 11,
     fontWeight: '800',
-    color: '#FF8D00',
+    color: COLORS.primary,
     marginBottom: 2,
     textTransform: 'uppercase',
   },
   replyText: {
     fontSize: 13,
-    color: '#666',
+    color: COLORS.textSecondary,
   },
   inputRow: {
     flexDirection: 'row',
@@ -176,7 +177,7 @@ const styles = StyleSheet.create({
   textInput: {
     flex: 1,
     fontSize: 16,
-    color: '#000',
+    color: COLORS.black,
     paddingVertical: 10,
   },
   rightIcons: {
@@ -191,7 +192,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 4,
   },
   sendBtnText: {
-    color: '#FF8D00',
+    color: COLORS.primary,
     fontWeight: '700',
     fontSize: 16,
   },
@@ -204,13 +205,13 @@ const styles = StyleSheet.create({
     width: 8,
     height: 8,
     borderRadius: 4,
-    backgroundColor: '#ff3b30',
+    backgroundColor: COLORS.danger,
     marginRight: 8,
   },
   recordingText: {
     fontSize: 15,
     fontWeight: '600',
-    color: '#000',
+    color: COLORS.black,
     marginRight: 10,
   },
   recordingHint: {

@@ -96,7 +96,7 @@ router.post('/register-firebase', validate(registerFirebaseSchema), async (req, 
         email: email ? email.toLowerCase() : `${firebaseUid}@comedyapp.com`,
         displayName: displayName || (email ? email.split('@')[0] : 'User'),
         avatar: avatar || null,
-        username: username ? username.toLowerCase().trim() : undefined,
+        username: username ? username.toLowerCase().trim().replace(/\s+/g, '_') : undefined,
         followersCount: 0,
         followingCount: 0
       });
@@ -285,6 +285,60 @@ router.post('/verify', async (req, res) => {
   } catch (error) {
     logger.error('[Auth] Verify error: %s', error.message);
     res.status(401).json({ success: false, error: 'Invalid token' });
+  }
+});
+
+/**
+ * POST /api/auth/send-custom-verification-email
+ */
+router.post('/send-custom-verification-email', async (req, res) => {
+  try {
+    const { email } = req.body;
+    if (!email) {
+      return res.status(400).json({ success: false, error: 'Email is required' });
+    }
+
+    const admin = getFirebaseAdmin();
+    let verificationLink = '';
+    if (admin) {
+      try {
+        verificationLink = await admin.auth().generateEmailVerificationLink(email);
+      } catch (err) {
+        logger.warn('[Auth] Could not generate verification link via Admin SDK: %s', err.message);
+      }
+    }
+
+    if (!verificationLink) {
+      verificationLink = `https://comedyapp-cce32.firebaseapp.com/__/auth/action?mode=verifyEmail`;
+    }
+
+    const sendEmail = require('../utils/email');
+    await sendEmail({
+      email,
+      subject: 'Verify your email for Comedy App',
+      html: `
+        <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #121212; color: #ffffff; padding: 32px; border-radius: 16px; max-width: 500px; margin: 20px auto; border: 1px solid #333;">
+          <div style="text-align: center; margin-bottom: 24px;">
+            <h1 style="color: #FF8D00; font-size: 24px; margin: 0;">Comedy App</h1>
+          </div>
+          <h2 style="font-size: 20px; color: #ffffff; margin-bottom: 12px; text-align: center;">Verify your email address</h2>
+          <p style="font-size: 15px; color: #cccccc; line-height: 1.5; margin-bottom: 24px; text-align: center;">
+            Thank you for joining Comedy App! Please click the button below to verify your email address and activate your account.
+          </p>
+          <div style="text-align: center; margin: 28px 0;">
+            <a href="${verificationLink}" style="background-color: #FF8D00; color: #ffffff; padding: 14px 28px; text-decoration: none; font-weight: bold; font-size: 16px; border-radius: 10px; display: inline-block;">Verify Email Address</a>
+          </div>
+          <p style="font-size: 13px; color: #888888; text-align: center; margin-top: 24px;">
+            If you didn't create an account on Comedy App, you can safely ignore this email.
+          </p>
+        </div>
+      `
+    });
+
+    res.json({ success: true, message: 'Custom verification email sent' });
+  } catch (error) {
+    logger.error('❌ Failed to send custom verification email: %O', error);
+    res.status(500).json({ success: false, error: 'Failed to send verification email' });
   }
 });
 

@@ -1,6 +1,7 @@
 import React from 'react';
 import { Image, Text, View } from 'react-native';
 import { DEFAULT_AVATAR_URL } from '@/lib/api';
+import COLORS from '@/src/theme/colors';
 
 
 interface CustomMapMarkerProps {
@@ -26,8 +27,8 @@ export const CustomMapMarker: React.FC<CustomMapMarkerProps> = ({ imageUrl, imag
         borderRadius: 8,
         overflow: 'hidden',
         borderWidth: 2,
-        borderColor: '#fff',
-        shadowColor: '#000',
+        borderColor: COLORS.textLight,
+        shadowColor: COLORS.black,
         shadowOffset: { width: 0, height: 2 },
         shadowOpacity: 0.3,
         shadowRadius: 4,
@@ -50,7 +51,7 @@ export const CustomMapMarker: React.FC<CustomMapMarkerProps> = ({ imageUrl, imag
             paddingHorizontal: 4,
             paddingVertical: 1,
           }}>
-            <Text style={{ color: '#fff', fontWeight: 'bold', fontSize: 8 }}>LIVE</Text>
+            <Text style={{ color: COLORS.textLight, fontWeight: 'bold', fontSize: 8 }}>LIVE</Text>
           </View>
         )}
       </View>
@@ -64,10 +65,10 @@ export const CustomMapMarker: React.FC<CustomMapMarkerProps> = ({ imageUrl, imag
         height: 24,
         borderRadius: 12,
         borderWidth: 2,
-        borderColor: '#fff',
+        borderColor: COLORS.textLight,
         overflow: 'hidden',
-        backgroundColor: '#fff',
-        shadowColor: '#000',
+        backgroundColor: COLORS.background,
+        shadowColor: COLORS.black,
         shadowOffset: { width: 0, height: 1 },
         shadowOpacity: 0.2,
         shadowRadius: 2,

@@ -3,6 +3,7 @@ import { Image as ExpoImage } from 'expo-image';
 import React from 'react';
 import { StyleSheet, TouchableOpacity, View } from 'react-native';
 import { DEFAULT_AVATAR_URL } from '@/lib/api';
+import COLORS from '@/src/theme/colors';
 
 
 interface ProfileAvatarProps {
@@ -41,7 +42,7 @@ const ProfileAvatar: React.FC<ProfileAvatarProps> = ({
         style={styles.addStoryBtn}
         onPress={onAddStory}
       >
-        <Feather name="plus" size={20} color="#fff" />
+        <Feather name="plus" size={20} color={COLORS.textLight} />
       </TouchableOpacity>
     )}
   </View>
@@ -49,9 +50,9 @@ const ProfileAvatar: React.FC<ProfileAvatarProps> = ({
 
 const styles = StyleSheet.create({
   avatarContainer: { position: 'relative', alignItems: 'center', justifyContent: 'center' },
-  avatar: { width: 100, height: 100, borderRadius: 50, backgroundColor: '#eee' },
+  avatar: { width: 100, height: 100, borderRadius: 50, backgroundColor: COLORS.border },
   changeAvatarOverlay: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, zIndex: 10 },
-  addStoryBtn: { position: 'absolute', bottom: 0, right: 0, backgroundColor: '#007aff', borderRadius: 16, width: 32, height: 32, justifyContent: 'center', alignItems: 'center', borderWidth: 3, borderColor: '#fff', zIndex: 2 },
+  addStoryBtn: { position: 'absolute', bottom: 0, right: 0, backgroundColor: COLORS.info, borderRadius: 16, width: 32, height: 32, justifyContent: 'center', alignItems: 'center', borderWidth: 3, borderColor: COLORS.background, zIndex: 2 },
 });
 
 export default ProfileAvatar;

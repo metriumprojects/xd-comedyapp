@@ -1,11 +1,14 @@
-import { useQuery, QueryClient } from '@tanstack/react-query';
+import { useEffect } from 'react';
+import { useQuery, useQueryClient, QueryClient } from '@tanstack/react-query';
 import { apiService } from '@/src/_services/apiService';
 import { fetchBlockedUserIds } from '@/services/moderation';
+import AsyncStorage from '@/lib/storage';
 
 interface UseProfileDataParams {
   viewedUserId: string | undefined;
   currentUserId: string | null;
   enabled: boolean;
+  activeTab?: 'grid' | 'tagged' | 'heart' | 'star' | 'stats';
 }
 
 async function fetchProfileAggregate(viewedUserId: string, currentUserId: string | null) {
@@ -59,6 +62,7 @@ async function fetchProfileAggregate(viewedUserId: string, currentUserId: string
   if (!profileRes.success || !profileRes.data) {
     throw new Error(profileRes.error || 'Failed to fetch profile');
   }
+  void AsyncStorage.setItem(`swr_profile_${viewedUserId}`, JSON.stringify(profileRes.data));
   return profileRes.data;
 }
 
@@ -80,7 +84,41 @@ export function prefetchOwnProfile(client: QueryClient, userId: string) {
   });
 }
 
-export function useProfileData({ viewedUserId, currentUserId, enabled }: UseProfileDataParams) {
+export function useProfileData({ viewedUserId, currentUserId, enabled, activeTab = 'grid' }: UseProfileDataParams) {
+  const queryClient = useQueryClient();
+
+  // Instant SWR Hydration from AsyncStorage Cache
+  useEffect(() => {
+    if (!viewedUserId || !enabled) return;
+    let isMounted = true;
+
+    const hydrateFromStorage = async () => {
+      try {
+        const [profStr, postsStr] = await Promise.all([
+          AsyncStorage.getItem(`swr_profile_${viewedUserId}`),
+          AsyncStorage.getItem(`swr_posts_${viewedUserId}`),
+        ]);
+
+        if (!isMounted) return;
+
+        if (profStr) {
+          const parsedProf = JSON.parse(profStr);
+          queryClient.setQueryData(['profile', viewedUserId, currentUserId], (old: any) => old ?? parsedProf);
+        }
+
+        if (postsStr) {
+          const parsedPosts = JSON.parse(postsStr);
+          queryClient.setQueryData(['profilePosts', viewedUserId], (old: any) => old ?? parsedPosts);
+        }
+      } catch (e) {
+        // Silent
+      }
+    };
+
+    hydrateFromStorage();
+    return () => { isMounted = false; };
+  }, [viewedUserId, currentUserId, enabled, queryClient]);
+
   // 1. Fetch Aggregated Profile Data
   const profileQuery = useQuery({
     queryKey: ['profile', viewedUserId, currentUserId],
@@ -90,8 +128,14 @@ export function useProfileData({ viewedUserId, currentUserId, enabled }: UseProf
       return fetchProfileAggregate(viewedUserId, currentUserId);
     },
     enabled: enabled && !!viewedUserId,
-    staleTime: 1000 * 60 * 5,
-    placeholderData: (previousData) => previousData,
+    staleTime: 1000 * 30, // 30s SWR background revalidation
+    gcTime: 1000 * 60 * 60 * 24, // 24hr cache persistence
+    placeholderData: (previousData) => {
+      if (previousData && (previousData._id === viewedUserId || previousData.id === viewedUserId)) {
+        return previousData;
+      }
+      return undefined;
+    },
   });
 
   const profileData = profileQuery.data;
@@ -153,10 +197,15 @@ export function useProfileData({ viewedUserId, currentUserId, enabled }: UseProf
       }
 
       const res = await apiService.getUserPosts(viewedUserId, { viewerId: currentUserId });
-      return res?.success && Array.isArray(res.data) ? res.data : [];
+      const postsList = res?.success && Array.isArray(res.data) ? res.data : [];
+      if (postsList.length > 0) {
+        void AsyncStorage.setItem(`swr_posts_${viewedUserId}`, JSON.stringify(postsList));
+      }
+      return postsList;
     },
     enabled: enabled && !!viewedUserId && canViewPrivateProfile,
-    staleTime: 1000 * 60 * 2,
+    staleTime: 1000 * 30, // 30s SWR background revalidation
+    gcTime: 1000 * 60 * 60 * 24, // 24hr cache persistence
     placeholderData: (previousData) => previousData ?? [],
   });
 
@@ -166,7 +215,15 @@ export function useProfileData({ viewedUserId, currentUserId, enabled }: UseProf
     queryFn: async () => {
       if (!viewedUserId) return [];
       const res = await apiService.get(`/users/${viewedUserId}/sections`, { viewerId: currentUserId });
-      return res?.success && Array.isArray(res.data) ? res.data : [];
+      if (!res?.success || !Array.isArray(res.data)) return [];
+      const seen = new Set<string>();
+      return res.data.filter((item: any) => {
+        if (!item || !item.name) return false;
+        const key = (item._id || item.id || item.name).toString().toLowerCase();
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      });
     },
     enabled: enabled && !!viewedUserId && canViewPrivateProfile,
     staleTime: 1000 * 60 * 5,
@@ -221,7 +278,8 @@ export function useProfileData({ viewedUserId, currentUserId, enabled }: UseProf
       }
     },
     enabled: enabled && !!viewedUserId && canViewPrivateProfile,
-    staleTime: 1000 * 60 * 10,
+    staleTime: 1000 * 30,
+    gcTime: 1000 * 60 * 60 * 24,
   });
 
   // 7. Fetch Highlights
@@ -273,7 +331,8 @@ export function useProfileData({ viewedUserId, currentUserId, enabled }: UseProf
       }
     },
     enabled: enabled && !!viewedUserId && isOwnProfile,
-    staleTime: 1000 * 60 * 2,
+    staleTime: 1000 * 30,
+    gcTime: 1000 * 60 * 60 * 24,
   });
 
   return {

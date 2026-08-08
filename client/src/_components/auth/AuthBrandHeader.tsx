@@ -16,6 +16,7 @@ export type AuthBrandHeaderProps = {
 /**
  * Shared auth hero: always bundled `logo-trips-mark.png` (same on iOS/Android; avoids stale /branding CDN).
  */
+import COLORS from '@/src/theme/colors';
 export function AuthBrandHeader({
   variant = 'default',
   title,
@@ -52,7 +53,7 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 24,
     fontWeight: '700',
-    color: '#000',
+    color: COLORS.black,
     marginTop: -4,
     marginBottom: 6,
     textAlign: 'center',
@@ -60,7 +61,7 @@ const styles = StyleSheet.create({
   },
   subtitle: {
     fontSize: 14,
-    color: '#666',
+    color: COLORS.textSecondary,
     lineHeight: 20,
     marginTop: -4,
     textAlign: 'center',

@@ -6,6 +6,7 @@ import AsyncStorage from '@/lib/storage';
 import { useNotifications } from '../../hooks/useNotifications';
 import { notificationService } from '../../lib/notificationService';
 import { getNotificationDisplayText } from '../../lib/notificationText';
+import COLORS from '@/src/theme/colors';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const isSmallDevice = SCREEN_WIDTH < 375;
@@ -100,7 +101,7 @@ export default function NotificationsModal({ visible, onClose }: NotificationsMo
                 <View style={styles.notificationsHeader}>
                     <Text style={styles.notificationsTitle}>Notifications</Text>
                     <TouchableOpacity onPress={onClose}>
-                        <Feather name="x" size={24} color="#333" />
+                        <Feather name="x" size={24} color={COLORS.textPrimary} />
                     </TouchableOpacity>
                 </View>
 
@@ -113,7 +114,7 @@ export default function NotificationsModal({ visible, onClose }: NotificationsMo
                     />
                 ) : (
                     <View style={styles.emptyNotifications}>
-                        <Feather name="bell-off" size={48} color="#ccc" />
+                        <Feather name="bell-off" size={48} color={COLORS.textMuted} />
                         <Text style={styles.emptyNotificationsText}>No notifications yet</Text>
                     </View>
                 )}
@@ -125,7 +126,7 @@ export default function NotificationsModal({ visible, onClose }: NotificationsMo
 const styles = StyleSheet.create({
     notificationsModal: {
         flex: 1,
-        backgroundColor: '#fff',
+        backgroundColor: COLORS.background,
         marginTop: isSmallDevice ? 50 : 60,
     },
     notificationsHeader: {
@@ -138,7 +139,7 @@ const styles = StyleSheet.create({
     notificationsTitle: {
         fontSize: 20,
         fontWeight: '700',
-        color: '#1f2937',
+        color: COLORS.textPrimary,
     },
     notificationsList: {
         paddingVertical: 8,
@@ -149,7 +150,7 @@ const styles = StyleSheet.create({
         paddingHorizontal: 16,
         paddingVertical: 12,
         borderBottomWidth: 0.5,
-        borderBottomColor: '#f0f0f0',
+        borderBottomColor: COLORS.border,
     },
     notificationContent: {
         flex: 1,
@@ -157,12 +158,12 @@ const styles = StyleSheet.create({
     notificationMessage: {
         fontSize: 14,
         fontWeight: '500',
-        color: '#1f2937',
+        color: COLORS.textPrimary,
         marginBottom: 4,
     },
     notificationTime: {
         fontSize: 12,
-        color: '#999',
+        color: COLORS.textMuted,
     },
     emptyNotifications: {
         flex: 1,
@@ -173,14 +174,14 @@ const styles = StyleSheet.create({
     emptyNotificationsText: {
         marginTop: 16,
         fontSize: 16,
-        color: '#999',
+        color: COLORS.textMuted,
         fontWeight: '500',
     },
     unreadDot: {
         width: 10,
         height: 10,
         borderRadius: 5,
-        backgroundColor: '#FF8D00',
+        backgroundColor: COLORS.primary,
         marginLeft: 8,
     },
 });

@@ -5,6 +5,7 @@ import { Image as ExpoImage } from 'expo-image';
 import { getFormattedActiveStatus, subscribeToUserPresence, UserPresence } from '../../lib/userPresence';
 import { useUserProfile } from '../_hooks/useUserProfile';
 import MessageBubble from './MessageBubble';
+import COLORS from '@/src/theme/colors';
 
 export default function InboxRow({ item, router, unread, formatTime, DEFAULT_AVATAR_URL }: any) {
   // Use the hook to fetch the other user's profile
@@ -97,8 +98,8 @@ export default function InboxRow({ item, router, unread, formatTime, DEFAULT_AVA
     >
       <View style={{ width: 64, height: 64, borderRadius: 32, alignItems: 'center', justifyContent: 'center', marginRight: 12, overflow: 'hidden' }}>
         {isDefaultAvatar ? (
-          <View style={{ width: 56, height: 56, borderRadius: 28, backgroundColor: '#788d9a', alignItems: 'center', justifyContent: 'center' }}>
-            <Text style={{ color: '#fff', fontSize: 26, fontWeight: '700' }}>
+          <View style={{ width: 56, height: 56, borderRadius: 28, backgroundColor: COLORS.surface, alignItems: 'center', justifyContent: 'center' }}>
+            <Text style={{ color: COLORS.textLight, fontSize: 26, fontWeight: '700' }}>
               {String(username || 'U').trim().charAt(0).toUpperCase()}
             </Text>
           </View>
@@ -122,14 +123,14 @@ export default function InboxRow({ item, router, unread, formatTime, DEFAULT_AVA
       <View style={{ flex: 1, borderBottomWidth: 0, paddingRight: 8 }}>
         <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
-            <Text style={[{ fontWeight: '700', fontSize: 15, color: '#111', flex: 1 }, unread > 0 && { color: '#111' }]} numberOfLines={1}>
+            <Text style={[{ fontWeight: '700', fontSize: 15, color: COLORS.textPrimary, flex: 1 }, unread > 0 && { color: COLORS.textPrimary }]} numberOfLines={1}>
               {username || otherUserId?.substring(0, 8) || 'User'}
             </Text>
             {presence?.isOnline && (
-              <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: '#31a24c', marginLeft: 6 }} />
+              <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: COLORS.success, marginLeft: 6 }} />
             )}
           </View>
-          <Text style={{ color: '#888', fontSize: 12, marginLeft: 8 }}>{formatTime(item.lastMessageAt)}</Text>
+          <Text style={{ color: COLORS.textMuted, fontSize: 12, marginLeft: 8 }}>{formatTime(item.lastMessageAt)}</Text>
         </View>
         <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 6 }}>
           <View style={{ flex: 1, minWidth: 0, marginRight: 8 }}>
@@ -146,13 +147,9 @@ export default function InboxRow({ item, router, unread, formatTime, DEFAULT_AVA
             />
           </View>
           {unread > 0 ? (
-            <View style={{ backgroundColor: '#e0245e', minWidth: 20, height: 20, borderRadius: 10, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 5 }}>
-              <Text style={{ color: '#fff', fontWeight: '800', fontSize: 11, textAlign: 'center', includeFontPadding: false }}>
-                {unread > 99 ? '99+' : unread}
-              </Text>
-            </View>
+            <View style={{ backgroundColor: COLORS.danger, minWidth: 22, height: 22, borderRadius: 11, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 6 }}><Text style={{ color: COLORS.textLight, fontWeight: '700', fontSize: 12 }}>{unread > 9 ? '9+' : unread}</Text></View>
           ) : (
-            <Feather name="chevron-right" size={18} color="#ccc" />
+            <Feather name="chevron-right" size={18} color={COLORS.textMuted} />
           )}
         </View>
       </View>
