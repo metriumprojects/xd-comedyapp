@@ -227,16 +227,28 @@ router.post('/login-firebase', validate(loginFirebaseSchema), async (req, res) =
 router.post('/register', validate(registerSchema), async (req, res) => {
   try {
     const { email, password, displayName } = req.body;
-    const existingUser = await User.findOne({ email: email.toLowerCase() });
-    if (existingUser) return res.status(400).json({ success: false, error: 'User already exists' });
+    let user = await User.findOne({ email: email.toLowerCase() });
 
-    const hashedPassword = await bcrypt.hash(password, 10);
-    const user = new User({
-      email: email.toLowerCase(),
-      password: hashedPassword,
-      displayName: displayName || email.split('@')[0]
-    });
-    await user.save();
+    if (user) {
+      if (password) {
+        user.password = await bcrypt.hash(password, 10);
+      }
+      if (displayName && (!user.displayName || user.displayName === 'User')) {
+        user.displayName = displayName;
+      }
+      user.updatedAt = new Date();
+      await user.save();
+      logger.info(`🔗 Linked existing account for email on register: ${user.email}`);
+    } else {
+      const hashedPassword = await bcrypt.hash(password, 10);
+      user = new User({
+        email: email.toLowerCase(),
+        password: hashedPassword,
+        displayName: displayName || email.split('@')[0]
+      });
+      await user.save();
+      logger.info(`✅ New user registered: ${user.email}`);
+    }
 
     const token = generateToken(user._id, user.email, user.firebaseUid || user.uid);
     const refreshToken = generateRefreshToken(user._id);
