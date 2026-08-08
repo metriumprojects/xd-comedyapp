@@ -49,6 +49,7 @@ require('./models/SubscriptionTier');
 require('./models/Withdrawal');
 
 const app = express();
+app.set('trust proxy', 1);
 const PORT = process.env.PORT || 5000;
 
 // ============= RATE LIMITING =============
