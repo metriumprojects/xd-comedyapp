@@ -169,6 +169,10 @@ export const ReelItem = React.memo<ReelItemProps>(({
   const floatingAnim = useRef(new Animated.Value(0)).current;
   const floatingOpacity = useRef(new Animated.Value(0)).current;
 
+  // Floating +1 🍅 rising animation states
+  const floatingTomatoAnim = useRef(new Animated.Value(0)).current;
+  const floatingTomatoOpacity = useRef(new Animated.Value(0)).current;
+
   const triggerLaughAnimation = useCallback(() => {
     floatingAnim.setValue(0);
     floatingOpacity.setValue(1);
@@ -186,6 +190,24 @@ export const ReelItem = React.memo<ReelItemProps>(({
       }),
     ]).start();
   }, [floatingAnim, floatingOpacity]);
+
+  const triggerTomatoAnimation = useCallback(() => {
+    floatingTomatoAnim.setValue(0);
+    floatingTomatoOpacity.setValue(1);
+
+    Animated.parallel([
+      Animated.timing(floatingTomatoAnim, {
+        toValue: -50,
+        duration: 850,
+        useNativeDriver: true,
+      }),
+      Animated.timing(floatingTomatoOpacity, {
+        toValue: 0,
+        duration: 850,
+        useNativeDriver: true,
+      }),
+    ]).start();
+  }, [floatingTomatoAnim, floatingTomatoOpacity]);
 
   // Views tracking state & ref
   const [viewsCount, setViewsCount] = useState(post?.viewsCount || 0);
@@ -673,6 +695,10 @@ export const ReelItem = React.memo<ReelItemProps>(({
     hasTomatoedRef.current = newTomatoed;
     setHasTomatoed(newTomatoed);
     setTomatoCount((prev: number) => newTomatoed ? prev + 1 : Math.max(0, prev - 1));
+
+    if (newTomatoed) {
+      triggerTomatoAnimation();
+    }
 
     // Toggle off laugh if user had rated it funny
     if (newTomatoed && currentLaughed) {
@@ -1252,6 +1278,7 @@ export const ReelItem = React.memo<ReelItemProps>(({
                 style={[
                   styles.floatingBadge,
                   {
+                    left: 0,
                     opacity: floatingOpacity,
                     transform: [{ translateY: floatingAnim }],
                   },
@@ -1259,6 +1286,28 @@ export const ReelItem = React.memo<ReelItemProps>(({
               >
                 <ExpoImage
                   source={require('@/assets/images/Laugh.png')}
+                  style={{ width: 20, height: 20, marginRight: 4 }}
+                  contentFit="contain"
+                />
+                <Text style={styles.floatingBadgeText}>+1</Text>
+              </Animated.View>
+
+              {/* Floating +1 Tomato Rising Badge */}
+              <Animated.View
+                pointerEvents="none"
+                style={[
+                  styles.floatingBadge,
+                  {
+                    left: 'auto',
+                    right: 0,
+                    backgroundColor: 'rgba(239, 68, 68, 0.95)',
+                    opacity: floatingTomatoOpacity,
+                    transform: [{ translateY: floatingTomatoAnim }],
+                  },
+                ]}
+              >
+                <ExpoImage
+                  source={require('@/assets/images/Tomato.png')}
                   style={{ width: 20, height: 20, marginRight: 4 }}
                   contentFit="contain"
                 />
