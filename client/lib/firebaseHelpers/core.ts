@@ -16,6 +16,7 @@ import {
   initializeAuth,
   signInWithEmailAndPassword,
   createUserWithEmailAndPassword,
+  sendEmailVerification,
   signOut,
   User,
   updateProfile,
@@ -98,7 +99,13 @@ export async function signInWithEmailPassword(
       try {
         await apiService.post('/auth/send-custom-verification-email', { email: firebaseUser.email });
       } catch (err) {
-        console.warn('[signInWithEmailPassword] Failed to send custom verification email:', err);
+        console.warn('[signInWithEmailPassword] Backend email verification failed, attempting native Firebase fallback:', err);
+        try {
+          await sendEmailVerification(firebaseUser);
+          console.log('[signInWithEmailPassword] ✅ Native Firebase email verification sent');
+        } catch (fallbackErr) {
+          console.error('[signInWithEmailPassword] Native Firebase email verification fallback failed:', fallbackErr);
+        }
       }
       try { await signOut(firebaseAuth); } catch (e) { }
       await AsyncStorage.multiRemove(['token', 'userId', 'userEmail', 'userAvatar', 'uid', 'firebaseUid']);
@@ -230,11 +237,17 @@ export async function registerWithEmailPassword(
       const avatarToStore = response.user?.avatar || response.user?.photoURL || response.user?.profilePicture || firebaseUser.photoURL || '';
       
       if (verifyEmail) {
-        // Send custom HTML email verification via backend Nodemailer
+        // Send custom HTML email verification via backend Nodemailer with Firebase Native fallback
         try {
           await apiService.post('/auth/send-custom-verification-email', { email: firebaseUser.email });
         } catch (e) {
-          console.warn('[registerWithEmailPassword] Failed to send custom verification email:', e);
+          console.warn('[registerWithEmailPassword] Backend email verification failed, attempting native Firebase fallback:', e);
+          try {
+            await sendEmailVerification(firebaseUser);
+            console.log('[registerWithEmailPassword] ✅ Native Firebase email verification sent');
+          } catch (fallbackErr) {
+            console.error('[registerWithEmailPassword] Native Firebase email verification fallback failed:', fallbackErr);
+          }
         }
 
         // Clean up AsyncStorage and Firebase Auth to force verification on login

@@ -368,8 +368,11 @@ router.post('/send-custom-verification-email', async (req, res) => {
 
     res.json({ success: true, message: 'Custom verification email sent' });
   } catch (error) {
-    logger.error('❌ Failed to send custom verification email: %O', error);
-    res.status(500).json({ success: false, error: 'Failed to send verification email' });
+    logger.error('❌ Failed to send custom verification email: %s (code: %s)', error?.message || error, error?.code || 'UNKNOWN');
+    if (error?.stack) {
+      logger.error('Stack trace: %s', error.stack);
+    }
+    res.status(500).json({ success: false, error: 'Failed to send verification email', details: error?.message });
   }
 });
 
