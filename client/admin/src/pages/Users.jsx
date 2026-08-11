@@ -58,6 +58,24 @@ const Users = () => {
     onError: () => toast.error('Failed to update role')
   });
 
+  const deleteUserMutation = useMutation({
+    mutationFn: async (userId) => adminAPI.deleteUser(userId),
+    onSuccess: () => {
+      toast.success('User deleted from DB & Firebase');
+      queryClient.invalidateQueries(['users']);
+    },
+    onError: (err) => toast.error(err?.response?.data?.error || 'Failed to delete user')
+  });
+
+  const cleanUnverifiedMutation = useMutation({
+    mutationFn: async () => adminAPI.cleanUnverifiedUsers(),
+    onSuccess: (res) => {
+      toast.success(res?.message || 'Cleaned unverified users');
+      queryClient.invalidateQueries(['users']);
+    },
+    onError: () => toast.error('Failed to clean unverified users')
+  });
+
   return (
     <div className="space-y-8 animate-fade-in flex flex-col h-full">
       <header className="flex justify-between items-center">
@@ -65,7 +83,7 @@ const Users = () => {
           <h2 className="text-3xl font-black text-white">User Management</h2>
           <p className="text-slate-400">Manage traveler accounts, roles, and status (Server Pagination).</p>
         </div>
-        <div className="flex gap-4">
+        <div className="flex gap-3">
           <div className="relative">
             <HiOutlineSearch className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500" />
             <input 
@@ -76,8 +94,16 @@ const Users = () => {
               className="bg-white/5 border border-white/10 rounded-xl pl-12 pr-4 py-3 outline-none focus:border-indigo-500 transition-all w-64 text-white"
             />
           </div>
-          <button className="bg-indigo-600 hover:bg-indigo-500 text-white px-6 py-3 rounded-xl font-bold flex items-center gap-2 transition-all shadow-lg shadow-indigo-500/20">
-            <HiOutlineUserAdd /> Add Admin
+          <button 
+            onClick={() => {
+              if (window.confirm('Are you sure you want to delete all unverified test accounts? This action cannot be undone.')) {
+                cleanUnverifiedMutation.mutate();
+              }
+            }}
+            disabled={cleanUnverifiedMutation.isLoading}
+            className="bg-red-500/20 border border-red-500/30 hover:bg-red-500/30 text-red-400 px-5 py-3 rounded-xl font-bold transition-all text-sm flex items-center gap-2"
+          >
+            {cleanUnverifiedMutation.isLoading ? 'Cleaning...' : 'Clean Unverified Users'}
           </button>
         </div>
       </header>
@@ -165,13 +191,21 @@ const Users = () => {
                           className={`px-3 py-1 rounded-lg text-xs font-bold transition-all ${
                             user.status === 'suspended' 
                               ? 'bg-green-500/20 text-green-400 hover:bg-green-500/30' 
-                              : 'bg-red-500/20 text-red-400 hover:bg-red-500/30'
+                              : 'bg-yellow-500/20 text-yellow-400 hover:bg-yellow-500/30'
                           }`}
                         >
                           {user.status === 'suspended' ? 'Unsuspend' : 'Suspend'}
                         </button>
-                        <button className="p-2 text-slate-500 hover:text-white rounded-lg transition-all">
-                          <HiOutlineDotsVertical />
+                        <button 
+                          onClick={() => {
+                            if (window.confirm(`Are you sure you want to delete user ${user.email || user.displayName}? This will delete the user from database and Firebase Auth.`)) {
+                              deleteUserMutation.mutate(user._id);
+                            }
+                          }}
+                          disabled={deleteUserMutation.isLoading}
+                          className="px-3 py-1 bg-red-500/20 text-red-400 hover:bg-red-500/30 rounded-lg text-xs font-bold transition-all"
+                        >
+                          Delete
                         </button>
                       </div>
                     </td>

@@ -3,7 +3,9 @@ import { useAuthStore } from '../stores/authStore';
 
 export const API_BASE =
   process.env.REACT_APP_API_BASE_URL || 
-  (window.location.hostname === 'localhost' ? 'http://localhost:5002/api' : 'https://travel-social-backend.onrender.com/api');
+  (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' 
+    ? 'http://localhost:5000/api' 
+    : 'https://comedyapp.onrender.com/api');
 
 const apiClient = axios.create({
   baseURL: API_BASE,

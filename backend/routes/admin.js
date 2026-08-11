@@ -299,6 +299,124 @@ router.post('/users/:id/role', verifyToken, async (req, res, next) => {
 });
 
 /**
+ * @route   DELETE /api/admin/users/:id
+ * @desc    Delete user from MongoDB database and Firebase Auth
+ */
+router.delete('/users/:id', verifyToken, async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const User = mongoose.model('User');
+    const AdminLog = mongoose.model('AdminLog');
+
+    const adminUser = await User.findById(req.userId);
+    if (!adminUser || adminUser.role !== 'admin') {
+      return res.status(403).json({ success: false, error: 'Unauthorized' });
+    }
+
+    const targetUser = await User.findOne({ 
+      $or: [
+        { _id: mongoose.Types.ObjectId.isValid(id) ? id : null },
+        { firebaseUid: id },
+        { uid: id }
+      ]
+    });
+
+    if (!targetUser) {
+      return res.status(404).json({ success: false, error: 'User not found' });
+    }
+
+    const deletedEmail = targetUser.email;
+    const firebaseUid = targetUser.firebaseUid || targetUser.uid;
+
+    // Delete from Firebase Auth if firebaseUid is present
+    if (firebaseUid) {
+      try {
+        const admin = require('firebase-admin');
+        if (admin && admin.apps.length) {
+          await admin.auth().deleteUser(firebaseUid);
+          logger.info(`✅ Deleted user ${firebaseUid} from Firebase Auth`);
+        }
+      } catch (fbErr) {
+        logger.warn(`⚠️ Could not delete user from Firebase Auth: ${fbErr.message}`);
+      }
+    }
+
+    // Delete from MongoDB
+    await User.deleteOne({ _id: targetUser._id });
+
+    // Log admin action
+    const log = new AdminLog({
+      adminId: req.userId,
+      action: 'USER_DELETED',
+      targetId: targetUser._id,
+      targetType: 'User',
+      details: { email: deletedEmail, firebaseUid },
+      ipAddress: req.ip
+    });
+    await log.save();
+
+    res.json({ success: true, message: `User ${deletedEmail} deleted successfully` });
+  } catch (err) {
+    next(err);
+  }
+});
+
+/**
+ * @route   POST /api/admin/users/clean-unverified
+ * @desc    Bulk delete all unverified test accounts from MongoDB and Firebase Auth
+ */
+router.post('/users/clean-unverified', verifyToken, async (req, res, next) => {
+  try {
+    const User = mongoose.model('User');
+    const AdminLog = mongoose.model('AdminLog');
+
+    const adminUser = await User.findById(req.userId);
+    if (!adminUser || adminUser.role !== 'admin') {
+      return res.status(403).json({ success: false, error: 'Unauthorized' });
+    }
+
+    // Find all users where isVerified is false or emailVerified is false
+    const unverifiedUsers = await User.find({
+      $or: [
+        { isVerified: false },
+        { emailVerified: false },
+        { isVerified: { $exists: false } }
+      ],
+      role: { $ne: 'admin' } // Never touch admins
+    });
+
+    let deletedCount = 0;
+    let admin = null;
+    try { admin = require('firebase-admin'); } catch (e) {}
+    const hasAdminSdk = admin && admin.apps && admin.apps.length;
+
+    for (const user of unverifiedUsers) {
+      const firebaseUid = user.firebaseUid || user.uid;
+      if (firebaseUid && hasAdminSdk) {
+        try {
+          await admin.auth().deleteUser(firebaseUid);
+        } catch (e) { }
+      }
+      await User.deleteOne({ _id: user._id });
+      deletedCount++;
+    }
+
+    const log = new AdminLog({
+      adminId: req.userId,
+      action: 'CLEAN_UNVERIFIED_USERS',
+      targetType: 'User',
+      details: { count: deletedCount },
+      ipAddress: req.ip
+    });
+    await log.save();
+
+    res.json({ success: true, message: `Cleaned ${deletedCount} unverified test accounts`, count: deletedCount });
+  } catch (err) {
+    next(err);
+  }
+});
+
+/**
  * @route   GET /api/admin/logs
  */
 router.get('/logs', verifyToken, async (req, res, next) => {

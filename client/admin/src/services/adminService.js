@@ -20,6 +20,9 @@ export const adminAPI = {
   deleteUser: (uid) =>
     apiClient.delete(`/admin/users/${uid}`),
 
+  cleanUnverifiedUsers: () =>
+    apiClient.post('/admin/users/clean-unverified'),
+
   // Analytics
   getDashboardAnalytics: () =>
     apiClient.get('/admin/stats'),
