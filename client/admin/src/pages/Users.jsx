@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { adminAPI } from '../services/adminService';
 import { toast } from 'react-hot-toast';
-import { HiOutlineDotsVertical, HiOutlineSearch, HiOutlineUserAdd, HiOutlineChevronLeft, HiOutlineChevronRight } from 'react-icons/hi';
+import { HiOutlineSearch, HiOutlineChevronLeft, HiOutlineChevronRight } from 'react-icons/hi';
 import { format } from 'date-fns';
 
 const Users = () => {
