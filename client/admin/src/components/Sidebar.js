@@ -9,7 +9,11 @@ import {
   HiOutlineLogout
 } from 'react-icons/hi';
 
+import { useAuthStore } from '../stores/authStore';
+
 const Sidebar = () => {
+  const logout = useAuthStore((state) => state.logout);
+
   const menuItems = [
     { name: 'Dashboard', icon: <HiOutlineViewGrid />, path: '/' },
     { name: 'Users', icon: <HiOutlineUsers />, path: '/users' },
@@ -24,9 +28,9 @@ const Sidebar = () => {
       <div className="p-6">
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 bg-indigo-500 rounded-xl flex items-center justify-center shadow-lg shadow-indigo-500/30">
-            <span className="text-white font-bold text-xl">T</span>
+            <span className="text-white font-bold text-xl">C</span>
           </div>
-          <h1 className="text-xl font-bold tracking-tight">Admin<span className="text-indigo-400">Hub</span></h1>
+          <h1 className="text-xl font-bold tracking-tight">Comedy<span className="text-indigo-400">Admin</span></h1>
         </div>
       </div>
 
@@ -49,7 +53,10 @@ const Sidebar = () => {
       </nav>
 
       <div className="p-4 border-t border-white/5">
-        <button className="flex items-center gap-4 px-4 py-3 w-full text-slate-400 hover:text-red-400 hover:bg-red-400/10 rounded-xl transition-all">
+        <button 
+          onClick={logout}
+          className="flex items-center gap-4 px-4 py-3 w-full text-slate-400 hover:text-red-400 hover:bg-red-400/10 rounded-xl transition-all"
+        >
           <HiOutlineLogout className="text-xl" />
           <span className="font-medium">Logout</span>
         </button>
