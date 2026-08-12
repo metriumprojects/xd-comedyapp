@@ -321,6 +321,9 @@ router.post('/verify', async (req, res) => {
 
 /**
  * POST /api/auth/send-custom-verification-email
+ * Generates a real Firebase oobCode link, then sends it via Nodemailer (custom HTML).
+ * Do NOT fall back to a link without oobCode — that produces a dead button.
+ * If SMTP fails, return 500 so the client can use Firebase native sendEmailVerification.
  */
 router.post('/send-custom-verification-email', async (req, res) => {
   try {
@@ -329,18 +332,45 @@ router.post('/send-custom-verification-email', async (req, res) => {
       return res.status(400).json({ success: false, error: 'Email is required' });
     }
 
-    const admin = getFirebaseAdmin();
-    let verificationLink = '';
-    if (admin) {
-      try {
-        verificationLink = await admin.auth().generateEmailVerificationLink(email);
-      } catch (err) {
-        logger.warn('[Auth] Could not generate verification link via Admin SDK: %s', err.message);
-      }
+    if (!process.env.EMAIL_USER || !process.env.EMAIL_PASS) {
+      logger.error('[Auth] EMAIL_USER/EMAIL_PASS not set on this server — cannot send custom verification email');
+      return res.status(503).json({
+        success: false,
+        error: 'Email service not configured',
+        code: 'EMAIL_ENV_MISSING',
+      });
     }
 
-    if (!verificationLink) {
-      verificationLink = `https://comedyapp-cce32.firebaseapp.com/__/auth/action?mode=verifyEmail`;
+    const admin = getFirebaseAdmin();
+    if (!admin) {
+      logger.error('[Auth] Firebase Admin not initialized — cannot generate verification link');
+      return res.status(503).json({
+        success: false,
+        error: 'Firebase Admin not configured',
+        code: 'FIREBASE_ADMIN_MISSING',
+      });
+    }
+
+    let verificationLink = '';
+    try {
+      verificationLink = await admin.auth().generateEmailVerificationLink(email);
+    } catch (err) {
+      logger.error('[Auth] generateEmailVerificationLink failed: %s', err.message);
+      return res.status(500).json({
+        success: false,
+        error: 'Could not generate verification link',
+        details: err.message,
+        code: 'LINK_GENERATION_FAILED',
+      });
+    }
+
+    if (!verificationLink || !verificationLink.includes('oobCode=')) {
+      logger.error('[Auth] Verification link missing oobCode — refusing to send broken email');
+      return res.status(500).json({
+        success: false,
+        error: 'Invalid verification link generated',
+        code: 'INVALID_LINK',
+      });
     }
 
     const sendEmail = require('../utils/email');
@@ -372,7 +402,12 @@ router.post('/send-custom-verification-email', async (req, res) => {
     if (error?.stack) {
       logger.error('Stack trace: %s', error.stack);
     }
-    res.status(500).json({ success: false, error: 'Failed to send verification email', details: error?.message });
+    res.status(500).json({
+      success: false,
+      error: 'Failed to send verification email',
+      details: error?.message,
+      code: error?.code || 'EMAIL_SEND_FAILED',
+    });
   }
 });
 
