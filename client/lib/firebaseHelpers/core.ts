@@ -97,15 +97,10 @@ export async function signInWithEmailPassword(
     const isMockEmail = firebaseUser.email?.toLowerCase().endsWith('@comedyapp.com');
     if (!isMockEmail && !firebaseUser.emailVerified) {
       try {
-        await apiService.post('/auth/send-custom-verification-email', { email: firebaseUser.email });
+        await sendEmailVerification(firebaseUser);
+        console.log('[signInWithEmailPassword] ✅ Firebase verification email sent');
       } catch (err) {
-        console.warn('[signInWithEmailPassword] Backend email verification failed, attempting native Firebase fallback:', err);
-        try {
-          await sendEmailVerification(firebaseUser);
-          console.log('[signInWithEmailPassword] ✅ Native Firebase email verification sent');
-        } catch (fallbackErr) {
-          console.error('[signInWithEmailPassword] Native Firebase email verification fallback failed:', fallbackErr);
-        }
+        console.error('[signInWithEmailPassword] Firebase verification email failed:', err);
       }
       try { await signOut(firebaseAuth); } catch (e) { }
       await AsyncStorage.multiRemove(['token', 'userId', 'userEmail', 'userAvatar', 'uid', 'firebaseUid']);
@@ -237,17 +232,12 @@ export async function registerWithEmailPassword(
       const avatarToStore = response.user?.avatar || response.user?.photoURL || response.user?.profilePicture || firebaseUser.photoURL || '';
 
       if (verifyEmail) {
-        // Send custom HTML email verification via backend Nodemailer with Firebase Native fallback
+        // Default Firebase verification email (custom Nodemailer/Resend flow disabled for now)
         try {
-          await apiService.post('/auth/send-custom-verification-email', { email: firebaseUser.email });
+          await sendEmailVerification(firebaseUser);
+          console.log('[registerWithEmailPassword] ✅ Firebase verification email sent');
         } catch (e) {
-          console.warn('[registerWithEmailPassword] Backend email verification failed, attempting native Firebase fallback:', e);
-          try {
-            await sendEmailVerification(firebaseUser);
-            console.log('[registerWithEmailPassword] ✅ Native Firebase email verification sent');
-          } catch (fallbackErr) {
-            console.error('[registerWithEmailPassword] Native Firebase email verification fallback failed:', fallbackErr);
-          }
+          console.error('[registerWithEmailPassword] Firebase verification email failed:', e);
         }
 
         // Clean up AsyncStorage and Firebase Auth to force verification on login

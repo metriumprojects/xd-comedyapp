@@ -321,97 +321,15 @@ router.post('/verify', async (req, res) => {
 
 /**
  * POST /api/auth/send-custom-verification-email
- * Generates a real Firebase oobCode link, then sends it via Nodemailer (custom HTML).
- * Do NOT fall back to a link without oobCode — that produces a dead button.
- * If SMTP fails, return 500 so the client can use Firebase native sendEmailVerification.
+ * Disabled for now — client uses Firebase native sendEmailVerification instead.
+ * Kept as a stub so old app builds don't hang on SMTP timeouts.
  */
-router.post('/send-custom-verification-email', async (req, res) => {
-  try {
-    const { email } = req.body;
-    console.log(`[Auth] send-custom-verification-email requested for: ${email || '(missing)'}`);
-    if (!email) {
-      return res.status(400).json({ success: false, error: 'Email is required' });
-    }
-
-    if (!process.env.EMAIL_USER || !process.env.EMAIL_PASS) {
-      console.error('[Auth] EMAIL_USER/EMAIL_PASS not set on this server — cannot send custom verification email');
-      logger.error('[Auth] EMAIL_USER/EMAIL_PASS not set on this server — cannot send custom verification email');
-      return res.status(503).json({
-        success: false,
-        error: 'Email service not configured',
-        code: 'EMAIL_ENV_MISSING',
-      });
-    }
-
-    const admin = getFirebaseAdmin();
-    if (!admin) {
-      logger.error('[Auth] Firebase Admin not initialized — cannot generate verification link');
-      return res.status(503).json({
-        success: false,
-        error: 'Firebase Admin not configured',
-        code: 'FIREBASE_ADMIN_MISSING',
-      });
-    }
-
-    let verificationLink = '';
-    try {
-      verificationLink = await admin.auth().generateEmailVerificationLink(email);
-    } catch (err) {
-      logger.error('[Auth] generateEmailVerificationLink failed: %s', err.message);
-      return res.status(500).json({
-        success: false,
-        error: 'Could not generate verification link',
-        details: err.message,
-        code: 'LINK_GENERATION_FAILED',
-      });
-    }
-
-    if (!verificationLink || !verificationLink.includes('oobCode=')) {
-      logger.error('[Auth] Verification link missing oobCode — refusing to send broken email');
-      return res.status(500).json({
-        success: false,
-        error: 'Invalid verification link generated',
-        code: 'INVALID_LINK',
-      });
-    }
-
-    const sendEmail = require('../utils/email');
-    await sendEmail({
-      email,
-      subject: 'Verify your email for Comedy App',
-      html: `
-        <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #121212; color: #ffffff; padding: 32px; border-radius: 16px; max-width: 500px; margin: 20px auto; border: 1px solid #333;">
-          <div style="text-align: center; margin-bottom: 24px;">
-            <h1 style="color: #FF8D00; font-size: 24px; margin: 0;">Comedy App</h1>
-          </div>
-          <h2 style="font-size: 20px; color: #ffffff; margin-bottom: 12px; text-align: center;">Verify your email address</h2>
-          <p style="font-size: 15px; color: #cccccc; line-height: 1.5; margin-bottom: 24px; text-align: center;">
-            Thank you for joining Comedy App! Please click the button below to verify your email address and activate your account.
-          </p>
-          <div style="text-align: center; margin: 28px 0;">
-            <a href="${verificationLink}" style="background-color: #FF8D00; color: #ffffff; padding: 14px 28px; text-decoration: none; font-weight: bold; font-size: 16px; border-radius: 10px; display: inline-block;">Verify Email Address</a>
-          </div>
-          <p style="font-size: 13px; color: #888888; text-align: center; margin-top: 24px;">
-            If you didn't create an account on Comedy App, you can safely ignore this email.
-          </p>
-        </div>
-      `
-    });
-
-    res.json({ success: true, message: 'Custom verification email sent' });
-  } catch (error) {
-    console.error('[Auth] send-custom-verification-email FAILED:', error?.code || 'UNKNOWN', error?.message || error);
-    logger.error('❌ Failed to send custom verification email: %s (code: %s)', error?.message || error, error?.code || 'UNKNOWN');
-    if (error?.stack) {
-      logger.error('Stack trace: %s', error.stack);
-    }
-    res.status(500).json({
-      success: false,
-      error: 'Failed to send verification email',
-      details: error?.message,
-      code: error?.code || 'EMAIL_SEND_FAILED',
-    });
-  }
+router.post('/send-custom-verification-email', async (_req, res) => {
+  return res.status(410).json({
+    success: false,
+    error: 'Custom verification email is disabled. Use Firebase native verification.',
+    code: 'CUSTOM_EMAIL_DISABLED',
+  });
 });
 
 /**
