@@ -1289,12 +1289,12 @@ router.delete('/:userId/sections/:sectionId', verifyToken, async (req, res) => {
     }
     if(canonicalObj && !hasObjectId) userIdCandidates.push(canonicalObj);
 
-    const sectionCandidates = [sectionId];
-    try { sectionCandidates.push(new mongoose.Types.ObjectId(sectionId)); } catch {}
-
-    const filter = { 
-      userId: { $in: userIdCandidates }, 
-      $or: [{ _id: { $in: sectionCandidates } }, { name: sectionId }] 
+    const filter = {
+      userId: { $in: userIdCandidates },
+      $or: [
+        ...(mongoose.Types.ObjectId.isValid(sectionId) ? [{ _id: new mongoose.Types.ObjectId(sectionId) }] : []),
+        { name: sectionId },
+      ],
     };
 
     const section = await Section.findOne(filter);

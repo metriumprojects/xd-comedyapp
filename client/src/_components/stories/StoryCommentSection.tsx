@@ -57,6 +57,8 @@ const StoryCommentSection: React.FC<StoryCommentSectionProps> = ({
               )}
               ListEmptyComponent={<Text style={styles.emptyText}>No comments yet</Text>}
               style={{ padding: 16 }}
+              keyboardShouldPersistTaps="always"
+              keyboardDismissMode="on-drag"
             />
             <View style={styles.inputArea}>
               <TextInput

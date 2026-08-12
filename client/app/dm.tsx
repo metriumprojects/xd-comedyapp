@@ -148,7 +148,7 @@ export default function DM() {
     return s.trim();
   }, [(params as any)?.user]);
 
-  const { userId: storeUserId } = useAppStore();
+  const storeUserId = useAppStore((s) => s.userId);
   const [currentUserId, setCurrentUserId] = useState<string | null>(storeUserId);
 
   useEffect(() => {

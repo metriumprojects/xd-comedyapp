@@ -146,7 +146,9 @@ export default function PostViewerModal({
           initialScrollIndex={selectedPostIndex >= 0 && selectedPostIndex < posts.length ? selectedPostIndex : undefined}
           snapToAlignment="start"
           decelerationRate="fast"
-          removeClippedSubviews={Platform.OS === 'android'}
+          // Each cell hosts PostCard's comment sheet; on Android clipping detaches and reattaches
+          // its native subtree, which swallows the first touch inside the sheet.
+          removeClippedSubviews={false}
           renderItem={({ item }) => (
             <PostCard
               post={item}

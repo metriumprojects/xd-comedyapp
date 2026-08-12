@@ -1,4 +1,4 @@
-import React, { createContext, useCallback, useContext, useMemo, useRef, useState } from 'react';
+import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { Animated, Modal, Pressable, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -39,35 +39,53 @@ export function AppDialogProvider({ children }: { children: React.ReactNode }) {
 
   const opacity = useRef(new Animated.Value(0)).current;
   const scale = useRef(new Animated.Value(0.96)).current;
+  // Guards against a stale dismiss animation clearing a dialog that was opened after it.
+  const dialogSeqRef = useRef(0);
 
   const animateIn = useCallback(() => {
-    opacity.setValue(0);
-    scale.setValue(0.96);
     Animated.parallel([
       Animated.timing(opacity, { toValue: 1, duration: 140, useNativeDriver: true }),
       Animated.spring(scale, { toValue: 1, speed: 18, bounciness: 6, useNativeDriver: true }),
     ]).start();
   }, [opacity, scale]);
 
-  const animateOut = useCallback((after?: () => void) => {
-    Animated.parallel([
-      Animated.timing(opacity, { toValue: 0, duration: 120, useNativeDriver: true }),
-      Animated.timing(scale, { toValue: 0.98, duration: 120, useNativeDriver: true }),
-    ]).start(() => after?.());
-  }, [opacity, scale]);
+  const dismiss = useCallback(
+    (after?: () => void) => {
+      const seq = dialogSeqRef.current;
+      Animated.parallel([
+        Animated.timing(opacity, { toValue: 0, duration: 120, useNativeDriver: true }),
+        Animated.timing(scale, { toValue: 0.98, duration: 120, useNativeDriver: true }),
+      ]).start(() => {
+        if (dialogSeqRef.current !== seq) return;
+        setPayload(null);
+        after?.();
+      });
+    },
+    [opacity, scale]
+  );
 
   const hide = useCallback(() => {
     if (!payload) return;
-    animateOut(() => setPayload(null));
-  }, [animateOut, payload]);
+    dismiss();
+  }, [dismiss, payload]);
 
   const show = useCallback(
     (next: AppDialogPayload) => {
+      dialogSeqRef.current += 1;
+      opacity.setValue(0);
+      scale.setValue(0.96);
       setPayload(next);
-      requestAnimationFrame(() => animateIn());
     },
-    [animateIn]
+    [opacity, scale]
   );
+
+  // onShow is not guaranteed on every platform; without this the card could stay at
+  // opacity 0 while the modal is mounted, i.e. an invisible overlay eating all touches.
+  useEffect(() => {
+    if (!payload) return;
+    const id = setTimeout(animateIn, 50);
+    return () => clearTimeout(id);
+  }, [payload, animateIn]);
 
   const api = useMemo<AppDialogApi>(() => {
     return {
@@ -109,7 +127,7 @@ export function AppDialogProvider({ children }: { children: React.ReactNode }) {
     <AppDialogContext.Provider value={api}>
       {children}
 
-      <Modal visible={visible} transparent animationType="none" onRequestClose={hide}>
+      <Modal visible={visible} transparent animationType="none" onShow={animateIn} onRequestClose={hide}>
         <Pressable style={styles.backdrop} onPress={hide}>
           <Animated.View
             style={[
@@ -136,12 +154,7 @@ export function AppDialogProvider({ children }: { children: React.ReactNode }) {
                   <TouchableOpacity
                     key={`${b.text}_${idx}`}
                     style={[styles.button, isPrimary ? styles.primaryBtn : styles.secondaryBtn]}
-                    onPress={() => {
-                      animateOut(() => {
-                        setPayload(null);
-                        b.onPress?.();
-                      });
-                    }}
+                    onPress={() => dismiss(() => b.onPress?.())}
                   >
                     <Text style={[styles.buttonText, isPrimary ? styles.primaryText : styles.secondaryText]}>{b.text}</Text>
                   </TouchableOpacity>

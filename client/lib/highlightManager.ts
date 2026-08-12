@@ -135,15 +135,15 @@ export const highlightManager = {
                 const mod = await import('@react-native-async-storage/async-storage');
                 const AsyncStorage = (mod as any).default ?? mod;
                 uid = String((await AsyncStorage.getItem('userId')) || '').trim();
-              } catch {}
+              } catch { }
             }
             if (uid) {
               // Optimistic UI: remove from profile highlights immediately
-              try { feedEventEmitter.emitHighlightDeleted(highlightId); } catch {}
+              try { feedEventEmitter.emitHighlightDeleted(highlightId); } catch { }
               await deleteHighlightApi(highlightId, uid);
             }
           }
-        } catch {}
+        } catch { }
       }
 
       // IG-like UX: even if backend fails, keep removed locally (cache already updated).
@@ -166,14 +166,14 @@ export const highlightManager = {
   async deleteHighlight(params: { highlightId: string; userId: string }): Promise<{ success: boolean; error?: string }> {
     try {
       // Optimistic UI emission
-      try { feedEventEmitter.emitHighlightDeleted(params.highlightId); } catch {}
-      
+      try { feedEventEmitter.emitHighlightDeleted(params.highlightId); } catch { }
+
       const mod = await import('@react-native-async-storage/async-storage');
       const AsyncStorage = (mod as any).default ?? mod;
-      
+
       // Clean up cache
       await AsyncStorage.removeItem(`highlight_archive_${params.highlightId}`);
-      
+
       await deleteHighlightApi(params.highlightId, params.userId);
       return { success: true };
     } catch (e: any) {

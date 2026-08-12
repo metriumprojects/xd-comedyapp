@@ -339,17 +339,19 @@ export const CommentSection: React.FC<CommentSectionProps> = ({
   };
 
   const handleDelete = async (comment: Comment, isReply = false, parentId?: string) => {
+    // Close the options sheet up front so it doesn't sit behind the confirmation dialog.
+    setShowOptions(false);
+
     Alert.alert("Delete", "Are you sure?", [
-      { text: "Cancel" },
+      { text: "Cancel", onPress: () => setSelectedComment(null) },
       {
         text: "Delete", style: 'destructive', onPress: async () => {
+          setSelectedComment(null);
           if (isReply && parentId) {
             await deleteCommentReply(postId, parentId, comment.id, currentUserId, postOwnerId);
           } else {
             await deleteComment(postId, comment.id, currentUserId, postOwnerId);
           }
-          setShowOptions(false);
-          setSelectedComment(null);
           await loadData();
           feedEventEmitter.emit("commentDeleted", { postId });
         }
@@ -476,6 +478,8 @@ export const CommentSection: React.FC<CommentSectionProps> = ({
             contentContainerStyle={{ paddingBottom: 20 }}
             ListEmptyComponent={loading ? <ActivityIndicator style={{ marginTop: 20 }} color={COLORS.textPrimary} /> : <Text style={styles.emptyText}>No comments yet</Text>}
             estimatedItemSize={80}
+            keyboardShouldPersistTaps="always"
+            keyboardDismissMode="on-drag"
           />
           {showInput && (
             <CommentInput
@@ -509,6 +513,8 @@ export const CommentSection: React.FC<CommentSectionProps> = ({
             )}
             ListEmptyComponent={loading ? <ActivityIndicator style={{ marginTop: 20 }} color={COLORS.textPrimary} /> : <View style={styles.emptyReactionContainer}><Ionicons name="star" size={60} color="#FFD700" /><Text style={styles.emptyReactionTitle}>No reactions yet</Text><Text style={styles.emptyReactionSub}>Be the first to react!</Text></View>}
             estimatedItemSize={60}
+            keyboardShouldPersistTaps="always"
+            keyboardDismissMode="on-drag"
           />
           <View style={styles.reactionEmojiBar}>
             {quickEmojis.map(emoji => (

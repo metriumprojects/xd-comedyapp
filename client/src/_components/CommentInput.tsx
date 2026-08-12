@@ -36,18 +36,29 @@ export const CommentInput: React.FC<CommentInputProps> = ({
     }
   }, [autoFocus]);
 
+  const keepKeyboardOpen = () => {
+    requestAnimationFrame(() => inputRef.current?.focus());
+  };
+
+  // These buttons fire on press-in rather than press-out: while the keyboard is up, the press-out
+  // event gets consumed by the keyboard-dismiss pass, which would make every action need two taps.
   const handlePost = () => {
     if (!newComment.trim() || isSubmitting) return;
     onAddComment();
-    // Keep keyboard open after posting
-    setTimeout(() => inputRef.current?.focus(), 50);
+    keepKeyboardOpen();
   };
 
   return (
     <View>
       <View style={styles.quickEmojiBar}>
         {quickEmojis.map(emoji => (
-          <TouchableOpacity key={emoji} onPress={() => setNewComment(prev => prev + emoji)}>
+          <TouchableOpacity
+            key={emoji}
+            onPressIn={() => {
+              setNewComment(prev => prev + emoji);
+              keepKeyboardOpen();
+            }}
+          >
             <Text style={{ fontSize: 24 }}>{emoji}</Text>
           </TouchableOpacity>
         ))}
@@ -66,7 +77,7 @@ export const CommentInput: React.FC<CommentInputProps> = ({
             multiline
             blurOnSubmit={false}
           />
-          <TouchableOpacity onPress={handlePost} disabled={isSubmitting || !newComment.trim()}>
+          <TouchableOpacity onPressIn={handlePost} disabled={isSubmitting || !newComment.trim()}>
             <Text style={[styles.postBtn, (!newComment.trim() || isSubmitting) && { opacity: 0.4 }]}>Post</Text>
           </TouchableOpacity>
         </View>

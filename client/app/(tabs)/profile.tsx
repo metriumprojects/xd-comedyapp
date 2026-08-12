@@ -290,6 +290,8 @@ export default function Profile({ userIdProp }: any) {
 
   // Avoid noisy logs on a hot screen
 
+  const [segmentTab, setSegmentTab] = useState<'grid' | 'tagged' | 'heart' | 'star' | 'stats'>('grid');
+
   // ── Centralized Data Hook ──
   const {
     profile,
@@ -325,7 +327,6 @@ export default function Profile({ userIdProp }: any) {
   const [selectedSection, setSelectedSection] = useState<string | null>(null);
   const [postViewerVisible, setPostViewerVisible] = useState<boolean>(false);
   const [selectedPostIndex, setSelectedPostIndex] = useState<number>(0);
-  const [segmentTab, setSegmentTab] = useState<'grid' | 'tagged' | 'heart' | 'star' | 'stats'>('grid');
   const scrollX = useRef(new Animated.Value(0)).current;
   const [editSectionsModal, setEditSectionsModal] = useState<boolean>(false);
   const [viewCollectionsModal, setViewCollectionsModal] = useState<boolean>(false);
@@ -355,13 +356,17 @@ export default function Profile({ userIdProp }: any) {
       if (!creatorId) return;
 
       try {
-        // 1. Load active subscription tiers of the creator
+        // 1. Load creator's subscription tiers (backend returns active + archived
+        // that still have posts/subscribers). Keep all in creatorTiers so archived
+        // folders still render for owner + existing subscribers, but only count
+        // ACTIVE tiers for the "hasTier" UI signals (star icon, subscribe button, etc.).
         const tiersResponse = await subscriptionService.getTiers(creatorId);
         if (tiersResponse.success && Array.isArray(tiersResponse.data)) {
           setCreatorTiers(tiersResponse.data);
-          setCreatorHasTier(tiersResponse.data.length > 0);
-          if (tiersResponse.data.length > 0) {
-            setSubscriptionTitle(tiersResponse.data[0].title || 'Subscription');
+          const activeOnly = tiersResponse.data.filter((t: any) => !(t?.isArchived || t?.isActive === false));
+          setCreatorHasTier(activeOnly.length > 0);
+          if (activeOnly.length > 0) {
+            setSubscriptionTitle(activeOnly[0].title || 'Subscription');
           }
           await AsyncStorage.setItem(`sub_tiers_${creatorId}`, JSON.stringify(tiersResponse.data));
         }
@@ -525,25 +530,114 @@ export default function Profile({ userIdProp }: any) {
     return posts.filter((p: any) => p.visibility === 'Subscribers');
   }, [posts]);
 
-  const isSubscriptionSectionSelected = selectedSection === subscriptionTitle;
+  // One subscription folder per tier: each tier renders as its own box with
+  // its own title, its own cover, and only the posts that belong to that tier.
+  const tierSections = useMemo(() => {
+    const tiers = Array.isArray(creatorTiers) ? creatorTiers : [];
+    if (tiers.length === 0) {
+      // Backward-compat: if we know the creator has a tier but tiers detail
+      // hasn't loaded yet, still show a single subscription folder so the box
+      // doesn't disappear briefly on refresh.
+      if (creatorHasTier || subscriptionPosts.length > 0) {
+        return [{
+          _id: 'subscription-folder',
+          tierId: null,
+          name: subscriptionTitle || 'Subscription',
+          postIds: subscriptionPosts.map((p: any) => getPostId(p)),
+          coverImage:
+            subscriptionPosts[0]?.imageUrl ||
+            subscriptionPosts[0]?.mediaUrl ||
+            subscriptionPosts[0]?.media?.[0]?.url ||
+            subscriptionPosts[0]?.mediaUrls?.[0] ||
+            DEFAULT_IMAGE_URL,
+          visibility: 'public',
+          isSubscriptionFolder: true,
+        }];
+      }
+      return [];
+    }
 
-  const mergedSections = useMemo(() => {
-    // Only show public collections/sections on the profile area (not private/specific ones, even to the owner)
-    const list = (sections || []).filter((s: any) => s.visibility === 'public');
-    const showSubFolder = subscriptionPosts.length > 0 || creatorHasTier;
-    if (showSubFolder) {
-      const subSec = {
-        _id: 'subscription-folder',
-        name: subscriptionTitle,
-        postIds: subscriptionPosts.map((p: any) => getPostId(p)),
-        coverImage: subscriptionPosts[0]?.imageUrl || subscriptionPosts[0]?.mediaUrl || subscriptionPosts[0]?.media?.[0]?.url || subscriptionPosts[0]?.mediaUrls?.[0] || DEFAULT_IMAGE_URL,
+    return tiers.map((tier: any) => {
+      const tierId = String(tier?._id || '');
+      const tierPosts = subscriptionPosts.filter(
+        (p: any) => String(p?.subscriptionTierId || '') === tierId
+      );
+      const firstPost = tierPosts[0];
+      const isArchived = tier?.isArchived === true || tier?.isActive === false;
+      return {
+        _id: `subscription-folder-${tierId || tier?.title || Math.random()}`,
+        tierId,
+        name: tier?.title || 'Subscription',
+        postIds: tierPosts.map((p: any) => getPostId(p)),
+        coverImage:
+          firstPost?.imageUrl ||
+          firstPost?.mediaUrl ||
+          firstPost?.media?.[0]?.url ||
+          firstPost?.mediaUrls?.[0] ||
+          DEFAULT_IMAGE_URL,
         visibility: 'public',
         isSubscriptionFolder: true,
+        isArchived,
       };
-      list.unshift(subSec);
+    });
+  }, [creatorTiers, subscriptionPosts, creatorHasTier, subscriptionTitle]);
+
+  const isSubscriptionSectionSelected = useMemo(() => {
+    if (!selectedSection) return false;
+    return tierSections.some((t: any) => t.name === selectedSection);
+  }, [selectedSection, tierSections]);
+
+  const selectedTierSection = useMemo(() => {
+    if (!selectedSection) return null;
+    return tierSections.find((t: any) => t.name === selectedSection) || null;
+  }, [selectedSection, tierSections]);
+
+  const mergedSections = useMemo(() => {
+    // Own profile: show all sections so tapping a private/specific collection works.
+    // Other profiles: only public collections (or ones the viewer collaborates on).
+    // IMPORTANT: always spread into a new array. Returning the `sections` reference
+    // for own-profile and then mutating it (unshift) produced duplicate boxes on
+    // re-renders — always build a fresh list.
+    const base = isOwnProfile
+      ? [...(sections || [])]
+      : (sections || []).filter((s: any) => {
+          if (s.visibility === 'public') return true;
+          const collaborators = Array.isArray(s.collaborators) ? s.collaborators : [];
+          const viewerId = String(currentUserId || '');
+          return collaborators.some((c: any) => {
+            const cid = typeof c === 'string' ? c : (c.userId || c.uid || c._id || c.firebaseUid);
+            return String(cid) === viewerId;
+          });
+        });
+
+    // Strip any subscription-folder entries that were mutated into `sections`
+    // by the previous buggy code path — those should always come from tierSections.
+    const cleaned = base.filter(
+      (s: any) =>
+        !s?.isSubscriptionFolder &&
+        !(typeof s?._id === 'string' && s._id.startsWith('subscription-folder'))
+    );
+
+    const list: any[] = [...tierSections];
+
+    // Dedupe user-created sections by _id and by name; also skip any section
+    // whose name matches a subscription tier so we don't render duplicates.
+    const seenIds = new Set<string>();
+    const seenNames = new Set<string>(
+      tierSections.map((t: any) => String(t.name || '').toLowerCase()).filter(Boolean)
+    );
+    for (const s of cleaned) {
+      const idKey = s?._id ? String(s._id) : '';
+      const nameKey = s?.name ? String(s.name).toLowerCase() : '';
+      if (idKey && seenIds.has(idKey)) continue;
+      if (nameKey && seenNames.has(nameKey)) continue;
+      if (idKey) seenIds.add(idKey);
+      if (nameKey) seenNames.add(nameKey);
+      list.push(s);
     }
+
     return list;
-  }, [sections, subscriptionPosts, creatorHasTier, subscriptionTitle]);
+  }, [sections, tierSections, isOwnProfile, currentUserId]);
 
   const defaultGridPosts = useMemo(() => {
     if (isOwnProfile) {
@@ -560,18 +654,39 @@ export default function Profile({ userIdProp }: any) {
 
   const visiblePosts = useMemo(() => {
     if (!selectedSection) return defaultGridPosts;
-    if (isSubscriptionSectionSelected) return subscriptionPosts;
+
+    // If a specific tier folder is selected, show only that tier's posts.
+    if (isSubscriptionSectionSelected) {
+      if (!selectedTierSection?.tierId) return subscriptionPosts;
+      const tierIdStr = String(selectedTierSection.tierId);
+      return subscriptionPosts.filter(
+        (p: any) => String(p?.subscriptionTierId || '') === tierIdStr
+      );
+    }
+
     const section = mergedSections.find((s: any) => s.name === selectedSection);
-    
-    // If the backend returned full populated post documents inside the section, show them directly!
-    // This allows rendering other people's posts saved in this collection.
-    if (section && Array.isArray(section.posts) && section.posts.length > 0) {
+
+    // Section not resolvable (stale/removed) — show empty grid so the user gets clear "no posts" feedback
+    // instead of the default profile grid, which would look like the click did nothing.
+    if (!section) return [];
+
+    // Backend populates full post documents inside the section — use those directly.
+    // This lets us render posts saved from other users (their posts aren't in the current user's `posts`).
+    if (Array.isArray(section.posts) && section.posts.length > 0) {
       return section.posts;
     }
-    
-    const postIds = section?.postIds || [];
+
+    const postIds = Array.isArray(section.postIds) ? section.postIds : [];
+    if (postIds.length === 0) return [];
+
     return posts.filter((p: any) => postIds.includes(getPostId(p)));
-  }, [selectedSection, isSubscriptionSectionSelected, defaultGridPosts, subscriptionPosts, mergedSections, posts]);
+  }, [selectedSection, isSubscriptionSectionSelected, selectedTierSection, defaultGridPosts, subscriptionPosts, mergedSections, posts]);
+
+  // Whether a non-subscription section is selected and resolved to zero posts.
+  const isSelectedSectionEmpty = useMemo(() => {
+    if (!selectedSection || isSubscriptionSectionSelected) return false;
+    return visiblePosts.length === 0;
+  }, [selectedSection, isSubscriptionSectionSelected, visiblePosts]);
 
   const PROFILE_MAP_ENABLED = false;
 
@@ -1057,10 +1172,21 @@ export default function Profile({ userIdProp }: any) {
           creatorPosts={posts}
           mergedSections={mergedSections}
           selectedSection={selectedSection}
+          isSelectedSectionEmpty={isSelectedSectionEmpty}
           onSelectSection={(secName) => {
-            const isSelectingSubFolder = secName === subscriptionTitle;
-            if (isSelectingSubFolder && !isOwnProfile && !isSubscribed) {
-              setSubModalVisible(true);
+            // Per-tier folder: if the viewer isn't subscribed to THIS specific
+            // tier, open the subscription modal so they can join. Archived
+            // tiers can't be subscribed to anymore, so just open the folder
+            // (subscribers keep access; non-subscribers see the empty/locked view).
+            const targetTier = tierSections.find((t: any) => t.name === secName);
+            if (targetTier && !isOwnProfile && !targetTier.isArchived) {
+              const tierId = targetTier.tierId ? String(targetTier.tierId) : '';
+              const subscribedToThisTier = tierId
+                ? activeSubscribedTierIds.includes(tierId)
+                : isSubscribed;
+              if (!subscribedToThisTier) {
+                setSubModalVisible(true);
+              }
             }
             setSelectedSection(secName);
             if (secName) {
@@ -1069,6 +1195,7 @@ export default function Profile({ userIdProp }: any) {
           }}
           subscriptionTitle={subscriptionTitle}
           isSubscribed={isSubscribed}
+          activeSubscribedTierIds={activeSubscribedTierIds}
           sectionSourcePosts={sectionSourcePosts}
           getPostId={getPostId}
           isOwnProfile={isOwnProfile}

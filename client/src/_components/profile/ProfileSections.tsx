@@ -1,5 +1,5 @@
 import React from 'react';
-import { ScrollView, TouchableOpacity, View, Text, StyleSheet } from 'react-native';
+import { ScrollView, Pressable, View, Text, StyleSheet } from 'react-native';
 import { Image as ExpoImage } from 'expo-image';
 import { Feather } from '@expo/vector-icons';
 import { hapticLight } from '@/lib/haptics';
@@ -17,6 +17,7 @@ interface ProfileSectionsProps {
   onEditSections?: () => void;
   subscriptionSectionName?: string;
   isSubscribed?: boolean;
+  activeSubscribedTierIds?: string[];
 }
 
 const ProfileSections: React.FC<ProfileSectionsProps> = ({
@@ -30,6 +31,7 @@ const ProfileSections: React.FC<ProfileSectionsProps> = ({
   onEditSections,
   subscriptionSectionName,
   isSubscribed = false,
+  activeSubscribedTierIds = [],
 }) => {
   const visibleSections = (sections as any[]).filter(s => {
     if (isOwnProfile) return true;
@@ -49,6 +51,7 @@ const ProfileSections: React.FC<ProfileSectionsProps> = ({
       horizontal
       showsHorizontalScrollIndicator={false}
       contentContainerStyle={styles.container}
+      keyboardShouldPersistTaps="handled"
     >
       {visibleSections.map((s, idx) => {
         const isActive = selectedSection === s.name;
@@ -56,26 +59,35 @@ const ProfileSections: React.FC<ProfileSectionsProps> = ({
         const firstPostInRange = sectionSourcePosts.find(p => s.postIds?.includes?.(getPostId(p)));
         const rawCover = s.coverImage || firstPostInRange?.imageUrl || firstPostInRange?.mediaUrl || firstPostInRange?.media?.[0]?.url || firstPostInRange?.mediaUrls?.[0] || null;
         const hasCover = !!rawCover && rawCover !== DEFAULT_AVATAR_URL && !rawCover.includes('avatardefault');
-        const showLock = isSubscriptionFolder && !isOwnProfile && !isSubscribed;
+
+        // Per-tier lock: unlock only if the viewer is subscribed to THIS specific tier.
+        // Falls back to the aggregate `isSubscribed` when the tier id isn't attached (legacy folder).
+        const tierId = (s as any)?.tierId ? String((s as any).tierId) : '';
+        const subscribedToThisTier = tierId
+          ? activeSubscribedTierIds.includes(tierId)
+          : isSubscribed;
+        const isArchivedTier = !!(s as any)?.isArchived;
+        const showLock = isSubscriptionFolder && !isOwnProfile && !subscribedToThisTier;
 
         return (
-          <TouchableOpacity
+          <Pressable
             key={`section-${String((s as any)?._id || s.name)}-${idx}`}
-            activeOpacity={0.8}
             onPress={() => {
               hapticLight();
               onSelectSection(isActive ? null : s.name);
             }}
-            style={styles.sectionItem}
+            hitSlop={8}
+            style={({ pressed }) => [styles.sectionItem, pressed && { opacity: 0.7 }]}
           >
             <View style={[
               styles.imageContainer,
-              isActive && styles.activeImageContainer
+              isActive && styles.activeImageContainer,
+              isArchivedTier && styles.archivedImageContainer,
             ]}>
               {hasCover ? (
                 <ExpoImage
                   source={{ uri: rawCover }}
-                  style={styles.image}
+                  style={[styles.image, isArchivedTier && { opacity: 0.55 }]}
                   contentFit="cover"
                   transition={0}
                 />
@@ -88,14 +100,19 @@ const ProfileSections: React.FC<ProfileSectionsProps> = ({
                   />
                 </View>
               )}
-              {showLock && (
+              {isArchivedTier && (
+                <View style={styles.archivedBadge}>
+                  <Text style={styles.archivedBadgeText}>Archived</Text>
+                </View>
+              )}
+              {showLock && !isArchivedTier && (
                 <View style={styles.lockOverlay}>
                   <Feather name="lock" size={14} color={COLORS.textLight} />
                 </View>
               )}
             </View>
             <View style={styles.labelRow}>
-              {showLock && (
+              {showLock && !isArchivedTier && (
                 <Feather name="lock" size={10} color={isActive ? '#007aff' : '#333'} style={{ marginRight: 2 }} />
               )}
               <Text
@@ -104,29 +121,30 @@ const ProfileSections: React.FC<ProfileSectionsProps> = ({
                   styles.label,
                   isActive && styles.activeLabel,
                   showLock && styles.labelWithLock,
+                  isArchivedTier && styles.archivedLabel,
                 ]}
               >
                 {s.name}
               </Text>
             </View>
-          </TouchableOpacity>
+          </Pressable>
         );
       })}
 
       {isOwnProfile && (
-        <TouchableOpacity
-          activeOpacity={0.8}
+        <Pressable
           onPress={() => {
             hapticLight();
             onEditSections?.();
           }}
-          style={styles.sectionItem}
+          hitSlop={8}
+          style={({ pressed }) => [styles.sectionItem, pressed && { opacity: 0.7 }]}
         >
           <View style={styles.newButtonContainer}>
             <Feather name="plus" size={24} color="#666" />
           </View>
           <Text style={styles.label}>New</Text>
-        </TouchableOpacity>
+        </Pressable>
       )}
     </ScrollView>
   );
@@ -154,6 +172,30 @@ const styles = StyleSheet.create({
   activeImageContainer: {
     borderWidth: 2,
     borderColor: COLORS.primary,
+  },
+  archivedImageContainer: {
+    borderWidth: 1,
+    borderColor: '#c7c7cc',
+    borderStyle: 'dashed',
+  },
+  archivedBadge: {
+    position: 'absolute',
+    top: 4,
+    left: 4,
+    backgroundColor: 'rgba(0,0,0,0.65)',
+    borderRadius: 6,
+    paddingHorizontal: 5,
+    paddingVertical: 2,
+  },
+  archivedBadgeText: {
+    color: COLORS.textLight,
+    fontSize: 8,
+    fontWeight: '700',
+    letterSpacing: 0.3,
+  },
+  archivedLabel: {
+    color: COLORS.textMuted,
+    fontStyle: 'italic',
   },
   image: {
     width: '100%',

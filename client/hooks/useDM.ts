@@ -27,7 +27,10 @@ import { apiService } from '../src/_services/apiService';
 import { useAppStore } from '@/store/useAppStore';
 
 export function useDM(conversationIdParam: string | null, otherUserId: string | null, currentUserId: string | null, onMessageReceived?: (msg: any) => void) {
-  const { messageCache, setCachedMessages, convoMap } = useAppStore();
+  const setCachedMessages = useAppStore((s) => s.setCachedMessages);
+  // Read (don't subscribe to) the caches: they only seed initial state and effects, while
+  // subscribing would re-render the whole chat every time we write a message to the cache.
+  const { messageCache, convoMap } = useAppStore.getState();
   
   // Resolve conversationId from param or global map (for instant profile-to-chat navigation)
   const normalizedParamId = (conversationIdParam && conversationIdParam !== 'null' && conversationIdParam !== 'undefined')
@@ -248,12 +251,10 @@ export function useDM(conversationIdParam: string | null, otherUserId: string | 
 
     const unsub = subscribeToMessages(conversationId, (msg) => {
       const incoming = normalizeMessage(msg);
-      setMessages(prev => {
-        const merged = mergeMessages(prev, [incoming]);
-        setCachedMessages(cid, merged.slice(0, 30));
-        AsyncStorage.setItem(cacheKey, JSON.stringify(merged.slice(0, 50))).catch(() => {});
-        return merged;
-      });
+      // The updater must stay pure: React runs it during the render phase, and any
+      // store write from there triggers "Cannot update a component while rendering".
+      // Persisting the merged list is handled by the cache effect below.
+      setMessages(prev => mergeMessages(prev, [incoming]));
       if (onMessageReceived) onMessageReceived(incoming);
     });
 
@@ -268,6 +269,21 @@ export function useDM(conversationIdParam: string | null, otherUserId: string | 
       unsubTyping();
     };
   }, [conversationId, currentUserId, otherUserId]);
+
+  // Keep memory + disk caches in sync with the visible list, after commit.
+  useEffect(() => {
+    if (!conversationId) return;
+    // Don't overwrite the warm-start cache with the empty initial state.
+    if (messages.length === 0 && !hasPreloadedMessagesRef.current) return;
+
+    const snapshot = messages.slice(0, 50);
+    setCachedMessages(conversationId, snapshot.slice(0, 30));
+
+    const t = setTimeout(() => {
+      AsyncStorage.setItem(`messages_cache_${conversationId}`, JSON.stringify(snapshot)).catch(() => {});
+    }, 300);
+    return () => clearTimeout(t);
+  }, [messages, conversationId, setCachedMessages]);
 
   const loadMore = useCallback(async () => {
     if (loadingMore || !hasMore || !conversationId) return;

@@ -42,9 +42,9 @@ const DMInput: React.FC<DMInputProps> = ({
   };
 
   return (
-    <ScrollView 
-      keyboardShouldPersistTaps="handled" 
-      scrollEnabled={false} 
+    <ScrollView
+      keyboardShouldPersistTaps="handled"
+      scrollEnabled={false}
       style={{ backgroundColor: COLORS.card, flexGrow: 0 }}
       contentContainerStyle={styles.container}
     >
@@ -64,7 +64,7 @@ const DMInput: React.FC<DMInputProps> = ({
         {!input.trim() && !recording && (
           <TouchableOpacity style={styles.iconBtn} onPress={onCameraPress}>
             <LinearGradient
-              colors={[COLORS.primary, COLORS.primary]}
+              colors={[COLORS.primary, '#FF8D00']}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 0 }}
               style={styles.cameraCircle}
@@ -105,8 +105,8 @@ const DMInput: React.FC<DMInputProps> = ({
         </View>
 
         {(input.trim() || recording) && (
-          <TouchableOpacity 
-            style={styles.sendBtn} 
+          <TouchableOpacity
+            style={styles.sendBtn}
             onPress={recording ? onMicPressOut : onSend}
           >
             <Text style={styles.sendBtnText}>
@@ -123,7 +123,7 @@ const styles = StyleSheet.create({
   container: {
     paddingHorizontal: 12,
     paddingVertical: 10,
-    backgroundColor: COLORS.background,
+    backgroundColor: '#fff',
     borderTopWidth: 0.5,
     borderTopColor: '#efefef',
   },
@@ -135,7 +135,7 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     marginBottom: 10,
     borderLeftWidth: 4,
-    borderLeftColor: COLORS.primary,
+    borderLeftColor: '#FF8D00',
   },
   replyContent: {
     flex: 1,
@@ -143,13 +143,13 @@ const styles = StyleSheet.create({
   replyLabel: {
     fontSize: 11,
     fontWeight: '800',
-    color: COLORS.primary,
+    color: '#FF8D00',
     marginBottom: 2,
     textTransform: 'uppercase',
   },
   replyText: {
     fontSize: 13,
-    color: COLORS.textSecondary,
+    color: '#666',
   },
   inputRow: {
     flexDirection: 'row',
@@ -177,7 +177,7 @@ const styles = StyleSheet.create({
   textInput: {
     flex: 1,
     fontSize: 16,
-    color: COLORS.black,
+    color: '#000',
     paddingVertical: 10,
   },
   rightIcons: {
@@ -192,7 +192,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 4,
   },
   sendBtnText: {
-    color: COLORS.primary,
+    color: '#FF8D00',
     fontWeight: '700',
     fontSize: 16,
   },
@@ -205,13 +205,13 @@ const styles = StyleSheet.create({
     width: 8,
     height: 8,
     borderRadius: 4,
-    backgroundColor: COLORS.danger,
+    backgroundColor: '#ff3b30',
     marginRight: 8,
   },
   recordingText: {
     fontSize: 15,
     fontWeight: '600',
-    color: COLORS.black,
+    color: '#000',
     marginRight: 10,
   },
   recordingHint: {

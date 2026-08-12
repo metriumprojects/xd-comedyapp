@@ -1,26 +1,14 @@
 import React from 'react';
 import { NavLink } from 'react-router-dom';
-import { 
-  HiOutlineViewGrid, 
-  HiOutlineUsers, 
-  HiOutlineExclamationCircle, 
-  HiOutlineDocumentText, 
-  HiOutlineCog,
-  HiOutlineLogout
-} from 'react-icons/hi';
-
+import { HiOutlineUsers, HiOutlineLogout } from 'react-icons/hi';
 import { useAuthStore } from '../stores/authStore';
 
 const Sidebar = () => {
   const logout = useAuthStore((state) => state.logout);
+  const user = useAuthStore((state) => state.user);
 
   const menuItems = [
-    { name: 'Dashboard', icon: <HiOutlineViewGrid />, path: '/' },
-    { name: 'Users', icon: <HiOutlineUsers />, path: '/users' },
-    { name: 'App Management', icon: <HiOutlineCog />, path: '/management' },
-    { name: 'Reports', icon: <HiOutlineExclamationCircle />, path: '/reports' },
-    { name: 'Admin Logs', icon: <HiOutlineDocumentText />, path: '/logs' },
-    { name: 'Settings', icon: <HiOutlineCog />, path: '/settings' },
+    { name: 'User Management', icon: <HiOutlineUsers />, path: '/users' },
   ];
 
   return (
@@ -30,7 +18,9 @@ const Sidebar = () => {
           <div className="w-10 h-10 bg-indigo-500 rounded-xl flex items-center justify-center shadow-lg shadow-indigo-500/30">
             <span className="text-white font-bold text-xl">C</span>
           </div>
-          <h1 className="text-xl font-bold tracking-tight">Comedy<span className="text-indigo-400">Admin</span></h1>
+          <h1 className="text-xl font-bold tracking-tight text-white">
+            Comedy<span className="text-indigo-400">Admin</span>
+          </h1>
         </div>
       </div>
 
@@ -41,8 +31,8 @@ const Sidebar = () => {
             to={item.path}
             className={({ isActive }) => `
               flex items-center gap-4 px-4 py-3 rounded-xl transition-all duration-200
-              ${isActive 
-                ? 'bg-indigo-500/20 text-indigo-400 border border-indigo-500/30' 
+              ${isActive
+                ? 'bg-indigo-500/20 text-indigo-400 border border-indigo-500/30'
                 : 'text-slate-400 hover:bg-white/5 hover:text-white'}
             `}
           >
@@ -52,8 +42,19 @@ const Sidebar = () => {
         ))}
       </nav>
 
+      {user && (
+        <div className="px-4 pb-3">
+          <div className="px-4 py-3 rounded-xl bg-white/5 border border-white/10">
+            <p className="text-xs text-slate-500 uppercase tracking-wider">Signed in as</p>
+            <p className="text-sm text-white font-medium truncate mt-1">
+              {user.displayName || user.email}
+            </p>
+          </div>
+        </div>
+      )}
+
       <div className="p-4 border-t border-white/5">
-        <button 
+        <button
           onClick={logout}
           className="flex items-center gap-4 px-4 py-3 w-full text-slate-400 hover:text-red-400 hover:bg-red-400/10 rounded-xl transition-all"
         >

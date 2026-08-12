@@ -109,21 +109,56 @@ router.post('/tiers', verifyToken, async (req, res) => {
 
 /**
  * GET /subscriptions/tiers/:creatorId
- * Get a creator's active subscription tier. Public endpoint.
+ * Get a creator's subscription tiers.
+ *
+ * Active tiers are always returned. Archived (soft-deleted) tiers are also
+ * returned when they still have posts tagged to them or active subscribers —
+ * this keeps the folder visible on the profile so the creator and existing
+ * subscribers can still browse the content. New subscribers can't sign up
+ * for archived tiers (they carry `isActive: false` / `isArchived: true`).
  */
 router.get('/tiers/:creatorId', optionalAuth, async (req, res) => {
   try {
     const { creatorId } = req.params;
 
-    const tiers = await SubscriptionTier().find({
-      creatorId,
-      isActive: true,
-    }).sort({ priceInCents: 1 }).lean();
+    const allTiers = await SubscriptionTier().find({ creatorId })
+      .sort({ priceInCents: 1 })
+      .lean();
 
-    // Convert cents back to dollars for display
-    const response = tiers.map(tier => ({
+    if (allTiers.length === 0) {
+      return res.json({ success: true, data: [] });
+    }
+
+    const activeTiers = allTiers.filter(t => t.isActive !== false);
+    const archivedTiers = allTiers.filter(t => t.isActive === false);
+
+    // Only keep archived tiers that still have posts OR active subscriptions,
+    // otherwise deleted tiers would accumulate on the profile forever.
+    let keepArchived = [];
+    if (archivedTiers.length > 0) {
+      const Post = mongoose.model('Post');
+      const Sub = Subscription();
+      const archivedIds = archivedTiers.map(t => t._id);
+
+      const [tiersWithPosts, tiersWithSubs] = await Promise.all([
+        Post.distinct('subscriptionTierId', { subscriptionTierId: { $in: archivedIds } }),
+        Sub.distinct('tierId', { tierId: { $in: archivedIds }, status: 'active' }),
+      ]);
+
+      const keepSet = new Set([
+        ...tiersWithPosts.map(id => String(id)),
+        ...tiersWithSubs.map(id => String(id)),
+      ]);
+
+      keepArchived = archivedTiers.filter(t => keepSet.has(String(t._id)));
+    }
+
+    const finalTiers = [...activeTiers, ...keepArchived];
+
+    const response = finalTiers.map(tier => ({
       ...tier,
       price: (tier.priceInCents / 100).toFixed(2),
+      isArchived: tier.isActive === false,
     }));
 
     res.json({ success: true, data: response });

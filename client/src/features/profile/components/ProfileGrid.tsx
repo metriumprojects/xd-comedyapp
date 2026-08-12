@@ -110,10 +110,12 @@ interface ProfileGridProps {
   onSelectSection?: (secName: string | null) => void;
   subscriptionTitle?: string;
   isSubscribed?: boolean;
+  activeSubscribedTierIds?: string[];
   sectionSourcePosts?: any[];
   getPostId?: (post: any) => string;
   isOwnProfile?: boolean;
   onEditSections?: () => void;
+  isSelectedSectionEmpty?: boolean;
 }
 
 const ProfileGrid: React.FC<ProfileGridProps> = ({
@@ -139,10 +141,12 @@ const ProfileGrid: React.FC<ProfileGridProps> = ({
   onSelectSection,
   subscriptionTitle,
   isSubscribed,
+  activeSubscribedTierIds,
   sectionSourcePosts,
   getPostId,
   isOwnProfile,
   onEditSections,
+  isSelectedSectionEmpty = false,
 }) => {
   const horizontalScrollRef = useRef<ScrollView>(null);
   const lastScrolledIndexRef = useRef<number>(TAB_ORDER.indexOf(segmentTab));
@@ -175,6 +179,7 @@ const ProfileGrid: React.FC<ProfileGridProps> = ({
       showsVerticalScrollIndicator={false}
       contentContainerStyle={{ paddingBottom: insetsBottom + 40 }}
       refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+      keyboardShouldPersistTaps="handled"
     >
       {renderHeader}
 
@@ -191,6 +196,7 @@ const ProfileGrid: React.FC<ProfileGridProps> = ({
         onMomentumScrollEnd={handleMomentumScrollEnd}
         scrollEventThrottle={16}
         decelerationRate="fast"
+        keyboardShouldPersistTaps="handled"
       >
         {/* Page 0: Grid (with ProfileSections at top) */}
         <View style={{ width: SCREEN_WIDTH }}>
@@ -199,14 +205,10 @@ const ProfileGrid: React.FC<ProfileGridProps> = ({
               <ProfileSections
                 sections={mergedSections}
                 selectedSection={selectedSection || null}
-                onSelectSection={(secName) => {
-                  onSelectSection?.(secName);
-                  if (secName) {
-                    onSelectTab?.('grid');
-                  }
-                }}
+                onSelectSection={(secName) => onSelectSection?.(secName)}
                 subscriptionSectionName={subscriptionTitle}
                 isSubscribed={isSubscribed}
+                activeSubscribedTierIds={activeSubscribedTierIds}
                 sectionSourcePosts={sectionSourcePosts}
                 getPostId={getPostId}
                 isOwnProfile={isOwnProfile}
@@ -218,8 +220,9 @@ const ProfileGrid: React.FC<ProfileGridProps> = ({
           <RenderGridPage
             posts={gridPosts}
             loading={loading}
-            emptyIcon="grid-outline"
-            emptyTitle="No posts yet"
+            emptyIcon={selectedSection ? 'bookmark-outline' : 'grid-outline'}
+            emptyTitle={isSelectedSectionEmpty ? 'No saved posts yet' : 'No posts yet'}
+            emptySub={isSelectedSectionEmpty ? `Posts you save to "${selectedSection}" will show up here.` : undefined}
             onPressPost={onPressPost}
             normalizeMediaUrl={normalizeMediaUrl}
             isVideoUrl={isVideoUrl}

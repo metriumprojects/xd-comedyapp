@@ -1,5 +1,5 @@
 import React from 'react';
-import { Modal, Pressable, TouchableOpacity, View, Text, ActivityIndicator, KeyboardAvoidingView, Platform, StyleSheet, Dimensions } from 'react-native';
+import { Modal, Pressable, TouchableOpacity, View, Text, ActivityIndicator, KeyboardAvoidingView, Platform, StyleSheet, Dimensions, Keyboard } from 'react-native';
 import { Image as ExpoImage } from 'expo-image';
 import { Ionicons, Feather } from '@expo/vector-icons';
 import HighlightViewer from '@/src/_components/HighlightViewer';
@@ -199,9 +199,16 @@ const ProfileModals: React.FC<ProfileModalsProps> = (props) => {
             <TouchableOpacity
               style={{ flex: 1 }}
               activeOpacity={1}
-              onPress={() => setCommentModalVisible(false)}
+              onPress={() => {
+                // Keyboard up: first tap just lowers it, like Instagram. Second tap closes the sheet.
+                if (Keyboard.isVisible()) {
+                  Keyboard.dismiss();
+                  return;
+                }
+                setCommentModalVisible(false);
+              }}
             />
-            <View style={[styles.commentSheet, { maxHeight: getModalHeight(0.9) }]}>
+            <View style={[styles.commentSheet, { height: getModalHeight(0.8) }]}>
               <View style={styles.commentHandleContainer}>
                 <View style={styles.commentHandle} />
                 <Text style={styles.commentTitle}>Comments</Text>

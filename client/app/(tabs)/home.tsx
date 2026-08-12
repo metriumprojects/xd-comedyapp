@@ -9,7 +9,8 @@ import {
   View,
   TextInput,
   Platform,
-  RefreshControl
+  RefreshControl,
+  Keyboard
 } from "react-native";
 import { Feather, Ionicons } from "@expo/vector-icons";
 import * as Haptics from 'expo-haptics';
@@ -241,7 +242,7 @@ export default function Home() {
     return [{ name: 'Podium', image: '' }, ...filtered];
   }, [categories]);
 
-  // Filter posts based on selected category and search query
+  // Filter posts based on selected category and search query, and deduplicate
   const filteredPosts = useMemo(() => {
     let result = posts;
 
@@ -262,6 +263,15 @@ export default function Home() {
           p.locationData?.name?.toLowerCase().includes(query)
       );
     }
+
+    // Deduplicate — the server can return the same post in both recent and discovery batches
+    const seen = new Set<string>();
+    result = result.filter((p: any) => {
+      const id = String(p?.id || p?._id || '');
+      if (!id || seen.has(id)) return false;
+      seen.add(id);
+      return true;
+    });
 
     return result;
   }, [posts, filter, searchQuery]);
@@ -287,8 +297,28 @@ export default function Home() {
     }
   }, [containerHeight, activeIndex]);
 
+  const keyboardOpenRef = useRef(false);
+
+  useEffect(() => {
+    const subs = [
+      Keyboard.addListener('keyboardWillShow', () => { keyboardOpenRef.current = true; }),
+      Keyboard.addListener('keyboardDidShow', () => { keyboardOpenRef.current = true; }),
+      Keyboard.addListener('keyboardWillHide', () => { keyboardOpenRef.current = false; }),
+      Keyboard.addListener('keyboardDidHide', () => { keyboardOpenRef.current = false; }),
+    ];
+    return () => subs.forEach(s => s.remove());
+  }, []);
+
   const onLayout = useCallback((e: any) => {
     const { height } = e.nativeEvent.layout;
+
+    // The reels pager is full-screen, so the only thing that shrinks it this much is the soft
+    // keyboard (Android adjustResize). Repaginating on that would re-render every ReelItem and
+    // scroll the list mid-gesture, which cancels the tap the user is making inside a comment
+    // sheet. Real layout changes here (tab bar / fullscreen toggle) are far smaller than 25%.
+    if (keyboardOpenRef.current || Keyboard.isVisible()) return;
+    if (height < prevContainerHeightRef.current * 0.75) return;
+
     setContainerHeight(height);
   }, []);
 
@@ -353,7 +383,10 @@ export default function Home() {
           windowSize={3}
           initialNumToRender={2}
           maxToRenderPerBatch={1}
-          removeClippedSubviews={Platform.OS === 'android'}
+          // Left off deliberately: each cell hosts the comment sheet and story viewer, and on Android
+          // clipping detaches/reattaches their native subtree, which swallows the first touch. The
+          // small window sizes above already keep only a couple of cells mounted.
+          removeClippedSubviews={false}
           getItemLayout={(data, index) => ({
             length: containerHeight,
             offset: containerHeight * index,
@@ -466,7 +499,7 @@ export default function Home() {
                 <Ionicons name="arrow-back" size={24} color={COLORS.white} />
               </TouchableOpacity>
             ) : (
-              <View style={{ width: 36 }} />
+              <View style={{ width: 32 }} />
             )}
 
             <View style={styles.headerRight} pointerEvents="box-none">
@@ -521,7 +554,7 @@ export default function Home() {
             <Ionicons name="search" size={16} color="#ffffff" style={styles.searchIcon} />
             <TextInput
               style={styles.searchInput}
-              placeholder="Search funny videos"
+              placeholder="Search Funny Reels & Posts"
               placeholderTextColor="rgba(255,255,255,0.8)"
               value={searchQuery}
               onChangeText={setSearchQuery}
@@ -672,11 +705,11 @@ const styles = StyleSheet.create({
   headerRight: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 16,
+    gap: 8,
   },
   headerBtn: {
-    width: 36,
-    height: 36,
+    width: 32,
+    height: 32,
     justifyContent: 'center',
     alignItems: 'center',
   },

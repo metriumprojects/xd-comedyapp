@@ -109,7 +109,7 @@ export async function signInWithEmailPassword(
       }
       try { await signOut(firebaseAuth); } catch (e) { }
       await AsyncStorage.multiRemove(['token', 'userId', 'userEmail', 'userAvatar', 'uid', 'firebaseUid']);
-      
+
       return {
         success: false,
         error: 'Please verify your email before logging in. We have sent a verification link to your email.'
@@ -121,7 +121,7 @@ export async function signInWithEmailPassword(
     const response = await apiService.post('/auth/login-firebase', {
       idToken,
       firebaseUid: firebaseUser.uid,
-      email: firebaseUser.email || (email && email.includes('@') ? email : `${firebaseUser.uid}@trips.app`), 
+      email: firebaseUser.email || (email && email.includes('@') ? email : `${firebaseUser.uid}@trips.app`),
       displayName: firebaseUser.displayName || (email && email.includes('@') ? email.split('@')[0] : 'User'),
       avatar: firebaseUser.photoURL
     });
@@ -129,10 +129,10 @@ export async function signInWithEmailPassword(
     if (response.success) {
       // Step 3: Store token and UNIFIED userId (MongoDB _id)
       const canonicalUserId = String(response.user?.id ?? response.user?._id ?? firebaseUser.uid);
-      
+
       // iOS Fix: Store all avatar variants from backend response
       const avatarToStore = response.user?.avatar || response.user?.photoURL || response.user?.profilePicture || firebaseUser.photoURL || '';
-      
+
       await AsyncStorage.multiSet([
         ['token', response.token],
         ['userId', canonicalUserId],
@@ -141,7 +141,7 @@ export async function signInWithEmailPassword(
       ]);
 
       // Compatibility: Also keep 'uid' but mark for future removal
-      await AsyncStorage.setItem('uid', canonicalUserId); 
+      await AsyncStorage.setItem('uid', canonicalUserId);
       await AsyncStorage.setItem('firebaseUid', String(response.user?.firebaseUid || firebaseUser.uid));
 
       console.log('[signInWithEmailPassword] ✅ Unified Identity stored:', canonicalUserId);
@@ -161,10 +161,10 @@ export async function signInWithEmailPassword(
 
       const detailedError = response.message || response.error || 'Login sync failed';
       const details = response.details ? JSON.stringify(response.details) : '';
-      
-      return { 
-        success: false, 
-        error: `${detailedError} ${details}`.trim() 
+
+      return {
+        success: false,
+        error: `${detailedError} ${details}`.trim()
       };
     }
   } catch (error: any) {
@@ -232,10 +232,10 @@ export async function registerWithEmailPassword(
     if (response.success) {
       // Step 3: Store token and UNIFIED userId (MongoDB _id)
       const canonicalUserId = String(response.user?.id ?? response.user?._id ?? firebaseUser.uid);
-      
+
       // iOS Fix: Store all avatar variants from backend response
       const avatarToStore = response.user?.avatar || response.user?.photoURL || response.user?.profilePicture || firebaseUser.photoURL || '';
-      
+
       if (verifyEmail) {
         // Send custom HTML email verification via backend Nodemailer with Firebase Native fallback
         try {
@@ -360,7 +360,7 @@ export async function signOutUser(): Promise<{ success: boolean; error?: string 
     // Still clear local storage even if backend call fails
     try {
       useAppStore.getState().logout();
-    } catch (e) {}
+    } catch (e) { }
     await AsyncStorage.removeItem('token');
     await AsyncStorage.removeItem('userId');
     await AsyncStorage.removeItem('userEmail');
@@ -671,10 +671,10 @@ export async function uploadMedia(uri: string, mediaType: 'image' | 'video' = 'i
         const FileSystem = require('expo-file-system');
         const extension = mediaType === 'video' ? '.mp4' : '.jpg';
         const localUri = FileSystem.cacheDirectory + 'dl_' + Date.now() + extension;
-        
+
         const { uri: downloadedUri } = await FileSystem.downloadAsync(finalUri, localUri);
         console.log('[uploadMedia] ✅ Downloaded to:', downloadedUri);
-        
+
         return uploadWithMultipart(downloadedUri, mediaType, path);
       } catch (err: any) {
         console.error('[uploadMedia] ❌ Remote download error:', err.message);
@@ -684,17 +684,17 @@ export async function uploadMedia(uri: string, mediaType: 'image' | 'video' = 'i
       // Handle iOS photo library URIs
       console.log('[uploadMedia] 🍏 Detected iOS Photo Library URI, resolving to local file...');
       try {
-        const assetId = uri.startsWith('ph://') 
-          ? uri.replace('ph://', '').split('/')[0] 
+        const assetId = uri.startsWith('ph://')
+          ? uri.replace('ph://', '').split('/')[0]
           : uri;
-        
+
         const assetInfo = await MediaLibrary.getAssetInfoAsync(assetId);
         const localUri = assetInfo.localUri || assetInfo.uri;
-        
+
         if (!localUri) {
           throw new Error('Could not resolve iOS asset to local URI');
         }
-        
+
         console.log('[uploadMedia] ✅ Resolved to local URI:', localUri);
         // Recurse with resolved local URI
         return uploadMedia(localUri, mediaType, path);
@@ -723,10 +723,10 @@ async function uploadWithMultipart(
     const endpointUrl = `${API_BASE_URL}/upload/upload`;
 
     const safeType = mediaType === 'video' ? 'video' : 'image';
-    
+
     // Dynamically detect file extension from URI
     const extension = uri.split('.').pop()?.toLowerCase() || (safeType === 'video' ? 'mp4' : 'jpg');
-    
+
     // Match correct MIME type for iOS (especially .mov QuickTime videos)
     let contentType = 'image/jpeg';
     if (safeType === 'video') {
@@ -804,8 +804,8 @@ async function uploadStoryMedia(uri: string, userId: string, mediaType: 'image' 
     // Handle iOS ph:// or assets-library:// URIs
     if (uri.startsWith('ph://') || uri.startsWith('assets-library://')) {
       try {
-        const assetId = uri.startsWith('ph://') 
-          ? uri.replace('ph://', '').split('/')[0] 
+        const assetId = uri.startsWith('ph://')
+          ? uri.replace('ph://', '').split('/')[0]
           : uri;
         const assetInfo = await MediaLibrary.getAssetInfoAsync(assetId);
         finalUri = assetInfo.localUri || assetInfo.uri || uri;
@@ -918,9 +918,9 @@ export async function addUserSection(userId: string, section: { name: string; po
 
 export async function updateUserSection(userId: string, sectionIdOrName: string, section: any, requesterId?: string) {
   try {
-    const res = await apiService.put(`/users/${userId}/sections/${encodeURIComponent(sectionIdOrName)}`, { 
-      ...section, 
-      requesterId 
+    const res = await apiService.put(`/users/${userId}/sections/${encodeURIComponent(sectionIdOrName)}`, {
+      ...section,
+      requesterId
     });
     return { success: true, data: res?.data || res };
   } catch (error: any) {
@@ -930,8 +930,12 @@ export async function updateUserSection(userId: string, sectionIdOrName: string,
 }
 
 export async function deleteUserSection(userId: string, sectionName: string) {
-  await apiService.delete(`/users/${userId}/sections/${encodeURIComponent(sectionName)}`);
-  return { success: true };
+  try {
+    const res = await apiService.delete(`/users/${userId}/sections/${encodeURIComponent(sectionName)}`);
+    return { success: res?.success !== false };
+  } catch (error: any) {
+    return { success: false, error: error?.message || 'Failed to delete section' };
+  }
 }
 
 // ============= POSTS =============
@@ -1039,10 +1043,10 @@ export async function createPost(
         mediaUrls.push(uri);
         continue;
       }
-      
+
       const lower = String(uri || '').toLowerCase();
       const assetMatch = galleryAssets?.find((a: any) => a.uri === uri);
-      const isItemVideo = assetMatch 
+      const isItemVideo = assetMatch
         ? assetMatch.mediaType === 'video'
         : (lower.endsWith('.mp4') || lower.endsWith('.mov') || lower.endsWith('.m4v') || lower.endsWith('.avi') || lower.includes('video'));
       const itemType: 'image' | 'video' = isItemVideo ? 'video' : 'image';
@@ -1279,12 +1283,12 @@ export async function createStory(
     onProgress(97);
   }
 
-  const res = await apiService.post('/stories', { 
-    userId, 
-    userName, 
-    mediaUrl: mediaUrl, 
-    mediaType, 
-    locationData, 
+  const res = await apiService.post('/stories', {
+    userId,
+    userName,
+    mediaUrl: mediaUrl,
+    mediaType,
+    locationData,
     thumbnailUrl,
     visibility,
     allowedFollowers,
@@ -1418,7 +1422,7 @@ export async function getRegions() {
     if (response && response.success && Array.isArray(response.data) && response.data.length > 0) {
       return { success: true, data: response.data };
     }
-    
+
     // Static fallback list for offline / first-run
     const regions = [
       // COUNTRIES

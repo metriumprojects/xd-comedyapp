@@ -347,7 +347,9 @@ export default function UserPostsScreen() {
         maxToRenderPerBatch={4}
         windowSize={5}
         updateCellsBatchingPeriod={40}
-        removeClippedSubviews
+        // Each cell hosts PostCard's comment sheet; on Android clipping detaches and reattaches
+        // its native subtree, which swallows the first touch inside the sheet.
+        removeClippedSubviews={false}
         renderItem={({ item }: { item: any }) => (
           <PostCard
             post={item}

@@ -17,7 +17,6 @@ import {
   Dimensions,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useAppDialog } from '@/src/_components/AppDialogProvider';
 import { createHighlight, uploadImage, getUserStories } from '../../lib/firebaseHelpers/index';
 import { getKeyboardOffset } from '../../utils/responsive';
 import { getVideoThumbnailUrl } from '../../lib/imageHelpers';
@@ -45,7 +44,6 @@ export default function CreateHighlightModal({
   storyToInclude,
 }: CreateHighlightModalProps) {
   const insets = useSafeAreaInsets();
-  const { showSuccess } = useAppDialog();
   const [name, setName] = useState(initialName);
   const [coverImage, setCoverImage] = useState<string | null>(defaultCoverUri || null);
   const [visibility, setVisibility] = useState('Public');
@@ -179,9 +177,9 @@ export default function CreateHighlightModal({
 
     try {
       let finalCoverUrl = coverImage;
-      
-      // If coverImage is a local URI, upload it
-      if (coverImage.startsWith('file://')) {
+
+      // Local URIs (file:// on iOS, content:// on Android) must be uploaded first
+      if (!/^https?:\/\//i.test(coverImage)) {
         const imagePath = `highlights/${userId}/${Date.now()}.jpg`;
         const uploadResult = await uploadImage(coverImage, imagePath);
         if (!uploadResult.success) throw new Error(uploadResult.error);
@@ -193,11 +191,16 @@ export default function CreateHighlightModal({
       const result = await createHighlight(userId, name, finalCoverUrl, initialStoryIds, visibility);
 
       if (result.success) {
-        showSuccess('Highlight created successfully!');
+        // Kick off the profile refetch in the background before dismissing so the
+        // new highlight is already in flight while the sheet slides away. Do NOT
+        // present another Modal (e.g. showSuccess) here: on Android the sheet's
+        // slide-out can overlap with a new Modal mount, leaving an invisible
+        // overlay that swallows every touch on the profile.
+        try { onSuccess?.(); } catch { }
         setName('');
         setCoverImage(null);
         setVisibility('Public');
-        onSuccess?.();
+        setSelectedStoryIds(new Set());
         onClose();
       } else {
         throw new Error(result.error);
@@ -256,17 +259,17 @@ export default function CreateHighlightModal({
                 }}
               >
                 <Image source={{ uri: mediaUrl }} style={{ width: '100%', height: '100%' }} resizeMode="cover" />
-                
+
                 {/* Checkbox overlay */}
-                <View style={{ 
-                  position: 'absolute', 
-                  top: 6, 
-                  right: 6, 
-                  backgroundColor: isSelected ? COLORS.info : 'rgba(0,0,0,0.3)', 
-                  borderRadius: 10, 
-                  width: 20, 
-                  height: 20, 
-                  justifyContent: 'center', 
+                <View style={{
+                  position: 'absolute',
+                  top: 6,
+                  right: 6,
+                  backgroundColor: isSelected ? COLORS.info : 'rgba(0,0,0,0.3)',
+                  borderRadius: 10,
+                  width: 20,
+                  height: 20,
+                  justifyContent: 'center',
                   alignItems: 'center',
                   borderWidth: isSelected ? 0 : 1.5,
                   borderColor: COLORS.textLight
@@ -320,7 +323,7 @@ export default function CreateHighlightModal({
               </TouchableOpacity>
             </View>
 
-            <ScrollView 
+            <ScrollView
               showsVerticalScrollIndicator={false}
               contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: Math.max(insets.bottom, 30) }}
               keyboardShouldPersistTaps="handled"

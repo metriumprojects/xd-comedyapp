@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import {
   Alert,
   FlatList,
@@ -13,7 +13,6 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { addStoryToHighlight } from '../../lib/firebaseHelpers/highlights';
-import { useAppDialog } from '@/src/_components/AppDialogProvider';
 import COLORS from '@/src/theme/colors';
 
 interface Story {
@@ -50,7 +49,6 @@ export default function AddStoriesToHighlightModal({
 }: AddStoriesToHighlightModalProps) {
   const [selectedStories, setSelectedStories] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(false);
-  const { showSuccess } = useAppDialog();
 
   const resolveStoryId = (s: Story) => String(s?.id || s?._id || s?.storyId || '');
   const resolveStoryPreview = (s: Story) => String(s?.imageUrl || s?.thumbnailUrl || s?.mediaUrl || s?.videoUrl || '');
@@ -86,12 +84,13 @@ export default function AddStoriesToHighlightModal({
       }
 
       if (failureCount === 0) {
-        showSuccess(`Added ${successCount} ${successCount === 1 ? 'story' : 'stories'} to highlight`);
+        // Refetch the highlight in the background before closing so the new
+        // stories are already loading while the sheet slides away. Don't stack
+        // another Modal (showSuccess) on top: on Android the slide-out overlaps
+        // with the new Modal mount and leaves an invisible touch-blocking overlay.
+        try { onStoryAdded?.(); } catch { }
         setSelectedStories(new Set());
         onClose();
-        if (onStoryAdded) {
-          onStoryAdded();
-        }
       } else {
         Alert.alert(
           'Partial Success',

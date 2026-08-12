@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Image as ExpoImage } from 'expo-image';
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Alert, Keyboard, KeyboardAvoidingView, Modal, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import DraggableFlatList, { RenderItemParams, ScaleDecorator } from 'react-native-draggable-flatlist';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
@@ -11,6 +11,49 @@ import { getUserSectionsSorted } from '../../lib/firebaseHelpers/getUserSections
 import { addUserSection, deleteUserSection, updateUserSection } from '../../lib/firebaseHelpers/index';
 import { updateUserSectionsOrder } from '../../lib/firebaseHelpers/updateUserSectionsOrder';
 import COLORS from '@/src/theme/colors';
+
+const SECTION_NAME_MIN = 2;
+const SECTION_NAME_MAX = 30;
+/** Letters, numbers, spaces, and light punctuation only — no emojis/symbols. */
+const SECTION_NAME_PATTERN = /^[A-Za-z0-9][A-Za-z0-9 _\-'.]*$/;
+
+function normalizeSectionName(raw: string): string {
+  return String(raw || '').trim().replace(/\s+/g, ' ');
+}
+
+function validateSectionName(
+  raw: string,
+  existingNames: string[],
+  opts?: { ignoreName?: string }
+): { ok: true; name: string } | { ok: false; error: string } {
+  const name = normalizeSectionName(raw);
+  if (!name) {
+    return { ok: false, error: 'Please enter a section name' };
+  }
+  if (name.length < SECTION_NAME_MIN) {
+    return { ok: false, error: `Name must be at least ${SECTION_NAME_MIN} characters` };
+  }
+  if (name.length > SECTION_NAME_MAX) {
+    return { ok: false, error: `Name must be ${SECTION_NAME_MAX} characters or less` };
+  }
+  if (!SECTION_NAME_PATTERN.test(name)) {
+    return {
+      ok: false,
+      error: "Use letters, numbers, spaces, and - _ ' . only",
+    };
+  }
+  const ignore = normalizeSectionName(opts?.ignoreName || '').toLowerCase();
+  const duplicate = existingNames.some((n) => {
+    const existing = normalizeSectionName(n).toLowerCase();
+    if (!existing) return false;
+    if (ignore && existing === ignore) return false;
+    return existing === name.toLowerCase();
+  });
+  if (duplicate) {
+    return { ok: false, error: 'A section with this name already exists' };
+  }
+  return { ok: true, name };
+}
 
 type Section = {
   _id?: string;
@@ -55,7 +98,9 @@ export default function EditSectionsModal({
   const [sectionMode, setSectionMode] = useState<'select' | 'cover' | 'visibility' | 'collaborators'>('select');
   const [newSectionName, setNewSectionName] = useState('');
   const [showCreateInput, setShowCreateInput] = useState(false);
+  const [creatingSection, setCreatingSection] = useState(false);
   const [collaboratorInput, setCollaboratorInput] = useState('');
+  const isCreatingRef = useRef(false);
 
   // Groups and Followers for Visibility/Collabs
   const [groups, setGroups] = useState<any[]>([]);
@@ -89,32 +134,53 @@ export default function EditSectionsModal({
   };
 
   const handleCreateSection = async () => {
-    if (!newSectionName.trim() || !userId) {
-      console.log('âŒ Cannot create section - missing name or userId:', { newSectionName, userId });
+    if (isCreatingRef.current || creatingSection) return;
+    if (!userId) return;
+
+    const validation = validateSectionName(
+      newSectionName,
+      sections.map((s) => s.name)
+    );
+    if (!validation.ok) {
+      Alert.alert('Invalid name', validation.error);
       return;
     }
 
-    console.log('ðŸ“ Creating section:', newSectionName.trim(), 'for user:', userId);
+    isCreatingRef.current = true;
+    setCreatingSection(true);
+    Keyboard.dismiss();
 
-    const createResult = await addUserSection(userId, { name: newSectionName.trim(), postIds: [], visibility: 'public', collaborators: [], allowedGroups: [] });
-    console.log('âœ… Create section result:', createResult);
+    try {
+      const createResult = await addUserSection(userId, {
+        name: validation.name,
+        postIds: [],
+        visibility: 'public',
+        collaborators: [],
+        allowedGroups: [],
+      });
 
-    const res = await getUserSectionsSorted(userId);
-    console.log('ðŸ“‹ Fetched sections after create:', res);
-    console.log('ðŸ“‹ Response data type:', Array.isArray(res.data) ? 'array' : typeof res.data);
-    console.log('ðŸ“‹ Response data.data type:', res.data?.data ? (Array.isArray(res.data.data) ? 'array' : typeof res.data.data) : 'undefined');
+      if (createResult && createResult.success === false) {
+        throw new Error(createResult.error || 'Failed to create section');
+      }
 
-    if (res.success && res.data) {
-      const sectionsData = Array.isArray(res.data) ? res.data : (Array.isArray(res.data.data) ? res.data.data : []);
-      console.log('âœ… Updating sections in UI:', sectionsData.length, 'sections');
-      console.log('âœ… Section names:', sectionsData.map((s: any) => s.name || s._id));
-      onSectionsUpdate(normalizeSections(sectionsData));
-    } else {
-      console.error('âŒ Failed to fetch sections:', res);
+      const res = await getUserSectionsSorted(userId);
+      if (res.success && res.data) {
+        const sectionsData = Array.isArray(res.data)
+          ? res.data
+          : Array.isArray(res.data.data)
+            ? res.data.data
+            : [];
+        onSectionsUpdate(normalizeSections(sectionsData));
+      }
+
+      setNewSectionName('');
+      setShowCreateInput(false);
+    } catch (error: any) {
+      Alert.alert('Error', error?.message || 'Failed to create section');
+    } finally {
+      isCreatingRef.current = false;
+      setCreatingSection(false);
     }
-
-    setNewSectionName('');
-    setShowCreateInput(false);
   };
 
   const handleDeleteSection = async (sectionName: string) => {
@@ -125,10 +191,14 @@ export default function EditSectionsModal({
         text: 'Delete',
         style: 'destructive',
         onPress: async () => {
-          await deleteUserSection(userId, sectionName);
-          const res = await getUserSectionsSorted(userId);
-          if (res.success && res.data) {
-            const sectionsData = Array.isArray(res.data) ? res.data : (Array.isArray(res.data.data) ? res.data.data : []);
+          const res = await deleteUserSection(userId, sectionName);
+          if (!res.success) {
+            Alert.alert('Error', res.error || 'Failed to delete section');
+            return;
+          }
+          const refreshed = await getUserSectionsSorted(userId);
+          if (refreshed.success && refreshed.data) {
+            const sectionsData = Array.isArray(refreshed.data) ? refreshed.data : (Array.isArray(refreshed.data.data) ? refreshed.data.data : []);
             onSectionsUpdate(normalizeSections(sectionsData));
           }
           if (selectedSectionForEdit === sectionName) {
@@ -211,6 +281,12 @@ export default function EditSectionsModal({
     if (visible && currentUserId) {
       loadGroups();
       loadFollowers();
+    }
+    if (!visible) {
+      isCreatingRef.current = false;
+      setCreatingSection(false);
+      setShowCreateInput(false);
+      setNewSectionName('');
     }
   }, [visible, currentUserId]);
 
@@ -324,14 +400,24 @@ export default function EditSectionsModal({
     setSectionMode('select');
   };
 
-  const renameSection = async (oldName: string, newName: string) => {
-    if (!userId || !isOwner) return;
-    if (!newName.trim() || newName === oldName) return;
+  const renameSection = async (oldName: string, newName: string): Promise<boolean> => {
+    if (!userId || !isOwner) return false;
+    const validation = validateSectionName(
+      newName,
+      sections.map((s) => s.name),
+      { ignoreName: oldName }
+    );
+    if (!validation.ok) {
+      Alert.alert('Invalid name', validation.error);
+      return false;
+    }
+    if (validation.name === oldName) return true;
+
     const section = sections.find(s => s.name === oldName);
-    if (!section) return;
+    if (!section) return false;
     const sectionIdentifier = section._id || section.name;
     await updateUserSection(userId, sectionIdentifier, {
-      name: newName.trim(),
+      name: validation.name,
       postIds: section.postIds || [],
       coverImage: section.coverImage,
       visibility: section.visibility,
@@ -345,6 +431,7 @@ export default function EditSectionsModal({
       const sectionsData = Array.isArray(res.data) ? res.data : (Array.isArray(res.data.data) ? res.data.data : []);
       onSectionsUpdate(normalizeSections(sectionsData));
     }
+    return true;
   };
 
   const handleReorderSections = async (data: Section[]) => {
@@ -545,18 +632,39 @@ export default function EditSectionsModal({
                 </TouchableOpacity>
               ) : (isOwner && showCreateInput) ? (
                 <View style={styles.createInputContainer}>
-                  <TextInput
-                    style={styles.createInput}
-                    placeholder="Section name"
-                    value={newSectionName}
-                    onChangeText={setNewSectionName}
-                    autoFocus
-                    onSubmitEditing={handleCreateSection}
-                  />
-                  <TouchableOpacity onPress={handleCreateSection} style={styles.createConfirmBtn}>
-                    <Ionicons name="checkmark" size={20} color={COLORS.textLight} />
+                  <View style={{ flex: 1 }}>
+                    <TextInput
+                      style={styles.createInput}
+                      placeholder="Section name (2–30 characters)"
+                      placeholderTextColor={COLORS.textMuted}
+                      value={newSectionName}
+                      onChangeText={(text) => setNewSectionName(text.slice(0, SECTION_NAME_MAX))}
+                      autoFocus
+                      maxLength={SECTION_NAME_MAX}
+                      editable={!creatingSection}
+                      returnKeyType="done"
+                      onSubmitEditing={handleCreateSection}
+                    />
+                    <Text style={styles.createHint}>
+                      Letters, numbers, spaces · {normalizeSectionName(newSectionName).length}/{SECTION_NAME_MAX}
+                    </Text>
+                  </View>
+                  <TouchableOpacity
+                    onPress={handleCreateSection}
+                    style={[styles.createConfirmBtn, creatingSection && { opacity: 0.6 }]}
+                    disabled={creatingSection || !normalizeSectionName(newSectionName)}
+                  >
+                    {creatingSection ? (
+                      <ActivityIndicator size="small" color={COLORS.textLight} />
+                    ) : (
+                      <Ionicons name="checkmark" size={20} color={COLORS.textLight} />
+                    )}
                   </TouchableOpacity>
-                  <TouchableOpacity onPress={() => { setShowCreateInput(false); setNewSectionName(''); }} style={styles.createCancelBtn}>
+                  <TouchableOpacity
+                    onPress={() => { setShowCreateInput(false); setNewSectionName(''); }}
+                    style={styles.createCancelBtn}
+                    disabled={creatingSection}
+                  >
                     <Ionicons name="close" size={20} color={COLORS.textSecondary} />
                   </TouchableOpacity>
                 </View>
@@ -567,7 +675,7 @@ export default function EditSectionsModal({
             <DraggableFlatList
               data={sections}
               onDragEnd={({ data }) => handleReorderSections(data)}
-              keyExtractor={(item) => item.name}
+              keyExtractor={(item, index) => String(item._id || `${item.name}_${index}`)}
               renderItem={renderSectionItem}
               scrollEnabled={false}
               dragItemOverflow={true}
@@ -753,7 +861,7 @@ type SectionRowProps = {
   isSelected: boolean;
   onPress: () => void;
   onDelete: () => void;
-  onRename: (oldName: string, newName: string) => Promise<void>;
+  onRename: (oldName: string, newName: string) => Promise<boolean>;
   onToggleVisibility: () => void;
   drag: () => void;
   isOwner: boolean;
@@ -774,7 +882,10 @@ const SectionRow = ({ item, isOwner, isSelected, onPress, onDelete, onRename, on
       setEditing(false);
       return;
     }
-    await onRename(item.name, trimmed);
+    const ok = await onRename(item.name, trimmed);
+    if (!ok) {
+      setSectionName(item.name);
+    }
     setEditing(false);
   };
 
@@ -801,7 +912,8 @@ const SectionRow = ({ item, isOwner, isSelected, onPress, onDelete, onRename, on
                 style={styles.selectedSectionInput}
                 value={sectionName}
                 editable={editing && isOwner}
-                onChangeText={setSectionName}
+                onChangeText={(text) => setSectionName(text.slice(0, SECTION_NAME_MAX))}
+                maxLength={SECTION_NAME_MAX}
                 onBlur={handleNameUpdate}
                 onSubmitEditing={handleNameUpdate}
                 selectTextOnFocus={editing && isOwner}
@@ -935,13 +1047,18 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   createInput: {
-    flex: 1,
     borderWidth: 1,
     borderColor: COLORS.border,
     borderRadius: 8,
     paddingHorizontal: 12,
     paddingVertical: 10,
     fontSize: 15,
+    color: COLORS.textPrimary,
+  },
+  createHint: {
+    marginTop: 6,
+    fontSize: 11,
+    color: COLORS.textMuted,
   },
   createConfirmBtn: {
     backgroundColor: COLORS.primary,

@@ -40,7 +40,7 @@ export default function SearchScreen() {
   const inputRef = useRef<TextInput>(null);
 
   useEffect(() => {
-    resolveCanonicalUserId().then(setCurrentUserId).catch(() => {});
+    resolveCanonicalUserId().then(setCurrentUserId).catch(() => { });
   }, []);
 
   useFocusEffect(
@@ -65,9 +65,9 @@ export default function SearchScreen() {
   });
 
   useAssetPreloader(results, (item: any) => [
-    item.imageUrl, 
-    item.avatar, 
-    item.photoURL, 
+    item.imageUrl,
+    item.avatar,
+    item.photoURL,
     item.media?.[0]?.url,
     item.userAvatar
   ].filter(Boolean));
@@ -92,7 +92,7 @@ export default function SearchScreen() {
           ref={inputRef}
           autoFocus={true}
           style={{ flex: 1, fontSize: 16, backgroundColor: COLORS.inputBg, borderRadius: 8, padding: 10, color: COLORS.textPrimary }}
-          placeholder={activeTab === 'users' ? 'Search creators, comedians, friends...' : activeTab === 'hashtags' ? 'Search #standup, #skits, #roasts...' : 'Search funny clips, standup, jokes...'}
+          placeholder={activeTab === 'users' ? 'Search users...' : activeTab === 'hashtags' ? 'Search hashtags...' : 'Search posts...'}
           placeholderTextColor={COLORS.textMuted}
           value={query}
           onChangeText={handleSearch}
@@ -119,8 +119,8 @@ export default function SearchScreen() {
           data={userResults}
           keyExtractor={item => item.uid || item.id}
           renderItem={({ item }: { item: any }) => (
-            <TouchableOpacity 
-              style={styles.row} 
+            <TouchableOpacity
+              style={styles.row}
               onPress={() => {
                 const itemUserId = item.uid || item.id;
                 // If it's current user, go to profile tab instead of wrapper
@@ -132,8 +132,8 @@ export default function SearchScreen() {
                 }
               }}
             >
-              <ExpoImage 
-                source={{ uri: item.photoURL || item.avatar || DEFAULT_AVATAR_URL }} 
+              <ExpoImage
+                source={{ uri: item.photoURL || item.avatar || DEFAULT_AVATAR_URL }}
                 style={styles.avatar}
                 contentFit="cover"
                 transition={200}
@@ -158,14 +158,14 @@ export default function SearchScreen() {
             keyExtractor={item => item.id}
             renderItem={({ item }: { item: any }) => (
               <TouchableOpacity style={styles.row} onPress={() => router.push({ pathname: '/post-detail', params: { id: item.id } })}>
-                <ExpoImage 
-                  source={{ 
+                <ExpoImage
+                  source={{
                     uri: normalizeMediaUrl(
                       (item.mediaType === 'video' || isVideoUrl(item.imageUrl || item.mediaUrls?.[0]))
                         ? getVideoThumbnailUrl(item.imageUrl || item.mediaUrls?.[0] || '')
                         : (item.imageUrl || item.mediaUrls?.[0] || item.imageUrls?.[0] || DEFAULT_AVATAR_URL)
-                    ) 
-                  }} 
+                    )
+                  }}
                   style={styles.postImg}
                   contentFit="cover"
                   transition={200}
@@ -186,7 +186,7 @@ export default function SearchScreen() {
             data={trendingHashtags}
             keyExtractor={(item: any, idx) => `${item.tag || idx}-${idx}`}
             renderItem={({ item }: { item: any }) => (
-              <TouchableOpacity 
+              <TouchableOpacity
                 style={styles.hashtagRow}
                 onPress={() => {
                   setQuery(item.tag);
@@ -210,14 +210,14 @@ export default function SearchScreen() {
           keyExtractor={item => item.id}
           renderItem={({ item }: { item: any }) => (
             <TouchableOpacity style={styles.row} onPress={() => router.push({ pathname: '/post-detail', params: { id: item.id } })}>
-              <ExpoImage 
-                source={{ 
+              <ExpoImage
+                source={{
                   uri: normalizeMediaUrl(
                     (item.mediaType === 'video' || isVideoUrl(item.imageUrl || item.mediaUrls?.[0]))
                       ? getVideoThumbnailUrl(item.imageUrl || item.mediaUrls?.[0] || '')
                       : (item.imageUrl || item.mediaUrls?.[0] || item.imageUrls?.[0] || DEFAULT_AVATAR_URL)
-                  ) 
-                }} 
+                  )
+                }}
                 style={styles.postImg}
                 contentFit="cover"
                 transition={200}

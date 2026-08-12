@@ -128,6 +128,9 @@ const PostCard: React.FC<PostCardProps> = ({
   const panResponder = useRef(
     PanResponder.create({
       onStartShouldSetPanResponder: () => true,
+      onPanResponderGrant: () => {
+        Keyboard.dismiss();
+      },
       onPanResponderMove: (e, gestureState) => {
         if (gestureState.dy > 0) {
           translateY.setValue(gestureState.dy);
@@ -630,7 +633,14 @@ const PostCard: React.FC<PostCardProps> = ({
             <TouchableOpacity
               style={{ flex: 1 }}
               activeOpacity={1}
-              onPress={() => { Keyboard.dismiss(); setShowComments(false); }}
+              onPress={() => {
+                // Keyboard up: first tap just lowers it, like Instagram. Second tap closes the sheet.
+                if (Keyboard.isVisible()) {
+                  Keyboard.dismiss();
+                  return;
+                }
+                setShowComments(false);
+              }}
             />
 
             {/* Sheet */}

@@ -10,6 +10,7 @@ import {
   Dimensions,
   FlatList,
   Image,
+  Keyboard,
   KeyboardAvoidingView,
   Modal,
   PanResponder,
@@ -50,9 +51,9 @@ import { storyForStoriesViewer, parseStoryTextOverlays } from '../../lib/storyVi
 const { width, height } = Dimensions.get('window');
 
 const FONT_STYLES: Record<string, { fontFamily?: string; letterSpacing?: number; textTransform?: 'uppercase' | 'none' }> = {
-    classic: { fontFamily: Platform.OS === 'ios' ? 'Georgia' : 'serif' },
-    modern: { fontFamily: undefined, letterSpacing: 1 },
-    strong: { fontFamily: undefined, letterSpacing: 2, textTransform: 'uppercase' },
+  classic: { fontFamily: Platform.OS === 'ios' ? 'Georgia' : 'serif' },
+  modern: { fontFamily: undefined, letterSpacing: 1 },
+  strong: { fontFamily: undefined, letterSpacing: 2, textTransform: 'uppercase' },
 };
 
 const STORY_MEDIA_H = width * 1.1;
@@ -70,7 +71,7 @@ function StoryTextOverlays({ postMetadata, mediaLoaded }: { postMetadata?: any; 
     if (typeof postMetadata === 'string') {
       try {
         parsedMeta = JSON.parse(postMetadata);
-      } catch {}
+      } catch { }
     }
     const bakedVal = parsedMeta?.textBaked ?? parsedMeta?.metadata?.textBaked ?? parsedMeta?.story?.postMetadata?.textBaked;
     if (bakedVal === true || String(bakedVal).toLowerCase() === 'true' || bakedVal === 1) {
@@ -98,39 +99,39 @@ function StoryTextOverlays({ postMetadata, mediaLoaded }: { postMetadata?: any; 
           left: 0,
         }}
       >
-      {parsedOverlays.map((o: any) => {
-        const fs = FONT_STYLES[o.fontStyle] || FONT_STYLES.classic;
-        return (
-          <View
-            key={o.id}
-            style={{
-              position: 'absolute',
-              left: o.x * width,
-              top: o.y * STORY_MEDIA_H,
-              maxWidth: width - 60,
-              zIndex: 100,
-              elevation: 100,
-            }}
-          >
-            <Text
+        {parsedOverlays.map((o: any) => {
+          const fs = FONT_STYLES[o.fontStyle] || FONT_STYLES.classic;
+          return (
+            <View
+              key={o.id}
               style={{
-                fontSize: 24,
-                fontWeight: '700',
-                color: o.color,
-                fontFamily: fs.fontFamily,
-                letterSpacing: fs.letterSpacing,
-                textTransform: fs.textTransform as any,
-                textShadowColor: 'rgba(0,0,0,0.5)',
-                textShadowOffset: { width: 1, height: 1 },
-                textShadowRadius: 4,
-                textAlign: 'center',
+                position: 'absolute',
+                left: o.x * width,
+                top: o.y * STORY_MEDIA_H,
+                maxWidth: width - 60,
+                zIndex: 100,
+                elevation: 100,
               }}
             >
-              {o.text}
-            </Text>
-          </View>
-        );
-      })}
+              <Text
+                style={{
+                  fontSize: 24,
+                  fontWeight: '700',
+                  color: o.color,
+                  fontFamily: fs.fontFamily,
+                  letterSpacing: fs.letterSpacing,
+                  textTransform: fs.textTransform as any,
+                  textShadowColor: 'rgba(0,0,0,0.5)',
+                  textShadowOffset: { width: 1, height: 1 },
+                  textShadowRadius: 4,
+                  textAlign: 'center',
+                }}
+              >
+                {o.text}
+              </Text>
+            </View>
+          );
+        })}
       </View>
     </Animated.View>
   );
@@ -306,7 +307,7 @@ export default function StoriesViewer({ stories, onClose, initialIndex = 0, isHi
                 };
                 setCurrentUser(next);
                 if (next.photoURL) {
-                  AsyncStorage.setItem('userAvatar', String(next.photoURL)).catch(() => {});
+                  AsyncStorage.setItem('userAvatar', String(next.photoURL)).catch(() => { });
                 }
               }
             } catch { }
@@ -327,7 +328,7 @@ export default function StoriesViewer({ stories, onClose, initialIndex = 0, isHi
         .map((s: any) => String(s?.imageUrl || s?.postMetadata?.imageUrl || s?.thumbnailUrl || ''))
         .filter((u) => typeof u === 'string' && u.startsWith('http'));
       // expo-image prefetch writes to disk cache — subsequent loads are near-instant
-      ExpoImage.prefetch(urls).catch(() => {});
+      ExpoImage.prefetch(urls).catch(() => { });
     } catch { }
   }, [localStories, currentIndex]);
 
@@ -457,13 +458,13 @@ export default function StoriesViewer({ stories, onClose, initialIndex = 0, isHi
     async function applyBlockedFilter() {
       try {
         if (!currentUser?.uid) return;
-        
+
         const { apiService } = await import('@/src/_services/apiService');
         const response = await apiService.getBlockedUsers(currentUser.uid);
-        
+
         if (response?.success && Array.isArray(response.data)) {
           const blockedIds = new Set<string>(response.data.map((u: any) => String(u._id || u.id || '')));
-          
+
           if (blockedIds.size > 0) {
             setLocalStories(prev => {
               const filtered = prev.filter(s => !blockedIds.has(String(s.userId)));
@@ -659,7 +660,7 @@ export default function StoriesViewer({ stories, onClose, initialIndex = 0, isHi
                 <View style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(0,0,0,0.35)' }]} />
               </View>
             )}
-            
+
             {/* Background for Card Mode (Blurred) */}
             {currentStory.isPostShare && (
               <View style={StyleSheet.absoluteFill}>
@@ -678,48 +679,48 @@ export default function StoriesViewer({ stories, onClose, initialIndex = 0, isHi
             <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
               {currentStory.isPostShare ? (
                 /* Premium Card UI for Shared Posts */
-                <TouchableOpacity 
-                   activeOpacity={0.9}
-                   onPress={() => {
-                     onClose();
-                     router.push({
-                        pathname: '/post-detail',
-                        params: { postId: currentStory.postMetadata?.postId }
-                     } as any);
-                   }}
-                   style={viewerStyles.postCard}
+                <TouchableOpacity
+                  activeOpacity={0.9}
+                  onPress={() => {
+                    onClose();
+                    router.push({
+                      pathname: '/post-detail',
+                      params: { postId: currentStory.postMetadata?.postId }
+                    } as any);
+                  }}
+                  style={viewerStyles.postCard}
                 >
-                   <View style={viewerStyles.postCardHeader}>
-                      <ExpoImage 
-                        key={'avatar_' + currentStory.id}
-                        source={{ uri: currentStory.postMetadata?.userAvatar || DEFAULT_AVATAR_URL }} 
-                        style={viewerStyles.postCardAvatar}
-                        contentFit="cover"
-                        cachePolicy="memory-disk"
-                      />
-                      <Text style={viewerStyles.postCardUsername} numberOfLines={1}>{currentStory.postMetadata?.userName || 'User'}</Text>
-                      <Feather name="more-horizontal" size={16} color={COLORS.textPrimary} style={{ marginLeft: 'auto' }} />
-                   </View>
-                   <ExpoImage 
-                      key={'card_img_' + currentStory.id}
-                      source={{ uri: currentStoryImageUrl }} 
-                      style={viewerStyles.postCardImage}
+                  <View style={viewerStyles.postCardHeader}>
+                    <ExpoImage
+                      key={'avatar_' + currentStory.id}
+                      source={{ uri: currentStory.postMetadata?.userAvatar || DEFAULT_AVATAR_URL }}
+                      style={viewerStyles.postCardAvatar}
                       contentFit="cover"
                       cachePolicy="memory-disk"
-                      onLoadEnd={() => setImageLoading(false)}
-                   />
-                   {currentStory.postMetadata?.caption ? (
-                     <View style={viewerStyles.postCardFooter}>
-                        <Text style={viewerStyles.postCardCaption} numberOfLines={2}>
-                           <Text style={{ fontWeight: '700', color: COLORS.textPrimary }}>{currentStory.postMetadata?.userName} </Text>
-                           {currentStory.postMetadata?.caption}
-                        </Text>
-                     </View>
-                   ) : (
-                     <View style={{ padding: 10 }}>
-                        <Text style={{ fontSize: 12, color: COLORS.textSecondary }}>View post</Text>
-                     </View>
-                   )}
+                    />
+                    <Text style={viewerStyles.postCardUsername} numberOfLines={1}>{currentStory.postMetadata?.userName || 'User'}</Text>
+                    <Feather name="more-horizontal" size={16} color={COLORS.textPrimary} style={{ marginLeft: 'auto' }} />
+                  </View>
+                  <ExpoImage
+                    key={'card_img_' + currentStory.id}
+                    source={{ uri: currentStoryImageUrl }}
+                    style={viewerStyles.postCardImage}
+                    contentFit="cover"
+                    cachePolicy="memory-disk"
+                    onLoadEnd={() => setImageLoading(false)}
+                  />
+                  {currentStory.postMetadata?.caption ? (
+                    <View style={viewerStyles.postCardFooter}>
+                      <Text style={viewerStyles.postCardCaption} numberOfLines={2}>
+                        <Text style={{ fontWeight: '700', color: COLORS.textPrimary }}>{currentStory.postMetadata?.userName} </Text>
+                        {currentStory.postMetadata?.caption}
+                      </Text>
+                    </View>
+                  ) : (
+                    <View style={{ padding: 10 }}>
+                      <Text style={{ fontSize: 12, color: COLORS.textSecondary }}>View post</Text>
+                    </View>
+                  )}
                 </TouchableOpacity>
               ) : (
                 /* Full Screen UI for Gallery Uploads */
@@ -796,8 +797,8 @@ export default function StoriesViewer({ stories, onClose, initialIndex = 0, isHi
         {/* Absolute Top Overlay (Progress & Header) */}
         <View style={[viewerStyles.topOverlay, { paddingTop: paddingTop }]}>
           <LinearGradient colors={['rgba(0,0,0,0.7)', 'transparent']} style={StyleSheet.absoluteFillObject} pointerEvents="none" />
-          
-          <StoryProgressBars 
+
+          <StoryProgressBars
             storiesCount={localStories.length}
             currentIndex={currentIndex}
             progressSv={progressSv}
@@ -830,7 +831,7 @@ export default function StoriesViewer({ stories, onClose, initialIndex = 0, isHi
                 <Text style={viewerStyles.headerTime}>{relativeTime}</Text>
               </View>
             </TouchableOpacity>
-            
+
             <View style={viewerStyles.headerActions}>
               {(currentStory.videoUrl || currentStory.mediaType === 'video') && (
                 <TouchableOpacity onPress={() => setIsMuted(m => !m)} style={viewerStyles.headerIcon}>
@@ -849,124 +850,134 @@ export default function StoriesViewer({ stories, onClose, initialIndex = 0, isHi
 
         {/* Navigation Areas */}
         {!showComments && (
-           <View style={viewerStyles.navOverlay}>
-             <TouchableOpacity onPress={goToPrevious} style={viewerStyles.navSide} activeOpacity={1} />
-             <TouchableOpacity onPress={goToNext} style={viewerStyles.navSide} activeOpacity={1} />
-           </View>
+          <View style={viewerStyles.navOverlay}>
+            <TouchableOpacity onPress={goToPrevious} style={viewerStyles.navSide} activeOpacity={1} />
+            <TouchableOpacity onPress={goToNext} style={viewerStyles.navSide} activeOpacity={1} />
+          </View>
         )}
 
         {/* Footer Actions */}
         <View style={[viewerStyles.footer, { paddingBottom: Math.max(insets.bottom, 20) }]}>
           <LinearGradient colors={['transparent', 'rgba(0,0,0,0.85)']} style={StyleSheet.absoluteFillObject} pointerEvents="none" />
-          
+
           <View style={viewerStyles.footerIconsRow}>
 
-             {isOwnCurrentStory && (
-                <TouchableOpacity 
-                   onPress={() => {
-                      Alert.alert('Delete Story', 'Are you sure?', [
-                        { text: 'Cancel', style: 'cancel' },
-                        { text: 'Delete', style: 'destructive', onPress: async () => {
-                          if (isHighlight && highlightId) {
-                            const mediaHint = String((currentStory as any)?.videoUrl || (currentStory as any)?.imageUrl || (currentStory as any)?.mediaUrl || '');
-                            const res = await highlightManager.removeStoryFromHighlight({
-                              highlightId,
-                              storyId: currentStory.id,
-                              mediaUrlHint: mediaHint || undefined,
-                              autoDeleteHighlightIfEmpty: true,
-                              userId: currentUser?.uid || '',
-                            });
-                            if (!res.error) {
-                              const updated = localStories.filter((_, idx) => idx !== currentIndex);
-                              setLocalStories(updated);
-                              try {
-                                const { feedEventEmitter } = require('../../lib/feedEventEmitter');
-                                feedEventEmitter.emit('feedUpdated');
-                              } catch (err) {
-                                console.warn('[StoriesViewer] Failed to emit feedUpdated on highlight remove:', err);
-                              }
-                              if (updated.length === 0) onClose();
-                              else if (currentIndex >= updated.length) setCurrentIndex(updated.length - 1);
-                            } else {
-                              Alert.alert('Error', res.error);
+            {isOwnCurrentStory && (
+              <TouchableOpacity
+                onPress={() => {
+                  Alert.alert('Delete Story', 'Are you sure?', [
+                    { text: 'Cancel', style: 'cancel' },
+                    {
+                      text: 'Delete', style: 'destructive', onPress: async () => {
+                        if (isHighlight && highlightId) {
+                          const mediaHint = String((currentStory as any)?.videoUrl || (currentStory as any)?.imageUrl || (currentStory as any)?.mediaUrl || '');
+                          const res = await highlightManager.removeStoryFromHighlight({
+                            highlightId,
+                            storyId: currentStory.id,
+                            mediaUrlHint: mediaHint || undefined,
+                            autoDeleteHighlightIfEmpty: true,
+                            userId: currentUser?.uid || '',
+                          });
+                          if (!res.error) {
+                            const updated = localStories.filter((_, idx) => idx !== currentIndex);
+                            setLocalStories(updated);
+                            try {
+                              const { feedEventEmitter } = require('../../lib/feedEventEmitter');
+                              feedEventEmitter.emit('feedUpdated');
+                            } catch (err) {
+                              console.warn('[StoriesViewer] Failed to emit feedUpdated on highlight remove:', err);
                             }
+                            if (updated.length === 0) onClose();
+                            else if (currentIndex >= updated.length) setCurrentIndex(updated.length - 1);
                           } else {
-                            const res = await deleteStory(currentStory.id);
-                            if (res.success) {
-                              const updated = localStories.filter((_, idx) => idx !== currentIndex);
-                              setLocalStories(updated);
-                              try {
-                                const { feedEventEmitter } = require('../../lib/feedEventEmitter');
-                                feedEventEmitter.emit('feedUpdated');
-                              } catch (err) {
-                                console.warn('[StoriesViewer] Failed to emit feedUpdated on story delete:', err);
-                              }
-                              if (updated.length === 0) onClose();
-                              else if (currentIndex >= updated.length) setCurrentIndex(updated.length - 1);
-                            }
+                            Alert.alert('Error', res.error);
                           }
-                        }}
-                      ]);
-                   }}
-                   style={viewerStyles.footerIconBtn}
-                >
-                   <Feather name="trash-2" size={24} color={COLORS.textLight} />
-                </TouchableOpacity>
-             )}
+                        } else {
+                          const res = await deleteStory(currentStory.id);
+                          if (res.success) {
+                            const updated = localStories.filter((_, idx) => idx !== currentIndex);
+                            setLocalStories(updated);
+                            try {
+                              const { feedEventEmitter } = require('../../lib/feedEventEmitter');
+                              feedEventEmitter.emit('feedUpdated');
+                            } catch (err) {
+                              console.warn('[StoriesViewer] Failed to emit feedUpdated on story delete:', err);
+                            }
+                            if (updated.length === 0) onClose();
+                            else if (currentIndex >= updated.length) setCurrentIndex(updated.length - 1);
+                          }
+                        }
+                      }
+                    }
+                  ]);
+                }}
+                style={viewerStyles.footerIconBtn}
+              >
+                <Feather name="trash-2" size={24} color={COLORS.textLight} />
+              </TouchableOpacity>
+            )}
 
-             {isOwnCurrentStory && !isHighlight && (
-                <TouchableOpacity onPress={handleOpenHighlightModal} style={viewerStyles.footerIconBtn} accessibilityLabel="Add to highlight">
-                   <Feather name="chevrons-up" size={24} color={COLORS.textLight} />
-                </TouchableOpacity>
-             )}
+            {isOwnCurrentStory && !isHighlight && (
+              <TouchableOpacity onPress={handleOpenHighlightModal} style={viewerStyles.footerIconBtn} accessibilityLabel="Add to highlight">
+                <Feather name="chevrons-up" size={24} color={COLORS.textLight} />
+              </TouchableOpacity>
+            )}
 
-             <View style={viewerStyles.footerIconBtnRow}>
-                <Feather name="image" size={22} color={COLORS.textLight} />
-                <Text style={viewerStyles.footerIconText}>{`${currentIndex + 1}/${localStories.length}`}</Text>
-             </View>
+            <View style={viewerStyles.footerIconBtnRow}>
+              <Feather name="image" size={22} color={COLORS.textLight} />
+              <Text style={viewerStyles.footerIconText}>{`${currentIndex + 1}/${localStories.length}`}</Text>
+            </View>
 
-             <TouchableOpacity onPress={() => { setIsPaused(true); setShowComments(true); }} style={viewerStyles.footerIconBtnRow}>
-                <MaterialCommunityIcons name="comment-outline" size={24} color={COLORS.textLight} />
-                <Text style={viewerStyles.footerIconText}>{currentStory.comments?.length || 0}</Text>
-             </TouchableOpacity>
+            <TouchableOpacity onPress={() => { setIsPaused(true); setShowComments(true); }} style={viewerStyles.footerIconBtnRow}>
+              <MaterialCommunityIcons name="comment-outline" size={24} color={COLORS.textLight} />
+              <Text style={viewerStyles.footerIconText}>{currentStory.comments?.length || 0}</Text>
+            </TouchableOpacity>
 
-             <TouchableOpacity onPress={handleLike} style={viewerStyles.footerIconBtnRow}>
-                {isLiked ? (
-                  <Ionicons name="heart" size={24} color="#e74c3c" />
-                ) : (
-                  <Feather name="heart" size={24} color={COLORS.textLight} strokeWidth={2.5} />
-                )}
-                <Text style={viewerStyles.footerIconText}>{likesCount}</Text>
-             </TouchableOpacity>
+            <TouchableOpacity onPress={handleLike} style={viewerStyles.footerIconBtnRow}>
+              {isLiked ? (
+                <Ionicons name="heart" size={24} color="#e74c3c" />
+              ) : (
+                <Feather name="heart" size={24} color={COLORS.textLight} strokeWidth={2.5} />
+              )}
+              <Text style={viewerStyles.footerIconText}>{likesCount}</Text>
+            </TouchableOpacity>
 
-             <TouchableOpacity onPress={() => setShowShareModal(true)} style={viewerStyles.footerIconBtn}>
-                <Feather name="send" size={24} color={COLORS.textLight} />
-             </TouchableOpacity>
+            <TouchableOpacity onPress={() => setShowShareModal(true)} style={viewerStyles.footerIconBtn}>
+              <Feather name="send" size={24} color={COLORS.textLight} />
+            </TouchableOpacity>
           </View>
         </View>
 
         {showComments && (
           <View style={[StyleSheet.absoluteFillObject, { zIndex: 100 }]}>
-            <TouchableOpacity 
-              style={{ ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.5)' }} 
-              activeOpacity={1} 
-              onPress={() => { setShowComments(false); setIsPaused(false); }}
+            <TouchableOpacity
+              style={{ ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.5)' }}
+              activeOpacity={1}
+              onPress={() => {
+                // Keyboard up: first tap just lowers it, like Instagram. Second tap closes the sheet.
+                if (Keyboard.isVisible()) {
+                  Keyboard.dismiss();
+                  return;
+                }
+                setShowComments(false);
+                setIsPaused(false);
+              }}
             />
-            <KeyboardAvoidingView 
-              behavior={Platform.OS === 'ios' ? 'padding' : undefined} 
+            <KeyboardAvoidingView
+              behavior={Platform.OS === 'ios' ? 'padding' : undefined}
               style={{ flex: 1, justifyContent: 'flex-end' }}
             >
               <View style={{ width: '100%', height: '70%', backgroundColor: COLORS.card, borderTopLeftRadius: 20, borderTopRightRadius: 20, overflow: 'hidden' }}>
                 <View style={{ height: 50, alignItems: 'center', justifyContent: 'center', borderBottomWidth: 0.5, borderBottomColor: COLORS.border }}>
                   <View style={{ width: 40, height: 5, backgroundColor: COLORS.border, borderRadius: 2.5 }} />
-                  <TouchableOpacity 
+                  <TouchableOpacity
                     style={{ position: 'absolute', right: 15, top: 10 }}
                     onPress={() => { setShowComments(false); setIsPaused(false); }}
                   >
                     <Ionicons name="close" size={24} color={COLORS.textPrimary} />
                   </TouchableOpacity>
                 </View>
-                
+
                 <View style={{ flex: 1 }}>
                   <CommentSection
                     postId={currentStory.id}
@@ -1003,8 +1014,8 @@ export default function StoriesViewer({ stories, onClose, initialIndex = 0, isHi
           <View style={[StyleSheet.absoluteFillObject, { zIndex: 110 }]}>
             <View style={{ flex: 1, justifyContent: 'flex-end' }}>
               <Pressable style={{ ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.45)' }} onPress={() => { setShowNewHighlightModal(false); setIsPaused(false); }} />
-              <KeyboardAvoidingView 
-                behavior={Platform.OS === 'ios' ? 'padding' : undefined} 
+              <KeyboardAvoidingView
+                behavior={Platform.OS === 'ios' ? 'padding' : undefined}
                 enabled={Platform.OS === 'ios'}
                 style={{ backgroundColor: COLORS.card }}
               >
@@ -1078,20 +1089,20 @@ export default function StoriesViewer({ stories, onClose, initialIndex = 0, isHi
                 </SafeAreaView>
                 {/* White filler below the sheet to cover keyboard corners/bottom safe area */}
                 <View style={{
-                    position: 'absolute',
-                    left: 0,
-                    right: 0,
-                    bottom: -1000,
-                    height: 1000,
-                    backgroundColor: COLORS.background,
-                    zIndex: -1,
+                  position: 'absolute',
+                  left: 0,
+                  right: 0,
+                  bottom: -1000,
+                  height: 1000,
+                  backgroundColor: COLORS.background,
+                  zIndex: -1,
                 }} />
               </KeyboardAvoidingView>
             </View>
           </View>
         )}
 
-        <ShareModal 
+        <ShareModal
           visible={showShareModal}
           useViewOverlay={true}
           currentUserId={currentUser?.uid || (typeof currentUser === 'string' ? currentUser : '') || currentUser?._id || currentUser?.id || ''}
@@ -1104,7 +1115,7 @@ export default function StoriesViewer({ stories, onClose, initialIndex = 0, isHi
             setShowShareModal(false);
             setIsPaused(false);
             let successCount = 0;
-            
+
             for (const targetUid of userIds) {
               try {
                 const { getOrCreateConversation } = await import('../../lib/firebaseHelpers/conversation');
@@ -1115,7 +1126,7 @@ export default function StoriesViewer({ stories, onClose, initialIndex = 0, isHi
                   successCount += 1;
                 }
               } catch (err) {
-                 console.error('Failed to share story to user:', targetUid, err);
+                console.error('Failed to share story to user:', targetUid, err);
               }
             }
             if (successCount > 0) {

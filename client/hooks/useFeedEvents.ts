@@ -53,6 +53,11 @@ export function useFeedEvents(
           }
         })();
       }
+      if (event.type === 'POST_CREATED') {
+        if (isOnline) {
+          loadInitialFeed(0, { silent: true, _t: Date.now(), bypassDedupe: true }).catch(() => {});
+        }
+      }
       if (event.type === 'POST_UPDATED' && event.postId) {
         const patch = event.data && typeof event.data === 'object' ? event.data : {};
         const targetId = String(event.postId);

@@ -13,7 +13,8 @@ import {
   PanResponder,
   FlatList,
   ScrollView,
-  KeyboardAvoidingView
+  KeyboardAvoidingView,
+  Keyboard
 } from 'react-native';
 import { Video, ResizeMode } from 'expo-av';
 import { useVideoPlayer, VideoView } from 'expo-video';
@@ -497,6 +498,9 @@ export const ReelItem = React.memo<ReelItemProps>(({
   const panResponder = useRef(
     PanResponder.create({
       onStartShouldSetPanResponder: () => true,
+      onPanResponderGrant: () => {
+        Keyboard.dismiss();
+      },
       onPanResponderMove: (e, gestureState) => {
         if (gestureState.dy > 0) {
           translateY.setValue(gestureState.dy);
@@ -1362,6 +1366,11 @@ export const ReelItem = React.memo<ReelItemProps>(({
             <Pressable
               style={{ flex: 1 }}
               onPress={() => {
+                // Keyboard up: first tap just lowers it, like Instagram. Second tap closes the sheet.
+                if (Keyboard.isVisible()) {
+                  Keyboard.dismiss();
+                  return;
+                }
                 setShowComments(false);
                 setAutoFocusComment(false);
               }}

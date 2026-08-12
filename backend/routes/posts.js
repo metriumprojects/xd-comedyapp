@@ -74,6 +74,22 @@ router.get('/feed', optionalAuth, async (req, res, next) => {
     const Post = mongoose.model('Post');
     const Group = mongoose.model('Group');
 
+    // 0. Exclude posts the viewer has reported
+    let reportedPostIds = [];
+    if (viewerVariants.length > 0) {
+      try {
+        const Report = mongoose.model('Report');
+        const reports = await Report.find({
+          reporterId: { $in: viewerVariants },
+          targetType: 'post',
+        }).select('targetId').lean();
+        reportedPostIds = reports
+          .map(r => String(r.targetId))
+          .filter(id => mongoose.Types.ObjectId.isValid(id));
+      } catch (e) {}
+    }
+    const reportedObjectIds = reportedPostIds.map(id => new mongoose.Types.ObjectId(id));
+
     // 1. Build visibility query
     let viewerGroups = [];
     if (viewerVariants.length > 0) {
@@ -116,34 +132,44 @@ router.get('/feed', optionalAuth, async (req, res, next) => {
       }
     }
 
+    // Combine visibility + reported-post exclusion into base query
+    const baseConditions = [visibilityQuery];
+    if (reportedObjectIds.length > 0) {
+      baseConditions.push({ _id: { $nin: reportedObjectIds } });
+    }
+    const baseQuery = baseConditions.length === 1 ? baseConditions[0] : { $and: baseConditions };
+
     // 2. Mixed feed strategy
     const isFirstPage = !cursor && skip === 0;
 
     if (isFirstPage) {
-      // First page: recent posts (last 6h) + randomized discovery
       const sixHoursAgo = new Date(Date.now() - 6 * 60 * 60 * 1000);
-      const recentQuery = { $and: [visibilityQuery, { createdAt: { $gte: sixHoursAgo } }] };
+      const recentQuery = { $and: [baseQuery, { createdAt: { $gte: sixHoursAgo } }] };
       
       const recentPosts = await postService.getEnrichedPosts(recentQuery, {
-        limit: Math.min(limit, 5), // Cap recent at 5 to leave room for discovery
+        limit: Math.min(limit, 5),
         sort: { createdAt: -1 },
         viewerId: currentUserId
       });
 
-      // Fill remaining slots with randomized discovery from last 30 days
       const remainingSlots = limit - recentPosts.length;
       let discoveryPosts = [];
 
       if (remainingSlots > 0) {
         const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+        // Exclude recent posts AND reported posts from discovery to prevent duplicates
         const recentIds = recentPosts.map(p => p._id || p.id).filter(Boolean);
-        const excludeObjectIds = recentIds
+        const excludeIds = [...new Set([
+          ...recentIds.filter(id => mongoose.Types.ObjectId.isValid(id)).map(String),
+          ...reportedPostIds
+        ])];
+        const excludeObjectIds = excludeIds
           .filter(id => mongoose.Types.ObjectId.isValid(id))
           .map(id => new mongoose.Types.ObjectId(id));
 
         const discoveryQuery = {
           $and: [
-            visibilityQuery,
+            baseQuery,
             { createdAt: { $gte: thirtyDaysAgo } },
             ...(excludeObjectIds.length > 0 ? [{ _id: { $nin: excludeObjectIds } }] : [])
           ]
@@ -156,9 +182,15 @@ router.get('/feed', optionalAuth, async (req, res, next) => {
         });
       }
 
-      const finalPosts = [...recentPosts, ...discoveryPosts];
+      // Deduplicate: with very few posts, $sample can still return overlaps
+      const seenIds = new Set();
+      const finalPosts = [...recentPosts, ...discoveryPosts].filter(p => {
+        const id = String(p._id || p.id || '');
+        if (!id || seenIds.has(id)) return false;
+        seenIds.add(id);
+        return true;
+      });
 
-      // Build cursor for next page — use the oldest post in the batch
       const lastPost = finalPosts.length > 0 ? finalPosts[finalPosts.length - 1] : null;
       const nextCursor = lastPost ? (lastPost._id || lastPost.id) : null;
       const nextCursorDate = lastPost?.createdAt || null;
@@ -170,8 +202,7 @@ router.get('/feed', optionalAuth, async (req, res, next) => {
         cursorDate: nextCursorDate
       });
     } else {
-      // Subsequent pages: cursor-based pagination (fast, no $skip scan)
-      const finalPosts = await postService.getEnrichedPosts(visibilityQuery, { 
+      const finalPosts = await postService.getEnrichedPosts(baseQuery, { 
         skip: cursor ? 0 : skip, 
         limit, 
         viewerId: currentUserId,
@@ -206,6 +237,29 @@ router.get('/recommended', optionalAuth, async (req, res, next) => {
       .map(id => id.trim())
       .filter(id => id && mongoose.Types.ObjectId.isValid(id))
       .map(id => new mongoose.Types.ObjectId(id));
+
+    // Also exclude posts the viewer has reported
+    if (viewerId) {
+      try {
+        let viewerVariants = [viewerId];
+        try {
+          const { resolveUserIdentifiers } = require('../src/utils/userUtils');
+          const { candidates } = await resolveUserIdentifiers(viewerId);
+          viewerVariants = candidates.map(id => String(id));
+        } catch {}
+        const Report = mongoose.model('Report');
+        const reports = await Report.find({
+          reporterId: { $in: viewerVariants },
+          targetType: 'post',
+        }).select('targetId').lean();
+        reports.forEach(r => {
+          const id = String(r.targetId);
+          if (mongoose.Types.ObjectId.isValid(id)) {
+            excludeObjectIds.push(new mongoose.Types.ObjectId(id));
+          }
+        });
+      } catch {}
+    }
 
     // Scope to last 30 days for relevance
     const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);

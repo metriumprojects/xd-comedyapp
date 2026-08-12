@@ -105,10 +105,17 @@ export const SubscriptionModal: React.FC<SubscriptionModalProps> = ({
       try {
         const tiersResponse = await subscriptionService.getTiers(creatorId);
 
-        if (tiersResponse.success && Array.isArray(tiersResponse.data) && tiersResponse.data.length > 0) {
-          const tiers = tiersResponse.data;
-          setSavedTiers(tiers);
-          const defaultTier = tiers[0];
+        // Filter out archived (soft-deleted) tiers — those still live on the
+        // profile as read-only "Archived" folders for owner + existing subscribers,
+        // but Manage Subscription should only surface tiers that can actively be
+        // edited or subscribed to. Everything else would just confuse the user.
+        const activeTiers = (tiersResponse.success && Array.isArray(tiersResponse.data))
+          ? tiersResponse.data.filter((t: any) => !(t?.isArchived || (t as any)?.isActive === false))
+          : [];
+
+        if (activeTiers.length > 0) {
+          setSavedTiers(activeTiers);
+          const defaultTier = activeTiers[0];
           setSelectedTier(defaultTier);
           setTitle(defaultTier.title);
           setDescription(defaultTier.description);
@@ -127,6 +134,7 @@ export const SubscriptionModal: React.FC<SubscriptionModalProps> = ({
                 [{ text: 'OK', onPress: onClose }]
               );
             } else {
+              // No active tiers → owner sees the create form so they can start a new one.
               setTitle('');
               setDescription('');
               setPrice('');
@@ -727,11 +735,15 @@ export const SubscriptionModal: React.FC<SubscriptionModalProps> = ({
                       setIsLoading(true);
                       try {
                         await subscriptionService.deleteTier(selectedTier._id);
-                        
+
                         const res = await subscriptionService.getTiers(creatorId);
-                        if (res.success && res.data.length > 0) {
-                          setSavedTiers(res.data);
-                          const dt = res.data[0];
+                        const remainingActive = (res.success && Array.isArray(res.data))
+                          ? res.data.filter((t: any) => !(t?.isArchived || (t as any)?.isActive === false))
+                          : [];
+
+                        if (remainingActive.length > 0) {
+                          setSavedTiers(remainingActive);
+                          const dt = remainingActive[0];
                           setSelectedTier(dt);
                           setTitle(dt.title);
                           setDescription(dt.description);
