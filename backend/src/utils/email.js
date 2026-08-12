@@ -1,12 +1,33 @@
 const nodemailer = require('nodemailer');
+const dns = require('dns');
+const { promisify } = require('util');
 const logger = require('./logger');
+
+const dnsLookup = promisify(dns.lookup);
+
+/**
+ * Force IPv4 DNS lookup. Render often resolves smtp.gmail.com to IPv6 first,
+ * then fails with ENETUNREACH (:::0). Nodemailer's top-level `family: 4` is not
+ * always honored, so we inject a custom lookup + prefer ipv4first globally.
+ */
+try {
+  dns.setDefaultResultOrder('ipv4first');
+} catch (_) {}
+
+function ipv4Lookup(hostname, options, callback) {
+  // nodemailer may call with (hostname, options, cb) or (hostname, cb)
+  if (typeof options === 'function') {
+    callback = options;
+    options = {};
+  }
+  dns.lookup(hostname, { ...(options || {}), family: 4, all: false }, callback);
+}
 
 /**
  * Build candidate SMTP transports for cloud hosts (Render).
- * Gmail on Render often fails on one port but works on the other,
- * so we try 587 (STARTTLS) then 465 (SSL) — or the reverse if EMAIL_PORT is set.
+ * Try 587 (STARTTLS) then 465 (SSL) — or reverse if EMAIL_PORT is set.
  */
-function buildTransportConfigs() {
+function buildTransportConfigs(resolvedHost) {
   const user = (process.env.EMAIL_USER || '').trim();
   const pass = (process.env.EMAIL_PASS || '').trim();
   const host = (process.env.EMAIL_HOST || 'smtp.gmail.com').trim();
@@ -20,18 +41,22 @@ function buildTransportConfigs() {
     throw err;
   }
 
-  // App passwords are usually stored with spaces; nodemailer accepts both,
-  // but stripping spaces avoids auth failures from copy/paste.
   const cleanPass = pass.replace(/\s+/g, '');
 
   const base = {
-    host,
+    // Connect via resolved IPv4 when available; keep hostname for TLS SNI / certs
+    host: resolvedHost || host,
+    name: host,
     auth: { user, pass: cleanPass },
-    family: 4, // Render/Linux: avoid IPv6 hang to smtp.gmail.com
+    lookup: ipv4Lookup,
+    family: 4,
     connectionTimeout: 12000,
     greetingTimeout: 12000,
     socketTimeout: 20000,
-    tls: { rejectUnauthorized: false },
+    tls: {
+      rejectUnauthorized: false,
+      servername: host, // important when host is a raw IP
+    },
   };
 
   const port587 = {
@@ -47,15 +72,27 @@ function buildTransportConfigs() {
     secure: true,
   };
 
-  // Prefer the configured port first, then the other
   return preferredPort === 465 ? [port465, port587] : [port587, port465];
+}
+
+async function resolveIpv4(hostname) {
+  try {
+    const result = await dnsLookup(hostname, { family: 4 });
+    const address = typeof result === 'string' ? result : result?.address;
+    if (address) {
+      logger.info('[Email] Resolved %s → IPv4 %s', hostname, address);
+      return address;
+    }
+  } catch (err) {
+    logger.warn('[Email] IPv4 resolve failed for %s: %s — falling back to hostname', hostname, err.message);
+  }
+  return null;
 }
 
 async function sendWithConfig(config, mailOptions) {
   const transporter = nodemailer.createTransport(config);
   try {
-    const info = await transporter.sendMail(mailOptions);
-    return info;
+    return await transporter.sendMail(mailOptions);
   } finally {
     try {
       transporter.close();
@@ -64,7 +101,9 @@ async function sendWithConfig(config, mailOptions) {
 }
 
 const sendEmail = async (options) => {
-  const configs = buildTransportConfigs();
+  const hostname = (process.env.EMAIL_HOST || 'smtp.gmail.com').trim();
+  const resolvedHost = await resolveIpv4(hostname);
+  const configs = buildTransportConfigs(resolvedHost);
   const fromUser = (process.env.EMAIL_USER || '').trim();
 
   const mailOptions = {
@@ -80,10 +119,11 @@ const sendEmail = async (options) => {
   for (const config of configs) {
     try {
       logger.info(
-        '[Email] Sending via %s:%s (secure=%s) → %s',
-        config.host,
+        '[Email] Sending via %s:%s (secure=%s, connectHost=%s) → %s',
+        hostname,
         config.port,
         !!config.secure,
+        config.host,
         options.email
       );
       const info = await sendWithConfig(config, mailOptions);

@@ -198,6 +198,12 @@ async function apiRequestWithRetry(method: string, url: string, data?: any, conf
   const normalizedMethod = String(method || '').toLowerCase();
   const circuitKey = getCircuitKey(normalizedMethod, url);
 
+  // Custom verification email: do not retry 500s — each attempt burns a Firebase
+  // generateEmailVerificationLink quota and triggers TOO_MANY_ATTEMPTS_TRY_LATER.
+  if (String(url || '').includes('send-custom-verification-email')) {
+    retries = 1;
+  }
+
   if (isCircuitOpenForKey(circuitKey)) {
     throw makeCircuitOpenError();
   }
