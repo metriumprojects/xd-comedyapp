@@ -3,7 +3,6 @@ const router = express.Router();
 const mongoose = require('mongoose');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
-const crypto = require('crypto');
 const logger = require('../utils/logger');
 const { generateToken, generateRefreshToken } = require('../middleware/authMiddleware');
 const validate = require('../middleware/validateMiddleware');
@@ -526,99 +525,28 @@ router.post('/username/login', validate(usernameLoginSchema), async (req, res) =
   }
 });
 
-const sendEmail = require('../utils/email');
-
-// ... (rest of the code until line 313)
-
 /**
  * POST /api/auth/forgot-password
- * Send a 6-digit reset code to email
+ * Disabled — client uses Firebase native sendPasswordResetEmail instead.
  */
-router.post('/forgot-password', validate(require('../validations/authValidation').forgotPasswordSchema), async (req, res) => {
-  try {
-    const { email } = req.body;
-    const user = await User.findOne({ email: email.toLowerCase() });
-    
-    if (!user) {
-      // Security: Don't reveal if user exists, but here we can just say 'sent if exists'
-      return res.json({ success: true, message: 'If an account exists with that email, a code has been sent.' });
-    }
-
-    // Generate 6-digit code securely using crypto.randomInt
-    const resetCode = crypto.randomInt(100000, 1000000).toString();
-    
-    user.resetCode = resetCode;
-    user.resetCodeExpires = Date.now() + 10 * 60 * 1000; // 10 minutes
-    await user.save();
-
-    // Send email
-    try {
-      await sendEmail({
-        email: user.email,
-        subject: 'Password Reset Verification Code',
-        message: `Your password reset code is: ${resetCode}. It will expire in 10 minutes.`,
-        html: `
-          <div style="font-family: sans-serif; padding: 20px; color: #333;">
-            <h2>Password Reset</h2>
-            <p>You requested a password reset for your Comedy App account.</p>
-            <p>Your verification code is:</p>
-            <h1 style="color: #0A3D62; letter-spacing: 5px;">${resetCode}</h1>
-            <p>This code will expire in 10 minutes.</p>
-            <p>If you did not request this, please ignore this email.</p>
-          </div>
-        `
-      });
-      logger.info(`✅ Reset code sent to ${user.email}`);
-    } catch (mailErr) {
-      logger.error('❌ Failed to send reset email: %O', mailErr);
-      // In development, we might want to return the code for testing
-      if (process.env.NODE_ENV !== 'production') {
-        return res.json({ success: true, message: 'Code generated (Email failed)', devCode: resetCode });
-      }
-      return res.status(500).json({ success: false, error: 'Failed to send email' });
-    }
-
-    res.json({ success: true, message: 'Verification code sent to email' });
-  } catch (error) {
-    logger.error('[Auth] Forgot password error: %O', error);
-    res.status(500).json({ success: false, error: 'Failed to process request' });
-  }
+router.post('/forgot-password', validate(require('../validations/authValidation').forgotPasswordSchema), async (_req, res) => {
+  return res.status(410).json({
+    success: false,
+    error: 'Custom reset email is disabled. Use Firebase native password reset.',
+    code: 'CUSTOM_EMAIL_DISABLED',
+  });
 });
 
 /**
  * POST /api/auth/reset-password
- * Reset password using verification code
+ * Disabled with the custom 6-digit code flow — Firebase handles reset via email link.
  */
-router.post('/reset-password', validate(require('../validations/authValidation').resetPasswordSchema), async (req, res) => {
-  try {
-    const { email, code, newPassword } = req.body;
-    
-    const user = await User.findOne({ 
-      email: email.toLowerCase(),
-      resetCode: code,
-      resetCodeExpires: { $gt: Date.now() }
-    }).select('+password +resetCode +resetCodeExpires');
-
-    if (!user) {
-      return res.status(400).json({ success: false, error: 'Invalid or expired verification code' });
-    }
-
-    // Hash new password
-    const salt = await bcrypt.genSalt(10);
-    user.password = await bcrypt.hash(newPassword, salt);
-    
-    // Clear reset code
-    user.resetCode = undefined;
-    user.resetCodeExpires = undefined;
-    
-    await user.save();
-    
-    logger.info(`✅ Password reset successfully for ${user.email}`);
-    res.json({ success: true, message: 'Password reset successfully' });
-  } catch (error) {
-    logger.error('[Auth] Reset password error: %O', error);
-    res.status(500).json({ success: false, error: 'Failed to reset password' });
-  }
+router.post('/reset-password', validate(require('../validations/authValidation').resetPasswordSchema), async (_req, res) => {
+  return res.status(410).json({
+    success: false,
+    error: 'Custom password reset is disabled. Use the Firebase reset link from your email.',
+    code: 'CUSTOM_EMAIL_DISABLED',
+  });
 });
 
 module.exports = router;

@@ -6,7 +6,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { AuthBrandHeader } from '@/src/_components/auth/AuthBrandHeader';
 import { AuthKeyboardScroll } from '@/src/_components/auth/AuthKeyboardScroll';
 import CustomButton from '@/src/_components/auth/CustomButton';
-import { API_BASE_URL } from '../../lib/api';
+import { resetPassword } from '@/services/authService';
 import { safeRouterBack } from '@/lib/safeRouterBack';
 import COLORS from '@/src/theme/colors';
 
@@ -18,13 +18,11 @@ export default function ForgotPasswordScreen() {
   const [emailSent, setEmailSent] = useState(false);
 
   const handleSendResetEmail = async () => {
-    // Validate email
     if (!email.trim()) {
       Alert.alert('Error', 'Please enter your email address');
       return;
     }
 
-    // Email validation regex
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(email.trim())) {
       Alert.alert('Error', 'Please enter a valid email address');
@@ -33,35 +31,21 @@ export default function ForgotPasswordScreen() {
 
     setLoading(true);
     try {
-      const response = await fetch(`${API_BASE_URL}/auth/forgot-password`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: email.trim().toLowerCase() }),
-      });
-
-      const data = await response.json();
-
-      if (data.success) {
-        setEmailSent(true);
-        Alert.alert(
-          'Code Sent',
-          'A 6-digit verification code has been sent to your email. Please check your inbox.',
-          [
-            {
-              text: 'OK',
-              onPress: () => router.push({
-                pathname: '/auth/reset-password',
-                params: { email: email.trim().toLowerCase() }
-              })
-            }
-          ]
-        );
-      } else {
-        throw new Error(data.error || 'Failed to send reset code');
+      // Default Firebase password-reset email (custom Nodemailer flow disabled)
+      const result = await resetPassword(email.trim().toLowerCase());
+      if (!result.success) {
+        throw new Error(result.error || 'Failed to send reset email');
       }
+
+      setEmailSent(true);
+      Alert.alert(
+        'Email Sent',
+        'A password reset link has been sent to your email. Open the link to set a new password, then come back and log in.',
+        [{ text: 'OK' }]
+      );
     } catch (error: any) {
       console.error('Password reset error:', error);
-      Alert.alert('Error', error.message || 'Failed to send reset code. Please try again.');
+      Alert.alert('Error', error.message || 'Failed to send reset email. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -71,9 +55,8 @@ export default function ForgotPasswordScreen() {
     <SafeAreaView style={styles.container} edges={['top']}>
       <AuthKeyboardScroll contentContainerStyle={styles.scrollContent}>
           <View style={styles.content}>
-            {/* Header */}
             <View style={styles.header}>
-              <TouchableOpacity 
+              <TouchableOpacity
                 onPress={() => safeRouterBack()}
                 style={styles.backButton}
               >
@@ -81,7 +64,6 @@ export default function ForgotPasswordScreen() {
               </TouchableOpacity>
             </View>
 
-            {/* Title Section */}
             <View style={styles.titleSection}>
               <AuthBrandHeader
                 title="Forgot password?"
@@ -89,7 +71,6 @@ export default function ForgotPasswordScreen() {
               />
             </View>
 
-            {/* Email Input */}
             <View style={styles.inputContainer}>
               <Text style={styles.label}>Email address</Text>
               <View style={styles.inputWrapper}>
@@ -107,7 +88,7 @@ export default function ForgotPasswordScreen() {
                   autoComplete="email"
                   textContentType="emailAddress"
                   importantForAutofill="yes"
-                  editable={!loading && !emailSent}
+                  editable={!loading}
                 />
               </View>
               {emailSent && (
@@ -118,7 +99,6 @@ export default function ForgotPasswordScreen() {
               )}
             </View>
 
-            {/* Send Reset Email Button */}
             <CustomButton
               title={loading ? "Sending..." : emailSent ? "Resend Email" : "Send Reset Link"}
               onPress={handleSendResetEmail}
@@ -127,7 +107,6 @@ export default function ForgotPasswordScreen() {
               disabled={loading}
             />
 
-            {/* Back to Login */}
             <TouchableOpacity
               onPress={() => safeRouterBack()}
               style={styles.backToLoginButton}
@@ -221,4 +200,3 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
 });
-
