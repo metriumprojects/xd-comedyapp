@@ -328,11 +328,13 @@ router.post('/verify', async (req, res) => {
 router.post('/send-custom-verification-email', async (req, res) => {
   try {
     const { email } = req.body;
+    console.log(`[Auth] send-custom-verification-email requested for: ${email || '(missing)'}`);
     if (!email) {
       return res.status(400).json({ success: false, error: 'Email is required' });
     }
 
     if (!process.env.EMAIL_USER || !process.env.EMAIL_PASS) {
+      console.error('[Auth] EMAIL_USER/EMAIL_PASS not set on this server — cannot send custom verification email');
       logger.error('[Auth] EMAIL_USER/EMAIL_PASS not set on this server — cannot send custom verification email');
       return res.status(503).json({
         success: false,
@@ -398,6 +400,7 @@ router.post('/send-custom-verification-email', async (req, res) => {
 
     res.json({ success: true, message: 'Custom verification email sent' });
   } catch (error) {
+    console.error('[Auth] send-custom-verification-email FAILED:', error?.code || 'UNKNOWN', error?.message || error);
     logger.error('❌ Failed to send custom verification email: %s (code: %s)', error?.message || error, error?.code || 'UNKNOWN');
     if (error?.stack) {
       logger.error('Stack trace: %s', error.stack);
