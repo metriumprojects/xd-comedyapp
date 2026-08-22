@@ -236,6 +236,13 @@ export const UploadStoryModal: React.FC<UploadStoryModalProps> = ({
                         setUploading(false);
                         feedEventEmitter.emit('feedUpdated');
                         showSuccess('Story shared successfully!');
+                        const createdStoryId = storyRes?.storyId || storyRes?.story?._id || storyRes?.story?.id;
+                        if (createdStoryId) {
+                          router.push({
+                            pathname: '/(tabs)/home',
+                            params: { storyId: String(createdStoryId) }
+                          });
+                        }
                       }, 500);
                     }
                   } catch (err: any) {

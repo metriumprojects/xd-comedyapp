@@ -182,19 +182,35 @@ export default function TabsLayout() {
           return trimmed;
         };
 
-        const res = await getAllStoriesForFeed();
+        let res = await getAllStoriesForFeed();
         if (!res?.success || !Array.isArray(res.data)) return;
 
-        const now = Date.now();
-        const activeStories = res.data.filter((s: any) => {
+        let now = Date.now();
+        let activeStories = res.data.filter((s: any) => {
           if (s?.expiresAt == null) return true;
           return Number(s.expiresAt) > now;
         });
 
-        const target = activeStories.find((s: any) => {
+        let target = activeStories.find((s: any) => {
           const id = s?._id || s?.id;
           return id != null && String(id) === storyIdParam;
         });
+
+        if (!target) {
+          await new Promise(r => setTimeout(r, 600));
+          res = await getAllStoriesForFeed();
+          if (res?.success && Array.isArray(res.data)) {
+            now = Date.now();
+            activeStories = res.data.filter((s: any) => {
+              if (s?.expiresAt == null) return true;
+              return Number(s.expiresAt) > now;
+            });
+            target = activeStories.find((s: any) => {
+              const id = s?._id || s?.id;
+              return id != null && String(id) === storyIdParam;
+            });
+          }
+        }
         if (!target) return;
 
         const ownerId = typeof target?.userId === 'string'

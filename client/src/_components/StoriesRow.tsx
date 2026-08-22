@@ -1004,6 +1004,13 @@ function StoriesRowComponent({ onStoryPress, onStoryViewerClose, refreshTrigger,
                         setLocationQuery('');
                         setLocationSuggestions([]);
                         setUploadProgress(0);
+                        const createdStoryId = storyRes?.storyId || storyRes?.story?._id || storyRes?.story?.id;
+                        if (createdStoryId) {
+                          router.push({
+                            pathname: '/(tabs)/home',
+                            params: { storyId: String(createdStoryId) }
+                          });
+                        }
                       }, 600);
                     } catch (error: any) {
                       console.error('[StoriesRow] âŒ Story upload failed:', error);
