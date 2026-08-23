@@ -557,14 +557,14 @@ export default function StoryCreatorScreen() {
                     setUploading(false);
                     feedEventEmitter.emit('feedUpdated');
                     const createdStoryId = storyRes?.storyId || storyRes?.story?._id || storyRes?.story?.id;
-                    if (createdStoryId) {
-                        router.replace({
-                            pathname: '/(tabs)/home',
-                            params: { storyId: String(createdStoryId) }
-                        });
-                    } else {
-                        router.replace('/(tabs)/home');
-                    }
+                    router.replace({
+                        pathname: '/(tabs)/home',
+                        params: { 
+                            storyId: createdStoryId ? String(createdStoryId) : undefined,
+                            viewStory: 'true',
+                            _t: String(Date.now())
+                        }
+                    });
                 }, 500);
             } else {
                 throw new Error('Upload failed');

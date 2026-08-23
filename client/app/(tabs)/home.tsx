@@ -10,7 +10,8 @@ import {
   TextInput,
   Platform,
   RefreshControl,
-  Keyboard
+  Keyboard,
+  Modal
 } from "react-native";
 import { Feather, Ionicons } from "@expo/vector-icons";
 import * as Haptics from 'expo-haptics';
@@ -25,6 +26,7 @@ import { HomeReelSkeleton } from "../../src/_components/HomeReelSkeleton";
 import NotificationsModal from "../../src/_components/NotificationsModal";
 import GroupsDrawer from "../../src/_components/GroupsDrawer";
 import UploadProgressBanner from "../../src/_components/UploadProgressBanner";
+import StoriesViewer from "../../src/_components/StoriesViewer";
 
 import { useHomeFeed } from '@/hooks/useHomeFeed';
 import { useCategories } from '@/hooks/useCategories';
@@ -79,6 +81,37 @@ export default function Home() {
   const [unreadMsg, setUnreadMsg] = useState(0);
 
   const [followedStories, setFollowedStories] = useState<any[]>([]);
+  const [activeStoryViewerStories, setActiveStoryViewerStories] = useState<any[]>([]);
+  const [activeStoryViewerIndex, setActiveStoryViewerIndex] = useState(0);
+  const [isHomeStoriesViewerVisible, setIsHomeStoriesViewerVisible] = useState(false);
+
+  // Auto-open story viewer when navigating to home with storyId or viewStory param (e.g. after uploading a story)
+  useEffect(() => {
+    const storyId = params.storyId as string | undefined;
+    const viewStory = params.viewStory as string | undefined;
+    if ((storyId || viewStory) && currentUserId) {
+      const openUserStory = async () => {
+        try {
+          const { getUserStories } = await import('../../lib/firebaseHelpers/index');
+          const res = await getUserStories(currentUserId, currentUserId);
+          const rawStories = res?.stories || res?.data || (Array.isArray(res) ? res : []);
+          if (Array.isArray(rawStories) && rawStories.length > 0) {
+            let targetIdx = rawStories.length - 1;
+            if (storyId) {
+              const foundIdx = rawStories.findIndex((s: any) => String(s._id || s.id || s.storyId || '') === String(storyId));
+              if (foundIdx >= 0) targetIdx = foundIdx;
+            }
+            setActiveStoryViewerStories(rawStories);
+            setActiveStoryViewerIndex(targetIdx);
+            setIsHomeStoriesViewerVisible(true);
+          }
+        } catch (err) {
+          console.warn('[Home] Failed to open story after upload:', err);
+        }
+      };
+      openUserStory();
+    }
+  }, [params.storyId, params.viewStory, params._t, currentUserId]);
 
   const fetchFollowedStories = useCallback(async () => {
     if (!currentUserId) return;
@@ -613,6 +646,28 @@ export default function Home() {
         visible={groupsDrawerVisible}
         onClose={() => setGroupsDrawerVisible(false)}
       />
+
+      {/* 5. Home Stories Viewer Modal (e.g. for viewing story immediately after upload) */}
+      {isHomeStoriesViewerVisible && activeStoryViewerStories.length > 0 && (
+        <Modal
+          visible={isHomeStoriesViewerVisible}
+          animationType="fade"
+          transparent={false}
+          onRequestClose={() => {
+            setIsHomeStoriesViewerVisible(false);
+            router.setParams({ storyId: undefined, viewStory: undefined, _t: undefined } as any);
+          }}
+        >
+          <StoriesViewer
+            stories={activeStoryViewerStories}
+            initialIndex={activeStoryViewerIndex}
+            onClose={() => {
+              setIsHomeStoriesViewerVisible(false);
+              router.setParams({ storyId: undefined, viewStory: undefined, _t: undefined } as any);
+            }}
+          />
+        </Modal>
+      )}
     </View>
   );
 }
