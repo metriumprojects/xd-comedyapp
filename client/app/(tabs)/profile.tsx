@@ -337,7 +337,6 @@ export default function Profile({ userIdProp }: any) {
   const [commentModalPostId, setCommentModalPostId] = useState<string>('');
   const [commentModalAvatar, setCommentModalAvatar] = useState<string>('');
   const { isOnline } = useNetworkStatus();
-  const { showBanner } = useOfflineBanner();
   const PROFILE_CACHE_KEY = useMemo(
     () => `profile_v3_${String(viewedUserId || 'unknown')}_${String(currentUserId || 'anon')}`,
     [viewedUserId, currentUserId]
@@ -1057,12 +1056,6 @@ export default function Profile({ userIdProp }: any) {
 
   return (
     <SafeAreaView style={styles.container} edges={[]}>
-      {showBanner && (
-        <View style={styles.offlineBanner}>
-          <Text style={styles.offlineBannerText}>You’re offline — showing cached profile</Text>
-        </View>
-      )}
-
       {/* Header for other users' profiles */}
       {!isOwnProfile && (
         <View style={{
