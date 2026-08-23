@@ -955,32 +955,33 @@ export default function SavedScreen() {
                     {active && <Feather name="check" size={16} color={COLORS.primary} style={{ marginRight: 8 }} />}
                   </TouchableOpacity>
 
-                  {/* ⊗ Delete (owner only) */}
+                  {/* Action buttons (Delete & Edit) */}
                   {isProfileOwner && isOwner(col) && (
-                    <TouchableOpacity
-                      style={styles.iconBtn}
-                      onPress={() => {
-                        openDelete(col);
-                      }}
-                      hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-                      activeOpacity={0.7}
-                    >
-                      <Ionicons name="close-circle-outline" size={22} color={COLORS.textMuted} />
-                    </TouchableOpacity>
-                  )}
+                    <View style={styles.collRowIcons}>
+                      {/* ⊗ Delete */}
+                      <TouchableOpacity
+                        style={styles.iconBtn}
+                        onPress={() => {
+                          openDelete(col);
+                        }}
+                        hitSlop={{ top: 8, bottom: 8, left: 6, right: 6 }}
+                        activeOpacity={0.7}
+                      >
+                        <Ionicons name="close-circle-outline" size={22} color={COLORS.textMuted} />
+                      </TouchableOpacity>
 
-                  {/* ✏️ Edit (owner only) */}
-                  {isProfileOwner && isOwner(col) && (
-                    <TouchableOpacity
-                      style={styles.iconBtn}
-                      onPress={() => {
-                        openEdit(col);
-                      }}
-                      hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-                      activeOpacity={0.7}
-                    >
-                      <Feather name="edit-2" size={17} color={COLORS.textMuted} />
-                    </TouchableOpacity>
+                      {/* ✏️ Edit */}
+                      <TouchableOpacity
+                        style={styles.iconBtn}
+                        onPress={() => {
+                          openEdit(col);
+                        }}
+                        hitSlop={{ top: 8, bottom: 8, left: 6, right: 6 }}
+                        activeOpacity={0.7}
+                      >
+                        <Feather name="edit-2" size={17} color={COLORS.textMuted} />
+                      </TouchableOpacity>
+                    </View>
                   )}
                 </View>
               );
@@ -1515,7 +1516,19 @@ const styles = StyleSheet.create({
   },
   thumbPlaceholder: { justifyContent: 'center', alignItems: 'center' },
   collName: { flex: 1, fontSize: 14, color: COLORS.textPrimary, fontWeight: '500' },
-  iconBtn: { padding: 6 },
+  collRowIcons: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    marginLeft: 8,
+  },
+  iconBtn: {
+    width: 34,
+    height: 34,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderRadius: 17,
+  },
 
   // Edit sheet
   editHeader: {
