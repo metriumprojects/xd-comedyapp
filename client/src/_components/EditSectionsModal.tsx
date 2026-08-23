@@ -632,7 +632,7 @@ export default function EditSectionsModal({
                 </TouchableOpacity>
               ) : (isOwner && showCreateInput) ? (
                 <View style={styles.createInputContainer}>
-                  <View style={{ flex: 1 }}>
+                  <View style={styles.createInputRow}>
                     <TextInput
                       style={styles.createInput}
                       placeholder="Section name (2–30 characters)"
@@ -645,28 +645,28 @@ export default function EditSectionsModal({
                       returnKeyType="done"
                       onSubmitEditing={handleCreateSection}
                     />
-                    <Text style={styles.createHint}>
-                      Letters, numbers, spaces · {normalizeSectionName(newSectionName).length}/{SECTION_NAME_MAX}
-                    </Text>
+                    <TouchableOpacity
+                      onPress={handleCreateSection}
+                      style={[styles.createConfirmBtn, creatingSection && { opacity: 0.6 }]}
+                      disabled={creatingSection || !normalizeSectionName(newSectionName)}
+                    >
+                      {creatingSection ? (
+                        <ActivityIndicator size="small" color={COLORS.textLight} />
+                      ) : (
+                        <Ionicons name="checkmark" size={20} color={COLORS.textLight} />
+                      )}
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      onPress={() => { setShowCreateInput(false); setNewSectionName(''); }}
+                      style={styles.createCancelBtn}
+                      disabled={creatingSection}
+                    >
+                      <Ionicons name="close" size={20} color={COLORS.textSecondary} />
+                    </TouchableOpacity>
                   </View>
-                  <TouchableOpacity
-                    onPress={handleCreateSection}
-                    style={[styles.createConfirmBtn, creatingSection && { opacity: 0.6 }]}
-                    disabled={creatingSection || !normalizeSectionName(newSectionName)}
-                  >
-                    {creatingSection ? (
-                      <ActivityIndicator size="small" color={COLORS.textLight} />
-                    ) : (
-                      <Ionicons name="checkmark" size={20} color={COLORS.textLight} />
-                    )}
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    onPress={() => { setShowCreateInput(false); setNewSectionName(''); }}
-                    style={styles.createCancelBtn}
-                    disabled={creatingSection}
-                  >
-                    <Ionicons name="close" size={20} color={COLORS.textSecondary} />
-                  </TouchableOpacity>
+                  <Text style={styles.createHint}>
+                    Letters, numbers, spaces · {normalizeSectionName(newSectionName).length}/{SECTION_NAME_MAX}
+                  </Text>
                 </View>
               ) : null}
 
@@ -1039,19 +1039,22 @@ const styles = StyleSheet.create({
   },
   createSectionText: { fontSize: 15, fontWeight: '500' },
   createInputContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 8,
+    paddingVertical: 10,
     borderBottomWidth: 0.5,
     borderBottomColor: COLORS.border,
+  },
+  createInputRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
     gap: 8,
   },
   createInput: {
+    flex: 1,
+    height: 42,
     borderWidth: 1,
     borderColor: COLORS.border,
     borderRadius: 8,
     paddingHorizontal: 12,
-    paddingVertical: 10,
     fontSize: 15,
     color: COLORS.textPrimary,
   },
@@ -1059,16 +1062,23 @@ const styles = StyleSheet.create({
     marginTop: 6,
     fontSize: 11,
     color: COLORS.textMuted,
+    paddingHorizontal: 2,
   },
   createConfirmBtn: {
+    width: 42,
+    height: 42,
     backgroundColor: COLORS.primary,
-    padding: 8,
     borderRadius: 8,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   createCancelBtn: {
+    width: 42,
+    height: 42,
     backgroundColor: COLORS.inputBg,
-    padding: 8,
     borderRadius: 8,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   sectionRow: {
     flexDirection: 'row',
