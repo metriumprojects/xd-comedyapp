@@ -242,7 +242,7 @@ export default function Home() {
     return [{ name: 'Podium', image: '' }, ...filtered];
   }, [categories]);
 
-  // Filter posts based on selected category and search query, and deduplicate
+  // Filter posts based on selected category chip, and deduplicate
   const filteredPosts = useMemo(() => {
     let result = posts;
 
@@ -250,17 +250,6 @@ export default function Home() {
     if (filter) {
       result = result.filter(
         (p: any) => p.category?.toLowerCase() === filter.toLowerCase()
-      );
-    }
-
-    // Filter by search query
-    if (searchQuery) {
-      const query = searchQuery.toLowerCase().trim();
-      result = result.filter(
-        (p: any) =>
-          p.caption?.toLowerCase().includes(query) ||
-          p.userName?.toLowerCase().includes(query) ||
-          p.locationData?.name?.toLowerCase().includes(query)
       );
     }
 
@@ -274,7 +263,7 @@ export default function Home() {
     });
 
     return result;
-  }, [posts, filter, searchQuery]);
+  }, [posts, filter]);
 
   // Correct FlatList scroll offset immediately when container height changes to prevent jumping glitches
   useEffect(() => {
@@ -332,10 +321,19 @@ export default function Home() {
     router.push(next ? `/(tabs)/home?filter=${encodeURIComponent(next)}` : `/(tabs)/home`);
   }, [filter, router]);
 
-  const handleSearchSubmit = () => {
+  const handleSearchSubmit = useCallback(() => {
+    const trimmed = searchQuery.trim();
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => { });
-    // Trigger local filtering or reload initial feed with query params if supported
-  };
+    if (trimmed) {
+      router.push({
+        pathname: '/search-modal',
+        params: { q: trimmed, initialQuery: trimmed }
+      } as any);
+    } else {
+      router.push('/search-modal' as any);
+    }
+    setSearchQuery('');
+  }, [searchQuery, router]);
 
   const toggleMute = useCallback(() => setIsMuted(prev => !prev), []);
   const toggleFullscreen = useCallback(() => setIsFullscreenMode(prev => !prev), []);
@@ -409,7 +407,6 @@ export default function Home() {
             <Ionicons
               name={
                 !isOnline ? "wifi-outline" :
-                searchQuery ? "search-outline" :
                 filter ? "options-outline" : "film-outline"
               }
               size={36}
@@ -420,8 +417,6 @@ export default function Home() {
           <Text style={styles.emptyTitle}>
             {!isOnline
               ? "You're Currently Offline"
-              : searchQuery
-              ? `No results for "${searchQuery}"`
               : filter
               ? `No reels in "${filter}"`
               : "No Comedy Reels Found"}
@@ -430,8 +425,6 @@ export default function Home() {
           <Text style={styles.emptySubtitle}>
             {!isOnline
               ? "Please check your internet connection to watch comedy reels."
-              : searchQuery
-              ? "Check your spelling or try searching for a different keyword or creator."
               : filter
               ? "Be the first to post in this category or try exploring other topics!"
               : "Check back soon for new clips, or tap below to refresh your feed."}
@@ -549,7 +542,13 @@ export default function Home() {
 
           {/* Search funny videos bar */}
           <View style={styles.searchRow}>
-            <Ionicons name="search" size={16} color="#ffffff" style={styles.searchIcon} />
+            <TouchableOpacity
+              activeOpacity={0.7}
+              onPress={handleSearchSubmit}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            >
+              <Ionicons name="search" size={16} color="#ffffff" style={styles.searchIcon} />
+            </TouchableOpacity>
             <TextInput
               style={styles.searchInput}
               placeholder="Search Funny Reels & Posts"
