@@ -32,6 +32,7 @@ import COLORS from '@/src/theme/colors';
 import { StripeProvider } from '@stripe/stripe-react-native';
 import { useAppStore } from '@/store/useAppStore';
 import { resolveCanonicalUserId } from '@/lib/currentUser';
+import InstagramOfflineToast from '@/src/_components/InstagramOfflineToast';
 // Load location service (foreground passport checks + optional TaskManager shim)
 import '../services/locationService';
 
@@ -273,6 +274,7 @@ export default function RootLayout() {
                 <Stack.Screen name="notifications" options={{ headerShown: false }} />
                 <Stack.Screen name="post-detail" options={{ headerShown: false, animation: 'slide_from_right' }} />
               </Stack>
+              <InstagramOfflineToast />
             </GestureHandlerRootView>
           </AppDialogProvider>
         </UserProvider>

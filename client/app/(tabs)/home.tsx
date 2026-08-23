@@ -175,6 +175,9 @@ export default function Home() {
 
   const handleRefresh = useCallback(async () => {
     setRefreshing(true);
+    if (!isOnline) {
+      feedEventEmitter.emit('SHOW_OFFLINE_TOAST', { message: "No Internet Connection" });
+    }
     try {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
       const promises: Promise<any>[] = [
@@ -191,7 +194,7 @@ export default function Home() {
     } finally {
       setRefreshing(false);
     }
-  }, [loadInitialFeed, loadCategories, currentUserId, fetchFollowedStories, fetchNotifications]);
+  }, [isOnline, loadInitialFeed, loadCategories, currentUserId, fetchFollowedStories, fetchNotifications]);
 
   const tabEvent = useTabEvent();
   useEffect(() => {
