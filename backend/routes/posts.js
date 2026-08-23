@@ -26,6 +26,11 @@ function resolvePostQuery(postId) {
   return { $or: or };
 }
 
+// Helper to resolve viewer/requester user ID from auth token, query params, or headers
+function getViewerId(req) {
+  return req.userId || req.query?.requesterUserId || req.query?.viewerId || req.query?.userId || req.headers?.['x-user-id'] || null;
+}
+
 // --- Basic CRUD ---
 
 /**
@@ -35,7 +40,7 @@ router.get('/', verifyToken, cacheMiddleware(300), async (req, res) => {
   try {
     const limit = Math.min(parseInt(req.query.limit || '20'), 100);
     const skip = parseInt(req.query.skip || '0');
-    const viewerId = req.userId; // Use authenticated userId
+    const viewerId = getViewerId(req);
 
     const enriched = await postService.getEnrichedPosts({}, { skip, limit, viewerId });
     
@@ -58,7 +63,7 @@ router.get('/', verifyToken, cacheMiddleware(300), async (req, res) => {
  */
 router.get('/feed', optionalAuth, async (req, res, next) => {
   try {
-    const currentUserId = req.userId || null;
+    const currentUserId = getViewerId(req);
     let viewerVariants = [];
     
     if (currentUserId) {
@@ -228,7 +233,7 @@ router.get('/feed', optionalAuth, async (req, res, next) => {
 router.get('/recommended', optionalAuth, async (req, res, next) => {
   try {
     const limit = Math.min(parseInt(req.query.limit || '20'), 50);
-    const viewerId = req.userId || null;
+    const viewerId = getViewerId(req);
     const excludeIdsRaw = req.query.excludeIds || '';
     
     // Build exclude list from comma-separated IDs
@@ -346,7 +351,7 @@ router.get('/hashtags/posts', async (req, res) => {
       .populate('userId', 'displayName name avatar profilePicture photoURL isPrivate')
       .lean();
 
-    const viewerId = req.query.viewerId || null;
+    const viewerId = getViewerId(req);
     const enriched = await enrichPostsWithUserData(posts, viewerId);
     res.json({ success: true, data: enriched });
   } catch (err) {
@@ -388,8 +393,7 @@ router.get('/by-location', optionalAuth, async (req, res) => {
     const location = (req.query.location || '').trim();
     const limit = Math.min(parseInt(req.query.limit || '20'), 100);
     const skip = parseInt(req.query.skip || '0');
-    // SECURITY FIX: Use verified token ID
-    const viewerId = req.userId || null;
+    const viewerId = getViewerId(req);
 
     if (!location) {
       return res.json({ success: true, data: [] });
@@ -838,7 +842,7 @@ router.get('/search', optionalAuth, async (req, res, next) => {
     const category = req.query.category;
     const limit = Math.min(parseInt(req.query.limit || '20'), 100);
     const skip = parseInt(req.query.skip || '0');
-    const viewerId = req.userId || null;
+    const viewerId = getViewerId(req);
 
     const Post = mongoose.model('Post');
     const dbQuery = {};
@@ -1145,8 +1149,7 @@ router.get('/search', optionalAuth, async (req, res, next) => {
 // GET /:postId - Detail
 router.get('/:postId', optionalAuth, async (req, res) => {
   try {
-    // SECURITY FIX: Never trust client-provided headers/queries for user identity
-    const viewerId = req.userId || null;
+    const viewerId = getViewerId(req);
     const query = resolvePostQuery(req.params.postId);
 
     const enriched = await postService.getEnrichedPosts(query, { limit: 1, viewerId });

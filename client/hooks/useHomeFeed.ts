@@ -62,6 +62,7 @@ export function useHomeFeed(currentUserId: string | null, isOnline: boolean) {
       const params: any = {
         limit,
         requesterUserId: currentUserId || undefined,
+        viewerId: currentUserId || undefined,
         ...options
       };
 

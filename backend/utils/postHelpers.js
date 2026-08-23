@@ -105,18 +105,38 @@ async function enrichPostsWithUserData(posts, viewerId = null) {
     const followingUserIds = new Set();
     if (viewerVariants.length > 0) {
       try {
-        const SavedPost = mongoose.model('SavedPost');
+        let SavedPost;
+        try {
+          SavedPost = mongoose.models.SavedPost || mongoose.model('SavedPost');
+        } catch {
+          const savedPostSchema = new mongoose.Schema({
+            userId: { type: String, required: true },
+            postId: { type: String, required: true },
+            savedAt: { type: Date, default: Date.now }
+          });
+          SavedPost = mongoose.models.SavedPost || mongoose.model('SavedPost', savedPostSchema);
+        }
+
         const userSaved = await SavedPost.find({ 
           userId: { $in: viewerVariants },
           postId: { $in: postIds }
-        }).select('postId').lean();
-        userSaved.forEach(s => savedPostIds.add(String(s.postId)));
+        }).select('postId userId').lean();
+        userSaved.forEach(s => {
+          const sid = String(s.postId || '').split('-loop')[0];
+          if (sid) savedPostIds.add(sid);
+        });
       } catch (e) {
         console.warn('[enrich] SavedPost fetch failed:', e.message);
       }
 
       try {
-        const Section = mongoose.model('Section');
+        let Section;
+        try {
+          Section = mongoose.models.Section || mongoose.model('Section');
+        } catch {
+          Section = require('../src/models/Section');
+        }
+
         const viewerObjectIds = viewerVariants
           .filter(id => mongoose.Types.ObjectId.isValid(id))
           .map(id => new mongoose.Types.ObjectId(id));
@@ -320,15 +340,19 @@ async function enrichPostsWithUserData(posts, viewerId = null) {
           p.isSaved = p.savedBy.some(id => viewerStrings.includes(String(id)));
         }
         
-        // 2. Check the batch-fetched saved IDs (Source of Truth)
-        if (!p.isSaved && typeof savedPostIds !== 'undefined' && savedPostIds.has(cleanPid)) {
-          p.isSaved = true;
+        // 2. Check the batch-fetched saved IDs (Source of Truth - SavedPost + Section collections)
+        if (!p.isSaved && typeof savedPostIds !== 'undefined') {
+          const rawPid = String(p._id || p.id || '').split('-loop')[0];
+          const customId = p.id ? String(p.id).split('-loop')[0] : '';
+          const objectIdStr = p._id ? String(p._id).split('-loop')[0] : '';
+          if (savedPostIds.has(cleanPid) || (rawPid && savedPostIds.has(rawPid)) || (customId && savedPostIds.has(customId)) || (objectIdStr && savedPostIds.has(objectIdStr))) {
+            p.isSaved = true;
+          }
         }
 
         // 3. Sync for Frontend: If saved, ensure savedBy includes the viewer
-        // This fixes the blue bookmark in SaveButton.tsx
+        // This fixes the bookmark in ReelItem and SaveButton
         if (p.isSaved) {
-          console.log(`✅ [enrich] POST SAVED MATCH: pid=${cleanPid} for viewer=${viewerStrings[0]}`);
           p.saved = true; // Extra flag for safety
           if (!Array.isArray(p.savedBy)) p.savedBy = [];
           

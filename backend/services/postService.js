@@ -135,7 +135,12 @@ async function getEnrichedPosts(query, {
           $match: {
             $expr: {
               $and: [
-                { $eq: ['$postId', '$$pid'] },
+                {
+                  $or: [
+                    { $eq: ['$postId', '$$pid'] },
+                    { $eq: ['$postId', { $toString: '$$pid' }] }
+                  ]
+                },
                 { $in: ['$userId', viewerVariants] }
               ]
             }

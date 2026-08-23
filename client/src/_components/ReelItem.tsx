@@ -336,12 +336,15 @@ export const ReelItem = React.memo<ReelItemProps>(({
       currentSaved = !!post.isSaved;
       setIsSaved(currentSaved);
     } else if (myId && Array.isArray(post.savedBy)) {
-      currentSaved = post.savedBy.includes(myId);
+      currentSaved = post.savedBy.some((id: any) => String(id) === myId);
       setIsSaved(currentSaved);
     } else {
       setIsSaved(false);
     }
-    setSavedCount(post.savedCount ?? post.savesCount ?? (currentSaved ? 1 : 0));
+    const targetCount = post.savedCount !== undefined 
+      ? post.savedCount 
+      : (post.savesCount !== undefined ? post.savesCount : (currentSaved ? 1 : 0));
+    setSavedCount(targetCount);
 
     // Sync isLiked
     if (post.isLiked !== undefined) {
@@ -362,7 +365,7 @@ export const ReelItem = React.memo<ReelItemProps>(({
     setTomatoCount(post.tomatoCount || 0);
     setShareCount(post.shareCount || 0);
     setIsFollowing(post.isFollowing || false);
-  }, [post?._id, currentUser]);
+  }, [post?._id, post?.isSaved, post?.savedCount, post?.savesCount, post?.isLiked, post?.likeCount, post?.likesCount, post?.commentCount, currentUser]);
 
   // Sync hasLaughed/hasTomatoed ONLY when switching to a different post (post._id changes)
   // This prevents the parent feed re-render from overwriting the user's local selection state
