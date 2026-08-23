@@ -33,7 +33,7 @@ function normaliseStory(entry) {
   const storyId = rawId || mediaKeyFrom(entry);
   if (!storyId) return null;
 
-  const imageUrl = entry.imageUrl || entry.image || entry.imageUri || entry.thumbnailUrl || '';
+  const imageUrl = entry.imageUrl || entry.image || entry.imageUri || entry.thumbnailUrl || entry.thumbnail || '';
   const videoUrl = entry.videoUrl || entry.video || entry.videoUri || '';
   const mediaUrl = entry.mediaUrl || imageUrl || videoUrl || '';
   const mediaType = entry.mediaType || (videoUrl ? 'video' : 'image');
@@ -46,7 +46,7 @@ function normaliseStory(entry) {
     userAvatar: entry.userAvatar || entry.avatar || entry.photoURL || null,
     imageUrl,
     videoUrl,
-    thumbnailUrl: entry.thumbnailUrl || entry.thumbnail || null,
+    thumbnailUrl: entry.thumbnailUrl || entry.thumbnail || imageUrl || null,
     mediaUrl,
     mediaType,
     createdAt: safeDate(entry.createdAt || entry.timestamp),
@@ -98,6 +98,21 @@ exports.createHighlight = async (req, res) => {
           seen.add(item.storyId);
           return true;
         });
+
+      // Backfill missing media details for items that were passed as plain string IDs
+      for (let i = 0; i < resolvedItems.length; i++) {
+        const item = resolvedItems[i];
+        if (!item.mediaUrl && !item.imageUrl && !item.videoUrl && mongoose.Types.ObjectId.isValid(item.storyId)) {
+          try {
+            const st = await Story.findById(item.storyId).lean();
+            if (st) {
+              const fetched = normaliseStory(st);
+              if (fetched) resolvedItems[i] = { ...item, ...fetched };
+            }
+          } catch (e) {}
+        }
+      }
+
       resolvedStoryIds = resolvedItems.map(item => item.storyId).filter(Boolean);
     }
 
@@ -147,17 +162,12 @@ exports.addStoryToHighlight = async (req, res) => {
       return res.status(400).json({ success: false, error: 'storyId is required' });
     }
 
-    if (!entry) {
+    if (!entry || (!entry.mediaUrl && !entry.imageUrl && !entry.videoUrl)) {
       try {
         const st = mongoose.Types.ObjectId.isValid(storyId) ? await Story.findById(storyId).lean() : null;
         if (st) {
-          entry = {
-            storyId: String(st._id),
-            imageUrl: st.image || null,
-            videoUrl: st.video || null,
-            mediaType: st.video ? 'video' : 'image',
-            createdAt: st.createdAt || new Date()
-          };
+          const fetchedEntry = normaliseStory(st);
+          entry = entry ? { ...entry, ...fetchedEntry } : fetchedEntry;
         }
       } catch (err) {
         // ignore
@@ -181,6 +191,16 @@ exports.addStoryToHighlight = async (req, res) => {
 
     if (!isAlreadyInItems) {
       highlight.items.push(entry);
+    } else {
+      // Update existing item if new entry has richer snapshot data
+      highlight.items = highlight.items.map(item => {
+        const itemId = typeof item === 'string' ? item : (item?.storyId || item?.id);
+        if (String(itemId) === String(storyId)) {
+          if (typeof item === 'string') return entry;
+          return { ...item, ...entry };
+        }
+        return item;
+      });
     }
 
     if (!highlight.stories) highlight.stories = [];
@@ -311,15 +331,21 @@ exports.getHighlightStories = async (req, res) => {
         if (!storyId) continue;
         if (seenIds.has(storyId)) continue;
         seenIds.add(storyId);
-        if (it.mediaUrl || it.imageUrl || it.videoUrl) {
+
+        const imgUrl = it.imageUrl || it.image || it.thumbnailUrl || it.thumbnail || '';
+        const vidUrl = it.videoUrl || it.video || '';
+        const medUrl = it.mediaUrl || imgUrl || vidUrl || '';
+
+        if (medUrl || imgUrl || vidUrl) {
           snapshotItems.push({
             ...it,
             id: storyId,
             _id: storyId,
-            imageUrl: it.imageUrl || null,
-            videoUrl: it.videoUrl || null,
-            mediaUrl: it.mediaUrl || it.imageUrl || it.videoUrl || null,
-            mediaType: it.mediaType || (it.videoUrl ? 'video' : 'image'),
+            storyId: storyId,
+            imageUrl: imgUrl || (it.mediaType === 'video' ? vidUrl : medUrl),
+            videoUrl: vidUrl || (it.mediaType === 'video' ? medUrl : null),
+            mediaUrl: medUrl,
+            mediaType: it.mediaType || (vidUrl ? 'video' : 'image'),
             postMetadata: it.postMetadata || null,
           });
         } else {

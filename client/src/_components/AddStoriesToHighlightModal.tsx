@@ -75,7 +75,8 @@ export default function AddStoriesToHighlightModal({
       let failureCount = 0;
 
       for (const storyId of selectedStories) {
-        const result = await addStoryToHighlight(highlightId, storyId);
+        const storyObj = stories.find(s => resolveStoryId(s) === storyId);
+        const result = await addStoryToHighlight(highlightId, storyId, storyObj);
         if (result.success) {
           successCount++;
         } else {

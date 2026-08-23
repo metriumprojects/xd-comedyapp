@@ -186,9 +186,13 @@ export default function CreateHighlightModal({
         finalCoverUrl = uploadResult.url || '';
       }
 
-      // Create highlight with visibility
+      // Create highlight with visibility and full story snapshots
       const initialStoryIds = Array.from(selectedStoryIds);
-      const result = await createHighlight(userId, name, finalCoverUrl, initialStoryIds, visibility);
+      const selectedSnapshots = stories.filter(s => {
+        const sid = String(s.id || s._id || s.storyId || '');
+        return initialStoryIds.includes(sid);
+      });
+      const result = await createHighlight(userId, name, finalCoverUrl, initialStoryIds, visibility, selectedSnapshots);
 
       if (result.success) {
         // Kick off the profile refetch in the background before dismissing so the

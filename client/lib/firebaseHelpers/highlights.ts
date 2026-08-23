@@ -8,7 +8,8 @@ export async function createHighlight(
   name: string,
   coverImage: string,
   storyIds: string[] = [],
-  visibility: string = 'Public'
+  visibility: string = 'Public',
+  storySnapshots?: any[]
 ) {
   try {
     const res = await apiService.post('/highlights', { 
@@ -18,6 +19,8 @@ export async function createHighlight(
       // Send both shapes for backend compatibility.
       stories: storyIds,
       storyIds,
+      storySnapshots: storySnapshots || [],
+      items: storySnapshots || [],
       visibility
     });
     
