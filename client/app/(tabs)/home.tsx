@@ -484,8 +484,6 @@ export default function Home() {
       {/* 2. Absolute Top Overlays (Header controls, Search, Categories) */}
       {!isFullscreenMode && (
         <View style={[styles.topOverlays, { paddingTop: insets.top || 8 }]} pointerEvents="box-none">
-          <UploadProgressBanner />
-
           {/* Header navigation and controls */}
           <View style={styles.headerRow} pointerEvents="box-none">
             {filter || searchQuery ? (
@@ -599,7 +597,11 @@ export default function Home() {
               }}
             />
           </View>
-        </View>)}
+
+          {/* Uploading progress banner floating smoothly below categories */}
+          <UploadProgressBanner />
+        </View>
+      )}
 
       {/* 3. Notifications Modal */}
       <NotificationsModal

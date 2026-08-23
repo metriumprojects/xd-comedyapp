@@ -21,8 +21,8 @@ export default function UploadProgressBanner() {
             {/* Left Icon */}
             <View style={styles.iconContainer}>
               {isUploading && <ActivityIndicator size="small" color={COLORS.primary} />}
-              {isSuccess && <Ionicons name="checkmark-circle" size={24} color={COLORS.success} />}
-              {isError && <Ionicons name="alert-circle" size={24} color={COLORS.danger} />}
+              {isSuccess && <Ionicons name="checkmark-circle" size={22} color={COLORS.success} />}
+              {isError && <Ionicons name="alert-circle" size={22} color={COLORS.danger} />}
             </View>
 
             {/* Middle Text */}
@@ -44,12 +44,12 @@ export default function UploadProgressBanner() {
             <View style={styles.actionContainer}>
               {isError && (
                 <TouchableOpacity onPress={() => retryTask(task.id)} style={styles.actionBtn}>
-                  <Ionicons name="refresh" size={20} color={COLORS.primary} />
+                  <Ionicons name="refresh" size={18} color={COLORS.primary} />
                 </TouchableOpacity>
               )}
               {(isError || isSuccess) && (
                 <TouchableOpacity onPress={() => removeTask(task.id)} style={styles.actionBtn}>
-                  <Feather name="x" size={20} color={COLORS.textSecondary} />
+                  <Feather name="x" size={18} color="rgba(255, 255, 255, 0.7)" />
                 </TouchableOpacity>
               )}
             </View>
@@ -62,22 +62,28 @@ export default function UploadProgressBanner() {
 
 const styles = StyleSheet.create({
   container: {
-    backgroundColor: COLORS.background,
     paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderBottomWidth: 1,
-    borderBottomColor: COLORS.border,
+    paddingTop: 6,
+    paddingBottom: 2,
   },
   bannerRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 8,
-    backgroundColor: 'rgba(255,255,255,0.05)',
-    padding: 12,
-    borderRadius: 8,
+    marginBottom: 6,
+    backgroundColor: 'rgba(24, 24, 28, 0.95)',
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.15)',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.35,
+    shadowRadius: 6,
+    elevation: 6,
   },
   iconContainer: {
-    marginRight: 12,
+    marginRight: 10,
     width: 24,
     height: 24,
     justifyContent: 'center',
@@ -88,14 +94,14 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   title: {
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '600',
-    color: COLORS.textPrimary,
+    color: '#FFFFFF',
     marginBottom: 4,
   },
   progressBarBg: {
     height: 4,
-    backgroundColor: COLORS.border,
+    backgroundColor: 'rgba(255, 255, 255, 0.18)',
     borderRadius: 2,
     overflow: 'hidden',
     marginTop: 4,
@@ -112,9 +118,10 @@ const styles = StyleSheet.create({
   actionContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
+    gap: 8,
   },
   actionBtn: {
     padding: 4,
-  }
+  },
 });
+
