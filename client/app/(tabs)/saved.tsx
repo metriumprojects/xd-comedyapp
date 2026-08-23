@@ -376,7 +376,7 @@ export default function SavedScreen() {
     setLoadingFollowers(true);
     try {
       const { apiService } = await import('@/src/_services/apiService');
-      const res = await apiService.get(`/users/${currentUserId}/followers`);
+      const res = await apiService.get(`/follow/users/${currentUserId}/followers`);
       const list = res?.data || res || [];
       setFollowers(Array.isArray(list) ? list : []);
     } catch (e) { console.error('loadFollowers error', e); }

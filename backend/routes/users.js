@@ -280,6 +280,107 @@ router.put('/:userId/push-token', verifyToken, async (req, res) => {
     res.status(500).json({ success: false, error: err.message });
   }
 });
+// GET /api/users/:userId/followers - Alias for /api/follow/users/:userId/followers
+router.get('/:userId/followers', optionalAuth, async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const currentUserId = req.query.currentUserId;
+    const targetUser = await resolveUserIdentifiers(userId);
+    const Follow = mongoose.model('Follow');
+    const followers = await Follow.find({ followingId: { $in: targetUser.candidates } });
+    const followerIds = followers.map(f => f.followerId);
+
+    if (followerIds.length === 0) {
+      return res.json({ success: true, data: [] });
+    }
+
+    const users = await User.find({
+      $or: [
+        { firebaseUid: { $in: followerIds } },
+        { _id: { $in: followerIds.filter(id => mongoose.Types.ObjectId.isValid(id)).map(id => new mongoose.Types.ObjectId(id)) } }
+      ]
+    }).select('firebaseUid displayName name username avatar photoURL profilePicture').lean();
+
+    let currentUserFollowing = [];
+    if (currentUserId) {
+      const current = await resolveUserIdentifiers(currentUserId);
+      const followingIdCandidates = Array.from(
+        new Set(
+          users
+            .flatMap((u) => [u?._id ? String(u._id) : null, u?.firebaseUid ? String(u.firebaseUid) : null])
+            .filter(Boolean)
+        )
+      );
+
+      currentUserFollowing = await Follow.find({
+        followerId: { $in: current.candidates },
+        followingId: { $in: followingIdCandidates }
+      });
+    }
+
+    const userItems = users.map(user => {
+      const uid = user._id ? String(user._id) : (user.firebaseUid ? String(user.firebaseUid) : '');
+      const idCandidates = [uid, user.firebaseUid ? String(user.firebaseUid) : null].filter(Boolean);
+      const isFollowing = currentUserFollowing.some(f => idCandidates.includes(String(f.followingId)));
+
+      return {
+        uid,
+        firebaseUid: user.firebaseUid || '',
+        name: user.displayName || user.name || 'User',
+        username: user.username || '',
+        avatar: user.avatar || user.photoURL || user.profilePicture || '',
+        isFollowing,
+        isFollowingYou: true
+      };
+    });
+
+    res.json({ success: true, data: userItems });
+  } catch (err) {
+    console.error('[GET /users/:userId/followers alias] Error:', err.message);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// GET /api/users/:userId/following - Alias for /api/follow/users/:userId/following
+router.get('/:userId/following', optionalAuth, async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const targetUser = await resolveUserIdentifiers(userId);
+    const Follow = mongoose.model('Follow');
+    const following = await Follow.find({ followerId: { $in: targetUser.candidates } });
+    const followingIds = following.map(f => f.followingId);
+
+    if (followingIds.length === 0) {
+      return res.json({ success: true, data: [] });
+    }
+
+    const users = await User.find({
+      $or: [
+        { firebaseUid: { $in: followingIds } },
+        { _id: { $in: followingIds.filter(id => mongoose.Types.ObjectId.isValid(id)).map(id => new mongoose.Types.ObjectId(id)) } }
+      ]
+    }).select('firebaseUid displayName name username avatar photoURL profilePicture').lean();
+
+    const userItems = users.map(user => {
+      const uid = user._id ? String(user._id) : (user.firebaseUid ? String(user.firebaseUid) : '');
+      return {
+        uid,
+        firebaseUid: user.firebaseUid || '',
+        name: user.displayName || user.name || 'User',
+        username: user.username || '',
+        avatar: user.avatar || user.photoURL || user.profilePicture || '',
+        isFollowing: true,
+        isFollowingYou: false
+      };
+    });
+
+    res.json({ success: true, data: userItems });
+  } catch (err) {
+    console.error('[GET /users/:userId/following alias] Error:', err.message);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
 // GET /api/users/:userId/notifications - Get notifications for a user (Requires Auth)
 router.get('/:userId/notifications', verifyToken, async (req, res) => {
   try {
