@@ -1422,14 +1422,31 @@ router.delete('/:conversationId/messages/:messageId', verifyToken, async (req, r
       return res.status(404).json({ success: false, error: 'Message not found' });
     }
 
-    // Check authorization
-    if (message.senderId !== userId) {
+    // Check authorization with user identifier alias resolution
+    const { resolveUserIdentifiers } = require('../utils/userUtils');
+    const { candidates } = await resolveUserIdentifiers(userId);
+    const isOwner = candidates.some(c => String(c) === String(message.senderId)) || String(message.senderId) === String(userId);
+
+    if (!isOwner) {
       logger.info('[DELETE] Unauthorized - senderId:', message.senderId, 'userId:', userId);
       return res.status(403).json({ success: false, error: 'Unauthorized - you can only delete your own messages' });
     }
 
     // Delete message from collection
     await Message.deleteOne({ _id: message._id });
+
+    // Emit real-time delete event to conversation room
+    const io = req.app.get('io') || global.io;
+    if (io) {
+      io.to(`conversation_${conversationId}`).emit('message_deleted', {
+        conversationId,
+        messageId: String(messageId)
+      });
+      io.emit('message_deleted', {
+        conversationId,
+        messageId: String(messageId)
+      });
+    }
 
     logger.info('[DELETE] Message deleted:', messageId);
     res.json({ success: true, message: 'Message deleted' });

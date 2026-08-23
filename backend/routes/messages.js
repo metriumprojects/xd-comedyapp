@@ -105,11 +105,29 @@ router.delete('/:conversationId/messages/:messageId', verifyToken, async (req, r
     if (!message) return res.status(404).json({ success: false, error: 'Message not found' });
     
     // Strict ownership check
-    if (String(message.senderId) !== String(userId)) {
+    const { resolveUserIdentifiers } = require('../src/utils/userUtils');
+    const { candidates } = await resolveUserIdentifiers(userId);
+    const isOwner = candidates.some(c => String(c) === String(message.senderId)) || String(message.senderId) === String(userId);
+
+    if (!isOwner) {
       return res.status(403).json({ success: false, error: 'Unauthorized: You can only delete your own messages' });
     }
     
     await Message.deleteOne({ _id: req.params.messageId });
+
+    // Emit real-time delete event to conversation room
+    const io = req.app.get('io') || global.io;
+    if (io) {
+      io.to(`conversation_${req.params.conversationId}`).emit('message_deleted', {
+        conversationId: req.params.conversationId,
+        messageId: String(req.params.messageId)
+      });
+      io.emit('message_deleted', {
+        conversationId: req.params.conversationId,
+        messageId: String(req.params.messageId)
+      });
+    }
+
     res.json({ success: true });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });

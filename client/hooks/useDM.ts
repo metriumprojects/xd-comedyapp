@@ -11,6 +11,7 @@ import {
 } from '../lib/firebaseHelpers/index';
 import { 
   subscribeToMessages, 
+  subscribeToMessageDeleted,
   sendTypingIndicator, 
   stopTypingIndicator, 
   subscribeToTyping,
@@ -263,10 +264,17 @@ export function useDM(conversationIdParam: string | null, otherUserId: string | 
       (data) => { if (String(data.userId) === String(otherUserId)) setIsOtherTyping(false); }
     );
 
+    const unsubDeleted = subscribeToMessageDeleted(conversationId, (data) => {
+      if (data?.messageId) {
+        setMessages(prev => prev.filter(m => String(getMessageId(m) || m.id) !== String(data.messageId)));
+      }
+    });
+
     return () => {
       cancelled = true;
       unsub();
       unsubTyping();
+      unsubDeleted();
     };
   }, [conversationId, currentUserId, otherUserId]);
 

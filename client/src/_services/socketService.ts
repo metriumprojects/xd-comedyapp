@@ -264,6 +264,32 @@ export function subscribeToMessageRead(
 }
 
 /**
+ * Subscribe to message deleted status
+ */
+export function subscribeToMessageDeleted(
+  conversationId: string,
+  onDeleted: (data: { messageId: string; conversationId: string }) => void
+): () => void {
+  if (!socket) return () => {};
+
+  const handler = (data: any) => {
+    const targetCid = String(conversationId || '');
+    const dataCid = String(data?.conversationId || '');
+    if (!dataCid || dataCid === targetCid || targetCid.includes(dataCid) || dataCid.includes(targetCid)) {
+      onDeleted(data);
+    }
+  };
+
+  socket.on('message_deleted', handler);
+  socket.on('messageDeleted', handler);
+
+  return () => {
+    socket?.off('message_deleted', handler);
+    socket?.off('messageDeleted', handler);
+  };
+}
+
+/**
  * Mark message as read
  */
 export function markMessageAsRead(data: {

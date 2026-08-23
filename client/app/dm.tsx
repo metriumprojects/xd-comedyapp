@@ -507,6 +507,38 @@ export default function DM() {
     setSelectedMessage(null);
   };
 
+  const handleDeleteMessage = (msgToDelete = selectedMessage) => {
+    if (!conversationId || !msgToDelete || !currentUserId) return;
+    setShowMessageMenu(false);
+
+    Alert.alert(
+      "Delete Message?",
+      "Are you sure you want to unsend/delete this message?",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Delete",
+          style: "destructive",
+          onPress: async () => {
+            const targetId = getMessageId(msgToDelete) || msgToDelete.id;
+            // Optimistically remove from state
+            setMessages((prev) => prev.filter((m) => (getMessageId(m) || m.id) !== targetId));
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+
+            try {
+              const res = await deleteMessage(conversationId, targetId, currentUserId);
+              if (!res?.success && res?.error) {
+                console.warn('[DM] Delete message failed:', res.error);
+              }
+            } catch (err) {
+              console.warn('[DM] Delete message error:', err);
+            }
+          },
+        },
+      ]
+    );
+  };
+
   const handleClearChat = async () => {
     if (!conversationId) return;
     setShowOptionsModal(false);
@@ -756,10 +788,16 @@ export default function DM() {
                <Text style={styles.instaMenuLabel}>Reply</Text>
                <Ionicons name="arrow-undo-outline" size={22} color={COLORS.black} />
              </TouchableOpacity>
-             {selectedMessage?.senderId === currentUserId && (
+             {(selectedMessage?.senderId === currentUserId || selectedMessage?.isSelf) && (!selectedMessage?.mediaType || selectedMessage?.mediaType === 'text') && (
                <TouchableOpacity style={styles.instaMenuItem} onPress={() => { setEditingMessage(selectedMessage); setInput(selectedMessage.text); setShowMessageMenu(false); }}>
                  <Text style={styles.instaMenuLabel}>Edit</Text>
                  <Ionicons name="create-outline" size={22} color={COLORS.black} />
+               </TouchableOpacity>
+             )}
+             {(selectedMessage?.senderId === currentUserId || selectedMessage?.isSelf) && (
+               <TouchableOpacity style={styles.instaMenuItem} onPress={() => handleDeleteMessage(selectedMessage)}>
+                 <Text style={[styles.instaMenuLabel, { color: COLORS.danger }]}>Delete Message</Text>
+                 <Ionicons name="trash-outline" size={22} color={COLORS.danger} />
                </TouchableOpacity>
              )}
            </View>
