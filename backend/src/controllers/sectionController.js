@@ -152,11 +152,7 @@ exports.createSection = async (req, res) => {
 
     await section.save();
 
-    if (Array.isArray(postIds)) {
-      for (const pid of postIds) {
-        await syncSavedPostState(uid, pid, true);
-      }
-    }
+
 
     res.json({ success: true, data: section });
   } catch (err) {
@@ -203,13 +199,7 @@ exports.updateSection = async (req, res) => {
     section.updatedAt = new Date();
     await section.save();
 
-    if (addPostId) await syncSavedPostState(uid, addPostId, true);
-    if (removePostId) await syncSavedPostState(uid, removePostId, false);
-    if (Array.isArray(postIds)) {
-      for (const pid of postIds) {
-        await syncSavedPostState(uid, pid, true);
-      }
-    }
+
 
     res.json({ success: true, data: section });
   } catch (err) {

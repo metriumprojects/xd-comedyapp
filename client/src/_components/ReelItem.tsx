@@ -159,14 +159,9 @@ export const ReelItem = React.memo<ReelItemProps>(({
     }
     return false;
   });
-  const [savedCount, setSavedCount] = useState<number>(() => {
-    const base = post?.savedCount ?? post?.savesCount ?? 0;
-    const myId = String(currentUser?._id || currentUser?.id || currentUser?.uid || currentUser?.firebaseUid || '');
-    const saved = post?.isSaved !== undefined
-      ? post.isSaved
-      : (myId && Array.isArray(post?.savedBy) ? post.savedBy.includes(myId) : false);
-    return Math.max(base, saved ? 1 : 0);
-  });
+  const [savedCount, setSavedCount] = useState<number>(
+    post?.savedCount ?? post?.savesCount ?? (post?.isSaved ? 1 : 0)
+  );
 
   // Laugh & Tomato Ratings States
   const [laughCount, setLaughCount] = useState(post?.laughCount || 0);
@@ -346,8 +341,7 @@ export const ReelItem = React.memo<ReelItemProps>(({
     } else {
       setIsSaved(false);
     }
-    const baseSaves = post.savedCount ?? post.savesCount ?? 0;
-    setSavedCount(Math.max(baseSaves, currentSaved ? 1 : 0));
+    setSavedCount(post.savedCount ?? post.savesCount ?? (currentSaved ? 1 : 0));
 
     // Sync isLiked
     if (post.isLiked !== undefined) {
@@ -413,14 +407,8 @@ export const ReelItem = React.memo<ReelItemProps>(({
 
       if (data.isSaved !== undefined) {
         setIsSaved(data.isSaved);
-        if (data.savedCount !== undefined) {
-          setSavedCount(data.savedCount);
-        } else if (data.savesCount !== undefined) {
-          setSavedCount(data.savesCount);
-        } else {
-          setSavedCount(prev => data.isSaved ? Math.max(prev + 1, 1) : Math.max(0, prev - 1));
-        }
-      } else if (data.savedCount !== undefined) {
+      }
+      if (data.savedCount !== undefined) {
         setSavedCount(data.savedCount);
       } else if (data.savesCount !== undefined) {
         setSavedCount(data.savesCount);
@@ -595,8 +583,9 @@ export const ReelItem = React.memo<ReelItemProps>(({
 
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     const newSaved = !isSaved;
+    const newCount = newSaved ? savedCount + 1 : Math.max(0, savedCount - 1);
     setIsSaved(newSaved);
-    setSavedCount((prev: number) => newSaved ? prev + 1 : Math.max(0, prev - 1));
+    setSavedCount(newCount);
 
     // Clear any existing toast timer
     if (toastTimerRef.current) {
@@ -619,14 +608,9 @@ export const ReelItem = React.memo<ReelItemProps>(({
       } else {
         await apiService.delete(`/users/${activeUserId}/saved/${post._id}`);
       }
-      feedEventEmitter.emitFeedUpdate({
-        type: 'POST_UPDATED',
-        postId: post._id,
-        data: { isSaved: newSaved, savedCount: newSaved ? Math.max(savedCount + 1, 1) : Math.max(0, savedCount - 1) }
-      });
     } catch (err) {
       setIsSaved(!newSaved);
-      setSavedCount((prev: number) => !newSaved ? prev + 1 : Math.max(0, prev - 1));
+      setSavedCount(savedCount);
       setShowSavedToast(false);
       Alert.alert("Error", "Failed to save post");
     }
@@ -1554,12 +1538,6 @@ export const ReelItem = React.memo<ReelItemProps>(({
         currentUserId={activeUserId}
         onSaveChange={(saved) => {
           setIsSaved(saved);
-          setSavedCount((prev: number) => saved ? Math.max(prev, 1) : Math.max(0, prev - 1));
-          feedEventEmitter.emitFeedUpdate({
-            type: 'POST_UPDATED',
-            postId: post._id,
-            data: { isSaved: saved, savedCount: saved ? Math.max(savedCount, 1) : Math.max(0, savedCount - 1) }
-          });
         }}
         initialGloballySaved={isSaved}
       />

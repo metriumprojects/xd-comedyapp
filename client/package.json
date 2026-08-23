@@ -1,7 +1,7 @@
 {
   "name": "trips",
   "main": "expo-router/entry",
-  "version": "1.1.1",
+  "version": "1.1.6",
   "scripts": {
     "postinstall": "node scripts/fixAndroidManifest.js && npx patch-package",
     "eas-build-post-install": "node scripts/cleanAndroidAutolinking.js && node scripts/fixAndroidManifest.js && npx patch-package && node scripts/verifyPatches.js && node scripts/generate-trips-png-assets.mjs",

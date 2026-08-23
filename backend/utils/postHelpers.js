@@ -307,6 +307,13 @@ async function enrichPostsWithUserData(posts, viewerId = null) {
       p.isSaved = false;
       // cleanPid already declared above
       
+      // Calculate true save count BEFORE we inject viewer IDs into savedBy
+      const dbSavesCount = Math.max(
+        Array.isArray(p.savedBy) ? p.savedBy.length : 0,
+        p.savesCount || 0,
+        p.savedCount || 0
+      );
+
       if (viewerStrings.length > 0) {
         // 1. Check inline savedBy array if it exists
         if (Array.isArray(p.savedBy)) {
@@ -325,8 +332,7 @@ async function enrichPostsWithUserData(posts, viewerId = null) {
           p.saved = true; // Extra flag for safety
           if (!Array.isArray(p.savedBy)) p.savedBy = [];
           
-          // CRITICAL: Add ALL variants (Firebase UID, Mongo ID) to savedBy
-          // so frontend can match regardless of which ID it holds.
+          // Add viewer IDs to savedBy for frontend matching only
           viewerStrings.forEach(vId => {
             if (!p.savedBy.some(existing => String(existing) === String(vId))) {
               p.savedBy.push(String(vId));
@@ -335,12 +341,8 @@ async function enrichPostsWithUserData(posts, viewerId = null) {
         }
       }
 
-      p.savesCount = Math.max(
-        Array.isArray(p.savedBy) ? p.savedBy.length : 0,
-        p.savesCount || 0,
-        p.savedCount || 0,
-        p.isSaved ? 1 : 0
-      );
+      // Use the pre-injection count, ensure at least 1 if the viewer saved it
+      p.savesCount = Math.max(dbSavesCount, p.isSaved ? 1 : 0);
       p.savedCount = p.savesCount;
 
       // Determine if viewer is following the author
