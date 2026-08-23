@@ -159,6 +159,14 @@ export const ReelItem = React.memo<ReelItemProps>(({
     }
     return false;
   });
+  const [savedCount, setSavedCount] = useState<number>(() => {
+    const base = post?.savedCount ?? post?.savesCount ?? 0;
+    const myId = String(currentUser?._id || currentUser?.id || currentUser?.uid || currentUser?.firebaseUid || '');
+    const saved = post?.isSaved !== undefined
+      ? post.isSaved
+      : (myId && Array.isArray(post?.savedBy) ? post.savedBy.includes(myId) : false);
+    return Math.max(base, saved ? 1 : 0);
+  });
 
   // Laugh & Tomato Ratings States
   const [laughCount, setLaughCount] = useState(post?.laughCount || 0);
@@ -327,14 +335,19 @@ export const ReelItem = React.memo<ReelItemProps>(({
     if (!post) return;
     const myId = String(currentUser?._id || currentUser?.id || currentUser?.uid || currentUser?.firebaseUid || '');
 
-    // Sync isSaved
+    // Sync isSaved and savedCount
+    let currentSaved = false;
     if (post.isSaved !== undefined) {
-      setIsSaved(post.isSaved);
+      currentSaved = !!post.isSaved;
+      setIsSaved(currentSaved);
     } else if (myId && Array.isArray(post.savedBy)) {
-      setIsSaved(post.savedBy.includes(myId));
+      currentSaved = post.savedBy.includes(myId);
+      setIsSaved(currentSaved);
     } else {
       setIsSaved(false);
     }
+    const baseSaves = post.savedCount ?? post.savesCount ?? 0;
+    setSavedCount(Math.max(baseSaves, currentSaved ? 1 : 0));
 
     // Sync isLiked
     if (post.isLiked !== undefined) {
@@ -400,6 +413,17 @@ export const ReelItem = React.memo<ReelItemProps>(({
 
       if (data.isSaved !== undefined) {
         setIsSaved(data.isSaved);
+        if (data.savedCount !== undefined) {
+          setSavedCount(data.savedCount);
+        } else if (data.savesCount !== undefined) {
+          setSavedCount(data.savesCount);
+        } else {
+          setSavedCount(prev => data.isSaved ? Math.max(prev + 1, 1) : Math.max(0, prev - 1));
+        }
+      } else if (data.savedCount !== undefined) {
+        setSavedCount(data.savedCount);
+      } else if (data.savesCount !== undefined) {
+        setSavedCount(data.savesCount);
       }
       if (data.isLiked !== undefined) {
         setIsLiked(data.isLiked);
@@ -572,6 +596,7 @@ export const ReelItem = React.memo<ReelItemProps>(({
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     const newSaved = !isSaved;
     setIsSaved(newSaved);
+    setSavedCount((prev: number) => newSaved ? prev + 1 : Math.max(0, prev - 1));
 
     // Clear any existing toast timer
     if (toastTimerRef.current) {
@@ -597,14 +622,15 @@ export const ReelItem = React.memo<ReelItemProps>(({
       feedEventEmitter.emitFeedUpdate({
         type: 'POST_UPDATED',
         postId: post._id,
-        data: { isSaved: newSaved }
+        data: { isSaved: newSaved, savedCount: newSaved ? Math.max(savedCount + 1, 1) : Math.max(0, savedCount - 1) }
       });
     } catch (err) {
       setIsSaved(!newSaved);
+      setSavedCount((prev: number) => !newSaved ? prev + 1 : Math.max(0, prev - 1));
       setShowSavedToast(false);
       Alert.alert("Error", "Failed to save post");
     }
-  }, [isSaved, post._id, currentUser, user]);
+  }, [isSaved, savedCount, post._id, currentUser, user]);
 
   // Handle Follow
   const handleFollow = useCallback(async () => {
@@ -1120,7 +1146,7 @@ export const ReelItem = React.memo<ReelItemProps>(({
                 size={26}
                 color={isSaved ? "#f1c40f" : COLORS.textLight}
               />
-              <Text style={styles.actionText}>{post?.savedCount ?? post?.savesCount ?? (isSaved ? 1 : 0)}</Text>
+              <Text style={styles.actionText}>{savedCount}</Text>
             </TouchableOpacity>
 
             {/* Share Button */}
@@ -1528,10 +1554,11 @@ export const ReelItem = React.memo<ReelItemProps>(({
         currentUserId={activeUserId}
         onSaveChange={(saved) => {
           setIsSaved(saved);
+          setSavedCount((prev: number) => saved ? Math.max(prev, 1) : Math.max(0, prev - 1));
           feedEventEmitter.emitFeedUpdate({
             type: 'POST_UPDATED',
             postId: post._id,
-            data: { isSaved: saved }
+            data: { isSaved: saved, savedCount: saved ? Math.max(savedCount, 1) : Math.max(0, savedCount - 1) }
           });
         }}
         initialGloballySaved={isSaved}
