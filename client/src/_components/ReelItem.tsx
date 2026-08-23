@@ -1120,7 +1120,7 @@ export const ReelItem = React.memo<ReelItemProps>(({
                 size={26}
                 color={isSaved ? "#f1c40f" : COLORS.textLight}
               />
-              <Text style={styles.actionText}>{post?.savedCount ?? (isSaved ? 1 : 0)}</Text>
+              <Text style={styles.actionText}>{post?.savedCount ?? post?.savesCount ?? (isSaved ? 1 : 0)}</Text>
             </TouchableOpacity>
 
             {/* Share Button */}

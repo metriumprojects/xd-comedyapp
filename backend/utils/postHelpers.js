@@ -100,7 +100,7 @@ async function enrichPostsWithUserData(posts, viewerId = null) {
       countMap[String(c._id)] = (c.commentCount || 0) + (c.replyCount || 0);
     });
     
-    // BATCH FETCH: Saved status for viewer (Optimized)
+    // BATCH FETCH: Saved status for viewer (Optimized: SavedPost + Section collections)
     const savedPostIds = new Set();
     const followingUserIds = new Set();
     if (viewerVariants.length > 0) {
@@ -113,6 +113,36 @@ async function enrichPostsWithUserData(posts, viewerId = null) {
         userSaved.forEach(s => savedPostIds.add(String(s.postId)));
       } catch (e) {
         console.warn('[enrich] SavedPost fetch failed:', e.message);
+      }
+
+      try {
+        const Section = mongoose.model('Section');
+        const viewerObjectIds = viewerVariants
+          .filter(id => mongoose.Types.ObjectId.isValid(id))
+          .map(id => new mongoose.Types.ObjectId(id));
+
+        const userSections = await Section.find({
+          $or: [
+            { userId: { $in: viewerVariants } },
+            { userId: { $in: viewerObjectIds } },
+            { collaborators: { $in: viewerVariants } },
+            { collaborators: { $in: viewerObjectIds } },
+            { 'collaborators.userId': { $in: viewerVariants } },
+            { 'collaborators.userId': { $in: viewerObjectIds } }
+          ]
+        }).select('postIds').lean();
+
+        (Array.isArray(userSections) ? userSections : []).forEach(sec => {
+          if (Array.isArray(sec.postIds)) {
+            sec.postIds.forEach(pid => {
+              const rawId = pid && typeof pid === 'object' ? String(pid._id || pid.id || pid.postId || '') : String(pid || '');
+              const cleanId = rawId.split('-loop')[0];
+              if (cleanId) savedPostIds.add(cleanId);
+            });
+          }
+        });
+      } catch (e) {
+        console.warn('[enrich] Section fetch failed:', e.message);
       }
 
       try {
@@ -304,6 +334,14 @@ async function enrichPostsWithUserData(posts, viewerId = null) {
           });
         }
       }
+
+      p.savesCount = Math.max(
+        Array.isArray(p.savedBy) ? p.savedBy.length : 0,
+        p.savesCount || 0,
+        p.savedCount || 0,
+        p.isSaved ? 1 : 0
+      );
+      p.savedCount = p.savesCount;
 
       // Determine if viewer is following the author
       p.isFollowing = false;

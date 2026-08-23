@@ -65,6 +65,69 @@ exports.getUserSections = async (req, res) => {
   }
 };
 
+async function syncSavedPostState(uid, postId, isSaved) {
+  if (!uid || !postId) return;
+  try {
+    const cleanPostId = String(postId).split('-loop')[0];
+    const { resolveUserIdentifiers } = require('../utils/userUtils');
+    const resolved = await resolveUserIdentifiers(uid);
+
+    let SavedPost;
+    try { SavedPost = mongoose.model('SavedPost'); } catch {
+      const savedPostSchema = new mongoose.Schema({
+        userId: { type: String, required: true },
+        postId: { type: String, required: true },
+        savedAt: { type: Date, default: Date.now }
+      });
+      SavedPost = mongoose.model('SavedPost', savedPostSchema);
+    }
+
+    const Post = mongoose.model('Post');
+    const targetPost = await Post.findOne({
+      $or: [
+        { id: cleanPostId },
+        ...(mongoose.Types.ObjectId.isValid(cleanPostId) ? [{ _id: cleanPostId }] : [])
+      ]
+    });
+
+    if (isSaved) {
+      const existing = await SavedPost.findOne({ userId: { $in: resolved.candidates }, postId: cleanPostId });
+      if (!existing) {
+        await new SavedPost({ userId: resolved.canonicalId, postId: cleanPostId }).save();
+      }
+      if (targetPost) {
+        const alreadyInSavedBy = Array.isArray(targetPost.savedBy)
+          && targetPost.savedBy.some((id) => resolved.candidates.includes(String(id)));
+        if (!alreadyInSavedBy) {
+          targetPost.savedBy = Array.isArray(targetPost.savedBy) ? targetPost.savedBy : [];
+          targetPost.savedBy.push(resolved.canonicalId);
+          targetPost.savesCount = targetPost.savedBy.length;
+          await targetPost.save();
+        }
+      }
+    } else {
+      const Section = mongoose.model('Section');
+      const otherSection = await Section.findOne({
+        $or: [
+          { userId: { $in: resolved.candidates } },
+          { 'collaborators.userId': { $in: resolved.candidates } }
+        ],
+        postIds: cleanPostId
+      });
+      if (!otherSection) {
+        await SavedPost.deleteMany({ userId: { $in: resolved.candidates }, postId: cleanPostId });
+        if (targetPost) {
+          targetPost.savedBy = (Array.isArray(targetPost.savedBy) ? targetPost.savedBy : []).filter((id) => !resolved.candidates.includes(String(id)));
+          targetPost.savesCount = targetPost.savedBy.length;
+          await targetPost.save();
+        }
+      }
+    }
+  } catch (err) {
+    console.warn('[syncSavedPostState] Warning:', err.message);
+  }
+}
+
 // ─── POST /api/users/:uid/sections ──────────────────────────────────────────
 exports.createSection = async (req, res) => {
   try {
@@ -88,6 +151,13 @@ exports.createSection = async (req, res) => {
     });
 
     await section.save();
+
+    if (Array.isArray(postIds)) {
+      for (const pid of postIds) {
+        await syncSavedPostState(uid, pid, true);
+      }
+    }
+
     res.json({ success: true, data: section });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
@@ -132,6 +202,15 @@ exports.updateSection = async (req, res) => {
 
     section.updatedAt = new Date();
     await section.save();
+
+    if (addPostId) await syncSavedPostState(uid, addPostId, true);
+    if (removePostId) await syncSavedPostState(uid, removePostId, false);
+    if (Array.isArray(postIds)) {
+      for (const pid of postIds) {
+        await syncSavedPostState(uid, pid, true);
+      }
+    }
+
     res.json({ success: true, data: section });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
