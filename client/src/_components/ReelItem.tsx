@@ -1819,6 +1819,8 @@ export const ReelItem = React.memo<ReelItemProps>(({
                   await loadSeenStoryIds();
                 } catch {}
               }
+            }}
+          />
         </Modal>
       )}
 
