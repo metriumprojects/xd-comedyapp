@@ -42,7 +42,7 @@ import { SubscriptionModal } from './profile/SubscriptionModal';
 import { subscriptionService } from '@/src/_services/subscriptionService';
 import COLORS from '@/src/theme/colors';
 import { resolveCanonicalUserId } from '@/lib/currentUser';
-import { ReelReactionBurst } from './ReelReactionBurst';
+import { ReelReactionBurst, FloatingParticleItem, ReactionType } from './ReelReactionBurst';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -182,31 +182,66 @@ export const ReelItem = React.memo<ReelItemProps>(({
   const laughScaleAnim = useRef(new Animated.Value(1)).current;
   const tomatoScaleAnim = useRef(new Animated.Value(1)).current;
 
-  // Active particle and explosion bursts
-  const [activeBursts, setActiveBursts] = useState<Array<{ id: number; type: 'laugh' | 'tomato'; level: 'mini' | 'medium' | 'mega' }>>([]);
-  const laughHoldTimerRef = useRef<NodeJS.Timeout[]>([]);
-  const tomatoHoldTimerRef = useRef<NodeJS.Timeout[]>([]);
-  const laughPressStartRef = useRef<number>(0);
-  const tomatoPressStartRef = useRef<number>(0);
+  // TikTok / IG Live style continuous particle stream
+  const [particles, setParticles] = useState<FloatingParticleItem[]>([]);
+  const [comboCount, setComboCount] = useState<number>(0);
+  const [isHoldingReaction, setIsHoldingReaction] = useState<boolean>(false);
+  const [holdingReactionType, setHoldingReactionType] = useState<ReactionType | null>(null);
 
-  const clearLaughHoldTimers = useCallback(() => {
-    laughHoldTimerRef.current.forEach((t) => clearTimeout(t));
-    laughHoldTimerRef.current = [];
+  const emitterIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const pressStartTimeRef = useRef<number>(0);
+  const comboCountRef = useRef<number>(0);
+  const isHoldingRef = useRef<boolean>(false);
+
+  const handleParticleComplete = useCallback((id: string) => {
+    setParticles((prev) => prev.filter((p) => p.id !== id));
   }, []);
 
-  const clearTomatoHoldTimers = useCallback(() => {
-    tomatoHoldTimerRef.current.forEach((t) => clearTimeout(t));
-    tomatoHoldTimerRef.current = [];
-  }, []);
+  const emitParticle = useCallback((type: ReactionType, isMega = false) => {
+    const startX = SCREEN_WIDTH - 54;
+    const startY = containerHeight * 0.72;
 
-  const spawnBurst = useCallback((type: 'laugh' | 'tomato', level: 'mini' | 'medium' | 'mega') => {
-    const id = Date.now() + Math.random();
-    setActiveBursts((prev) => [...prev, { id, type, level }]);
-  }, []);
+    if (isMega) {
+      // Mega Firework Shower: 16 radial burst particles
+      const newFireworkParticles: FloatingParticleItem[] = Array.from({ length: 16 }).map((_, i) => {
+        const angle = (i / 16) * 2 * Math.PI + (Math.random() - 0.5) * 0.3;
+        const speed = 120 + Math.random() * 160;
+        return {
+          id: `firework_${Date.now()}_${i}_${Math.random()}`,
+          type,
+          startX: SCREEN_WIDTH * 0.5 + (Math.random() - 0.5) * 60,
+          startY: containerHeight * 0.5 + (Math.random() - 0.5) * 60,
+          swayWidth: 0,
+          swayFreq: 1,
+          riseHeight: 0,
+          scale: 0.9 + Math.random() * 0.5,
+          rotation: (Math.random() - 0.5) * 60,
+          duration: 1200 + Math.random() * 400,
+          isFirework: true,
+          angle,
+          speed,
+        };
+      });
+      setParticles((prev) => [...prev.slice(-30), ...newFireworkParticles]);
+      return;
+    }
 
-  const removeBurst = useCallback((id: number) => {
-    setActiveBursts((prev) => prev.filter((b) => b.id !== id));
-  }, []);
+    // Single Floating Fountain Particle (IG live stream)
+    const newParticle: FloatingParticleItem = {
+      id: `particle_${Date.now()}_${Math.random()}`,
+      type,
+      startX: startX + (Math.random() - 0.5) * 24,
+      startY: startY + (Math.random() - 0.5) * 12,
+      swayWidth: 20 + Math.random() * 30,
+      swayFreq: 1 + Math.random() * 0.5,
+      riseHeight: 260 + Math.random() * 140,
+      scale: 0.8 + Math.random() * 0.45,
+      rotation: (Math.random() - 0.5) * 30,
+      duration: 1400 + Math.random() * 400,
+    };
+
+    setParticles((prev) => [...prev.slice(-30), newParticle]);
+  }, [containerHeight]);
 
   const triggerLaughAnimation = useCallback(() => {
     floatingAnim.setValue(0);
@@ -776,166 +811,101 @@ export const ReelItem = React.memo<ReelItemProps>(({
     }, 300);
   }, [post._id, triggerTomatoAnimation]);
 
-  // Press-in & Press-out handlers for Hold & Charge gestures
-  const handleLaughPressIn = useCallback(() => {
-    laughPressStartRef.current = Date.now();
-    clearLaughHoldTimers();
+  // Press-in & Press-out handlers for TikTok / IG Live Floating Fountain
+  const startReactionHold = useCallback((type: ReactionType) => {
+    pressStartTimeRef.current = Date.now();
+    comboCountRef.current = 1;
+    isHoldingRef.current = true;
+    setIsHoldingReaction(true);
+    setHoldingReactionType(type);
+    setComboCount(1);
 
-    // Stage 1 (0.4s): Mini burst + initial scale up
-    const t1 = setTimeout(() => {
-      Animated.spring(laughScaleAnim, {
-        toValue: 1.2,
-        friction: 4,
-        useNativeDriver: true,
-      }).start();
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+    emitParticle(type, false);
+
+    const targetScaleAnim = type === 'laugh' ? laughScaleAnim : tomatoScaleAnim;
+    Animated.spring(targetScaleAnim, {
+      toValue: 1.18,
+      friction: 4,
+      tension: 40,
+      useNativeDriver: true,
+    }).start();
+
+    if (emitterIntervalRef.current) clearInterval(emitterIntervalRef.current);
+
+    let count = 1;
+    let megaTriggered = false;
+
+    emitterIntervalRef.current = setInterval(() => {
+      if (!isHoldingRef.current) return;
+      count += 1;
+      comboCountRef.current = count;
+      setComboCount(count);
+
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
-      spawnBurst('laugh', 'mini');
-    }, 400);
+      emitParticle(type, false);
 
-    // Stage 2 (0.95s): Medium burst + bigger scale
-    const t2 = setTimeout(() => {
-      Animated.spring(laughScaleAnim, {
-        toValue: 1.35,
-        friction: 3,
-        useNativeDriver: true,
-      }).start();
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
-      spawnBurst('laugh', 'medium');
-    }, 950);
-
-    // Stage 3 (1.55s): MEGA FULL-SCREEN BURST!
-    const t3 = setTimeout(() => {
-      Animated.sequence([
-        Animated.timing(laughScaleAnim, { toValue: 1.5, duration: 120, useNativeDriver: true }),
-        Animated.spring(laughScaleAnim, { toValue: 1.3, friction: 3, useNativeDriver: true }),
-      ]).start();
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy).catch(() => {});
-      spawnBurst('laugh', 'mega');
-
-      if (!hasLaughedRef.current) {
-        hasLaughedRef.current = true;
-        setHasLaughed(true);
-        setLaughCount((prev: number) => prev + 1);
-        if (hasTomatoedRef.current) {
-          hasTomatoedRef.current = false;
-          setHasTomatoed(false);
-          setTomatoCount((prev: number) => Math.max(0, prev - 1));
-        }
-        apiService.post(`/posts/${post._id}/rate`, { type: 'laugh', active: true }).catch(() => {});
+      // Trigger Mega Shower when held for ~1.5 seconds (12 particles emitted)
+      if (count >= 12 && !megaTriggered) {
+        megaTriggered = true;
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy).catch(() => {});
+        emitParticle(type, true);
       }
-    }, 1550);
+    }, 125);
+  }, [emitParticle, laughScaleAnim, tomatoScaleAnim]);
 
-    laughHoldTimerRef.current = [t1, t2, t3];
-  }, [clearLaughHoldTimers, laughScaleAnim, spawnBurst, post._id]);
+  const endReactionHold = useCallback((type: ReactionType) => {
+    isHoldingRef.current = false;
+    setIsHoldingReaction(false);
+    setHoldingReactionType(null);
 
-  const handleLaughPressOut = useCallback(() => {
-    const pressDuration = Date.now() - laughPressStartRef.current;
-    clearLaughHoldTimers();
+    if (emitterIntervalRef.current) {
+      clearInterval(emitterIntervalRef.current);
+      emitterIntervalRef.current = null;
+    }
 
-    Animated.spring(laughScaleAnim, {
+    const targetScaleAnim = type === 'laugh' ? laughScaleAnim : tomatoScaleAnim;
+    Animated.spring(targetScaleAnim, {
       toValue: 1,
       friction: 5,
       tension: 40,
       useNativeDriver: true,
     }).start();
 
-    if (pressDuration < 400) {
-      handleLaughPress();
+    const pressDuration = Date.now() - pressStartTimeRef.current;
+
+    if (pressDuration < 350) {
+      if (type === 'laugh') handleLaughPress();
+      else handleTomatoPress();
     } else {
-      if (!hasLaughedRef.current) {
-        hasLaughedRef.current = true;
-        setHasLaughed(true);
-        setLaughCount((prev: number) => prev + 1);
-        if (hasTomatoedRef.current) {
-          hasTomatoedRef.current = false;
-          setHasTomatoed(false);
-          setTomatoCount((prev: number) => Math.max(0, prev - 1));
+      if (type === 'laugh') {
+        if (!hasLaughedRef.current) {
+          hasLaughedRef.current = true;
+          setHasLaughed(true);
+          setLaughCount((prev: number) => prev + 1);
+          if (hasTomatoedRef.current) {
+            hasTomatoedRef.current = false;
+            setHasTomatoed(false);
+            setTomatoCount((prev: number) => Math.max(0, prev - 1));
+          }
+          apiService.post(`/posts/${post._id}/rate`, { type: 'laugh', active: true }).catch(() => {});
         }
-        apiService.post(`/posts/${post._id}/rate`, { type: 'laugh', active: true }).catch(() => {});
+      } else {
+        if (!hasTomatoedRef.current) {
+          hasTomatoedRef.current = true;
+          setHasTomatoed(true);
+          setTomatoCount((prev: number) => prev + 1);
+          if (hasLaughedRef.current) {
+            hasLaughedRef.current = false;
+            setHasLaughed(false);
+            setLaughCount((prev: number) => Math.max(0, prev - 1));
+          }
+          apiService.post(`/posts/${post._id}/rate`, { type: 'tomato', active: true }).catch(() => {});
+        }
       }
     }
-  }, [clearLaughHoldTimers, laughScaleAnim, handleLaughPress, post._id]);
-
-  const handleTomatoPressIn = useCallback(() => {
-    tomatoPressStartRef.current = Date.now();
-    clearTomatoHoldTimers();
-
-    // Stage 1 (0.4s): Mini burst + initial scale up
-    const t1 = setTimeout(() => {
-      Animated.spring(tomatoScaleAnim, {
-        toValue: 1.2,
-        friction: 4,
-        useNativeDriver: true,
-      }).start();
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
-      spawnBurst('tomato', 'mini');
-    }, 400);
-
-    // Stage 2 (0.95s): Medium burst + bigger scale
-    const t2 = setTimeout(() => {
-      Animated.spring(tomatoScaleAnim, {
-        toValue: 1.35,
-        friction: 3,
-        useNativeDriver: true,
-      }).start();
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
-      spawnBurst('tomato', 'medium');
-    }, 950);
-
-    // Stage 3 (1.55s): MEGA FULL-SCREEN BURST!
-    const t3 = setTimeout(() => {
-      Animated.sequence([
-        Animated.timing(tomatoScaleAnim, { toValue: 1.5, duration: 120, useNativeDriver: true }),
-        Animated.spring(tomatoScaleAnim, { toValue: 1.3, friction: 3, useNativeDriver: true }),
-      ]).start();
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy).catch(() => {});
-      spawnBurst('tomato', 'mega');
-
-      if (!hasTomatoedRef.current) {
-        hasTomatoedRef.current = true;
-        setHasTomatoed(true);
-        setTomatoCount((prev: number) => prev + 1);
-        if (hasLaughedRef.current) {
-          hasLaughedRef.current = false;
-          setHasLaughed(false);
-          setLaughCount((prev: number) => Math.max(0, prev - 1));
-        }
-        apiService.post(`/posts/${post._id}/rate`, { type: 'tomato', active: true }).catch(() => {});
-      }
-    }, 1550);
-
-    tomatoHoldTimerRef.current = [t1, t2, t3];
-  }, [clearTomatoHoldTimers, tomatoScaleAnim, spawnBurst, post._id]);
-
-  const handleTomatoPressOut = useCallback(() => {
-    const pressDuration = Date.now() - tomatoPressStartRef.current;
-    clearTomatoHoldTimers();
-
-    Animated.spring(tomatoScaleAnim, {
-      toValue: 1,
-      friction: 5,
-      tension: 40,
-      useNativeDriver: true,
-    }).start();
-
-    if (pressDuration < 400) {
-      handleTomatoPress();
-    } else {
-      if (!hasTomatoedRef.current) {
-        hasTomatoedRef.current = true;
-        setHasTomatoed(true);
-        setTomatoCount((prev: number) => prev + 1);
-        if (hasLaughedRef.current) {
-          hasLaughedRef.current = false;
-          setHasLaughed(false);
-          setLaughCount((prev: number) => Math.max(0, prev - 1));
-        }
-        apiService.post(`/posts/${post._id}/rate`, { type: 'tomato', active: true }).catch(() => {});
-      }
-    }
-  }, [clearTomatoHoldTimers, tomatoScaleAnim, handleTomatoPress, post._id]);
+  }, [laughScaleAnim, tomatoScaleAnim, handleLaughPress, handleTomatoPress, post._id]);
 
   const postUserName = post?.userName || post?.user?.displayName || post?.user?.name || post?.userId?.displayName || post?.userId?.name || 'User';
   const postUserAvatar = normalizeAvatarUrl(
@@ -1525,10 +1495,10 @@ export const ReelItem = React.memo<ReelItemProps>(({
 
               <Animated.View style={{ transform: [{ scale: laughScaleAnim }] }}>
                 <TouchableOpacity
-                  activeOpacity={0.8}
+                  activeOpacity={0.85}
                   style={[styles.ratingBtn, hasLaughed && styles.ratingBtnActiveLaugh]}
-                  onPressIn={handleLaughPressIn}
-                  onPressOut={handleLaughPressOut}
+                  onPressIn={() => startReactionHold('laugh')}
+                  onPressOut={() => endReactionHold('laugh')}
                   delayPressIn={0}
                 >
                   <ExpoImage
@@ -1542,10 +1512,10 @@ export const ReelItem = React.memo<ReelItemProps>(({
 
               <Animated.View style={{ transform: [{ scale: tomatoScaleAnim }] }}>
                 <TouchableOpacity
-                  activeOpacity={0.8}
+                  activeOpacity={0.85}
                   style={[styles.ratingBtn, hasTomatoed && styles.ratingBtnActiveTomato]}
-                  onPressIn={handleTomatoPressIn}
-                  onPressOut={handleTomatoPressOut}
+                  onPressIn={() => startReactionHold('tomato')}
+                  onPressOut={() => endReactionHold('tomato')}
                   delayPressIn={0}
                 >
                   <ExpoImage
@@ -1824,16 +1794,14 @@ export const ReelItem = React.memo<ReelItemProps>(({
         </Modal>
       )}
 
-      {/* Dynamic Press & Hold Particle Bursts and Mega Feed Explosion */}
-      {activeBursts.map((burst) => (
-        <ReelReactionBurst
-          key={burst.id}
-          type={burst.type}
-          level={burst.level}
-          originY={containerHeight * 0.7}
-          onComplete={() => removeBurst(burst.id)}
-        />
-      ))}
+      {/* TikTok / Instagram Live Floating Reaction Fountain & Firework System */}
+      <ReelReactionBurst
+        particles={particles}
+        onParticleComplete={handleParticleComplete}
+        comboCount={comboCount}
+        isHolding={isHoldingReaction}
+        holdingType={holdingReactionType}
+      />
     </View>
   );
 });

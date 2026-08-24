@@ -1,272 +1,282 @@
 import React, { useEffect, useRef } from 'react';
-import { Animated, Dimensions, StyleSheet, Text, View } from 'react-native';
+import { Animated, Dimensions, Easing, StyleSheet, Text, View } from 'react-native';
 import { Image as ExpoImage } from 'expo-image';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
 export type ReactionType = 'laugh' | 'tomato';
 
-interface Particle {
-  id: number;
+export interface FloatingParticleItem {
+  id: string;
+  type: ReactionType;
   startX: number;
   startY: number;
-  targetX: number;
-  targetY: number;
+  swayWidth: number; // Amplitude of horizontal swaying
+  swayFreq: number;  // Frequency of sway
+  riseHeight: number; // Vertical distance to float up
   scale: number;
-  rotation: string;
+  rotation: number;
   duration: number;
-  anim: Animated.Value;
-  opacity: Animated.Value;
+  isFirework?: boolean;
+  angle?: number;
+  speed?: number;
 }
 
 interface ReelReactionBurstProps {
-  type: ReactionType;
-  level: 'mini' | 'medium' | 'mega'; // 0.5s -> mini, 1.0s -> medium, 1.5s+ -> mega
-  originY?: number; // Y position of the reaction button
-  onComplete?: () => void;
+  particles: FloatingParticleItem[];
+  onParticleComplete: (id: string) => void;
+  comboCount?: number;
+  isHolding?: boolean;
+  holdingType?: ReactionType | null;
 }
 
-export const ReelReactionBurst: React.FC<ReelReactionBurstProps> = ({
-  type,
-  level,
-  originY = SCREEN_HEIGHT * 0.65,
-  onComplete,
-}) => {
-  const isLaugh = type === 'laugh';
-  const sourceImg = isLaugh
+/**
+ * Individual Floating Emoji Particle with organic sway & buoyant rise (TikTok / IG Live style)
+ */
+const SingleFloatingEmoji: React.FC<{
+  item: FloatingParticleItem;
+  onComplete: (id: string) => void;
+}> = React.memo(({ item, onComplete }) => {
+  const isLaugh = item.type === 'laugh';
+  const imgSource = isLaugh
     ? require('@/assets/images/Laugh.png')
     : require('@/assets/images/Tomato.png');
 
-  // Flash background overlay for mega burst
-  const flashAnim = useRef(new Animated.Value(0)).current;
-  const megaBadgeScale = useRef(new Animated.Value(0)).current;
-  const megaBadgeOpacity = useRef(new Animated.Value(0)).current;
-
-  // Generate particles based on level
-  const particleCount = level === 'mega' ? 24 : level === 'medium' ? 10 : 5;
-
-  const particles = useRef<Particle[]>(
-    Array.from({ length: particleCount }).map((_, i) => {
-      const isMega = level === 'mega';
-      const startX = SCREEN_WIDTH - 50;
-      const startY = originY;
-
-      // Target positions
-      let targetX = startX - 30 - Math.random() * 80;
-      let targetY = startY - 80 - Math.random() * 120;
-
-      if (isMega) {
-        // Explode across the entire screen
-        targetX = Math.random() * (SCREEN_WIDTH - 60) + 30;
-        targetY = Math.random() * (SCREEN_HEIGHT * 0.7) + 50;
-      }
-
-      const randomRot = `${(Math.random() - 0.5) * 360}deg`;
-      const randomScale = isMega ? 0.8 + Math.random() * 0.9 : 0.5 + Math.random() * 0.5;
-      const duration = isMega ? 1200 + Math.random() * 400 : 700 + Math.random() * 300;
-
-      return {
-        id: i,
-        startX,
-        startY,
-        targetX,
-        targetY,
-        scale: randomScale,
-        rotation: randomRot,
-        duration,
-        anim: new Animated.Value(0),
-        opacity: new Animated.Value(1),
-      };
-    })
-  ).current;
+  const progress = useRef(new Animated.Value(0)).current;
+  const opacity = useRef(new Animated.Value(0)).current;
+  const scale = useRef(new Animated.Value(0.3)).current;
 
   useEffect(() => {
-    // 1. Animate particles
-    const particleAnimations = particles.map((p) => {
-      return Animated.parallel([
-        Animated.timing(p.anim, {
-          toValue: 1,
-          duration: p.duration,
+    // 1. Vertical Rise & Horizontal Sway Progress
+    Animated.parallel([
+      Animated.timing(progress, {
+        toValue: 1,
+        duration: item.duration,
+        easing: item.isFirework ? Easing.out(Easing.cubic) : Easing.out(Easing.quad),
+        useNativeDriver: true,
+      }),
+      // Scale pop and settle
+      Animated.sequence([
+        Animated.spring(scale, {
+          toValue: item.scale,
+          friction: 4,
+          tension: 50,
           useNativeDriver: true,
         }),
-        Animated.sequence([
-          Animated.delay(p.duration * 0.5),
-          Animated.timing(p.opacity, {
-            toValue: 0,
-            duration: p.duration * 0.5,
-            useNativeDriver: true,
-          }),
-        ]),
-      ]);
+        Animated.timing(scale, {
+          toValue: item.scale * 0.85,
+          duration: item.duration * 0.6,
+          useNativeDriver: true,
+        }),
+      ]),
+      // Opacity: Fade in quickly, then fade out near peak
+      Animated.sequence([
+        Animated.timing(opacity, {
+          toValue: 1,
+          duration: 180,
+          useNativeDriver: true,
+        }),
+        Animated.delay(item.duration * 0.5),
+        Animated.timing(opacity, {
+          toValue: 0,
+          duration: item.duration * 0.4,
+          easing: Easing.in(Easing.quad),
+          useNativeDriver: true,
+        }),
+      ]),
+    ]).start(() => {
+      onComplete(item.id);
+    });
+  }, [item, progress, opacity, scale, onComplete]);
+
+  // If Firework: radial arc burst outwards
+  if (item.isFirework) {
+    const angle = item.angle || 0;
+    const speed = item.speed || 150;
+    const targetX = Math.cos(angle) * speed;
+    const targetY = Math.sin(angle) * speed + 50; // gravity pull
+
+    const transX = progress.interpolate({
+      inputRange: [0, 1],
+      outputRange: [0, targetX],
+    });
+    const transY = progress.interpolate({
+      inputRange: [0, 0.4, 1],
+      outputRange: [0, targetY * 0.4, targetY],
     });
 
-    const allAnims: Animated.CompositeAnimation[] = [Animated.stagger(30, particleAnimations)];
+    const size = 38 * item.scale;
 
-    // 2. If mega level, animate flash and center badge
-    if (level === 'mega') {
-      allAnims.push(
-        Animated.sequence([
-          Animated.timing(flashAnim, {
-            toValue: 1,
-            duration: 150,
-            useNativeDriver: true,
-          }),
-          Animated.timing(flashAnim, {
-            toValue: 0,
-            duration: 400,
-            useNativeDriver: true,
-          }),
-        ])
-      );
+    return (
+      <Animated.View
+        style={[
+          styles.particleAbsolute,
+          {
+            left: item.startX,
+            top: item.startY,
+            opacity,
+            transform: [
+              { translateX: transX },
+              { translateY: transY },
+              { scale },
+              { rotate: `${item.rotation}deg` },
+            ],
+          },
+        ]}
+      >
+        <ExpoImage source={imgSource} style={{ width: size, height: size }} contentFit="contain" />
+      </Animated.View>
+    );
+  }
 
-      allAnims.push(
-        Animated.sequence([
-          Animated.parallel([
-            Animated.spring(megaBadgeScale, {
-              toValue: 1.2,
-              friction: 4,
-              useNativeDriver: true,
-            }),
-            Animated.timing(megaBadgeOpacity, {
-              toValue: 1,
-              duration: 200,
-              useNativeDriver: true,
-            }),
-          ]),
-          Animated.delay(500),
-          Animated.parallel([
-            Animated.timing(megaBadgeScale, {
-              toValue: 1.6,
-              duration: 400,
-              useNativeDriver: true,
-            }),
-            Animated.timing(megaBadgeOpacity, {
-              toValue: 0,
-              duration: 400,
-              useNativeDriver: true,
-            }),
-          ]),
-        ])
-      );
+  // Standard Floating Fountain (Instagram Live smooth vertical rising + sway)
+  const transY = progress.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0, -item.riseHeight],
+  });
+
+  // Natural sinusoidal horizontal wobble
+  const transX = progress.interpolate({
+    inputRange: [0, 0.25, 0.5, 0.75, 1],
+    outputRange: [
+      0,
+      -item.swayWidth * 0.8,
+      item.swayWidth * 0.5,
+      -item.swayWidth * 0.9,
+      item.swayWidth * 0.3,
+    ],
+  });
+
+  const rotateStr = progress.interpolate({
+    inputRange: [0, 0.5, 1],
+    outputRange: [
+      `${item.rotation - 10}deg`,
+      `${item.rotation + 15}deg`,
+      `${item.rotation - 8}deg`,
+    ],
+  });
+
+  const size = 36 * item.scale;
+
+  return (
+    <Animated.View
+      style={[
+        styles.particleAbsolute,
+        {
+          left: item.startX,
+          top: item.startY,
+          opacity,
+          transform: [
+            { translateX: transX },
+            { translateY: transY },
+            { scale },
+            { rotate: rotateStr },
+          ],
+        },
+      ]}
+    >
+      <ExpoImage source={imgSource} style={{ width: size, height: size }} contentFit="contain" />
+    </Animated.View>
+  );
+});
+
+export const ReelReactionBurst: React.FC<ReelReactionBurstProps> = ({
+  particles,
+  onParticleComplete,
+  comboCount = 0,
+  isHolding = false,
+  holdingType = null,
+}) => {
+  const comboScale = useRef(new Animated.Value(0)).current;
+  const comboOpacity = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    if (isHolding && comboCount > 1) {
+      Animated.parallel([
+        Animated.spring(comboScale, {
+          toValue: 1,
+          friction: 5,
+          tension: 60,
+          useNativeDriver: true,
+        }),
+        Animated.timing(comboOpacity, {
+          toValue: 1,
+          duration: 150,
+          useNativeDriver: true,
+        }),
+      ]).start();
+    } else {
+      Animated.parallel([
+        Animated.timing(comboScale, {
+          toValue: 0.7,
+          duration: 200,
+          useNativeDriver: true,
+        }),
+        Animated.timing(comboOpacity, {
+          toValue: 0,
+          duration: 200,
+          useNativeDriver: true,
+        }),
+      ]).start();
     }
-
-    Animated.parallel(allAnims).start(() => {
-      onComplete?.();
-    });
-  }, [level, onComplete, particles, flashAnim, megaBadgeScale, megaBadgeOpacity]);
+  }, [isHolding, comboCount, comboScale, comboOpacity]);
 
   return (
     <View style={StyleSheet.absoluteFill} pointerEvents="none">
-      {/* Mega Screen Glow Flash */}
-      {level === 'mega' && (
+      {/* Floating Combo Multiplier Counter during press & hold */}
+      {isHolding && comboCount > 1 && (
         <Animated.View
           style={[
-            StyleSheet.absoluteFill,
+            styles.comboBadge,
             {
-              backgroundColor: isLaugh ? 'rgba(255, 215, 0, 0.15)' : 'rgba(239, 68, 68, 0.18)',
-              opacity: flashAnim,
+              backgroundColor: holdingType === 'laugh'
+                ? 'rgba(245, 158, 11, 0.95)'
+                : 'rgba(239, 68, 68, 0.95)',
+              opacity: comboOpacity,
+              transform: [{ scale: comboScale }],
             },
           ]}
-        />
+        >
+          <Text style={styles.comboText}>
+            {holdingType === 'laugh' ? '😂 +' : '🍅 +'}{comboCount}
+          </Text>
+        </Animated.View>
       )}
 
-      {/* Mega Central Reaction Badge */}
-      {level === 'mega' && (
-        <View style={styles.centerContainer}>
-          <Animated.View
-            style={[
-              styles.megaBadge,
-              {
-                backgroundColor: isLaugh ? 'rgba(245, 158, 11, 0.95)' : 'rgba(220, 38, 38, 0.95)',
-                opacity: megaBadgeOpacity,
-                transform: [{ scale: megaBadgeScale }],
-              },
-            ]}
-          >
-            <ExpoImage source={sourceImg} style={styles.megaBadgeIcon} contentFit="contain" />
-            <Text style={styles.megaBadgeText}>
-              {isLaugh ? 'MEGA LAUGH! 😂' : 'TOMATO STORM! 🍅'}
-            </Text>
-          </Animated.View>
-        </View>
-      )}
-
-      {/* Floating Particles */}
-      {particles.map((p) => {
-        const transX = p.anim.interpolate({
-          inputRange: [0, 1],
-          outputRange: [p.startX, p.targetX],
-        });
-        const transY = p.anim.interpolate({
-          inputRange: [0, 0.4, 1],
-          outputRange: [p.startY, p.targetY * 0.9, p.targetY],
-        });
-
-        const iconSize = 34 * p.scale;
-
-        return (
-          <Animated.View
-            key={p.id}
-            style={[
-              styles.particle,
-              {
-                opacity: p.opacity,
-                transform: [
-                  { translateX: transX },
-                  { translateY: transY },
-                  { scale: p.scale },
-                  { rotate: p.rotation },
-                ],
-              },
-            ]}
-          >
-            <ExpoImage
-              source={sourceImg}
-              style={{ width: iconSize, height: iconSize }}
-              contentFit="contain"
-            />
-          </Animated.View>
-        );
-      })}
+      {/* Render all active stream and firework particles */}
+      {particles.map((p) => (
+        <SingleFloatingEmoji key={p.id} item={p} onComplete={onParticleComplete} />
+      ))}
     </View>
   );
 };
 
 const styles = StyleSheet.create({
-  particle: {
+  particleAbsolute: {
     position: 'absolute',
-    top: 0,
-    left: 0,
     zIndex: 9999,
-  },
-  centerContainer: {
-    ...StyleSheet.absoluteFillObject,
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  comboBadge: {
+    position: 'absolute',
+    right: 20,
+    bottom: 230,
+    paddingVertical: 6,
+    paddingHorizontal: 14,
+    borderRadius: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.3,
+    shadowRadius: 6,
+    elevation: 6,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.5)',
     zIndex: 10000,
   },
-  megaBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 14,
-    paddingHorizontal: 24,
-    borderRadius: 30,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.4,
-    shadowRadius: 10,
-    elevation: 10,
-    borderWidth: 1.5,
-    borderColor: 'rgba(255, 255, 255, 0.4)',
-  },
-  megaBadgeIcon: {
-    width: 32,
-    height: 32,
-    marginRight: 10,
-  },
-  megaBadgeText: {
+  comboText: {
     color: '#FFFFFF',
-    fontSize: 17,
+    fontSize: 15,
     fontWeight: '800',
     letterSpacing: 0.5,
   },
