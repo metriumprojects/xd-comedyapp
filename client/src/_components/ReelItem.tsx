@@ -185,8 +185,10 @@ export const ReelItem = React.memo<ReelItemProps>(({
   // TikTok / IG Live style continuous particle stream
   const [particles, setParticles] = useState<FloatingParticleItem[]>([]);
   const [comboCount, setComboCount] = useState<number>(0);
+  const [chargeProgress, setChargeProgress] = useState<number>(0);
   const [isHoldingReaction, setIsHoldingReaction] = useState<boolean>(false);
   const [holdingReactionType, setHoldingReactionType] = useState<ReactionType | null>(null);
+  const [isMegaExploded, setIsMegaExploded] = useState<boolean>(false);
 
   const emitterIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const pressStartTimeRef = useRef<number>(0);
@@ -202,45 +204,43 @@ export const ReelItem = React.memo<ReelItemProps>(({
     const startY = containerHeight * 0.72;
 
     if (isMega) {
-      // Mega Firework Shower: 16 radial burst particles
-      const newFireworkParticles: FloatingParticleItem[] = Array.from({ length: 16 }).map((_, i) => {
-        const angle = (i / 16) * 2 * Math.PI + (Math.random() - 0.5) * 0.3;
-        const speed = 120 + Math.random() * 160;
+      // Mega Firework Shower: 40 full-screen explosion particles covering entire screen!
+      const newFireworkParticles: FloatingParticleItem[] = Array.from({ length: 40 }).map((_, i) => {
+        const angle = (i / 40) * 2 * Math.PI + (Math.random() - 0.5) * 0.4;
+        const speed = 100 + Math.random() * 220;
         return {
           id: `firework_${Date.now()}_${i}_${Math.random()}`,
           type,
-          startX: SCREEN_WIDTH * 0.5 + (Math.random() - 0.5) * 60,
-          startY: containerHeight * 0.5 + (Math.random() - 0.5) * 60,
+          startX: SCREEN_WIDTH * 0.5 + (Math.random() - 0.5) * 80,
+          startY: containerHeight * 0.45 + (Math.random() - 0.5) * 80,
           swayWidth: 0,
-          swayFreq: 1,
           riseHeight: 0,
-          scale: 0.9 + Math.random() * 0.5,
-          rotation: (Math.random() - 0.5) * 60,
-          duration: 1200 + Math.random() * 400,
+          scale: 0.7 + Math.random() * 0.65,
+          rotation: (Math.random() - 0.5) * 90,
+          duration: 1300 + Math.random() * 500,
           isFirework: true,
           angle,
           speed,
         };
       });
-      setParticles((prev) => [...prev.slice(-30), ...newFireworkParticles]);
+      setParticles((prev) => [...prev.slice(-40), ...newFireworkParticles]);
       return;
     }
 
-    // Single Floating Fountain Particle (IG live stream)
+    // Single Floating Fountain Particle drifting inwards towards screen center
     const newParticle: FloatingParticleItem = {
       id: `particle_${Date.now()}_${Math.random()}`,
       type,
-      startX: startX + (Math.random() - 0.5) * 24,
-      startY: startY + (Math.random() - 0.5) * 12,
-      swayWidth: 20 + Math.random() * 30,
-      swayFreq: 1 + Math.random() * 0.5,
-      riseHeight: 260 + Math.random() * 140,
-      scale: 0.8 + Math.random() * 0.45,
+      startX: startX + (Math.random() - 0.5) * 16,
+      startY: startY + (Math.random() - 0.5) * 10,
+      swayWidth: 40 + Math.random() * 70, // Drifts well into the screen
+      riseHeight: 280 + Math.random() * 150,
+      scale: 0.85 + Math.random() * 0.45,
       rotation: (Math.random() - 0.5) * 30,
-      duration: 1400 + Math.random() * 400,
+      duration: 1500 + Math.random() * 400,
     };
 
-    setParticles((prev) => [...prev.slice(-30), newParticle]);
+    setParticles((prev) => [...prev.slice(-35), newParticle]);
   }, [containerHeight]);
 
   const triggerLaughAnimation = useCallback(() => {
@@ -811,21 +811,23 @@ export const ReelItem = React.memo<ReelItemProps>(({
     }, 300);
   }, [post._id, triggerTomatoAnimation]);
 
-  // Press-in & Press-out handlers for TikTok / IG Live Floating Fountain
+  // Press-in & Press-out handlers with 2.2s charge meter & 40-particle blast
   const startReactionHold = useCallback((type: ReactionType) => {
     pressStartTimeRef.current = Date.now();
     comboCountRef.current = 1;
     isHoldingRef.current = true;
     setIsHoldingReaction(true);
     setHoldingReactionType(type);
+    setIsMegaExploded(false);
     setComboCount(1);
+    setChargeProgress(0.05);
 
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
     emitParticle(type, false);
 
     const targetScaleAnim = type === 'laugh' ? laughScaleAnim : tomatoScaleAnim;
     Animated.spring(targetScaleAnim, {
-      toValue: 1.18,
+      toValue: 1.15,
       friction: 4,
       tension: 40,
       useNativeDriver: true,
@@ -833,33 +835,89 @@ export const ReelItem = React.memo<ReelItemProps>(({
 
     if (emitterIntervalRef.current) clearInterval(emitterIntervalRef.current);
 
-    let count = 1;
-    let megaTriggered = false;
+    const startTime = Date.now();
+    const TOTAL_CHARGE_MS = 2200; // 2.2 seconds steady build up
 
     emitterIntervalRef.current = setInterval(() => {
       if (!isHoldingRef.current) return;
-      count += 1;
-      comboCountRef.current = count;
-      setComboCount(count);
+      const elapsed = Date.now() - startTime;
+      const progress = Math.min(1, elapsed / TOTAL_CHARGE_MS);
+      setChargeProgress(progress);
 
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+      comboCountRef.current += 1;
+      setComboCount(comboCountRef.current);
+
+      // Scale button up smoothly as it charges
+      Animated.timing(targetScaleAnim, {
+        toValue: 1.15 + progress * 0.2, // scales smoothly up to 1.35x
+        duration: 120,
+        useNativeDriver: true,
+      }).start();
+
+      // Emit buoyant floating particle drifting inwards
       emitParticle(type, false);
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
 
-      // Trigger Mega Shower when held for ~1.5 seconds (12 particles emitted)
-      if (count >= 12 && !megaTriggered) {
-        megaTriggered = true;
+      // When 100% full charge reached (~2.2s): DETONATE THE BIG BLAST!
+      if (progress >= 1) {
+        // Stop emitter interval immediately so zero vibration lingers
+        if (emitterIntervalRef.current) {
+          clearInterval(emitterIntervalRef.current);
+          emitterIntervalRef.current = null;
+        }
+
+        // Heavy celebration haptic
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy).catch(() => {});
-        emitParticle(type, true);
+
+        setIsMegaExploded(true);
+        emitParticle(type, true); // 40 emojis blast!
+
+        // Spring button back
+        Animated.spring(targetScaleAnim, {
+          toValue: 1,
+          friction: 4,
+          tension: 40,
+          useNativeDriver: true,
+        }).start();
+
+        // Ensure post rating is recorded
+        if (type === 'laugh') {
+          if (!hasLaughedRef.current) {
+            hasLaughedRef.current = true;
+            setHasLaughed(true);
+            setLaughCount((prev: number) => prev + 1);
+            if (hasTomatoedRef.current) {
+              hasTomatoedRef.current = false;
+              setHasTomatoed(false);
+              setTomatoCount((prev: number) => Math.max(0, prev - 1));
+            }
+            apiService.post(`/posts/${post._id}/rate`, { type: 'laugh', active: true }).catch(() => {});
+          }
+        } else {
+          if (!hasTomatoedRef.current) {
+            hasTomatoedRef.current = true;
+            setHasTomatoed(true);
+            setTomatoCount((prev: number) => prev + 1);
+            if (hasLaughedRef.current) {
+              hasLaughedRef.current = false;
+              setHasLaughed(false);
+              setLaughCount((prev: number) => Math.max(0, prev - 1));
+            }
+            apiService.post(`/posts/${post._id}/rate`, { type: 'tomato', active: true }).catch(() => {});
+          }
+        }
       }
-    }, 125);
-  }, [emitParticle, laughScaleAnim, tomatoScaleAnim]);
+    }, 140);
+  }, [emitParticle, laughScaleAnim, tomatoScaleAnim, post._id]);
 
   const endReactionHold = useCallback((type: ReactionType) => {
     isHoldingRef.current = false;
     setIsHoldingReaction(false);
     setHoldingReactionType(null);
+    setChargeProgress(0);
 
+    // Stop emitter immediately so zero vibration lingers
     if (emitterIntervalRef.current) {
       clearInterval(emitterIntervalRef.current);
       emitterIntervalRef.current = null;
@@ -875,6 +933,7 @@ export const ReelItem = React.memo<ReelItemProps>(({
 
     const pressDuration = Date.now() - pressStartTimeRef.current;
 
+    // If quick tap (< 350ms), toggle rating
     if (pressDuration < 350) {
       if (type === 'laugh') handleLaughPress();
       else handleTomatoPress();
@@ -1799,8 +1858,10 @@ export const ReelItem = React.memo<ReelItemProps>(({
         particles={particles}
         onParticleComplete={handleParticleComplete}
         comboCount={comboCount}
+        chargeProgress={chargeProgress}
         isHolding={isHoldingReaction}
         holdingType={holdingReactionType}
+        isMegaExploded={isMegaExploded}
       />
     </View>
   );
