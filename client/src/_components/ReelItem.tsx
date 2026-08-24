@@ -189,6 +189,7 @@ export const ReelItem = React.memo<ReelItemProps>(({
   const [isHoldingReaction, setIsHoldingReaction] = useState<boolean>(false);
   const [holdingReactionType, setHoldingReactionType] = useState<ReactionType | null>(null);
   const [isMegaExploded, setIsMegaExploded] = useState<boolean>(false);
+  const [explodedType, setExplodedType] = useState<ReactionType | null>(null);
 
   const emitterIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const pressStartTimeRef = useRef<number>(0);
@@ -870,6 +871,7 @@ export const ReelItem = React.memo<ReelItemProps>(({
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy).catch(() => {});
 
+        setExplodedType(type); // Lock the type at detonation moment
         setIsMegaExploded(true);
         emitParticle(type, true); // 40 emojis blast!
 
@@ -1862,6 +1864,7 @@ export const ReelItem = React.memo<ReelItemProps>(({
         isHolding={isHoldingReaction}
         holdingType={holdingReactionType}
         isMegaExploded={isMegaExploded}
+        explodedType={explodedType}
       />
     </View>
   );

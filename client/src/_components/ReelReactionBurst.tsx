@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Animated, Dimensions, Easing, StyleSheet, Text, View } from 'react-native';
 import { Image as ExpoImage } from 'expo-image';
 
@@ -29,6 +29,7 @@ interface ReelReactionBurstProps {
   isHolding?: boolean;
   holdingType?: ReactionType | null;
   isMegaExploded?: boolean;
+  explodedType?: ReactionType | null; // Locked type at the moment of explosion
 }
 
 /**
@@ -181,7 +182,7 @@ const SingleFloatingEmoji: React.FC<{
 });
 
 /**
- * Splatter droplet that flies outward from the centre splat point
+ * A single paint splatter droplet that animates outward on mount
  */
 const SplatDroplet: React.FC<{
   angle: number;
@@ -194,20 +195,24 @@ const SplatDroplet: React.FC<{
   const opacity = useRef(new Animated.Value(1)).current;
 
   useEffect(() => {
+    // Reset on mount
+    anim.setValue(0);
+    opacity.setValue(1);
+
     Animated.sequence([
       Animated.delay(delay),
       Animated.parallel([
         Animated.timing(anim, {
           toValue: 1,
-          duration: 600,
+          duration: 700,
           easing: Easing.out(Easing.cubic),
           useNativeDriver: true,
         }),
         Animated.sequence([
-          Animated.delay(300),
+          Animated.delay(350),
           Animated.timing(opacity, {
             toValue: 0,
-            duration: 300,
+            duration: 350,
             useNativeDriver: true,
           }),
         ]),
@@ -216,7 +221,7 @@ const SplatDroplet: React.FC<{
   }, [anim, opacity, delay]);
 
   const targetX = Math.cos(angle) * distance;
-  const targetY = Math.sin(angle) * distance + distance * 0.4; // gravity curve
+  const targetY = Math.sin(angle) * distance + distance * 0.35;
 
   const transX = anim.interpolate({
     inputRange: [0, 1],
@@ -227,8 +232,8 @@ const SplatDroplet: React.FC<{
     outputRange: [0, targetY * 0.2, targetY],
   });
   const dropScale = anim.interpolate({
-    inputRange: [0, 0.3, 1],
-    outputRange: [0.3, 1.2, 0.6],
+    inputRange: [0, 0.25, 1],
+    outputRange: [0.3, 1.4, 0.5],
   });
 
   return (
@@ -246,6 +251,42 @@ const SplatDroplet: React.FC<{
   );
 });
 
+/**
+ * Full splatter burst that mounts fresh each time, with unique key so React re-creates it
+ */
+const SplatBurst: React.FC<{
+  splatType: ReactionType;
+}> = React.memo(({ splatType }) => {
+  const isLaugh = splatType === 'laugh';
+  const splatColor = isLaugh ? 'rgba(255, 200, 0, 0.85)' : 'rgba(220, 38, 38, 0.8)';
+
+  // Generate fresh droplet data on each mount
+  const droplets = useRef(
+    Array.from({ length: 32 }).map((_, i) => ({
+      id: i,
+      angle: (i / 32) * 2 * Math.PI + (Math.random() - 0.5) * 0.5,
+      distance: 60 + Math.random() * 180,
+      delay: Math.random() * 60,
+      size: 6 + Math.random() * 18,
+    }))
+  ).current;
+
+  return (
+    <View style={styles.centerContainer}>
+      {droplets.map((d) => (
+        <SplatDroplet
+          key={d.id}
+          angle={d.angle}
+          distance={d.distance}
+          color={splatColor}
+          delay={d.delay}
+          size={d.size}
+        />
+      ))}
+    </View>
+  );
+});
+
 export const ReelReactionBurst: React.FC<ReelReactionBurstProps> = ({
   particles,
   onParticleComplete,
@@ -254,29 +295,22 @@ export const ReelReactionBurst: React.FC<ReelReactionBurstProps> = ({
   isHolding = false,
   holdingType = null,
   isMegaExploded = false,
+  explodedType = null,
 }) => {
   const comboScale = useRef(new Animated.Value(0)).current;
   const comboOpacity = useRef(new Animated.Value(0)).current;
-
-  // Giant central emoji: grows then pops & splatters
   const megaEmojiScale = useRef(new Animated.Value(0)).current;
   const megaEmojiOpacity = useRef(new Animated.Value(0)).current;
-  const splatOpacity = useRef(new Animated.Value(0)).current;
   const flashAnim = useRef(new Animated.Value(0)).current;
 
-  const isLaugh = holdingType === 'laugh';
-  const percentage = Math.min(100, Math.round(chargeProgress * 100));
+  // Track active splat with unique key for re-mount
+  const [activeSplat, setActiveSplat] = useState<{ key: number; type: ReactionType } | null>(null);
 
-  // Generate splatter droplets data
-  const splatDroplets = useRef(
-    Array.from({ length: 28 }).map((_, i) => ({
-      id: i,
-      angle: (i / 28) * 2 * Math.PI + (Math.random() - 0.5) * 0.5,
-      distance: 80 + Math.random() * 160,
-      delay: Math.random() * 80,
-      size: 8 + Math.random() * 16,
-    }))
-  ).current;
+  // Use explodedType (locked at detonation) for the blast visuals, fallback to holdingType
+  const blastType = explodedType || holdingType || 'laugh';
+  const isLaugh = holdingType === 'laugh';
+  const isBlastLaugh = blastType === 'laugh';
+  const percentage = Math.min(100, Math.round(chargeProgress * 100));
 
   // Combo badge
   useEffect(() => {
@@ -293,13 +327,12 @@ export const ReelReactionBurst: React.FC<ReelReactionBurstProps> = ({
     }
   }, [isHolding, comboCount, comboScale, comboOpacity]);
 
-  // Mega Explosion: Giant emoji grows → pops → splatters as colored paint
+  // Mega Explosion: Giant emoji grows → pops → paint splatters
   useEffect(() => {
-    if (isMegaExploded) {
-      // Reset
+    if (isMegaExploded && explodedType) {
+      // Reset anims
       megaEmojiScale.setValue(0);
       megaEmojiOpacity.setValue(0);
-      splatOpacity.setValue(0);
 
       // 1. Screen flash
       Animated.sequence([
@@ -307,9 +340,8 @@ export const ReelReactionBurst: React.FC<ReelReactionBurstProps> = ({
         Animated.timing(flashAnim, { toValue: 0, duration: 500, useNativeDriver: true }),
       ]).start();
 
-      // 2. Giant emoji grows to massive size then pops
+      // 2. Giant emoji grows → holds → pops
       Animated.sequence([
-        // Grow in
         Animated.parallel([
           Animated.spring(megaEmojiScale, {
             toValue: 2.8,
@@ -323,43 +355,33 @@ export const ReelReactionBurst: React.FC<ReelReactionBurstProps> = ({
             useNativeDriver: true,
           }),
         ]),
-        // Hold briefly at peak
-        Animated.delay(250),
-        // Pop out: scale up more + fade out quickly
+        Animated.delay(280),
         Animated.parallel([
           Animated.timing(megaEmojiScale, {
-            toValue: 4.5,
-            duration: 250,
+            toValue: 5,
+            duration: 220,
             easing: Easing.in(Easing.quad),
             useNativeDriver: true,
           }),
           Animated.timing(megaEmojiOpacity, {
             toValue: 0,
-            duration: 250,
+            duration: 220,
             useNativeDriver: true,
           }),
         ]),
       ]).start();
 
-      // 3. Paint splatter appears when emoji pops (slight delay)
-      Animated.sequence([
-        Animated.delay(350),
-        Animated.timing(splatOpacity, {
-          toValue: 1,
-          duration: 100,
-          useNativeDriver: true,
-        }),
-        Animated.delay(500),
-        Animated.timing(splatOpacity, {
-          toValue: 0,
-          duration: 400,
-          useNativeDriver: true,
-        }),
-      ]).start();
-    }
-  }, [isMegaExploded, megaEmojiScale, megaEmojiOpacity, splatOpacity, flashAnim]);
+      // 3. Mount fresh SplatBurst at the moment the emoji pops (280ms + small buffer)
+      setTimeout(() => {
+        setActiveSplat({ key: Date.now(), type: explodedType });
+      }, 350);
 
-  const splatColor = isLaugh ? 'rgba(255, 200, 0, 0.8)' : 'rgba(220, 38, 38, 0.75)';
+      // 4. Auto-clear splat after animation completes
+      setTimeout(() => {
+        setActiveSplat(null);
+      }, 1600);
+    }
+  }, [isMegaExploded, explodedType, megaEmojiScale, megaEmojiOpacity, flashAnim]);
 
   return (
     <View style={StyleSheet.absoluteFill} pointerEvents="none">
@@ -368,7 +390,7 @@ export const ReelReactionBurst: React.FC<ReelReactionBurstProps> = ({
         style={[
           StyleSheet.absoluteFill,
           {
-            backgroundColor: isLaugh ? 'rgba(255, 215, 0, 0.25)' : 'rgba(239, 68, 68, 0.25)',
+            backgroundColor: isBlastLaugh ? 'rgba(255, 215, 0, 0.25)' : 'rgba(239, 68, 68, 0.25)',
             opacity: flashAnim,
           },
         ]}
@@ -383,26 +405,17 @@ export const ReelReactionBurst: React.FC<ReelReactionBurstProps> = ({
           }}
         >
           <ExpoImage
-            source={isLaugh ? require('@/assets/images/Laugh.png') : require('@/assets/images/Tomato.png')}
+            source={isBlastLaugh ? require('@/assets/images/Laugh.png') : require('@/assets/images/Tomato.png')}
             style={{ width: 80, height: 80 }}
             contentFit="contain"
           />
         </Animated.View>
       </View>
 
-      {/* Paint Splatter Droplets flying outward from center */}
-      <Animated.View style={[styles.centerContainer, { opacity: splatOpacity }]}>
-        {splatDroplets.map((d) => (
-          <SplatDroplet
-            key={d.id}
-            angle={d.angle}
-            distance={d.distance}
-            color={splatColor}
-            delay={d.delay}
-            size={d.size}
-          />
-        ))}
-      </Animated.View>
+      {/* Paint Splatter Droplets — mounted fresh each blast via unique key */}
+      {activeSplat && (
+        <SplatBurst key={activeSplat.key} splatType={activeSplat.type} />
+      )}
 
       {/* Floating Combo & Charge Meter Badge during Press & Hold */}
       {isHolding && comboCount > 1 && !isMegaExploded && (
