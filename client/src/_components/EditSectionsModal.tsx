@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Image as ExpoImage } from 'expo-image';
 import React, { useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, Alert, Keyboard, KeyboardAvoidingView, Modal, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Alert, Animated, Keyboard, KeyboardAvoidingView, Modal, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import DraggableFlatList, { RenderItemParams, ScaleDecorator } from 'react-native-draggable-flatlist';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -99,8 +99,27 @@ export default function EditSectionsModal({
   const [newSectionName, setNewSectionName] = useState('');
   const [showCreateInput, setShowCreateInput] = useState(false);
   const [creatingSection, setCreatingSection] = useState(false);
+  const [createError, setCreateError] = useState<string | null>(null);
+  const errorAnim = useRef(new Animated.Value(0)).current;
   const [collaboratorInput, setCollaboratorInput] = useState('');
   const isCreatingRef = useRef(false);
+
+  const showValidationError = (msg: string) => {
+    setCreateError(msg);
+    errorAnim.setValue(0);
+    Animated.spring(errorAnim, {
+      toValue: 1,
+      useNativeDriver: true,
+      tension: 120,
+      friction: 8,
+    }).start();
+  };
+
+  const hideValidationError = () => {
+    if (createError) {
+      setCreateError(null);
+    }
+  };
 
   // Groups and Followers for Visibility/Collabs
   const [groups, setGroups] = useState<any[]>([]);
@@ -142,9 +161,10 @@ export default function EditSectionsModal({
       sections.map((s) => s.name)
     );
     if (!validation.ok) {
-      Alert.alert('Invalid name', validation.error);
+      showValidationError(validation.error);
       return;
     }
+    hideValidationError();
 
     isCreatingRef.current = true;
     setCreatingSection(true);
@@ -175,6 +195,7 @@ export default function EditSectionsModal({
 
       setNewSectionName('');
       setShowCreateInput(false);
+      setCreateError(null);
     } catch (error: any) {
       Alert.alert('Error', error?.message || 'Failed to create section');
     } finally {
@@ -287,6 +308,7 @@ export default function EditSectionsModal({
       setCreatingSection(false);
       setShowCreateInput(false);
       setNewSectionName('');
+      setCreateError(null);
     }
   }, [visible, currentUserId]);
 
@@ -632,13 +654,40 @@ export default function EditSectionsModal({
                 </TouchableOpacity>
               ) : (isOwner && showCreateInput) ? (
                 <View style={styles.createInputContainer}>
+                  {createError ? (
+                    <Animated.View
+                      style={[
+                        styles.errorBubbleWrapper,
+                        {
+                          opacity: errorAnim,
+                          transform: [
+                            {
+                              translateY: errorAnim.interpolate({
+                                inputRange: [0, 1],
+                                outputRange: [-6, 0],
+                              }),
+                            },
+                          ],
+                        },
+                      ]}
+                    >
+                      <View style={styles.errorBubble}>
+                        <Ionicons name="alert-circle" size={14} color={COLORS.danger} />
+                        <Text style={styles.errorBubbleText}>{createError}</Text>
+                      </View>
+                      <View style={styles.errorBubbleArrow} />
+                    </Animated.View>
+                  ) : null}
                   <View style={styles.createInputRow}>
                     <TextInput
-                      style={styles.createInput}
+                      style={[styles.createInput, !!createError && styles.createInputError]}
                       placeholder="Section name (2–30 characters)"
                       placeholderTextColor={COLORS.textMuted}
                       value={newSectionName}
-                      onChangeText={(text) => setNewSectionName(text.slice(0, SECTION_NAME_MAX))}
+                      onChangeText={(text) => {
+                        if (createError) setCreateError(null);
+                        setNewSectionName(text.slice(0, SECTION_NAME_MAX));
+                      }}
                       autoFocus
                       maxLength={SECTION_NAME_MAX}
                       editable={!creatingSection}
@@ -648,7 +697,7 @@ export default function EditSectionsModal({
                     <TouchableOpacity
                       onPress={handleCreateSection}
                       style={[styles.createConfirmBtn, creatingSection && { opacity: 0.6 }]}
-                      disabled={creatingSection || !normalizeSectionName(newSectionName)}
+                      disabled={creatingSection}
                     >
                       {creatingSection ? (
                         <ActivityIndicator size="small" color={COLORS.textLight} />
@@ -657,7 +706,11 @@ export default function EditSectionsModal({
                       )}
                     </TouchableOpacity>
                     <TouchableOpacity
-                      onPress={() => { setShowCreateInput(false); setNewSectionName(''); }}
+                      onPress={() => {
+                        setShowCreateInput(false);
+                        setNewSectionName('');
+                        setCreateError(null);
+                      }}
                       style={styles.createCancelBtn}
                       disabled={creatingSection}
                     >
@@ -1057,6 +1110,49 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     fontSize: 15,
     color: COLORS.textPrimary,
+  },
+  createInputError: {
+    borderColor: COLORS.danger,
+  },
+  errorBubbleWrapper: {
+    marginBottom: 4,
+    alignSelf: 'flex-start',
+    zIndex: 10,
+  },
+  errorBubble: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFF0F0',
+    borderWidth: 1,
+    borderColor: COLORS.danger,
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    gap: 6,
+    shadowColor: COLORS.danger,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.12,
+    shadowRadius: 3,
+    elevation: 2,
+  },
+  errorBubbleText: {
+    color: COLORS.danger,
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  errorBubbleArrow: {
+    width: 0,
+    height: 0,
+    backgroundColor: 'transparent',
+    borderStyle: 'solid',
+    borderLeftWidth: 5,
+    borderRightWidth: 5,
+    borderTopWidth: 5,
+    borderLeftColor: 'transparent',
+    borderRightColor: 'transparent',
+    borderTopColor: COLORS.danger,
+    marginLeft: 16,
+    marginTop: -0.5,
   },
   createHint: {
     marginTop: 6,
