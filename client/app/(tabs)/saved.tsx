@@ -833,14 +833,53 @@ export default function SavedScreen() {
             : 'Tap the bookmark icon on any post to save it to your collections.'}
         </Text>
         {!activeCollection && isProfileOwner && (
+          visibleCollections.length > 0 ? (
+            <TouchableOpacity 
+              style={styles.emptyBtn}
+              onPress={() => {
+                hapticLight();
+                setCollDropdownOpen(true);
+              }}
+            >
+              <Text style={styles.emptyBtnText}>Browse Collections</Text>
+            </TouchableOpacity>
+          ) : (
+            <View style={{ alignItems: 'center', width: '100%' }}>
+              <TouchableOpacity 
+                style={styles.emptyBtn}
+                onPress={() => {
+                  hapticLight();
+                  router.push('/(tabs)/home');
+                }}
+              >
+                <Ionicons name="compass-outline" size={18} color={COLORS.textLight} style={{ marginRight: 6 }} />
+                <Text style={styles.emptyBtnText}>Explore Posts</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.emptySecondaryBtn}
+                onPress={() => {
+                  hapticLight();
+                  setCreateModalInitialScreen('new');
+                  setCreateModalVisible(true);
+                }}
+              >
+                <Feather name="plus" size={15} color={COLORS.primary} style={{ marginRight: 4 }} />
+                <Text style={styles.emptySecondaryBtnText}>Create New Collection</Text>
+              </TouchableOpacity>
+            </View>
+          )
+        )}
+        {activeCollection && isProfileOwner && (
           <TouchableOpacity 
             style={styles.emptyBtn}
             onPress={() => {
               hapticLight();
-              setCollDropdownOpen(true);
+              router.push('/(tabs)/home');
             }}
           >
-            <Text style={styles.emptyBtnText}>Browse Collections</Text>
+            <Ionicons name="compass-outline" size={18} color={COLORS.textLight} style={{ marginRight: 6 }} />
+            <Text style={styles.emptyBtnText}>Explore Posts</Text>
           </TouchableOpacity>
         )}
       </View>
@@ -1421,6 +1460,9 @@ const styles = StyleSheet.create({
     marginBottom: 24,
   },
   emptyBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
     backgroundColor: COLORS.primary,
     paddingHorizontal: 24,
     paddingVertical: 12,
@@ -1433,6 +1475,19 @@ const styles = StyleSheet.create({
   },
   emptyBtnText: {
     color: COLORS.textLight,
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  emptySecondaryBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 14,
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+  },
+  emptySecondaryBtnText: {
+    color: COLORS.primary,
     fontSize: 14,
     fontWeight: '600',
   },
