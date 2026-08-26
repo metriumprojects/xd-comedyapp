@@ -167,6 +167,7 @@ export default function Home() {
 
   const flatListRef = useRef<FlatList>(null);
   const prevContainerHeightRef = useRef(containerHeight);
+  const prevFilterRef = useRef(filter);
 
   // 3. User notification counts
   const { notifications, unreadCount, fetchNotifications, markAllAsRead } = useNotifications(currentUserId || '', 60000);
@@ -300,6 +301,20 @@ export default function Home() {
 
     return result;
   }, [posts, filter]);
+
+  // Reset scroll and active reel to the top whenever category filter changes
+  useEffect(() => {
+    if (prevFilterRef.current !== filter) {
+      prevFilterRef.current = filter;
+      setActiveIndex(0);
+      if (flatListRef.current) {
+        flatListRef.current.scrollToOffset({
+          offset: 0,
+          animated: false,
+        });
+      }
+    }
+  }, [filter, setActiveIndex]);
 
   // Correct FlatList scroll offset immediately when container height changes to prevent jumping glitches
   useEffect(() => {
