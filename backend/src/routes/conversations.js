@@ -964,6 +964,30 @@ router.post('/:id/messages', verifyToken, validate(sendMessageSchema), async (re
       }
     }
 
+    // Check for blocked status between sender and recipient
+    if (normalizedRecipientId) {
+      const senderVariants = [normalizedSenderId, actualSenderId, req.userId].filter(Boolean);
+      const recipientVariants = [normalizedRecipientId, recipientId].filter(Boolean);
+
+      const senderObjectIds = senderVariants.filter(id => mongoose.Types.ObjectId.isValid(id)).map(id => new mongoose.Types.ObjectId(id));
+      const recipientObjectIds = recipientVariants.filter(id => mongoose.Types.ObjectId.isValid(id)).map(id => new mongoose.Types.ObjectId(id));
+
+      const isBlocked = await User.findOne({
+        $or: [
+          ...(senderObjectIds.length > 0 ? [{ _id: { $in: senderObjectIds }, blockedUsers: { $in: recipientVariants } }] : []),
+          { firebaseUid: { $in: senderVariants }, blockedUsers: { $in: recipientVariants } },
+          { uid: { $in: senderVariants }, blockedUsers: { $in: recipientVariants } },
+          ...(recipientObjectIds.length > 0 ? [{ _id: { $in: recipientObjectIds }, blockedUsers: { $in: senderVariants } }] : []),
+          { firebaseUid: { $in: recipientVariants }, blockedUsers: { $in: senderVariants } },
+          { uid: { $in: recipientVariants }, blockedUsers: { $in: senderVariants } }
+        ]
+      }).select('_id').lean();
+
+      if (isBlocked) {
+        return res.status(403).json({ success: false, error: 'Cannot send messages to a blocked user or user who blocked you' });
+      }
+    }
+
     // Try to find by string ID first, then by MongoDB ObjectId, then by direct-message participant pair
     let convo = await Conversation.findOne({
       $or: [
@@ -1625,8 +1649,28 @@ router.post('/:conversationId/messages/media', verifyToken, validate(sendMessage
       if (foundRecipient?._id) normalizedRecipientId = String(foundRecipient._id);
     }
 
-    if (!effectiveMediaUrl && mediaType !== 'post' && mediaType !== 'story') {
-      return res.status(400).json({ success: false, error: 'mediaUrl required for this mediaType' });
+    // Check for blocked status between sender and recipient
+    if (normalizedRecipientId) {
+      const senderVariants = [normalizedSenderId, actualSenderId, req.userId].filter(Boolean);
+      const recipientVariants = [normalizedRecipientId, recipientId].filter(Boolean);
+
+      const senderObjectIds = senderVariants.filter(id => mongoose.Types.ObjectId.isValid(id)).map(id => new mongoose.Types.ObjectId(id));
+      const recipientObjectIds = recipientVariants.filter(id => mongoose.Types.ObjectId.isValid(id)).map(id => new mongoose.Types.ObjectId(id));
+
+      const isBlocked = await User.findOne({
+        $or: [
+          ...(senderObjectIds.length > 0 ? [{ _id: { $in: senderObjectIds }, blockedUsers: { $in: recipientVariants } }] : []),
+          { firebaseUid: { $in: senderVariants }, blockedUsers: { $in: recipientVariants } },
+          { uid: { $in: senderVariants }, blockedUsers: { $in: recipientVariants } },
+          ...(recipientObjectIds.length > 0 ? [{ _id: { $in: recipientObjectIds }, blockedUsers: { $in: senderVariants } }] : []),
+          { firebaseUid: { $in: recipientVariants }, blockedUsers: { $in: senderVariants } },
+          { uid: { $in: recipientVariants }, blockedUsers: { $in: senderVariants } }
+        ]
+      }).select('_id').lean();
+
+      if (isBlocked) {
+        return res.status(403).json({ success: false, error: 'Cannot send messages to a blocked user or user who blocked you' });
+      }
     }
 
     let conversation = await Conversation.findOne({

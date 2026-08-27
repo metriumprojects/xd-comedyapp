@@ -216,6 +216,22 @@ export default function DM() {
   const [viewerImage, setViewerImage] = useState<string | null>(null);
   const [storyViewerData, setStoryViewerData] = useState<{ stories: any[]; visible: boolean }>({ stories: [], visible: false });
   const [otherUserPresence, setOtherUserPresence] = useState<any | null>(null);
+  const [isBlocked, setIsBlocked] = useState(false);
+
+  useEffect(() => {
+    if (!currentUserId || !otherUserId || isGroupConversation) return;
+
+    apiService.getBlockedUsers(currentUserId).then((res: any) => {
+      if (res?.success && Array.isArray(res.data)) {
+        const blocked = res.data.some((u: any) => {
+          const bId = String(u.id || u._id || u.uid || u.firebaseUid || '');
+          const oId = String(otherUserId);
+          return bId === oId;
+        });
+        setIsBlocked(blocked);
+      }
+    }).catch(() => {});
+  }, [currentUserId, otherUserId, isGroupConversation]);
 
   const typingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pendingTempIdsRef = useRef<Set<string>>(new Set());
@@ -677,21 +693,30 @@ export default function DM() {
         <View style={{ flex: 1 }}>
           {renderContent()}
         </View>
-        <DMInput
-          input={input}
-          setInput={handleInputChange}
-          onSend={handleSend}
-          onMediaPress={handlePickImageWrapper}
-          onCameraPress={handleLaunchCameraWrapper}
-          onMicPressIn={startRecording}
-          onMicPressOut={handleStopRecordingWrapper}
-          recording={recording}
-          recordingDuration={recordingDuration}
-          micPulseAnim={micPulseAnim}
-          replyingTo={replyingTo}
-          onCancelReply={() => setReplyingTo(null)}
-          sending={sending}
-        />
+        {isBlocked ? (
+          <View style={styles.blockedBarContainer}>
+            <Ionicons name="ban-outline" size={20} color={COLORS.danger} />
+            <Text style={styles.blockedBarText}>
+              You cannot message @{displayName || 'this user'} because this account is blocked.
+            </Text>
+          </View>
+        ) : (
+          <DMInput
+            input={input}
+            setInput={handleInputChange}
+            onSend={handleSend}
+            onMediaPress={handlePickImageWrapper}
+            onCameraPress={handleLaunchCameraWrapper}
+            onMicPressIn={startRecording}
+            onMicPressOut={handleStopRecordingWrapper}
+            recording={recording}
+            recordingDuration={recordingDuration}
+            micPulseAnim={micPulseAnim}
+            replyingTo={replyingTo}
+            onCancelReply={() => setReplyingTo(null)}
+            sending={sending}
+          />
+        )}
       </KeyboardAvoidingView>
 
       <ShareModal 
@@ -825,4 +850,22 @@ const styles = StyleSheet.create({
   reactionBtn: { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center' },
   reactionEmoji: { fontSize: 24 },
   reactionBtnPlus: { width: 36, height: 36, borderRadius: 18, backgroundColor: COLORS.inputBg, alignItems: 'center', justifyContent: 'center', marginLeft: 4 },
+  blockedBarContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    backgroundColor: COLORS.card,
+    borderTopWidth: 0.5,
+    borderTopColor: COLORS.border,
+    gap: 8,
+  },
+  blockedBarText: {
+    fontSize: 13,
+    color: COLORS.textSecondary,
+    fontWeight: '500',
+    flexShrink: 1,
+    textAlign: 'center',
+  },
 });

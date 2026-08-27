@@ -135,7 +135,34 @@ function registerMessagingSocket({ io, mongoose, toObjectId, sendExpoPushToUser 
     if (!(await isConversationMember(convo, authUserId))) return false;
     const recipVars = await resolveUserIdVariants(recipientId);
     const parts = (convo.participants || []).map(String);
-    return recipVars.some((v) => parts.includes(v));
+    if (!recipVars.some((v) => parts.includes(v))) return false;
+
+    // Check if either user has blocked the other
+    try {
+      const User = mongoose.model('User');
+      const authVariants = await resolveUserIdVariants(authUserId);
+      const authObjectIds = authVariants.filter(id => mongoose.Types.ObjectId.isValid(id)).map(id => new mongoose.Types.ObjectId(id));
+      const recipObjectIds = recipVars.filter(id => mongoose.Types.ObjectId.isValid(id)).map(id => new mongoose.Types.ObjectId(id));
+
+      const blockedCheck = await User.findOne({
+        $or: [
+          ...(authObjectIds.length > 0 ? [{ _id: { $in: authObjectIds }, blockedUsers: { $in: recipVars } }] : []),
+          { firebaseUid: { $in: authVariants }, blockedUsers: { $in: recipVars } },
+          { uid: { $in: authVariants }, blockedUsers: { $in: recipVars } },
+          ...(recipObjectIds.length > 0 ? [{ _id: { $in: recipObjectIds }, blockedUsers: { $in: authVariants } }] : []),
+          { firebaseUid: { $in: recipVars }, blockedUsers: { $in: authVariants } },
+          { uid: { $in: recipVars }, blockedUsers: { $in: authVariants } }
+        ]
+      }).select('_id').lean();
+
+      if (blockedCheck) {
+        return false;
+      }
+    } catch (e) {
+      logger.warn('[Socket] Error checking block status: %s', e.message);
+    }
+
+    return true;
   }
 
   const jwtSecret = getJwtSecretOrNull();

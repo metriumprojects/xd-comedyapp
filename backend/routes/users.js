@@ -1759,6 +1759,51 @@ router.put('/:userId/block/:targetId', async (req, res) => {
       return res.status(404).json({ success: false, error: 'User not found' });
     }
 
+    // Automatically remove follow relationships in both directions
+    try {
+      const { resolveUserIdentifiers } = require('../src/utils/userUtils');
+      const Follow = mongoose.model('Follow');
+
+      const userObj = await resolveUserIdentifiers(userId);
+      const targetObj = await resolveUserIdentifiers(targetId);
+
+      // Delete follows where user follows target OR target follows user
+      await Follow.deleteMany({
+        $or: [
+          { followerId: { $in: userObj.candidates }, followingId: { $in: targetObj.candidates } },
+          { followerId: { $in: targetObj.candidates }, followingId: { $in: userObj.candidates } }
+        ]
+      });
+
+      // Recalculate follower and following counts
+      const userFollowingCount = await Follow.countDocuments({ followerId: { $in: userObj.candidates } });
+      const userFollowersCount = await Follow.countDocuments({ followingId: { $in: userObj.candidates } });
+      const targetFollowingCount = await Follow.countDocuments({ followerId: { $in: targetObj.candidates } });
+      const targetFollowersCount = await Follow.countDocuments({ followingId: { $in: targetObj.candidates } });
+
+      const userMongoIds = userObj.candidates.filter(c => mongoose.Types.ObjectId.isValid(c)).map(c => new mongoose.Types.ObjectId(c));
+      await User.updateMany(
+        { $or: [
+          ...(userMongoIds.length > 0 ? [{ _id: { $in: userMongoIds } }] : []),
+          { firebaseUid: { $in: userObj.candidates } },
+          { uid: { $in: userObj.candidates } }
+        ] },
+        { $set: { followingCount: userFollowingCount, followersCount: userFollowersCount } }
+      );
+
+      const targetMongoIds = targetObj.candidates.filter(c => mongoose.Types.ObjectId.isValid(c)).map(c => new mongoose.Types.ObjectId(c));
+      await User.updateMany(
+        { $or: [
+          ...(targetMongoIds.length > 0 ? [{ _id: { $in: targetMongoIds } }] : []),
+          { firebaseUid: { $in: targetObj.candidates } },
+          { uid: { $in: targetObj.candidates } }
+        ] },
+        { $set: { followingCount: targetFollowingCount, followersCount: targetFollowersCount } }
+      );
+    } catch (followErr) {
+      console.warn('[Block] Error removing follow relationship:', followErr.message);
+    }
+
     res.json({ success: true, message: 'User blocked successfully', data: user.blockedUsers });
   } catch (err) {
     console.error('[PUT /:userId/block/:targetId] Error:', err.message);
