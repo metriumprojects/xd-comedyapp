@@ -14,8 +14,6 @@ import { safeRouterBack } from '@/lib/safeRouterBack';
 import COLORS from '@/src/theme/colors';
 
 export default function NotificationsScreen() {
-    // Default avatar from Firebase Storage
-    
   const router = useRouter();
   const [userId, setUserId] = React.useState<string>('');
 
@@ -42,38 +40,81 @@ export default function NotificationsScreen() {
   );
 
   function getNotificationIcon(type: string) {
-    switch (type) {
-      case 'like': return 'heart';
-      case 'comment': return 'message-circle';
-      case 'follow': return 'user-plus';
-      case 'follow-request': return 'user-plus';
-      case 'follow-approved': return 'user-check';
-      case 'new-follower': return 'user-plus';
-      case 'mention': return 'at-sign';
+    const t = String(type || '').toLowerCase().replace(/_/g, '-');
+    switch (t) {
+      case 'like':
+      case 'post-like':
+      case 'story-like':
+      case 'comment-like':
+        return 'heart';
+      case 'comment':
+      case 'post-comment':
+      case 'story-reply':
+      case 'story-comment':
+        return 'message-circle';
+      case 'comment-reply':
+        return 'corner-down-right';
+      case 'follow':
+      case 'follow-request':
+      case 'new-follower':
+        return 'user-plus';
+      case 'follow-approved':
+        return 'user-check';
+      case 'mention':
+      case 'post-mention':
+        return 'at-sign';
       case 'dm':
-      case 'message': return 'send';
-      case 'story-mention': return 'star';
-      case 'story-reply': return 'message-square';
-      case 'tag': return 'tag';
-      default: return 'bell';
+      case 'message':
+        return 'send';
+      case 'story-mention':
+        return 'star';
+      case 'story':
+      case 'new-story':
+        return 'film';
+      case 'tag':
+      case 'post-tag':
+        return 'tag';
+      case 'live':
+      case 'livestream':
+        return 'radio';
+      default:
+        return 'bell';
     }
   }
 
   function getNotificationColor(type: string) {
-    switch (type) {
-      case 'like': return '#FF6B00';
-      case 'comment': return COLORS.info;
-      case 'follow': return '#FF6B00';
-      case 'follow-request': return '#FF6B00';
-      case 'follow-approved': return COLORS.info;
-      case 'new-follower': return '#FF6B00';
-      case 'mention': return '#8b5cf6';
+    const t = String(type || '').toLowerCase().replace(/_/g, '-');
+    switch (t) {
+      case 'like':
+      case 'post-like':
+      case 'story-like':
+      case 'comment-like':
+      case 'follow':
+      case 'follow-request':
+      case 'new-follower':
+      case 'tag':
+      case 'post-tag':
+      case 'story-mention':
+        return '#FF6B00';
+      case 'comment':
+      case 'post-comment':
+      case 'comment-reply':
+      case 'story-reply':
+      case 'story-comment':
+      case 'follow-approved':
       case 'dm':
-      case 'message': return COLORS.info;
-      case 'story-mention': return '#FF6B00';
-      case 'story-reply': return COLORS.info;
-      case 'tag': return '#FF6B00';
-      default: return COLORS.textSecondary;
+      case 'message':
+      case 'story':
+      case 'new-story':
+        return COLORS.info;
+      case 'mention':
+      case 'post-mention':
+        return '#8b5cf6';
+      case 'live':
+      case 'livestream':
+        return COLORS.danger;
+      default:
+        return COLORS.textSecondary;
     }
   }
 
@@ -98,26 +139,27 @@ export default function NotificationsScreen() {
 
   function handleNotificationClick(item: any) {
     hapticLight();
+    const type = String(item?.type || '').toLowerCase().replace(/_/g, '-');
     let navRoute = '';
-    if (item.type === 'follow' || item.type === 'follow-request' || item.type === 'follow-approved' || item.type === 'new-follower') {
+    if (type === 'follow' || type === 'follow-request' || type === 'follow-approved' || type === 'new-follower') {
       navRoute = `/user-profile/${item.senderId}`;
-    } else if (item.type === 'like' || item.type === 'tag' || item.type === 'mention') {
+    } else if (type === 'like' || type === 'post-like' || type === 'tag' || type === 'post-tag' || type === 'mention' || type === 'post-mention') {
       if (!item.postId || typeof item.postId !== 'string' || item.postId.trim() === '') {
         alert('Notification missing postId. Cannot open post.');
         return;
       }
       navRoute = `/post-detail?id=${item.postId}`;
-    } else if (item.type === 'comment') {
+    } else if (type === 'comment' || type === 'post-comment' || type === 'comment-reply' || type === 'comment-like') {
       if (!item.postId || typeof item.postId !== 'string' || item.postId.trim() === '') {
         alert('Notification missing postId. Cannot open post.');
         return;
       }
       navRoute = `/post-detail?id=${item.postId}&openComments=true&commentId=${item.commentId || ''}`;
-    } else if (item.type === 'dm' || item.type === 'message') {
+    } else if (type === 'dm' || type === 'message') {
       navRoute = `/dm?otherUserId=${item.senderId}`;
-    } else if (item.type === 'live') {
+    } else if (type === 'live' || type === 'livestream') {
       navRoute = '/(tabs)/home';
-    } else if (item.type === 'story' || item.type === 'story-mention' || item.type === 'story-reply') {
+    } else if (type === 'story' || type === 'story-like' || type === 'story-mention' || type === 'story-reply' || type === 'story-comment' || type === 'new-story') {
       if (item?.storyId && String(item.storyId).trim()) {
         navRoute = `/(tabs)/home?storyId=${encodeURIComponent(String(item.storyId))}`;
       } else {

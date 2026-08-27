@@ -542,7 +542,8 @@ router.post('/:storyId/like', verifyToken, async (req, res) => {
           title: '❤️ Story Like',
           body: `${senderName} liked your story`,
           data: { 
-            type: 'story', 
+            type: 'story-like', 
+            action: 'like',
             storyId: String(storyId), 
             screen: 'home' 
           }
@@ -620,7 +621,8 @@ router.post('/:storyId/comments', verifyToken, async (req, res) => {
           title: '💬 Story Comment',
           body: `${senderName} replied to your story: ${text.substring(0, 50)}`,
           data: { 
-            type: 'story', 
+            type: 'story-reply', 
+            action: 'comment',
             storyId: String(storyId), 
             screen: 'home' 
           }

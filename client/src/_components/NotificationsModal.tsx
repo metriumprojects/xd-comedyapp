@@ -56,7 +56,7 @@ export default function NotificationsModal({ visible, onClose }: NotificationsMo
             return '/inbox';
         } else if (type === 'live') {
             return '/(tabs)/home';
-        } else if (type === 'story' || type === 'story-mention' || type === 'story-reply') {
+        } else if (type === 'story' || type === 'story-like' || type === 'story-mention' || type === 'story-reply' || type === 'story-comment' || type === 'new-story') {
             if (item?.storyId && String(item.storyId).trim()) {
                 return `/(tabs)/home?storyId=${encodeURIComponent(String(item.storyId))}`;
             } else {
