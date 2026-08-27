@@ -1705,32 +1705,69 @@ export const ReelItem = React.memo<ReelItemProps>(({
               <Text style={styles.menuItemText}>Edit Reel</Text>
             </TouchableOpacity>
           ) : (
-            <TouchableOpacity
-              style={styles.menuItem}
-              onPress={() => {
-                setShowMenu(false);
-                Alert.alert(
-                  "Report Reel",
-                  "Why are you reporting this reel?",
-                  [
-                    { text: "Spam", onPress: () => {
-                        apiService.reportContent({ targetId: post._id, targetType: 'post', reason: 'spam' });
-                        feedEventEmitter.emitFeedUpdate({ type: 'POST_DELETED', postId: post._id });
-                        Alert.alert("Reported", "This reel has been hidden from your feed.");
-                    }},
-                    { text: "Inappropriate", onPress: () => {
-                        apiService.reportContent({ targetId: post._id, targetType: 'post', reason: 'inappropriate' });
-                        feedEventEmitter.emitFeedUpdate({ type: 'POST_DELETED', postId: post._id });
-                        Alert.alert("Reported", "This reel has been hidden from your feed.");
-                    }},
-                    { text: "Cancel", style: "cancel" }
-                  ]
-                );
-              }}
-            >
-              <Feather name="flag" size={20} color={COLORS.danger} />
-              <Text style={[styles.menuItemText, { color: COLORS.danger }]}>Report Reel</Text>
-            </TouchableOpacity>
+            <>
+              <TouchableOpacity
+                style={styles.menuItem}
+                onPress={() => {
+                  setShowMenu(false);
+                  Alert.alert(
+                    "Report Reel",
+                    "Why are you reporting this reel?",
+                    [
+                      { text: "Spam", onPress: () => {
+                          apiService.reportContent({ targetId: post._id, targetType: 'post', reason: 'spam' });
+                          feedEventEmitter.emitFeedUpdate({ type: 'POST_DELETED', postId: post._id });
+                          Alert.alert("Reported", "This reel has been hidden from your feed.");
+                      }},
+                      { text: "Inappropriate", onPress: () => {
+                          apiService.reportContent({ targetId: post._id, targetType: 'post', reason: 'inappropriate' });
+                          feedEventEmitter.emitFeedUpdate({ type: 'POST_DELETED', postId: post._id });
+                          Alert.alert("Reported", "This reel has been hidden from your feed.");
+                      }},
+                      { text: "Cancel", style: "cancel" }
+                    ]
+                  );
+                }}
+              >
+                <Feather name="flag" size={20} color={COLORS.danger} />
+                <Text style={[styles.menuItemText, { color: COLORS.danger }]}>Report Reel</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.menuItem}
+                onPress={() => {
+                  setShowMenu(false);
+                  const targetAuthorId = post?.userId?._id || post?.userId?.id || post?.userId?.uid || post?.userId?.firebaseUid || post?.userId;
+                  const myUserId = currentUser?._id || currentUser?.id || currentUser?.uid || currentUser?.firebaseUid;
+                  if (!targetAuthorId || !myUserId) return;
+
+                  Alert.alert(
+                    "Block User",
+                    `Block @${postUserName}? You won't see their posts in your feed anymore.`,
+                    [
+                      { text: "Cancel", style: "cancel" },
+                      {
+                        text: "Block",
+                        style: "destructive",
+                        onPress: async () => {
+                          try {
+                            const { userService } = require('@/lib/userService');
+                            await userService.blockUser(String(myUserId), String(targetAuthorId));
+                            feedEventEmitter.emitFeedUpdate({ type: 'USER_BLOCKED', userId: String(targetAuthorId) });
+                            Alert.alert("Blocked", `@${postUserName} has been blocked.`);
+                          } catch (err) {
+                            Alert.alert("Error", "Failed to block user.");
+                          }
+                        }
+                      }
+                    ]
+                  );
+                }}
+              >
+                <Ionicons name="ban-outline" size={20} color={COLORS.danger} />
+                <Text style={[styles.menuItemText, { color: COLORS.danger }]}>Block @{postUserName}</Text>
+              </TouchableOpacity>
+            </>
           )}
 
           <TouchableOpacity

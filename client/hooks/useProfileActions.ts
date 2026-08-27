@@ -162,6 +162,7 @@ export const useProfileActions = ({
             try {
               const success = await userService.blockUser(currentUserId, viewedUserId);
               if (success) {
+                feedEventEmitter.emitFeedUpdate({ type: 'USER_BLOCKED', userId: viewedUserId });
                 Alert.alert('Blocked', 'User has been blocked.', [
                   { text: 'OK', onPress: () => safeRouterBack() }
                 ]);

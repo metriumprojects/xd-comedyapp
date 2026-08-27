@@ -36,6 +36,71 @@ async function getEnrichedPosts(query, {
   // Build the match stage — merge caller's query with cursor condition
   let matchQuery = { ...query };
 
+  // 0. Exclude posts from blocked users (bilateral block filtering)
+  if (viewerVariants.length > 0) {
+    try {
+      const User = mongoose.model('User');
+      const viewerObjectIds = viewerVariants
+        .filter(id => mongoose.Types.ObjectId.isValid(id))
+        .map(id => new mongoose.Types.ObjectId(id));
+
+      const viewerUser = await User.findOne({
+        $or: [
+          ...(viewerObjectIds.length > 0 ? [{ _id: { $in: viewerObjectIds } }] : []),
+          { firebaseUid: { $in: viewerVariants } },
+          { uid: { $in: viewerVariants } }
+        ]
+      }).select('blockedUsers').lean();
+
+      const directBlocked = viewerUser?.blockedUsers || [];
+
+      // Bilateral: also find users who blocked the viewer
+      const usersWhoBlockedViewer = await User.find({
+        blockedUsers: { $in: viewerVariants }
+      }).select('_id firebaseUid uid').lean();
+
+      const allBlockedTargets = [
+        ...directBlocked,
+        ...usersWhoBlockedViewer.map(u => String(u._id)),
+        ...usersWhoBlockedViewer.map(u => u.firebaseUid).filter(Boolean),
+        ...usersWhoBlockedViewer.map(u => u.uid).filter(Boolean),
+      ];
+
+      if (allBlockedTargets.length > 0) {
+        const blockedObjectIds = allBlockedTargets
+          .filter(id => mongoose.Types.ObjectId.isValid(id))
+          .map(id => new mongoose.Types.ObjectId(id));
+
+        const blockedUsersDetails = await User.find({
+          $or: [
+            ...(blockedObjectIds.length > 0 ? [{ _id: { $in: blockedObjectIds } }] : []),
+            { firebaseUid: { $in: allBlockedTargets } },
+            { uid: { $in: allBlockedTargets } }
+          ]
+        }).select('_id firebaseUid uid').lean();
+
+        const allResolved = new Set(allBlockedTargets.map(String));
+        blockedUsersDetails.forEach(u => {
+          if (u._id) allResolved.add(String(u._id));
+          if (u.firebaseUid) allResolved.add(String(u.firebaseUid));
+          if (u.uid) allResolved.add(String(u.uid));
+        });
+
+        const blockedList = Array.from(allResolved);
+        if (blockedList.length > 0) {
+          const blockCondition = { userId: { $nin: blockedList } };
+          if (matchQuery.$and) {
+            matchQuery.$and.push(blockCondition);
+          } else {
+            matchQuery = { $and: [matchQuery, blockCondition] };
+          }
+        }
+      }
+    } catch (e) {
+      console.warn('[postService] Error resolving blocked users for query:', e.message);
+    }
+  }
+
   // Cursor-based pagination: use the last post's createdAt + _id to fetch next page
   // This avoids the O(N) cost of $skip for deep pagination
   if (cursor && cursorDate) {
