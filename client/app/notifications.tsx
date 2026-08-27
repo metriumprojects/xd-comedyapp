@@ -169,7 +169,7 @@ export default function NotificationsScreen() {
       navRoute = '/(tabs)/home';
     } else if (type === 'story' || type === 'story-like' || type === 'story-mention' || type === 'story-reply' || type === 'story-comment' || type === 'new-story') {
       if (senderId) {
-        navRoute = `/user-profile?id=${encodeURIComponent(senderId)}`;
+        navRoute = `/user-profile?id=${encodeURIComponent(senderId)}&openStory=true${storyId ? '&storyId=' + encodeURIComponent(storyId) : ''}`;
       } else {
         navRoute = '/(tabs)/home';
       }

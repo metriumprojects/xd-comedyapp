@@ -89,6 +89,7 @@ interface ProfileModalsProps {
   storiesViewerVisible?: boolean;
   setStoriesViewerVisible?: (val: boolean) => void;
   userStories?: any[];
+  initialStoryIndex?: number;
 
   // Create Highlight Modal
   createHighlightVisible: boolean;
@@ -108,7 +109,7 @@ const ProfileModals: React.FC<ProfileModalsProps> = (props) => {
     showUploadModal, setShowUploadModal, selectedMedia, setSelectedMedia, locationQuery, setLocationQuery, locationSuggestions, setLocationSuggestions,
     uploading, setUploading, uploadProgress, setUploadProgress, showSuccess,
     highlightViewerVisible, setHighlightViewerVisible, selectedHighlightId,
-    storiesViewerVisible = false, setStoriesViewerVisible = () => {}, userStories = [],
+    storiesViewerVisible = false, setStoriesViewerVisible = () => {}, userStories = [], initialStoryIndex = 0,
     createHighlightVisible, setCreateHighlightVisible
   } = props;
 
@@ -300,6 +301,7 @@ const ProfileModals: React.FC<ProfileModalsProps> = (props) => {
         >
           <StoriesViewer
             stories={userStories}
+            initialIndex={initialStoryIndex}
             onClose={() => {
               setStoriesViewerVisible(false);
               refetchAll?.();

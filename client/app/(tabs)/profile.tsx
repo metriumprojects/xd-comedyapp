@@ -312,6 +312,25 @@ export default function Profile({ userIdProp }: any) {
     activeTab: segmentTab,
   });
 
+  const [initialStoryIndex, setInitialStoryIndex] = useState(0);
+  const storyOpenedRef = useRef(false);
+
+  // Auto-open story viewer if navigated from notification with openStory=true or storyId
+  useEffect(() => {
+    const shouldOpenStory = params.openStory === 'true' || !!params.storyId;
+    if (shouldOpenStory && !storyOpenedRef.current && userStories && userStories.length > 0) {
+      storyOpenedRef.current = true;
+      if (params.storyId) {
+        const targetStoryId = String(params.storyId);
+        const foundIdx = userStories.findIndex((s: any) => String(s._id || s.id) === targetStoryId);
+        if (foundIdx >= 0) {
+          setInitialStoryIndex(foundIdx);
+        }
+      }
+      setStoriesViewerVisible(true);
+    }
+  }, [params.openStory, params.storyId, userStories]);
+
   useAssetPreloader(posts, (item: any) => [
     item.imageUrl, 
     item.thumbnailUrl, 
@@ -1217,7 +1236,7 @@ export default function Profile({ userIdProp }: any) {
           showUploadModal, setShowUploadModal, selectedMedia, setSelectedMedia, locationQuery, setLocationQuery, locationSuggestions, setLocationSuggestions,
           uploading, setUploading, uploadProgress, setUploadProgress, showSuccess,
           highlightViewerVisible, setHighlightViewerVisible, selectedHighlightId,
-          storiesViewerVisible, setStoriesViewerVisible, userStories,
+          storiesViewerVisible, setStoriesViewerVisible, userStories, initialStoryIndex,
           createHighlightVisible, setCreateHighlightVisible
         }}
       />

@@ -62,7 +62,8 @@ export default function NotificationsModal({ visible, onClose }: NotificationsMo
         } else if (type === 'live' || type === 'livestream') {
             return '/(tabs)/home';
         } else if (type === 'story' || type === 'story-like' || type === 'story-mention' || type === 'story-reply' || type === 'story-comment' || type === 'new-story') {
-            if (senderId) return `/user-profile?id=${encodeURIComponent(senderId)}`;
+            const storyId = String(item?.storyId || item?.data?.storyId || '').trim();
+            if (senderId) return `/user-profile?id=${encodeURIComponent(senderId)}&openStory=true${storyId ? '&storyId=' + encodeURIComponent(storyId) : ''}`;
             return '/(tabs)/home';
         } else {
             if (senderId) return `/user-profile?id=${encodeURIComponent(senderId)}`;

@@ -68,8 +68,9 @@ export function setupNotificationListeners() {
             }
 
             if (type.startsWith('story')) {
+              const storyId = safeStr(data?.storyId);
               if (senderId) {
-                router.push((`/user-profile?id=${encodeURIComponent(senderId)}`) as any);
+                router.push((`/user-profile?id=${encodeURIComponent(senderId)}&openStory=true${storyId ? '&storyId=' + encodeURIComponent(storyId) : ''}`) as any);
               } else {
                 router.push('/(tabs)/home');
               }
