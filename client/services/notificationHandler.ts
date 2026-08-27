@@ -57,8 +57,22 @@ export function setupNotificationListeners() {
               return;
             }
 
-            if (type === 'like' || type === 'comment' || type === 'mention' || type === 'tag') {
-              if (postId) router.push((`/post-detail?id=${encodeURIComponent(postId)}`) as any);
+            if (type === 'like' || type === 'post-like' || type === 'comment' || type === 'post-comment' || type === 'comment-reply' || type === 'comment-like' || type === 'mention' || type === 'tag') {
+              const isComment = type.includes('comment');
+              if (postId) {
+                router.push((`/post-detail?id=${encodeURIComponent(postId)}${isComment ? '&openComments=true' : ''}`) as any);
+              } else if (senderId) {
+                router.push((`/user-profile?id=${encodeURIComponent(senderId)}`) as any);
+              }
+              return;
+            }
+
+            if (type.startsWith('story')) {
+              if (senderId) {
+                router.push((`/user-profile?id=${encodeURIComponent(senderId)}`) as any);
+              } else {
+                router.push('/(tabs)/home');
+              }
               return;
             }
 

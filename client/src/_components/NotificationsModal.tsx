@@ -41,29 +41,31 @@ export default function NotificationsModal({ visible, onClose }: NotificationsMo
     }, [visible, currentUserId]);
 
     const getNotificationNavRoute = (item: any) => {
-        const type = String(item?.type || '');
+        const type = String(item?.type || '').toLowerCase().replace(/_/g, '-');
+        const senderId = String(item?.senderId || item?.fromUserId || item?.data?.senderId || '').trim();
+        const postId = String(item?.postId || item?.data?.postId || '').trim();
+        const commentId = String(item?.commentId || item?.data?.commentId || '').trim();
+
         if (type === 'follow' || type === 'follow-request' || type === 'follow-approved' || type === 'new-follower') {
-            if (item?.senderId) return `/user-profile/${item?.senderId}`;
+            return senderId ? `/user-profile?id=${encodeURIComponent(senderId)}` : '/(tabs)/profile';
+        } else if (type === 'like' || type === 'post-like' || type === 'tag' || type === 'post-tag' || type === 'mention' || type === 'post-mention') {
+            if (postId) return `/post-detail?id=${encodeURIComponent(postId)}`;
+            if (senderId) return `/user-profile?id=${encodeURIComponent(senderId)}`;
             return '/(tabs)/home';
-        } else if (type === 'like' || type === 'tag' || type === 'mention') {
-            if (item?.postId) return `/post-detail?id=${item.postId}`;
-            return '/(tabs)/home';
-        } else if (type === 'comment') {
-            if (item?.postId) return `/post-detail?id=${item.postId}&commentId=${item?.commentId || ''}`;
+        } else if (type === 'comment' || type === 'post-comment' || type === 'comment-reply' || type === 'comment-like') {
+            if (postId) return `/post-detail?id=${encodeURIComponent(postId)}&openComments=true&commentId=${encodeURIComponent(commentId)}`;
+            if (senderId) return `/user-profile?id=${encodeURIComponent(senderId)}`;
             return '/(tabs)/home';
         } else if (type === 'dm' || type === 'message') {
-            if (item?.senderId) return `/dm?otherUserId=${item.senderId}`;
+            if (senderId) return `/dm?otherUserId=${encodeURIComponent(senderId)}`;
             return '/inbox';
-        } else if (type === 'live') {
+        } else if (type === 'live' || type === 'livestream') {
             return '/(tabs)/home';
         } else if (type === 'story' || type === 'story-like' || type === 'story-mention' || type === 'story-reply' || type === 'story-comment' || type === 'new-story') {
-            if (item?.storyId && String(item.storyId).trim()) {
-                return `/(tabs)/home?storyId=${encodeURIComponent(String(item.storyId))}`;
-            } else {
-                return '/(tabs)/home';
-            }
+            if (senderId) return `/user-profile?id=${encodeURIComponent(senderId)}`;
+            return '/(tabs)/home';
         } else {
-            if (item?.senderId) return `/user-profile/${item.senderId}`;
+            if (senderId) return `/user-profile?id=${encodeURIComponent(senderId)}`;
             return '/(tabs)/home';
         }
     };

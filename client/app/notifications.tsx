@@ -140,33 +140,41 @@ export default function NotificationsScreen() {
   function handleNotificationClick(item: any) {
     hapticLight();
     const type = String(item?.type || '').toLowerCase().replace(/_/g, '-');
+    const senderId = String(item?.senderId || item?.fromUserId || item?.data?.senderId || '').trim();
+    const postId = String(item?.postId || item?.data?.postId || '').trim();
+    const commentId = String(item?.commentId || item?.data?.commentId || '').trim();
+
     let navRoute = '';
     if (type === 'follow' || type === 'follow-request' || type === 'follow-approved' || type === 'new-follower') {
-      navRoute = `/user-profile/${item.senderId}`;
+      navRoute = senderId ? `/user-profile?id=${encodeURIComponent(senderId)}` : '/(tabs)/profile';
     } else if (type === 'like' || type === 'post-like' || type === 'tag' || type === 'post-tag' || type === 'mention' || type === 'post-mention') {
-      if (!item.postId || typeof item.postId !== 'string' || item.postId.trim() === '') {
-        alert('Notification missing postId. Cannot open post.');
-        return;
+      if (postId) {
+        navRoute = `/post-detail?id=${encodeURIComponent(postId)}`;
+      } else if (senderId) {
+        navRoute = `/user-profile?id=${encodeURIComponent(senderId)}`;
+      } else {
+        navRoute = '/(tabs)/home';
       }
-      navRoute = `/post-detail?id=${item.postId}`;
     } else if (type === 'comment' || type === 'post-comment' || type === 'comment-reply' || type === 'comment-like') {
-      if (!item.postId || typeof item.postId !== 'string' || item.postId.trim() === '') {
-        alert('Notification missing postId. Cannot open post.');
-        return;
+      if (postId) {
+        navRoute = `/post-detail?id=${encodeURIComponent(postId)}&openComments=true&commentId=${encodeURIComponent(commentId)}`;
+      } else if (senderId) {
+        navRoute = `/user-profile?id=${encodeURIComponent(senderId)}`;
+      } else {
+        navRoute = '/(tabs)/home';
       }
-      navRoute = `/post-detail?id=${item.postId}&openComments=true&commentId=${item.commentId || ''}`;
     } else if (type === 'dm' || type === 'message') {
-      navRoute = `/dm?otherUserId=${item.senderId}`;
+      navRoute = senderId ? `/dm?otherUserId=${encodeURIComponent(senderId)}` : '/inbox';
     } else if (type === 'live' || type === 'livestream') {
       navRoute = '/(tabs)/home';
     } else if (type === 'story' || type === 'story-like' || type === 'story-mention' || type === 'story-reply' || type === 'story-comment' || type === 'new-story') {
-      if (item?.storyId && String(item.storyId).trim()) {
-        navRoute = `/(tabs)/home?storyId=${encodeURIComponent(String(item.storyId))}`;
+      if (senderId) {
+        navRoute = `/user-profile?id=${encodeURIComponent(senderId)}`;
       } else {
         navRoute = '/(tabs)/home';
       }
     } else {
-      navRoute = `/user-profile/${item.senderId}`;
+      navRoute = senderId ? `/user-profile?id=${encodeURIComponent(senderId)}` : '/(tabs)/home';
     }
     router.push(navRoute as any);
   }
