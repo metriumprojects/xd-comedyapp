@@ -68,7 +68,7 @@ async function uploadBufferToS3(buffer, key, contentType) {
  */
 async function optimizeImage(buffer, context) {
   try {
-    let pipeline = sharp(buffer);
+    let pipeline = sharp(buffer).rotate();
     
     if (context === 'avatar') {
       // User avatars should be square-cropped and resized to 400x400
