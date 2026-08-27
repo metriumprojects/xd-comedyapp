@@ -543,7 +543,6 @@ export const useCreatePost = (params: any = {}) => {
                 updatedAt: new Date().toISOString()
               }
             });
-            feedEventEmitter.emitPostCreated(params.editPostId as string);
           } else {
             feedEventEmitter.emitFeedUpdate({ type: 'POST_CREATED', postId: res.postId });
           }

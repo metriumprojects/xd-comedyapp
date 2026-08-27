@@ -196,9 +196,9 @@ export default function EditPostScreen() {
           } catch { }
         })();
 
-        ids.forEach((id) => feedEventEmitter.emitFeedUpdate({
+        feedEventEmitter.emitFeedUpdate({
           type: 'POST_UPDATED',
-          postId: id,
+          postId,
           data: {
             ...(freshPost || {}),
             caption: unified,
@@ -208,10 +208,9 @@ export default function EditPostScreen() {
             isContentEdit: true,
             updatedAt: new Date().toISOString(),
           }
-        }));
+        });
         // @ts-ignore
         feedEventEmitter.emit('feedUpdated');
-        feedEventEmitter.emitPostCreated(postId);
       } catch {
         feedEventEmitter.emitFeedUpdate({
           type: 'POST_UPDATED',
@@ -224,7 +223,6 @@ export default function EditPostScreen() {
             updatedAt: new Date().toISOString(),
           }
         });
-        feedEventEmitter.emitPostCreated(postId);
       }
       safeRouterBack();
     } catch (e: any) {

@@ -267,7 +267,7 @@ export default function Home() {
     }, [loadCategories, currentUserId, fetchFollowedStories, fetchNotifications])
   );
 
-  useFeedEvents(setPosts, setAllLoadedPosts, !!isOnline, loadInitialFeed);
+  useFeedEvents(setPosts, setAllLoadedPosts, !!isOnline, loadInitialFeed, flatListRef);
 
   // Prepend or reorder Podium category to always be the first chip
   const finalCategories = useMemo(() => {
