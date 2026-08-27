@@ -149,11 +149,21 @@ router.get('/feed', optionalAuth, async (req, res, next) => {
 
     if (isFirstPage) {
       const sixHoursAgo = new Date(Date.now() - 6 * 60 * 60 * 1000);
-      const recentQuery = { $and: [baseQuery, { createdAt: { $gte: sixHoursAgo } }] };
+      const recentQuery = { 
+        $and: [
+          baseQuery, 
+          { 
+            $or: [
+              { createdAt: { $gte: sixHoursAgo } },
+              { updatedAt: { $gte: sixHoursAgo } }
+            ] 
+          }
+        ] 
+      };
       
       const recentPosts = await postService.getEnrichedPosts(recentQuery, {
         limit: Math.min(limit, 5),
-        sort: { createdAt: -1 },
+        sort: { updatedAt: -1, createdAt: -1 },
         viewerId: currentUserId
       });
 

@@ -539,9 +539,11 @@ export const useCreatePost = (params: any = {}) => {
                 category: selectedCategories.length > 0 ? selectedCategories[0].name : undefined,
                 hashtags,
                 visibility,
+                isContentEdit: true,
                 updatedAt: new Date().toISOString()
               }
             });
+            feedEventEmitter.emitPostCreated(params.editPostId as string);
           } else {
             feedEventEmitter.emitFeedUpdate({ type: 'POST_CREATED', postId: res.postId });
           }

@@ -196,12 +196,35 @@ export default function EditPostScreen() {
           } catch { }
         })();
 
-        ids.forEach((id) => feedEventEmitter.emitPostUpdated(id, freshPost || { caption: unified, content: unified, text: unified, category: category || '' }));
-        // Some screens listen to this for a full refetch (profile/saved).
+        ids.forEach((id) => feedEventEmitter.emitFeedUpdate({
+          type: 'POST_UPDATED',
+          postId: id,
+          data: {
+            ...(freshPost || {}),
+            caption: unified,
+            content: unified,
+            text: unified,
+            category: category || '',
+            isContentEdit: true,
+            updatedAt: new Date().toISOString(),
+          }
+        }));
         // @ts-ignore
         feedEventEmitter.emit('feedUpdated');
+        feedEventEmitter.emitPostCreated(postId);
       } catch {
-        feedEventEmitter.emitPostUpdated(postId, { caption: unified, content: unified, category: category || '' });
+        feedEventEmitter.emitFeedUpdate({
+          type: 'POST_UPDATED',
+          postId,
+          data: {
+            caption: unified,
+            content: unified,
+            category: category || '',
+            isContentEdit: true,
+            updatedAt: new Date().toISOString(),
+          }
+        });
+        feedEventEmitter.emitPostCreated(postId);
       }
       safeRouterBack();
     } catch (e: any) {
@@ -372,4 +395,3 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.surface,
   },
 });
-
