@@ -808,19 +808,7 @@ export default function StoryCreatorScreen() {
                                     selectedAsset?.mediaType === 'video' ? (
                                         <AutoplayVideoPreview uri={selectedUri} rawUri={selectedAsset?.uri} style={styles.previewImg} />
                                     ) : (
-                                        <>
-                                            {/* Blurred ambient background filling side gaps */}
-                                            <Image 
-                                                source={{ uri: selectedUri }} 
-                                                style={[StyleSheet.absoluteFillObject, { transform: [{ scale: 1.35 }] }]} 
-                                                resizeMode="cover"
-                                                blurRadius={Platform.OS === 'ios' ? 25 : 15} 
-                                            />
-                                            {/* Gentle translucent overlay for clean contrast */}
-                                            <View style={[StyleSheet.absoluteFillObject, { backgroundColor: 'rgba(0,0,0,0.12)' }]} />
-                                            {/* Centered crisp main photo */}
-                                            <Image source={{ uri: selectedUri }} style={styles.previewImg} resizeMode="contain" />
-                                        </>
+                                        <Image source={{ uri: selectedUri }} style={styles.previewImg} resizeMode="contain" />
                                     )
                                 ) : null}
 
@@ -1334,7 +1322,7 @@ const styles = StyleSheet.create({
     preview: {
         width: SCREEN_W,
         height: PREVIEW_H,
-        backgroundColor: '#1c1c1e',
+        backgroundColor: '#f0f2f5',
         overflow: 'hidden',
         alignSelf: 'center',
     },
