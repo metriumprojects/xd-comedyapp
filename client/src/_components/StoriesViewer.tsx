@@ -355,24 +355,80 @@ export default function StoriesViewer({ stories, onClose, initialIndex = 0, isHi
     }
   };
 
-  const handleAddToHighlight = async (highlightId: string) => {
+  const [processingHighlightId, setProcessingHighlightId] = useState<string | null>(null);
+  const isTogglingHighlightRef = useRef(false);
+
+  const handleToggleHighlight = async (highlightId: string, isAlreadySaved: boolean) => {
+    if (isTogglingHighlightRef.current) return;
+    isTogglingHighlightRef.current = true;
+    setProcessingHighlightId(highlightId);
+
+    const storyId = String(currentStory?.id || currentStory?._id || currentStory?.storyId || '').trim();
+
     try {
-      const result = await highlightManager.addStoryToHighlight({ highlightId, story: currentStory });
-      if (result.success) {
-        if (Platform.OS === 'android') {
-          ToastAndroid.show('Added to highlight', ToastAndroid.SHORT);
+      if (isAlreadySaved) {
+        // Unsave / remove from highlight
+        const result = await highlightManager.removeStoryFromHighlight({ 
+          highlightId, 
+          storyId,
+          userId: String(currentUser?.uid || '')
+        });
+        if (result.success) {
+          // Optimistically update local userHighlights state
+          setUserHighlights(prev => prev.map(h => {
+            const hid = String(h.id || h._id);
+            if (hid === highlightId) {
+              return {
+                ...h,
+                stories: (h.stories || []).filter((s: any) => String(s) !== storyId),
+                items: (h.items || []).filter((item: any) => {
+                  const itemId = typeof item === 'string' ? item : (item?.storyId || item?.id || item?._id);
+                  return String(itemId) !== storyId;
+                })
+              };
+            }
+            return h;
+          }));
+
+          if (Platform.OS === 'android') {
+            ToastAndroid.show('Removed from highlight', ToastAndroid.SHORT);
+          } else {
+            Alert.alert('Success', 'Removed from highlight');
+          }
         } else {
-          Alert.alert('Success', 'Story added to highlight');
+          Alert.alert('Error', result.error || 'Failed to remove from highlight');
         }
-        setShowHighlightModal(false);
-        setIsPaused(false);
       } else {
-        Alert.alert('Error', result.error || 'Failed to add story to highlight');
-        setIsPaused(false);
+        // Save / add to highlight
+        const result = await highlightManager.addStoryToHighlight({ highlightId, story: currentStory });
+        if (result.success) {
+          // Optimistically update local userHighlights state
+          setUserHighlights(prev => prev.map(h => {
+            const hid = String(h.id || h._id);
+            if (hid === highlightId) {
+              return {
+                ...h,
+                stories: [...(h.stories || []), storyId],
+                items: [...(h.items || []), { storyId, ...(currentStory || {}) }]
+              };
+            }
+            return h;
+          }));
+
+          if (Platform.OS === 'android') {
+            ToastAndroid.show('Added to highlight', ToastAndroid.SHORT);
+          } else {
+            Alert.alert('Success', 'Story added to highlight');
+          }
+        } else {
+          Alert.alert('Error', result.error || 'Failed to add story to highlight');
+        }
       }
     } catch (error: any) {
-      Alert.alert('Error', error.message || 'Failed to add story to highlight');
-      setIsPaused(false);
+      Alert.alert('Error', error.message || 'Action failed');
+    } finally {
+      setProcessingHighlightId(null);
+      isTogglingHighlightRef.current = false;
     }
   };
 
@@ -1000,11 +1056,13 @@ export default function StoriesViewer({ stories, onClose, initialIndex = 0, isHi
             setIsPaused(false);
           }}
           highlights={userHighlights}
-          onSelectHighlight={handleAddToHighlight}
+          onSelectHighlight={handleToggleHighlight}
           onCreateNew={() => {
             setShowHighlightModal(false);
             setShowNewHighlightModal(true);
           }}
+          currentStoryId={String(currentStory?.id || currentStory?._id || currentStory?.storyId || '')}
+          processingHighlightId={processingHighlightId}
           loading={loadingHighlights}
           useViewOverlay={true}
         />

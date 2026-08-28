@@ -22,14 +22,18 @@ interface Highlight {
   _id?: string;
   title: string;
   coverImage: string;
+  stories?: string[];
+  items?: any[];
 }
 
 interface HighlightSelectionModalProps {
   visible: boolean;
   onClose: () => void;
   highlights: Highlight[];
-  onSelectHighlight: (highlightId: string) => void;
+  onSelectHighlight: (highlightId: string, isAlreadySaved: boolean) => void;
   onCreateNew: () => void;
+  currentStoryId?: string;
+  processingHighlightId?: string | null;
   loading?: boolean;
   useViewOverlay?: boolean;
 }
@@ -40,12 +44,29 @@ export default function HighlightSelectionModal({
   highlights,
   onSelectHighlight,
   onCreateNew,
+  currentStoryId,
+  processingHighlightId,
   loading = false,
   useViewOverlay = false,
 }: HighlightSelectionModalProps) {
   const insets = useSafeAreaInsets();
   const hasHighlights = highlights && highlights.length > 0;
   const resolveHighlightId = (h: any) => String(h?.id || h?._id || '');
+
+  const isStoryInHighlight = (item: any, storyId?: string) => {
+    if (!storyId || !item) return false;
+    const sid = String(storyId).trim();
+    if (Array.isArray(item.stories) && item.stories.some((s: any) => String(s) === sid)) {
+      return true;
+    }
+    if (Array.isArray(item.items)) {
+      return item.items.some((it: any) => {
+        const itId = typeof it === 'string' ? it : (it?.storyId || it?.id || it?._id);
+        return String(itId) === sid;
+      });
+    }
+    return false;
+  };
 
   const renderEmptyState = () => (
     <View style={styles.emptyContainer}>
@@ -63,19 +84,33 @@ export default function HighlightSelectionModal({
     </View>
   );
 
-  const renderHighlightItem = ({ item }: { item: Highlight }) => (
-    <TouchableOpacity 
-      style={styles.highlightItem} 
-      onPress={() => {
-        const hid = resolveHighlightId(item);
-        if (hid) onSelectHighlight(hid);
-      }}
-    >
-      <Image source={{ uri: item.coverImage }} style={styles.highlightCover} />
-      <Text style={styles.highlightTitle} numberOfLines={1}>{item.title}</Text>
-      <Ionicons name="add-circle-outline" size={24} color={COLORS.textMuted} style={styles.addIcon} />
-    </TouchableOpacity>
-  );
+  const renderHighlightItem = ({ item }: { item: Highlight }) => {
+    const hid = resolveHighlightId(item);
+    const isSaved = isStoryInHighlight(item, currentStoryId);
+    const isProcessing = processingHighlightId === hid;
+
+    return (
+      <TouchableOpacity 
+        style={styles.highlightItem} 
+        disabled={!!processingHighlightId}
+        onPress={() => {
+          if (hid && !processingHighlightId) {
+            onSelectHighlight(hid, isSaved);
+          }
+        }}
+      >
+        <Image source={{ uri: item.coverImage }} style={styles.highlightCover} />
+        <Text style={styles.highlightTitle} numberOfLines={1}>{item.title}</Text>
+        {isProcessing ? (
+          <ActivityIndicator size="small" color={COLORS.primary} style={styles.addIcon} />
+        ) : isSaved ? (
+          <Ionicons name="checkmark-circle" size={26} color={COLORS.primary} style={styles.addIcon} />
+        ) : (
+          <Ionicons name="add-circle-outline" size={26} color={COLORS.textMuted} style={styles.addIcon} />
+        )}
+      </TouchableOpacity>
+    );
+  };
 
   const innerContent = (
     <View style={styles.overlay}>
@@ -87,8 +122,8 @@ export default function HighlightSelectionModal({
         <View style={styles.header}>
           <Text style={styles.headerTitle}>Add to a highlight</Text>
           {hasHighlights && (
-            <TouchableOpacity onPress={onCreateNew}>
-              <Text style={styles.newBtnText}>New highlight</Text>
+            <TouchableOpacity onPress={onCreateNew} disabled={!!processingHighlightId}>
+              <Text style={[styles.newBtnText, !!processingHighlightId && { opacity: 0.5 }]}>New highlight</Text>
             </TouchableOpacity>
           )}
         </View>
