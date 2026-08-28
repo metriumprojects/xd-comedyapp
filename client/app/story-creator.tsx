@@ -944,7 +944,7 @@ export default function StoryCreatorScreen() {
                     )}
 
                     {/* Share Button bottom box */}
-                    <View style={[styles.bottomBar, { backgroundColor: COLORS.background, borderTopColor: COLORS.border, paddingBottom: Math.max(insets.bottom, 16) }]}>
+                    <View style={[styles.bottomBar, { backgroundColor: COLORS.background, borderTopWidth: 0, paddingBottom: Math.max(insets.bottom, 16) }]}>
                         <TouchableOpacity
                             style={[styles.shareSubmitBtn, uploading && styles.shareSubmitBtnDisabled]}
                             onPress={handleShare}
@@ -1291,8 +1291,7 @@ const styles = StyleSheet.create({
     bottomBar: {
         paddingHorizontal: 20,
         paddingVertical: 12,
-        borderTopWidth: 1,
-        borderTopColor: '#f0f0f0',
+        borderTopWidth: 0,
         backgroundColor: '#fff',
     },
     shareSubmitBtn: {
