@@ -35,6 +35,7 @@ import { apiService } from '@/src/_services/apiService';
 import { hapticLight, hapticMedium, hapticSuccess } from '@/lib/haptics';
 import { feedEventEmitter } from '../lib/feedEventEmitter';
 import { mapService } from '../services';
+import COLORS from '@/src/theme/colors';
 let captureRef: ((ref: any, opts?: any) => Promise<string>) | null = null;
 try {
     const viewShot = require('react-native-view-shot');
@@ -705,8 +706,8 @@ export default function StoryCreatorScreen() {
     const editingFs = FONT_STYLES[editingFontStyle];
 
     return (
-        <View style={[styles.screen, step === 'editor' && { backgroundColor: '#000000' }, { paddingTop: insets.top || (Platform.OS === 'ios' ? 47 : 0) }]}>
-            <StatusBar barStyle={step === 'editor' ? 'light-content' : 'dark-content'} backgroundColor={step === 'editor' ? '#000000' : '#ffffff'} />
+        <View style={[styles.screen, { backgroundColor: COLORS.background, paddingTop: insets.top || (Platform.OS === 'ios' ? 47 : 0) }]}>
+            <StatusBar barStyle="dark-content" backgroundColor={COLORS.background} />
 
             {step === 'picker' ? (
                 <>
@@ -755,10 +756,10 @@ export default function StoryCreatorScreen() {
             ) : (
                 <KeyboardAvoidingView 
                     behavior={Platform.OS === 'ios' ? 'padding' : undefined} 
-                    style={{ flex: 1, backgroundColor: '#000000' }}
+                    style={{ flex: 1, backgroundColor: COLORS.background }}
                 >
                     {/* Header for Editor */}
-                    <View style={[styles.header, { backgroundColor: '#000000', borderBottomColor: '#1a1a1a' }]}>
+                    <View style={[styles.header, { backgroundColor: COLORS.background, borderBottomColor: COLORS.border }]}>
                         <TouchableOpacity 
                             onPress={() => {
                                 if (sharedPostMetadata || sharePostId) {
@@ -772,22 +773,22 @@ export default function StoryCreatorScreen() {
                             }} 
                             style={styles.headerBtn}
                         >
-                            <Feather name="arrow-left" size={26} color="#ffffff" />
+                            <Feather name="arrow-left" size={26} color={COLORS.textPrimary} />
                         </TouchableOpacity>
-                        <Text style={[styles.headerTitle, { color: '#ffffff' }]}>New Story</Text>
+                        <Text style={[styles.headerTitle, { color: COLORS.textPrimary }]}>New Story</Text>
                         <TouchableOpacity
                             onPress={openTextEditor}
-                            style={[styles.aaHeaderBtn, { backgroundColor: '#1c1c1e' }]}
+                            style={[styles.aaHeaderBtn, { backgroundColor: COLORS.inputBg }]}
                             activeOpacity={0.8}
                         >
-                            <Text style={[styles.aaHeaderBtnText, { color: '#ffffff' }]}>Aa</Text>
+                            <Text style={[styles.aaHeaderBtnText, { color: COLORS.textPrimary }]}>Aa</Text>
                         </TouchableOpacity>
                     </View>
 
                     <ScrollView 
                         scrollEnabled={scrollEnabled}
-                        style={{ flex: 1, backgroundColor: '#000000' }}
-                        contentContainerStyle={{ paddingBottom: 40, backgroundColor: '#000000' }}
+                        style={{ flex: 1, backgroundColor: COLORS.background }}
+                        contentContainerStyle={{ paddingBottom: 40, backgroundColor: COLORS.background }}
                         keyboardShouldPersistTaps="handled"
                     >
                         {/* Preview */}
@@ -817,6 +818,7 @@ export default function StoryCreatorScreen() {
                                             <Image 
                                                 source={{ uri: sharedPostMetadata.userAvatar || 'https://www.gravatar.com/avatar/00000000000000000000000000000000?d=mp&f=y' }} 
                                                 style={styles.sharedPostCardAvatar} 
+                                                resizeMode="cover"
                                             />
                                             <Text style={styles.sharedPostCardUsername}>
                                                 {sharedPostMetadata.userName}
@@ -858,9 +860,9 @@ export default function StoryCreatorScreen() {
                         {/* Details/Tagging Sections */}
                         <View style={styles.detailsContainer}>
                             {/* SHARE TO */}
-                            <Text style={[styles.sectionTitle, { color: '#8e8e93' }]}>SHARE TO</Text>
+                            <Text style={[styles.sectionTitle, { color: COLORS.textSecondary }]}>SHARE TO</Text>
                             <TouchableOpacity 
-                                style={[styles.optionRow, { backgroundColor: '#1c1c1e', borderColor: '#2c2c2e' }]}
+                                style={[styles.optionRow, { backgroundColor: COLORS.surface, borderColor: COLORS.border }]}
                                 onPress={() => {
                                     hapticLight();
                                     setShowVisibilityModal(true);
@@ -870,38 +872,38 @@ export default function StoryCreatorScreen() {
                                     <Feather name="users" size={20} color="#fff" />
                                 </View>
                                 <View style={{ flex: 1, marginLeft: 14 }}>
-                                    <Text style={[styles.optionLabel, { color: '#ffffff' }]}>Visibility</Text>
-                                    <Text style={[styles.optionSubtitle, { color: '#a2a2a2' }]}>{visibility}</Text>
+                                    <Text style={[styles.optionLabel, { color: COLORS.textPrimary }]}>Visibility</Text>
+                                    <Text style={[styles.optionSubtitle, { color: COLORS.textSecondary }]}>{visibility}</Text>
                                 </View>
-                                <Feather name="chevron-right" size={20} color="#a2a2a2" />
+                                <Feather name="chevron-right" size={20} color={COLORS.textMuted} />
                             </TouchableOpacity>
 
                             {/* LOCATION */}
-                            <Text style={[styles.sectionTitle, { color: '#8e8e93' }]}>LOCATION</Text>
+                            <Text style={[styles.sectionTitle, { color: COLORS.textSecondary }]}>LOCATION</Text>
                             <View style={{ position: 'relative', zIndex: 100 }}>
-                                <View style={[styles.locationInputContainer, { backgroundColor: '#1c1c1e', borderColor: '#2c2c2e' }]}>
+                                <View style={[styles.locationInputContainer, { backgroundColor: COLORS.surface, borderColor: COLORS.border }]}>
                                     <Feather name="map-pin" size={18} color="#FF8D00" style={{ marginRight: 10 }} />
                                     <TextInput
-                                        style={[styles.locationInput, { color: '#ffffff' }]}
+                                        style={[styles.locationInput, { color: COLORS.textPrimary }]}
                                         placeholder="Add location..."
-                                        placeholderTextColor="#666666"
+                                        placeholderTextColor={COLORS.textMuted}
                                         value={locationQuery}
                                         onChangeText={setLocationQuery}
                                     />
                                     {locationQuery.length > 0 && (
                                         <TouchableOpacity onPress={() => { setLocationQuery(''); setSelectedLocation(null); }}>
-                                            <Feather name="x-circle" size={16} color="#a2a2a2" />
+                                            <Feather name="x-circle" size={16} color={COLORS.textMuted} />
                                         </TouchableOpacity>
                                     )}
                                 </View>
 
                                 {locationSuggestions.length > 0 && (
-                                    <View style={[styles.locationDropdown, { backgroundColor: '#1c1c1e', borderColor: '#2c2c2e' }]}>
+                                    <View style={[styles.locationDropdown, { backgroundColor: COLORS.card, borderColor: COLORS.border }]}>
                                         <ScrollView keyboardShouldPersistTaps="handled" style={{ maxHeight: 200 }}>
                                             {locationSuggestions.map((item) => (
                                                 <TouchableOpacity
                                                     key={item.placeId}
-                                                    style={[styles.locationItem, { borderBottomColor: '#2c2c2e' }]}
+                                                    style={[styles.locationItem, { borderBottomColor: COLORS.border }]}
                                                     onPress={() => {
                                                         Keyboard.dismiss();
                                                         setSelectedLocation({
@@ -915,8 +917,8 @@ export default function StoryCreatorScreen() {
                                                 >
                                                     <Feather name="map-pin" size={16} color="#FF8D00" style={{ marginRight: 8 }} />
                                                     <View style={{ flex: 1 }}>
-                                                        <Text style={[styles.locationName, { color: '#ffffff' }]}>{item.name}</Text>
-                                                        <Text style={[styles.locationAddress, { color: '#a2a2a2' }]} numberOfLines={1}>{item.address}</Text>
+                                                        <Text style={[styles.locationName, { color: COLORS.textPrimary }]}>{item.name}</Text>
+                                                        <Text style={[styles.locationAddress, { color: COLORS.textSecondary }]} numberOfLines={1}>{item.address}</Text>
                                                     </View>
                                                 </TouchableOpacity>
                                             ))}
@@ -932,9 +934,9 @@ export default function StoryCreatorScreen() {
 
                     {/* Progress Bar when uploading */}
                     {uploading && (
-                        <View style={[styles.uploadingArea, { backgroundColor: '#000000', borderTopColor: '#1a1a1a' }]}>
+                        <View style={[styles.uploadingArea, { backgroundColor: COLORS.background, borderTopColor: COLORS.border }]}>
                             <ActivityIndicator size="small" color="#FF8D00" style={{ marginBottom: 8 }} />
-                            <Text style={[styles.uploadingText, { color: '#a2a2a2' }]}>Uploading {uploadProgress}%</Text>
+                            <Text style={[styles.uploadingText, { color: COLORS.textSecondary }]}>Uploading {uploadProgress}%</Text>
                             <View style={styles.uploadingBarBg}>
                                 <View style={[styles.uploadingBar, { width: `${uploadProgress}%` }]} />
                             </View>
@@ -942,7 +944,7 @@ export default function StoryCreatorScreen() {
                     )}
 
                     {/* Share Button bottom box */}
-                    <View style={[styles.bottomBar, { backgroundColor: '#000000', borderTopColor: '#1a1a1a', paddingBottom: Math.max(insets.bottom, 16) }]}>
+                    <View style={[styles.bottomBar, { backgroundColor: COLORS.background, borderTopColor: COLORS.border, paddingBottom: Math.max(insets.bottom, 16) }]}>
                         <TouchableOpacity
                             style={[styles.shareSubmitBtn, uploading && styles.shareSubmitBtnDisabled]}
                             onPress={handleShare}

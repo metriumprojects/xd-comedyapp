@@ -33,8 +33,8 @@ const isLargeDevice = SCREEN_WIDTH >= 414;
 const ICON_SIZE = isSmallDevice ? 18 : (isLargeDevice ? 22 : 20);
 const CHEVRON_SIZE = isSmallDevice ? 18 : 20;
 
-const TAB_ACTIVE_COLOR = COLORS.black;
-const TAB_INACTIVE_COLOR = COLORS.textSecondary;
+const TAB_ACTIVE_COLOR = COLORS.textLight;
+const TAB_INACTIVE_COLOR = COLORS.textMuted;
 const TAB_LABEL_SIZE = 11;
 const TOP_MENU_HEIGHT = isSmallDevice ? 50 : 56;
 
@@ -104,11 +104,12 @@ export default function TabsLayout() {
   const openedStoryIdRef = useRef<string | null>(null);
   const isSearchScreen = pathname === '/search' || pathname.includes('/search');
   const isSavedScreen = pathname === '/saved' || pathname.includes('/saved');
-  const isHomeScreen = pathname === '/home' || pathname === '/' || pathname.includes('home');
+  const segments = useSegments();
+  const currentTab = segments[segments.length - 1];
+  const isHomeScreen = currentTab === 'home' || segments.length <= 1 || pathname === '/home' || pathname === '/' || pathname === '/(tabs)' || pathname === '/(tabs)/home';
   const hideTopOverlay = isHomeScreen || isSearchScreen || isSavedScreen;
   const insets = useSafeAreaInsets();
-  const segments = useSegments();
-  const isProfileScreen = segments[segments.length - 1] === 'profile';
+  const isProfileScreen = currentTab === 'profile';
   const currentHeaderHeight = TOP_MENU_HEIGHT;
   const currentSafeTop = Math.max(insets.top, 12);
   const totalHeaderHeight = currentHeaderHeight + currentSafeTop;
@@ -129,17 +130,14 @@ export default function TabsLayout() {
       paddingBottom: isTabBarVisible ? bottomTabLayout.bottomTabSafe : 0,
       paddingTop: isTabBarVisible ? 6 : 0,
       paddingHorizontal: isTabBarVisible ? 12 : 0,
-      backgroundColor: COLORS.white,
-      borderTopWidth: StyleSheet.hairlineWidth,
-      borderTopColor: COLORS.border,
-      elevation: 4,
-      shadowColor: '#000',
-      shadowOffset: { width: 0, height: -2 },
-      shadowOpacity: 0.05,
-      shadowRadius: 3,
+      backgroundColor: isHomeScreen ? COLORS.black : COLORS.background,
+      borderTopWidth: isHomeScreen ? 0 : StyleSheet.hairlineWidth,
+      borderTopColor: isHomeScreen ? ('transparent' as const) : COLORS.border,
+      elevation: isHomeScreen ? 0 : 2,
+      shadowOpacity: isHomeScreen ? 0 : 0.05,
       display: isTabBarVisible ? ('flex' as const) : ('none' as const),
     }),
-    [bottomTabLayout.bottomTabSafe, bottomTabLayout.height, isTabBarVisible]
+    [bottomTabLayout.bottomTabSafe, bottomTabLayout.height, isTabBarVisible, isHomeScreen]
   );
 
   const headerScrollY = useRef(new Animated.Value(0)).current;
@@ -261,7 +259,7 @@ export default function TabsLayout() {
   }, [params?.storyId]);
 
   return (
-    <View style={{ flex: 1, backgroundColor: COLORS.white }}>
+    <View style={{ flex: 1, backgroundColor: isHomeScreen ? COLORS.black : COLORS.background }}>
       {/* Non-sticky header: part of layout flow (not absolute overlay) */}
       {!hideTopOverlay && (
         <View style={{ height: totalHeaderHeight, overflow: 'hidden' }}>
@@ -277,11 +275,11 @@ export default function TabsLayout() {
               headerShown: false,
               // Header is now in-flow and animates its own height.
               sceneStyle: {
-                backgroundColor: COLORS.white,
+                backgroundColor: isHomeScreen ? COLORS.black : COLORS.background,
                 paddingTop: 0,
               },
-              tabBarActiveTintColor: TAB_ACTIVE_COLOR,
-              tabBarInactiveTintColor: TAB_INACTIVE_COLOR,
+              tabBarActiveTintColor: isHomeScreen ? TAB_ACTIVE_COLOR : COLORS.black,
+              tabBarInactiveTintColor: isHomeScreen ? TAB_INACTIVE_COLOR : COLORS.textSecondary,
               tabBarShowLabel: true,
               tabBarItemStyle: {
                 flex: 1,
