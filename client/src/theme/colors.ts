@@ -57,6 +57,9 @@ export const lightTheme = {
 
   accent: PALETTE.orangeSecondary, // #FF5A1F
   badgeYellow: PALETTE.yellowGold, // #FBBC04 (Bright Gold/Yellow for Subscription & Payout buttons)
+  warning: PALETTE.yellowFigma, // #FFD60A (Bright Signature Yellow for Subscribe buttons & VIP locks)
+  warningGold: PALETTE.yellowGold, // #FBBC04
+  warningLight: '#FFFBEB',
   danger: PALETTE.danger,
   dangerLight: PALETTE.dangerLight,
   success: PALETTE.success,
