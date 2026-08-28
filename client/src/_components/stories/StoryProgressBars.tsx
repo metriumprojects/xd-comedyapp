@@ -43,14 +43,14 @@ const styles = StyleSheet.create({
   },
   progressBarBg: {
     flex: 1,
-    height: 2,
-    backgroundColor: 'rgba(255,255,255,0.3)',
-    borderRadius: 1,
+    height: 2.5,
+    backgroundColor: 'rgba(0, 0, 0, 0.15)',
+    borderRadius: 1.5,
     overflow: 'hidden',
   },
   progressBarFill: {
     height: '100%',
-    backgroundColor: COLORS.textLight,
+    backgroundColor: COLORS.black,
   },
 });
 

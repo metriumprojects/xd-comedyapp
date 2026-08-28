@@ -33,8 +33,8 @@ const isLargeDevice = SCREEN_WIDTH >= 414;
 const ICON_SIZE = isSmallDevice ? 18 : (isLargeDevice ? 22 : 20);
 const CHEVRON_SIZE = isSmallDevice ? 18 : 20;
 
-const TAB_ACTIVE_COLOR = COLORS.textLight;
-const TAB_INACTIVE_COLOR = COLORS.textMuted;
+const TAB_ACTIVE_COLOR = COLORS.black;
+const TAB_INACTIVE_COLOR = COLORS.textSecondary;
 const TAB_LABEL_SIZE = 11;
 const TOP_MENU_HEIGHT = isSmallDevice ? 50 : 56;
 
@@ -129,11 +129,14 @@ export default function TabsLayout() {
       paddingBottom: isTabBarVisible ? bottomTabLayout.bottomTabSafe : 0,
       paddingTop: isTabBarVisible ? 6 : 0,
       paddingHorizontal: isTabBarVisible ? 12 : 0,
-      backgroundColor: COLORS.black,
-      borderTopWidth: 0,
-      borderTopColor: 'transparent' as const,
-      elevation: 0,
-      shadowOpacity: 0,
+      backgroundColor: COLORS.white,
+      borderTopWidth: StyleSheet.hairlineWidth,
+      borderTopColor: COLORS.border,
+      elevation: 4,
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: -2 },
+      shadowOpacity: 0.05,
+      shadowRadius: 3,
       display: isTabBarVisible ? ('flex' as const) : ('none' as const),
     }),
     [bottomTabLayout.bottomTabSafe, bottomTabLayout.height, isTabBarVisible]
@@ -258,7 +261,7 @@ export default function TabsLayout() {
   }, [params?.storyId]);
 
   return (
-    <View style={{ flex: 1, backgroundColor: COLORS.black }}>
+    <View style={{ flex: 1, backgroundColor: COLORS.white }}>
       {/* Non-sticky header: part of layout flow (not absolute overlay) */}
       {!hideTopOverlay && (
         <View style={{ height: totalHeaderHeight, overflow: 'hidden' }}>
@@ -274,7 +277,7 @@ export default function TabsLayout() {
               headerShown: false,
               // Header is now in-flow and animates its own height.
               sceneStyle: {
-                backgroundColor: COLORS.black,
+                backgroundColor: COLORS.white,
                 paddingTop: 0,
               },
               tabBarActiveTintColor: TAB_ACTIVE_COLOR,

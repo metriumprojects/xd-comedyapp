@@ -676,7 +676,7 @@ export default function StoriesViewer({ stories, onClose, initialIndex = 0, isHi
   // Navigation is handled by useStories hook
 
   return (
-    <View style={{ flex: 1, backgroundColor: COLORS.black }}>
+    <View style={{ flex: 1, backgroundColor: COLORS.white }}>
       <KeyboardAvoidingView
         style={{ flex: 1 }}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
@@ -693,7 +693,7 @@ export default function StoriesViewer({ stories, onClose, initialIndex = 0, isHi
           }}
           style={{ flex: 1 }}
         >
-          <View key={currentStory.id} style={{ flex: 1, backgroundColor: COLORS.black, position: 'relative' }}>
+          <View key={currentStory.id} style={{ flex: 1, backgroundColor: COLORS.white, position: 'relative' }}>
             {/* Instagram-like: never show a spinner/skeleton in viewer.
                 Show an instant blurred placeholder while media decodes. */}
             {imageLoading && (
@@ -839,7 +839,7 @@ export default function StoriesViewer({ stories, onClose, initialIndex = 0, isHi
                     />
                   ) : (
                     <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-                      <Text style={{ color: COLORS.textLight, fontSize: 14 }}>Story media unavailable</Text>
+                      <Text style={{ color: COLORS.textPrimary, fontSize: 14 }}>Story media unavailable</Text>
                     </View>
                   )}
                 </View>
@@ -852,7 +852,7 @@ export default function StoriesViewer({ stories, onClose, initialIndex = 0, isHi
 
         {/* Absolute Top Overlay (Progress & Header) */}
         <View style={[viewerStyles.topOverlay, { paddingTop: paddingTop }]}>
-          <LinearGradient colors={['rgba(0,0,0,0.7)', 'transparent']} style={StyleSheet.absoluteFillObject} pointerEvents="none" />
+          <LinearGradient colors={['rgba(255,255,255,0.95)', 'rgba(255,255,255,0.5)', 'transparent']} style={StyleSheet.absoluteFillObject} pointerEvents="none" />
 
           <StoryProgressBars
             storiesCount={localStories.length}
@@ -891,14 +891,14 @@ export default function StoriesViewer({ stories, onClose, initialIndex = 0, isHi
             <View style={viewerStyles.headerActions}>
               {(currentStory.videoUrl || currentStory.mediaType === 'video') && (
                 <TouchableOpacity onPress={() => setIsMuted(m => !m)} style={viewerStyles.headerIcon}>
-                  <Feather name={isMuted ? 'volume-x' : 'volume-2'} size={20} color={COLORS.textLight} />
+                  <Feather name={isMuted ? 'volume-x' : 'volume-2'} size={20} color={COLORS.black} />
                 </TouchableOpacity>
               )}
               <TouchableOpacity onPress={() => setIsPaused(!isPaused)} style={viewerStyles.headerIcon}>
-                <Feather name={isPaused ? "play" : "pause"} size={20} color={COLORS.textLight} />
+                <Feather name={isPaused ? "play" : "pause"} size={20} color={COLORS.black} />
               </TouchableOpacity>
               <TouchableOpacity onPress={onClose} style={viewerStyles.headerIcon}>
-                <Feather name="x" size={26} color={COLORS.textLight} />
+                <Feather name="x" size={26} color={COLORS.black} />
               </TouchableOpacity>
             </View>
           </View>
@@ -914,7 +914,7 @@ export default function StoriesViewer({ stories, onClose, initialIndex = 0, isHi
 
         {/* Footer Actions */}
         <View style={[viewerStyles.footer, { paddingBottom: Math.max(insets.bottom, 20) }]}>
-          <LinearGradient colors={['transparent', 'rgba(0,0,0,0.85)']} style={StyleSheet.absoluteFillObject} pointerEvents="none" />
+          <LinearGradient colors={['transparent', 'rgba(255,255,255,0.5)', 'rgba(255,255,255,0.95)']} style={StyleSheet.absoluteFillObject} pointerEvents="none" />
 
           <View style={viewerStyles.footerIconsRow}>
 
@@ -969,23 +969,23 @@ export default function StoriesViewer({ stories, onClose, initialIndex = 0, isHi
                 }}
                 style={viewerStyles.footerIconBtn}
               >
-                <Feather name="trash-2" size={24} color={COLORS.textLight} />
+                <Feather name="trash-2" size={24} color={COLORS.black} />
               </TouchableOpacity>
             )}
 
             {isOwnCurrentStory && !isHighlight && (
               <TouchableOpacity onPress={handleOpenHighlightModal} style={viewerStyles.footerIconBtn} accessibilityLabel="Add to highlight">
-                <Feather name="chevrons-up" size={24} color={COLORS.textLight} />
+                <Feather name="chevrons-up" size={24} color={COLORS.black} />
               </TouchableOpacity>
             )}
 
             <View style={viewerStyles.footerIconBtnRow}>
-              <Feather name="image" size={22} color={COLORS.textLight} />
+              <Feather name="image" size={22} color={COLORS.black} />
               <Text style={viewerStyles.footerIconText}>{`${currentIndex + 1}/${localStories.length}`}</Text>
             </View>
 
             <TouchableOpacity onPress={() => { setIsPaused(true); setShowComments(true); }} style={viewerStyles.footerIconBtnRow}>
-              <MaterialCommunityIcons name="comment-outline" size={24} color={COLORS.textLight} />
+              <MaterialCommunityIcons name="comment-outline" size={24} color={COLORS.black} />
               <Text style={viewerStyles.footerIconText}>{currentStory.comments?.length || 0}</Text>
             </TouchableOpacity>
 
@@ -993,13 +993,13 @@ export default function StoriesViewer({ stories, onClose, initialIndex = 0, isHi
               {isLiked ? (
                 <Ionicons name="heart" size={24} color="#e74c3c" />
               ) : (
-                <Feather name="heart" size={24} color={COLORS.textLight} strokeWidth={2.5} />
+                <Feather name="heart" size={24} color={COLORS.black} strokeWidth={2.5} />
               )}
               <Text style={viewerStyles.footerIconText}>{likesCount}</Text>
             </TouchableOpacity>
 
             <TouchableOpacity onPress={() => setShowShareModal(true)} style={viewerStyles.footerIconBtn}>
-              <Feather name="send" size={24} color={COLORS.textLight} />
+              <Feather name="send" size={24} color={COLORS.black} />
             </TouchableOpacity>
           </View>
         </View>
@@ -1204,7 +1204,7 @@ const viewerStyles = StyleSheet.create({
   fullScreenMedia: {
     width: width,
     height: '100%',
-    backgroundColor: COLORS.black,
+    backgroundColor: COLORS.white,
   },
   postCard: {
     width: width * 0.85,
@@ -1212,9 +1212,11 @@ const viewerStyles = StyleSheet.create({
     borderRadius: 12,
     overflow: 'hidden',
     shadowColor: COLORS.black,
-    shadowOpacity: 0.3,
+    shadowOpacity: 0.1,
     shadowRadius: 15,
-    elevation: 20,
+    elevation: 10,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: COLORS.border,
   },
   postCardHeader: {
     flexDirection: 'row',
@@ -1228,7 +1230,7 @@ const viewerStyles = StyleSheet.create({
     height: 28,
     borderRadius: 14,
     marginRight: 8,
-    backgroundColor: '#2c2c2e',
+    backgroundColor: COLORS.inputBg,
   },
   postCardUsername: {
     fontSize: 13,
@@ -1238,7 +1240,7 @@ const viewerStyles = StyleSheet.create({
   postCardImage: {
     width: '100%',
     aspectRatio: 1,
-    backgroundColor: '#1c1c1e',
+    backgroundColor: COLORS.surface,
   },
   postCardFooter: {
     padding: 12,
@@ -1264,14 +1266,14 @@ const viewerStyles = StyleSheet.create({
   },
   progressBarBg: {
     flex: 1,
-    height: 2,
-    backgroundColor: 'rgba(255,255,255,0.3)',
-    borderRadius: 1,
+    height: 2.5,
+    backgroundColor: 'rgba(0,0,0,0.15)',
+    borderRadius: 1.5,
     overflow: 'hidden',
   },
   progressBarFill: {
     height: '100%',
-    backgroundColor: COLORS.textLight,
+    backgroundColor: COLORS.black,
   },
   header: {
     flexDirection: 'row',
@@ -1289,7 +1291,7 @@ const viewerStyles = StyleSheet.create({
     borderRadius: 19,
     marginRight: 10,
     borderWidth: 1.5,
-    borderColor: COLORS.textLight,
+    borderColor: COLORS.border,
   },
   headerLocation: {
     color: COLORS.primary,
@@ -1297,22 +1299,16 @@ const viewerStyles = StyleSheet.create({
     fontSize: 10,
     textTransform: 'uppercase',
     letterSpacing: 0.5,
-    textShadowColor: 'rgba(0,0,0,0.6)',
-    textShadowRadius: 3,
     marginBottom: 2,
   },
   headerName: {
-    color: COLORS.textLight,
+    color: COLORS.black,
     fontWeight: '700',
     fontSize: 14,
-    textShadowColor: 'rgba(0,0,0,0.5)',
-    textShadowRadius: 3,
   },
   headerTime: {
-    color: COLORS.surface,
+    color: COLORS.textSecondary,
     fontSize: 12,
-    textShadowColor: 'rgba(0,0,0,0.5)',
-    textShadowRadius: 2,
   },
   headerActions: {
     flexDirection: 'row',
@@ -1359,7 +1355,7 @@ const viewerStyles = StyleSheet.create({
     gap: 4,
   },
   footerIconText: {
-    color: COLORS.textLight,
+    color: COLORS.black,
     fontSize: 12,
     fontWeight: '600',
   },
