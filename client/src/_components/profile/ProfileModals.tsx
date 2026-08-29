@@ -120,6 +120,7 @@ interface UserMenuModalProps {
   onShare: () => void;
   isSubscribed?: boolean;
   onCancelSubscription?: () => void;
+  onManageSubscription?: () => void;
 }
 
 export const UserMenuModal: React.FC<UserMenuModalProps> = ({
@@ -131,6 +132,7 @@ export const UserMenuModal: React.FC<UserMenuModalProps> = ({
   onShare,
   isSubscribed,
   onCancelSubscription,
+  onManageSubscription,
 }) => {
   return (
     <Modal
@@ -169,6 +171,25 @@ export const UserMenuModal: React.FC<UserMenuModalProps> = ({
                 </TouchableOpacity>
 
                 <View style={styles.menuSeparator} />
+
+                {isSubscribed && onManageSubscription && (
+                  <>
+                    <TouchableOpacity 
+                      style={styles.menuItem} 
+                      onPress={() => {
+                        onClose();
+                        onManageSubscription();
+                      }}
+                    >
+                      <View style={[styles.menuIconContainer, { backgroundColor: '#FFFBEA' }]}>
+                        <Feather name="star" size={18} color="#FFB800" />
+                      </View>
+                      <Text style={styles.menuItemText}>Manage Subscription</Text>
+                    </TouchableOpacity>
+
+                    <View style={styles.menuSeparator} />
+                  </>
+                )}
 
                 {isSubscribed && onCancelSubscription && (
                   <>

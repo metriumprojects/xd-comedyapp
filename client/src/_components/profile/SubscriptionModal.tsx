@@ -28,6 +28,7 @@ interface SubscriptionModalProps {
   creatorId: string;
   onSubscriptionChange?: (subscribed: boolean) => void;
   initialTierId?: string;
+  autoPromptCancel?: boolean;
 }
 
 export interface SubscriptionData {
@@ -45,6 +46,7 @@ export const SubscriptionModal: React.FC<SubscriptionModalProps> = ({
   creatorId,
   onSubscriptionChange,
   initialTierId,
+  autoPromptCancel,
 }) => {
   const { initPaymentSheet, presentPaymentSheet } = useStripe();
 
@@ -453,8 +455,24 @@ export const SubscriptionModal: React.FC<SubscriptionModalProps> = ({
     creatorId,
     onSubscriptionChange,
     activeTierIds,
-    subscriptions
   ]);
+
+  const hasAutoPromptedRef = useRef(false);
+
+  useEffect(() => {
+    if (!visible) {
+      hasAutoPromptedRef.current = false;
+      return;
+    }
+
+    if (autoPromptCancel && !hasAutoPromptedRef.current && selectedTier && isSelectedTierSubscribed && !isSelectedTierCancelAtPeriodEnd) {
+      hasAutoPromptedRef.current = true;
+      const timer = setTimeout(() => {
+        handleSubscribeToggle();
+      }, 400);
+      return () => clearTimeout(timer);
+    }
+  }, [visible, autoPromptCancel, selectedTier?._id, isSelectedTierSubscribed, isSelectedTierCancelAtPeriodEnd, handleSubscribeToggle]);
 
   const renderForm = () => (
     <ScrollView style={styles.scroll} showsVerticalScrollIndicator={false}>

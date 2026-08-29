@@ -98,6 +98,7 @@ interface ProfileModalsProps {
   // Subscription
   isSubscribed?: boolean;
   onCancelSubscription?: () => void;
+  onManageSubscription?: () => void;
 }
 
 const ProfileModals: React.FC<ProfileModalsProps> = (props) => {
@@ -110,7 +111,7 @@ const ProfileModals: React.FC<ProfileModalsProps> = (props) => {
     commentModalVisible, commentModalPostId, commentModalAvatar, posts, getKeyboardOffset, getModalHeight,
     viewedUserId, editSectionsModal, setEditSectionsModal, refetchAll,
     userMenuVisible, setUserMenuVisible, handleBlockUser, handleReportUser, shareProfile,
-    isSubscribed, onCancelSubscription,
+    isSubscribed, onCancelSubscription, onManageSubscription,
     showUploadModal, setShowUploadModal, selectedMedia, setSelectedMedia, locationQuery, setLocationQuery, locationSuggestions, setLocationSuggestions,
     uploading, setUploading, uploadProgress, setUploadProgress, showSuccess,
     highlightViewerVisible, setHighlightViewerVisible, selectedHighlightId,
@@ -262,6 +263,7 @@ const ProfileModals: React.FC<ProfileModalsProps> = (props) => {
         }}
         isSubscribed={isSubscribed}
         onCancelSubscription={onCancelSubscription}
+        onManageSubscription={onManageSubscription}
       />
 
       {/* Story Upload Modal */}
