@@ -224,7 +224,6 @@ export default function Profile({ userIdProp }: any) {
   const [storiesViewerVisible, setStoriesViewerVisible] = useState(false);
   const [subModalVisible, setSubModalVisible] = useState(false);
   const [selectedTierForModal, setSelectedTierForModal] = useState<string | undefined>(undefined);
-  const [autoPromptCancelModal, setAutoPromptCancelModal] = useState(false);
   /** Instagram-style: tap profile photo to view full-screen (when not opening stories). */
   const [avatarPreviewUri, setAvatarPreviewUri] = useState<string | null>(null);
   const [settingsModalVisible, setSettingsModalVisible] = useState(false);
@@ -1241,59 +1240,7 @@ export default function Profile({ userIdProp }: any) {
           isSubscribed: isSubscribed || activeSubscribedTierIds.length > 0,
           onManageSubscription: () => {
             setSelectedTierForModal(undefined);
-            setAutoPromptCancelModal(false);
             setSubModalVisible(true);
-          },
-          onCancelSubscription: () => {
-            // Only active tiers that haven't been canceled yet
-            const cancellable = creatorTiers.filter((t: any) => {
-              if (!activeSubscribedTierIds.includes(t._id)) return false;
-              const sub = userSubscriptions.find((s: any) => String(s.tierId) === String(t._id));
-              if (sub && sub.cancelAtPeriodEnd) return false;
-              return true;
-            });
-
-            if (cancellable.length === 0) {
-              Alert.alert(
-                'Already Canceled',
-                'Your subscription has already been canceled and will end at the end of your billing period.'
-              );
-              return;
-            }
-
-            if (cancellable.length === 1) {
-              // Open modal with this tier pre-selected and auto-prompt cancellation confirmation
-              setSelectedTierForModal(cancellable[0]._id);
-              setAutoPromptCancelModal(true);
-              setSubModalVisible(true);
-              return;
-            }
-
-            // Multiple cancellable tiers: let the user choose which one to view/cancel
-            const buttons: any[] = cancellable.map((t: any) => ({
-              text: `Cancel "${t.title}"`,
-              style: 'destructive',
-              onPress: () => {
-                setSelectedTierForModal(t._id);
-                setAutoPromptCancelModal(true);
-                setSubModalVisible(true);
-              }
-            }));
-            buttons.push({
-              text: 'Manage Memberships',
-              onPress: () => {
-                setSelectedTierForModal(undefined);
-                setAutoPromptCancelModal(false);
-                setSubModalVisible(true);
-              }
-            });
-            buttons.push({ text: 'Dismiss', style: 'cancel' });
-
-            Alert.alert(
-              'Cancel Subscription',
-              'Which subscription would you like to cancel?',
-              buttons
-            );
           },
           showUploadModal, setShowUploadModal, selectedMedia, setSelectedMedia, locationQuery, setLocationQuery, locationSuggestions, setLocationSuggestions,
           uploading, setUploading, uploadProgress, setUploadProgress, showSuccess,
@@ -1308,10 +1255,8 @@ export default function Profile({ userIdProp }: any) {
         onClose={() => {
           setSubModalVisible(false);
           setSelectedTierForModal(undefined);
-          setAutoPromptCancelModal(false);
         }}
         initialTierId={selectedTierForModal}
-        autoPromptCancel={autoPromptCancelModal}
         isOwnProfile={isOwnProfile}
         creatorId={profile?._id || profile?.id || viewedUserId || 'unknown'}
         onSubscriptionChange={(subscribed) => {

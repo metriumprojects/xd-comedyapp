@@ -28,7 +28,6 @@ interface SubscriptionModalProps {
   creatorId: string;
   onSubscriptionChange?: (subscribed: boolean) => void;
   initialTierId?: string;
-  autoPromptCancel?: boolean;
 }
 
 export interface SubscriptionData {
@@ -46,7 +45,6 @@ export const SubscriptionModal: React.FC<SubscriptionModalProps> = ({
   creatorId,
   onSubscriptionChange,
   initialTierId,
-  autoPromptCancel,
 }) => {
   const { initPaymentSheet, presentPaymentSheet } = useStripe();
 
@@ -457,23 +455,6 @@ export const SubscriptionModal: React.FC<SubscriptionModalProps> = ({
     activeTierIds,
   ]);
 
-  const hasAutoPromptedRef = useRef(false);
-
-  useEffect(() => {
-    if (!visible) {
-      hasAutoPromptedRef.current = false;
-      return;
-    }
-
-    if (autoPromptCancel && !hasAutoPromptedRef.current && selectedTier && isSelectedTierSubscribed && !isSelectedTierCancelAtPeriodEnd) {
-      hasAutoPromptedRef.current = true;
-      const timer = setTimeout(() => {
-        handleSubscribeToggle();
-      }, 400);
-      return () => clearTimeout(timer);
-    }
-  }, [visible, autoPromptCancel, selectedTier?._id, isSelectedTierSubscribed, isSelectedTierCancelAtPeriodEnd, handleSubscribeToggle]);
-
   const renderForm = () => (
     <ScrollView style={styles.scroll} showsVerticalScrollIndicator={false}>
       <View style={styles.inputContainer}>
@@ -725,35 +706,66 @@ export const SubscriptionModal: React.FC<SubscriptionModalProps> = ({
           )}
 
           {!resolvedIsOwnProfile ? (
-            <TouchableOpacity 
-              style={[
-                styles.subscribeBtn, 
-                isSelectedTierSubscribed && styles.subscribedBtnActive,
-                isSelectedTierCancelAtPeriodEnd && { backgroundColor: '#6c757d', borderColor: '#6c757d' },
-                (isPaymentLoading || isLoading) && { opacity: 0.6 },
-              ]} 
-              onPress={handleSubscribeToggle}
-              disabled={isPaymentLoading || isLoading || isSelectedTierCancelAtPeriodEnd}
-              activeOpacity={0.8}
-            >
-              {isPaymentLoading ? (
-                <ActivityIndicator color={isSelectedTierSubscribed ? COLORS.textLight : COLORS.black} size="small" />
-              ) : (
+            <View style={{ width: '100%' }}>
+              {isSelectedTierSubscribed ? (
                 <>
-                  <Feather 
-                    name={isSelectedTierCancelAtPeriodEnd ? "clock" : (isSelectedTierSubscribed ? "check" : "star")} 
-                    size={16} 
-                    color={isSelectedTierSubscribed ? COLORS.textLight : COLORS.black} 
-                    style={{ marginRight: 8 }} 
-                  />
-                  <Text style={[styles.subscribeBtnText, isSelectedTierSubscribed && styles.subscribedBtnTextActive]}>
-                    {isSelectedTierCancelAtPeriodEnd 
-                      ? 'Canceled' 
-                      : (isSelectedTierSubscribed ? 'Subscribed' : 'Subscribe')}
-                  </Text>
+                  <View 
+                    style={[
+                      styles.subscribeBtn, 
+                      styles.subscribedBtnActive,
+                      isSelectedTierCancelAtPeriodEnd && { backgroundColor: '#6c757d', borderColor: '#6c757d' },
+                    ]}
+                  >
+                    <Feather 
+                      name={isSelectedTierCancelAtPeriodEnd ? "clock" : "check"} 
+                      size={16} 
+                      color={COLORS.textLight} 
+                      style={{ marginRight: 8 }} 
+                    />
+                    <Text style={[styles.subscribeBtnText, styles.subscribedBtnTextActive]}>
+                      {isSelectedTierCancelAtPeriodEnd ? 'Canceled (Active until period end)' : 'Subscribed'}
+                    </Text>
+                  </View>
+
+                  {!isSelectedTierCancelAtPeriodEnd && (
+                    <TouchableOpacity
+                      style={styles.cancelSubscriptionBtn}
+                      onPress={handleSubscribeToggle}
+                      disabled={isLoading}
+                      activeOpacity={0.7}
+                    >
+                      {isLoading ? (
+                        <ActivityIndicator size="small" color={COLORS.danger} />
+                      ) : (
+                        <>
+                          <Feather name="x-circle" size={15} color={COLORS.danger} style={{ marginRight: 6 }} />
+                          <Text style={styles.cancelSubscriptionBtnText}>Cancel Subscription</Text>
+                        </>
+                      )}
+                    </TouchableOpacity>
+                  )}
                 </>
+              ) : (
+                <TouchableOpacity 
+                  style={[
+                    styles.subscribeBtn, 
+                    (isPaymentLoading || isLoading) && { opacity: 0.6 },
+                  ]} 
+                  onPress={handleSubscribeToggle}
+                  disabled={isPaymentLoading || isLoading}
+                  activeOpacity={0.8}
+                >
+                  {isPaymentLoading ? (
+                    <ActivityIndicator color={COLORS.black} size="small" />
+                  ) : (
+                    <>
+                      <Feather name="star" size={16} color={COLORS.black} style={{ marginRight: 8 }} />
+                      <Text style={styles.subscribeBtnText}>Subscribe</Text>
+                    </>
+                  )}
+                </TouchableOpacity>
               )}
-            </TouchableOpacity>
+            </View>
           ) : (
             <View style={{ gap: 10 }}>
               <TouchableOpacity style={styles.editBtn} onPress={handleEdit}>
@@ -1136,6 +1148,23 @@ const styles = StyleSheet.create({
   },
   subscribedBtnTextActive: {
     color: COLORS.textLight,
+  },
+  cancelSubscriptionBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 12,
+    paddingVertical: 11,
+    paddingHorizontal: 16,
+    borderRadius: 24,
+    borderWidth: 1,
+    borderColor: 'rgba(231, 76, 60, 0.35)',
+    backgroundColor: '#FFF5F5',
+  },
+  cancelSubscriptionBtnText: {
+    color: COLORS.danger,
+    fontSize: 14,
+    fontWeight: '600',
   },
   editBtn: {
     backgroundColor: COLORS.black,
