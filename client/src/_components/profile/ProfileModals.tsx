@@ -1,4 +1,4 @@
-import React, { useRef } from 'react';
+import React, { useRef, useEffect } from 'react';
 import {
   Modal,
   View,
@@ -9,7 +9,8 @@ import {
   Dimensions,
   Image,
   Share,
-  Platform
+  Platform,
+  Animated,
 } from 'react-native';
 import { Feather, Ionicons } from '@expo/vector-icons';
 import { hapticLight } from '@/lib/haptics';
@@ -132,43 +133,56 @@ export const UserMenuModal: React.FC<UserMenuModalProps> = ({
   isSubscribed,
   onManageSubscription,
 }) => {
-  const pendingActionRef = useRef<(() => void) | null>(null);
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+  const slideAnim = useRef(new Animated.Value(300)).current;
 
-  const handleDismiss = () => {
-    if (pendingActionRef.current) {
-      const action = pendingActionRef.current;
-      pendingActionRef.current = null;
-      action();
+  useEffect(() => {
+    if (visible) {
+      Animated.parallel([
+        Animated.timing(fadeAnim, {
+          toValue: 1,
+          duration: 180,
+          useNativeDriver: true,
+        }),
+        Animated.timing(slideAnim, {
+          toValue: 0,
+          duration: 220,
+          useNativeDriver: true,
+        }),
+      ]).start();
+    } else {
+      fadeAnim.setValue(0);
+      slideAnim.setValue(300);
     }
-  };
+  }, [visible]);
 
-  const executeAfterClose = (action: () => void) => {
-    pendingActionRef.current = action;
-    onClose();
-    // Fallback for Android or if onDismiss doesn't fire
-    setTimeout(() => {
-      if (pendingActionRef.current) {
-        const fallbackAction = pendingActionRef.current;
-        pendingActionRef.current = null;
-        fallbackAction();
-      }
-    }, 400);
+  if (!visible) return null;
+
+  const handleClose = () => {
+    Animated.parallel([
+      Animated.timing(fadeAnim, {
+        toValue: 0,
+        duration: 150,
+        useNativeDriver: true,
+      }),
+      Animated.timing(slideAnim, {
+        toValue: 300,
+        duration: 180,
+        useNativeDriver: true,
+      }),
+    ]).start(() => {
+      onClose();
+    });
   };
 
   return (
-    <Modal
-      visible={visible}
-      transparent={true}
-      animationType="fade"
-      onRequestClose={onClose}
-      onDismiss={handleDismiss}
-    >
+    <Animated.View style={[styles.menuOverlayWrapper, { opacity: fadeAnim }]}>
       <TouchableOpacity 
         style={styles.menuOverlay} 
         activeOpacity={1} 
-        onPress={onClose}
+        onPress={handleClose}
       >
-        <View style={styles.menuSheet}>
+        <Animated.View style={[styles.menuSheet, { transform: [{ translateY: slideAnim }] }]}>
           <View style={styles.menuSheetContent}>
             <View style={styles.handleContainer}>
               <View style={styles.menuHandle} />
@@ -176,7 +190,13 @@ export const UserMenuModal: React.FC<UserMenuModalProps> = ({
 
             {!isOwnProfile && (
               <>
-                <TouchableOpacity style={styles.menuItem} onPress={onReport}>
+                <TouchableOpacity 
+                  style={styles.menuItem} 
+                  onPress={() => {
+                    onClose();
+                    onReport();
+                  }}
+                >
                   <View style={[styles.menuIconContainer, { backgroundColor: COLORS.primaryLight }]}>
                     <Feather name="flag" size={18} color={COLORS.danger} />
                   </View>
@@ -185,7 +205,13 @@ export const UserMenuModal: React.FC<UserMenuModalProps> = ({
 
                 <View style={styles.menuSeparator} />
 
-                <TouchableOpacity style={styles.menuItem} onPress={onBlock}>
+                <TouchableOpacity 
+                  style={styles.menuItem} 
+                  onPress={() => {
+                    onClose();
+                    onBlock();
+                  }}
+                >
                   <View style={[styles.menuIconContainer, { backgroundColor: COLORS.inputBg }]}>
                     <Feather name="slash" size={18} color={COLORS.textPrimary} />
                   </View>
@@ -199,9 +225,8 @@ export const UserMenuModal: React.FC<UserMenuModalProps> = ({
                     <TouchableOpacity 
                       style={styles.menuItem} 
                       onPress={() => {
-                        executeAfterClose(() => {
-                          onManageSubscription();
-                        });
+                        onClose();
+                        onManageSubscription();
                       }}
                     >
                       <View style={[styles.menuIconContainer, { backgroundColor: '#FFFBEA' }]}>
@@ -216,7 +241,13 @@ export const UserMenuModal: React.FC<UserMenuModalProps> = ({
               </>
             )}
 
-            <TouchableOpacity style={styles.menuItem} onPress={onShare}>
+            <TouchableOpacity 
+              style={styles.menuItem} 
+              onPress={() => {
+                onClose();
+                onShare();
+              }}
+            >
               <View style={[styles.menuIconContainer, { backgroundColor: COLORS.primaryLight }]}>
                 <Feather name="share-2" size={18} color={COLORS.info} />
               </View>
@@ -225,18 +256,23 @@ export const UserMenuModal: React.FC<UserMenuModalProps> = ({
 
             <TouchableOpacity 
               style={styles.menuCancelBtn} 
-              onPress={onClose}
+              onPress={handleClose}
             >
               <Text style={styles.menuCancelText}>Cancel</Text>
             </TouchableOpacity>
           </View>
-        </View>
+        </Animated.View>
       </TouchableOpacity>
-    </Modal>
+    </Animated.View>
   );
 };
 
 const styles = StyleSheet.create({
+  menuOverlayWrapper: {
+    ...StyleSheet.absoluteFillObject,
+    zIndex: 9999,
+    elevation: 9999,
+  },
   menuOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.4)',
