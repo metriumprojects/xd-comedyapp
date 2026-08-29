@@ -233,6 +233,7 @@ export default function Profile({ userIdProp }: any) {
   const [createHighlightVisible, setCreateHighlightVisible] = useState(false);
   const [creatorTiers, setCreatorTiers] = useState<any[]>([]);
   const [activeSubscribedTierIds, setActiveSubscribedTierIds] = useState<string[]>([]);
+  const [userSubscriptions, setUserSubscriptions] = useState<any[]>([]);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [currentUserUidAlias, setCurrentUserUidAlias] = useState<string | null>(null);
   const [currentUserFirebaseAlias, setCurrentUserFirebaseAlias] = useState<string | null>(null);
@@ -399,6 +400,7 @@ export default function Profile({ userIdProp }: any) {
             
             const activeTiers = statusResponse.data.activeTierIds || [];
             setActiveSubscribedTierIds(activeTiers);
+            setUserSubscriptions(statusResponse.data.subscriptions || []);
 
             // Sync cache
             await AsyncStorage.setItem(`sub_subscribed_${currentUserId}_to_${creatorId}`, freshSubscribed ? 'true' : 'false');
@@ -426,6 +428,7 @@ export default function Profile({ userIdProp }: any) {
           if (statusResponse.success) {
             setIsSubscribed(statusResponse.data.isSubscribed);
             setActiveSubscribedTierIds(statusResponse.data.activeTierIds || []);
+            setUserSubscriptions(statusResponse.data.subscriptions || []);
           } else {
             setIsSubscribed(true);
           }
@@ -1236,37 +1239,93 @@ export default function Profile({ userIdProp }: any) {
           userMenuVisible, setUserMenuVisible, handleBlockUser, handleReportUser, shareProfile,
           isSubscribed: isSubscribed || activeSubscribedTierIds.length > 0,
           onCancelSubscription: () => {
-            if (activeSubscribedTierIds.length > 1) {
-              const subscribedTiers = creatorTiers.filter((t: any) => activeSubscribedTierIds.includes(t._id));
-              const buttons: any[] = subscribedTiers.map((t: any) => ({
-                text: `Cancel "${t.title}"`,
-                style: 'destructive',
-                onPress: () => {
-                  setSelectedTierForModal(t._id);
-                  setSubModalVisible(true);
-                }
-              }));
-              buttons.push({
-                text: 'Manage Memberships',
-                onPress: () => {
-                  setSelectedTierForModal(undefined);
-                  setSubModalVisible(true);
-                }
-              });
-              buttons.push({ text: 'Dismiss', style: 'cancel' });
+            // Only active tiers that haven't been canceled yet
+            const cancellable = creatorTiers.filter((t: any) => {
+              if (!activeSubscribedTierIds.includes(t._id)) return false;
+              const sub = userSubscriptions.find((s: any) => String(s.tierId) === String(t._id));
+              if (sub && sub.cancelAtPeriodEnd) return false;
+              return true;
+            });
+
+            if (cancellable.length === 0) {
+              Alert.alert(
+                'Already Canceled',
+                'Your subscription has already been canceled and will end at the end of your billing period.'
+              );
+              return;
+            }
+
+            const confirmAndCancel = (tier: any) => {
+              const creatorId = profile?._id || profile?.id || viewedUserId;
+              const sub = userSubscriptions.find((s: any) => String(s.tierId) === String(tier._id));
+              const periodEndDate = sub?.currentPeriodEnd ? new Date(sub.currentPeriodEnd).toLocaleDateString() : 'the end of your billing period';
 
               Alert.alert(
                 'Cancel Subscription',
-                'Which subscription would you like to cancel?',
-                buttons
+                `Are you sure you want to cancel your subscription to "${tier.title}"? You will keep full access until ${periodEndDate}.`,
+                [
+                  { text: 'Keep Subscription', style: 'cancel' },
+                  {
+                    text: 'Yes, Cancel',
+                    style: 'destructive',
+                    onPress: async () => {
+                      if (!sub?.id) {
+                        setSelectedTierForModal(tier._id);
+                        setSubModalVisible(true);
+                        return;
+                      }
+
+                      try {
+                        const res = await subscriptionService.cancelSubscription(sub.id);
+                        if (res.success) {
+                          Alert.alert(
+                            'Subscription Canceled',
+                            `Your subscription to "${tier.title}" has been canceled. You have full access until ${periodEndDate}.`
+                          );
+                          if (creatorId) {
+                            const statusRes = await subscriptionService.checkSubscriptionStatus(creatorId);
+                            if (statusRes.success && statusRes.data) {
+                              setIsSubscribed(statusRes.data.isSubscribed);
+                              setActiveSubscribedTierIds(statusRes.data.activeTierIds || []);
+                              setUserSubscriptions(statusRes.data.subscriptions || []);
+                            }
+                          }
+                        } else {
+                          Alert.alert('Error', (res as any)?.error || 'Failed to cancel subscription.');
+                        }
+                      } catch (err: any) {
+                        Alert.alert('Error', err?.response?.data?.error || err?.message || 'Failed to cancel subscription.');
+                      }
+                    }
+                  }
+                ]
               );
-            } else if (activeSubscribedTierIds.length === 1) {
-              setSelectedTierForModal(activeSubscribedTierIds[0]);
-              setSubModalVisible(true);
-            } else {
-              setSelectedTierForModal(undefined);
-              setSubModalVisible(true);
+            };
+
+            if (cancellable.length === 1) {
+              confirmAndCancel(cancellable[0]);
+              return;
             }
+
+            const buttons: any[] = cancellable.map((t: any) => ({
+              text: `Cancel "${t.title}"`,
+              style: 'destructive',
+              onPress: () => confirmAndCancel(t)
+            }));
+            buttons.push({
+              text: 'Manage Memberships',
+              onPress: () => {
+                setSelectedTierForModal(undefined);
+                setSubModalVisible(true);
+              }
+            });
+            buttons.push({ text: 'Dismiss', style: 'cancel' });
+
+            Alert.alert(
+              'Cancel Subscription',
+              'Which subscription would you like to cancel?',
+              buttons
+            );
           },
           showUploadModal, setShowUploadModal, selectedMedia, setSelectedMedia, locationQuery, setLocationQuery, locationSuggestions, setLocationSuggestions,
           uploading, setUploading, uploadProgress, setUploadProgress, showSuccess,
@@ -1292,6 +1351,7 @@ export default function Profile({ userIdProp }: any) {
               .then((res) => {
                 if (res.success && res.data) {
                   setActiveSubscribedTierIds(res.data.activeTierIds || []);
+                  setUserSubscriptions(res.data.subscriptions || []);
                 }
               })
               .catch(() => {});
