@@ -289,6 +289,14 @@ export const SubscriptionModal: React.FC<SubscriptionModalProps> = ({
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
 
     if (isSelectedTierSubscribed) {
+      if (isSelectedTierCancelAtPeriodEnd) {
+        Alert.alert(
+          'Already Canceled',
+          `Your subscription to ${selectedTier.title} has already been canceled. You will continue to have full access until ${selectedTierPeriodEnd ? new Date(selectedTierPeriodEnd).toLocaleDateString() : 'the end of your billing period'}.`
+        );
+        return;
+      }
+
       if (!selectedSubscriptionId) {
         Alert.alert('Error', 'No active subscription found to cancel.');
         return;
@@ -703,20 +711,27 @@ export const SubscriptionModal: React.FC<SubscriptionModalProps> = ({
               style={[
                 styles.subscribeBtn, 
                 isSelectedTierSubscribed && styles.subscribedBtnActive,
+                isSelectedTierCancelAtPeriodEnd && { backgroundColor: '#6c757d', borderColor: '#6c757d' },
                 (isPaymentLoading || isLoading) && { opacity: 0.6 },
               ]} 
               onPress={handleSubscribeToggle}
-              disabled={isPaymentLoading || isLoading}
+              disabled={isPaymentLoading || isLoading || isSelectedTierCancelAtPeriodEnd}
+              activeOpacity={0.8}
             >
               {isPaymentLoading ? (
                 <ActivityIndicator color={isSelectedTierSubscribed ? COLORS.textLight : COLORS.black} size="small" />
               ) : (
                 <>
-                  <Feather name={isSelectedTierSubscribed ? "check" : "star"} size={16} color={isSelectedTierSubscribed ? COLORS.textLight : COLORS.black} style={{ marginRight: 8 }} />
+                  <Feather 
+                    name={isSelectedTierCancelAtPeriodEnd ? "clock" : (isSelectedTierSubscribed ? "check" : "star")} 
+                    size={16} 
+                    color={isSelectedTierSubscribed ? COLORS.textLight : COLORS.black} 
+                    style={{ marginRight: 8 }} 
+                  />
                   <Text style={[styles.subscribeBtnText, isSelectedTierSubscribed && styles.subscribedBtnTextActive]}>
-                    {isSelectedTierSubscribed 
-                      ? (isSelectedTierCancelAtPeriodEnd ? 'Canceling...' : 'Subscribed') 
-                      : 'Subscribe'}
+                    {isSelectedTierCancelAtPeriodEnd 
+                      ? 'Canceled' 
+                      : (isSelectedTierSubscribed ? 'Subscribed' : 'Subscribe')}
                   </Text>
                 </>
               )}
