@@ -529,10 +529,12 @@ export const useCreatePost = (params: any = {}) => {
 
         if (res && res.success) {
           if (params.editPostId) {
+            const updatedData = res.data || {};
             feedEventEmitter.emitFeedUpdate({
               type: 'POST_UPDATED',
               postId: params.editPostId as string,
               data: {
+                ...updatedData,
                 caption,
                 content: caption,
                 location: verifiedLocation?.name || location?.name || '',
@@ -543,8 +545,12 @@ export const useCreatePost = (params: any = {}) => {
                 updatedAt: new Date().toISOString()
               }
             });
+            // @ts-ignore
+            feedEventEmitter.emit('feedUpdated');
           } else {
             feedEventEmitter.emitFeedUpdate({ type: 'POST_CREATED', postId: res.postId });
+            // @ts-ignore
+            feedEventEmitter.emit('feedUpdated');
           }
         } else {
           throw new Error('Failed to create post');
@@ -557,8 +563,8 @@ export const useCreatePost = (params: any = {}) => {
         action: uploadAction
       });
 
-      // Instantly go back to home feed!
-      router.replace('/(tabs)/home');
+      // Instantly go back to home feed and refresh!
+      router.replace({ pathname: '/(tabs)/home', params: { refreshFeed: String(Date.now()) } });
       
     } catch (e: any) {
       console.error('[handleShare] ❌ Error:', e);

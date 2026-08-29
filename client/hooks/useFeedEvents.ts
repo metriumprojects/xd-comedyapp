@@ -47,7 +47,7 @@ export function useFeedEvents(
         (async () => {
           try {
             const allKeys = await AsyncStorage.getAllKeys();
-            const homeKeys = allKeys.filter(k => k.includes('home_feed_v1'));
+            const homeKeys = allKeys.filter(k => k.includes('home_feed_'));
             for (const fullKey of homeKeys) {
               try {
                 const cached = await AsyncStorage.getItem(fullKey);
@@ -194,6 +194,13 @@ export function useFeedEvents(
       }
     });
 
-    return () => unsub();
+    const subSimple = (feedEventEmitter as any).addListener('feedUpdated', () => {
+      debouncedRefresh(150);
+    });
+
+    return () => {
+      unsub();
+      try { subSimple?.remove?.(); } catch {}
+    };
   }, [setPosts, setAllLoadedPosts, isOnline, loadInitialFeed, flatListRef]);
 }

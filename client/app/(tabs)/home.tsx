@@ -169,6 +169,26 @@ export default function Home() {
   const prevContainerHeightRef = useRef(containerHeight);
   const prevFilterRef = useRef(filter);
 
+  // Realtime feed events listener (post edited, post created, post deleted)
+  useFeedEvents(
+    setPosts,
+    setAllLoadedPosts,
+    !!isOnline,
+    loadInitialFeed,
+    flatListRef
+  );
+
+  // Auto-refresh when navigated to home after post creation / edit
+  useEffect(() => {
+    if (params.refreshFeed) {
+      loadInitialFeed(0, { bypassDedupe: true, _t: Date.now() });
+      try {
+        useReelsStore.getState().setActiveIndex(0);
+        flatListRef.current?.scrollToOffset({ offset: 0, animated: false });
+      } catch {}
+    }
+  }, [params.refreshFeed]);
+
   // 3. User notification counts
   const { notifications, unreadCount, fetchNotifications, markAllAsRead } = useNotifications(currentUserId || '', 60000);
 

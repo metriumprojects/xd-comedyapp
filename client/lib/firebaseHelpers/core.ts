@@ -1583,7 +1583,7 @@ export async function updatePost(
       throw new Error(res?.error || 'Update API returned failure');
     }
 
-    return { success: true, postId };
+    return { success: true, postId, data: res.data };
   } catch (err: any) {
     console.error('[updatePost] ❌ Error:', err.message);
     return { success: false, error: err.message };
