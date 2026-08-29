@@ -22,7 +22,8 @@ import {
   TextInput,
   ToastAndroid,
   TouchableOpacity,
-  View
+  View,
+  StatusBar,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { DEFAULT_AVATAR_URL, API_BASE_URL } from '../../lib/api';
@@ -676,7 +677,8 @@ export default function StoriesViewer({ stories, onClose, initialIndex = 0, isHi
   // Navigation is handled by useStories hook
 
   return (
-    <View style={{ flex: 1, backgroundColor: COLORS.white }}>
+    <View style={{ flex: 1, backgroundColor: COLORS.black }}>
+      <StatusBar barStyle="light-content" backgroundColor="transparent" translucent />
       <KeyboardAvoidingView
         style={{ flex: 1 }}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
@@ -693,7 +695,7 @@ export default function StoriesViewer({ stories, onClose, initialIndex = 0, isHi
           }}
           style={{ flex: 1 }}
         >
-          <View key={currentStory.id} style={{ flex: 1, backgroundColor: COLORS.white, position: 'relative' }}>
+          <View key={currentStory.id} style={{ flex: 1, backgroundColor: COLORS.black, position: 'relative' }}>
             {/* Instagram-like: never show a spinner/skeleton in viewer.
                 Show an instant blurred placeholder while media decodes. */}
             {imageLoading && (
@@ -852,7 +854,7 @@ export default function StoriesViewer({ stories, onClose, initialIndex = 0, isHi
 
         {/* Absolute Top Overlay (Progress & Header) */}
         <View style={[viewerStyles.topOverlay, { paddingTop: paddingTop }]}>
-          <LinearGradient colors={['rgba(255,255,255,0.95)', 'rgba(255,255,255,0.5)', 'transparent']} style={StyleSheet.absoluteFillObject} pointerEvents="none" />
+          <LinearGradient colors={['rgba(0,0,0,0.7)', 'rgba(0,0,0,0.3)', 'transparent']} style={StyleSheet.absoluteFillObject} pointerEvents="none" />
 
           <StoryProgressBars
             storiesCount={localStories.length}
@@ -891,14 +893,14 @@ export default function StoriesViewer({ stories, onClose, initialIndex = 0, isHi
             <View style={viewerStyles.headerActions}>
               {(currentStory.videoUrl || currentStory.mediaType === 'video') && (
                 <TouchableOpacity onPress={() => setIsMuted(m => !m)} style={viewerStyles.headerIcon}>
-                  <Feather name={isMuted ? 'volume-x' : 'volume-2'} size={20} color={COLORS.black} />
+                  <Feather name={isMuted ? 'volume-x' : 'volume-2'} size={20} color={COLORS.textLight} />
                 </TouchableOpacity>
               )}
               <TouchableOpacity onPress={() => setIsPaused(!isPaused)} style={viewerStyles.headerIcon}>
-                <Feather name={isPaused ? "play" : "pause"} size={20} color={COLORS.black} />
+                <Feather name={isPaused ? "play" : "pause"} size={20} color={COLORS.textLight} />
               </TouchableOpacity>
               <TouchableOpacity onPress={onClose} style={viewerStyles.headerIcon}>
-                <Feather name="x" size={26} color={COLORS.black} />
+                <Feather name="x" size={26} color={COLORS.textLight} />
               </TouchableOpacity>
             </View>
           </View>
@@ -914,7 +916,7 @@ export default function StoriesViewer({ stories, onClose, initialIndex = 0, isHi
 
         {/* Footer Actions */}
         <View style={[viewerStyles.footer, { paddingBottom: Math.max(insets.bottom, 20) }]}>
-          <LinearGradient colors={['transparent', 'rgba(255,255,255,0.5)', 'rgba(255,255,255,0.95)']} style={StyleSheet.absoluteFillObject} pointerEvents="none" />
+          <LinearGradient colors={['transparent', 'rgba(0,0,0,0.4)', 'rgba(0,0,0,0.85)']} style={StyleSheet.absoluteFillObject} pointerEvents="none" />
 
           <View style={viewerStyles.footerIconsRow}>
 
@@ -969,23 +971,23 @@ export default function StoriesViewer({ stories, onClose, initialIndex = 0, isHi
                 }}
                 style={viewerStyles.footerIconBtn}
               >
-                <Feather name="trash-2" size={24} color={COLORS.black} />
+                <Feather name="trash-2" size={24} color={COLORS.textLight} />
               </TouchableOpacity>
             )}
 
             {isOwnCurrentStory && !isHighlight && (
               <TouchableOpacity onPress={handleOpenHighlightModal} style={viewerStyles.footerIconBtn} accessibilityLabel="Add to highlight">
-                <Feather name="chevrons-up" size={24} color={COLORS.black} />
+                <Feather name="chevrons-up" size={24} color={COLORS.textLight} />
               </TouchableOpacity>
             )}
 
             <View style={viewerStyles.footerIconBtnRow}>
-              <Feather name="image" size={22} color={COLORS.black} />
+              <Feather name="image" size={22} color={COLORS.textLight} />
               <Text style={viewerStyles.footerIconText}>{`${currentIndex + 1}/${localStories.length}`}</Text>
             </View>
 
             <TouchableOpacity onPress={() => { setIsPaused(true); setShowComments(true); }} style={viewerStyles.footerIconBtnRow}>
-              <MaterialCommunityIcons name="comment-outline" size={24} color={COLORS.black} />
+              <MaterialCommunityIcons name="comment-outline" size={24} color={COLORS.textLight} />
               <Text style={viewerStyles.footerIconText}>{currentStory.comments?.length || 0}</Text>
             </TouchableOpacity>
 
@@ -993,13 +995,13 @@ export default function StoriesViewer({ stories, onClose, initialIndex = 0, isHi
               {isLiked ? (
                 <Ionicons name="heart" size={24} color="#e74c3c" />
               ) : (
-                <Feather name="heart" size={24} color={COLORS.black} strokeWidth={2.5} />
+                <Feather name="heart" size={24} color={COLORS.textLight} strokeWidth={2.5} />
               )}
               <Text style={viewerStyles.footerIconText}>{likesCount}</Text>
             </TouchableOpacity>
 
             <TouchableOpacity onPress={() => setShowShareModal(true)} style={viewerStyles.footerIconBtn}>
-              <Feather name="send" size={24} color={COLORS.black} />
+              <Feather name="send" size={24} color={COLORS.textLight} />
             </TouchableOpacity>
           </View>
         </View>
@@ -1204,7 +1206,7 @@ const viewerStyles = StyleSheet.create({
   fullScreenMedia: {
     width: width,
     height: '100%',
-    backgroundColor: COLORS.white,
+    backgroundColor: COLORS.black,
   },
   postCard: {
     width: width * 0.85,
@@ -1267,13 +1269,13 @@ const viewerStyles = StyleSheet.create({
   progressBarBg: {
     flex: 1,
     height: 2.5,
-    backgroundColor: 'rgba(0,0,0,0.15)',
+    backgroundColor: 'rgba(255,255,255,0.35)',
     borderRadius: 1.5,
     overflow: 'hidden',
   },
   progressBarFill: {
     height: '100%',
-    backgroundColor: COLORS.black,
+    backgroundColor: COLORS.textLight,
   },
   header: {
     flexDirection: 'row',
@@ -1291,7 +1293,7 @@ const viewerStyles = StyleSheet.create({
     borderRadius: 19,
     marginRight: 10,
     borderWidth: 1.5,
-    borderColor: COLORS.border,
+    borderColor: COLORS.textLight,
   },
   headerLocation: {
     color: COLORS.primary,
@@ -1299,16 +1301,22 @@ const viewerStyles = StyleSheet.create({
     fontSize: 10,
     textTransform: 'uppercase',
     letterSpacing: 0.5,
+    textShadowColor: 'rgba(0,0,0,0.7)',
+    textShadowRadius: 3,
     marginBottom: 2,
   },
   headerName: {
-    color: COLORS.black,
+    color: COLORS.textLight,
     fontWeight: '700',
     fontSize: 14,
+    textShadowColor: 'rgba(0,0,0,0.7)',
+    textShadowRadius: 3,
   },
   headerTime: {
-    color: COLORS.textSecondary,
+    color: 'rgba(255,255,255,0.75)',
     fontSize: 12,
+    textShadowColor: 'rgba(0,0,0,0.7)',
+    textShadowRadius: 2,
   },
   headerActions: {
     flexDirection: 'row',
@@ -1355,9 +1363,11 @@ const viewerStyles = StyleSheet.create({
     gap: 4,
   },
   footerIconText: {
-    color: COLORS.black,
+    color: COLORS.textLight,
     fontSize: 12,
     fontWeight: '600',
+    textShadowColor: 'rgba(0,0,0,0.7)',
+    textShadowRadius: 3,
   },
   commentsModal: {
     backgroundColor: COLORS.card,
