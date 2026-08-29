@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useRef } from 'react';
 import {
   Modal,
   View,
@@ -132,12 +132,36 @@ export const UserMenuModal: React.FC<UserMenuModalProps> = ({
   isSubscribed,
   onManageSubscription,
 }) => {
+  const pendingActionRef = useRef<(() => void) | null>(null);
+
+  const handleDismiss = () => {
+    if (pendingActionRef.current) {
+      const action = pendingActionRef.current;
+      pendingActionRef.current = null;
+      action();
+    }
+  };
+
+  const executeAfterClose = (action: () => void) => {
+    pendingActionRef.current = action;
+    onClose();
+    // Fallback for Android or if onDismiss doesn't fire
+    setTimeout(() => {
+      if (pendingActionRef.current) {
+        const fallbackAction = pendingActionRef.current;
+        pendingActionRef.current = null;
+        fallbackAction();
+      }
+    }, 400);
+  };
+
   return (
     <Modal
       visible={visible}
       transparent={true}
       animationType="fade"
       onRequestClose={onClose}
+      onDismiss={handleDismiss}
     >
       <TouchableOpacity 
         style={styles.menuOverlay} 
@@ -175,8 +199,9 @@ export const UserMenuModal: React.FC<UserMenuModalProps> = ({
                     <TouchableOpacity 
                       style={styles.menuItem} 
                       onPress={() => {
-                        onClose();
-                        onManageSubscription();
+                        executeAfterClose(() => {
+                          onManageSubscription();
+                        });
                       }}
                     >
                       <View style={[styles.menuIconContainer, { backgroundColor: '#FFFBEA' }]}>
