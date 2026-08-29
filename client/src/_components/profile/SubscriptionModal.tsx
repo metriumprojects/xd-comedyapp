@@ -27,6 +27,7 @@ interface SubscriptionModalProps {
   isOwnProfile: boolean;
   creatorId: string;
   onSubscriptionChange?: (subscribed: boolean) => void;
+  initialTierId?: string;
 }
 
 export interface SubscriptionData {
@@ -42,11 +43,12 @@ export const SubscriptionModal: React.FC<SubscriptionModalProps> = ({
   onClose,
   isOwnProfile,
   creatorId,
-  onSubscriptionChange
+  onSubscriptionChange,
+  initialTierId,
 }) => {
   const { initPaymentSheet, presentPaymentSheet } = useStripe();
 
-  const [step, setStep] = useState<'form' | 'confirm' | 'membership'>('form');
+  const [step, setStep] = useState<'membership' | 'form' | 'benefits'>('membership');
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [price, setPrice] = useState('');
@@ -115,13 +117,24 @@ export const SubscriptionModal: React.FC<SubscriptionModalProps> = ({
 
         if (activeTiers.length > 0) {
           setSavedTiers(activeTiers);
-          const defaultTier = activeTiers[0];
-          setSelectedTier(defaultTier);
-          setTitle(defaultTier.title);
-          setDescription(defaultTier.description);
-          setPrice(defaultTier.price);
-          setCreateGroupChat(defaultTier.createGroupChat);
-          setIncluded(defaultTier.benefits || []);
+
+          let targetTier: any = activeTiers[0];
+          setSelectedTier((prev) => {
+            if (prev && activeTiers.some((t: any) => t._id === prev._id)) {
+              targetTier = activeTiers.find((t: any) => t._id === prev._id)!;
+            } else if (initialTierId && activeTiers.some((t: any) => t._id === initialTierId)) {
+              targetTier = activeTiers.find((t: any) => t._id === initialTierId)!;
+            } else {
+              targetTier = activeTiers[0];
+            }
+            return targetTier;
+          });
+
+          setTitle(targetTier.title);
+          setDescription(targetTier.description);
+          setPrice(targetTier.price);
+          setCreateGroupChat(targetTier.createGroupChat);
+          setIncluded(targetTier.benefits || []);
           setStep('membership');
         } else {
           setSavedTiers([]);
@@ -182,7 +195,7 @@ export const SubscriptionModal: React.FC<SubscriptionModalProps> = ({
     };
 
     loadData();
-  }, [visible, creatorId, resolvedIsOwnProfile, currentUserId, isOwnProfile, onClose]);
+  }, [visible, creatorId, currentUserId, isOwnProfile, initialTierId]);
 
   const handleAddIncluded = () => {
     if (!newItem.trim()) return;

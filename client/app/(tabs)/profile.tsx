@@ -223,6 +223,7 @@ export default function Profile({ userIdProp }: any) {
   // State and context
   const [storiesViewerVisible, setStoriesViewerVisible] = useState(false);
   const [subModalVisible, setSubModalVisible] = useState(false);
+  const [selectedTierForModal, setSelectedTierForModal] = useState<string | undefined>(undefined);
   /** Instagram-style: tap profile photo to view full-screen (when not opening stories). */
   const [avatarPreviewUri, setAvatarPreviewUri] = useState<string | null>(null);
   const [settingsModalVisible, setSettingsModalVisible] = useState(false);
@@ -1233,6 +1234,40 @@ export default function Profile({ userIdProp }: any) {
           commentModalVisible, commentModalPostId, commentModalAvatar, posts, getKeyboardOffset, getModalHeight,
           viewedUserId: viewedUserId || null, editSectionsModal, setEditSectionsModal, refetchAll,
           userMenuVisible, setUserMenuVisible, handleBlockUser, handleReportUser, shareProfile,
+          isSubscribed: isSubscribed || activeSubscribedTierIds.length > 0,
+          onCancelSubscription: () => {
+            if (activeSubscribedTierIds.length > 1) {
+              const subscribedTiers = creatorTiers.filter((t: any) => activeSubscribedTierIds.includes(t._id));
+              const buttons: any[] = subscribedTiers.map((t: any) => ({
+                text: `Cancel "${t.title}"`,
+                style: 'destructive',
+                onPress: () => {
+                  setSelectedTierForModal(t._id);
+                  setSubModalVisible(true);
+                }
+              }));
+              buttons.push({
+                text: 'Manage Memberships',
+                onPress: () => {
+                  setSelectedTierForModal(undefined);
+                  setSubModalVisible(true);
+                }
+              });
+              buttons.push({ text: 'Dismiss', style: 'cancel' });
+
+              Alert.alert(
+                'Cancel Subscription',
+                'Which subscription would you like to cancel?',
+                buttons
+              );
+            } else if (activeSubscribedTierIds.length === 1) {
+              setSelectedTierForModal(activeSubscribedTierIds[0]);
+              setSubModalVisible(true);
+            } else {
+              setSelectedTierForModal(undefined);
+              setSubModalVisible(true);
+            }
+          },
           showUploadModal, setShowUploadModal, selectedMedia, setSelectedMedia, locationQuery, setLocationQuery, locationSuggestions, setLocationSuggestions,
           uploading, setUploading, uploadProgress, setUploadProgress, showSuccess,
           highlightViewerVisible, setHighlightViewerVisible, selectedHighlightId,
@@ -1243,7 +1278,11 @@ export default function Profile({ userIdProp }: any) {
 
       <SubscriptionModal
         visible={subModalVisible}
-        onClose={() => setSubModalVisible(false)}
+        onClose={() => {
+          setSubModalVisible(false);
+          setSelectedTierForModal(undefined);
+        }}
+        initialTierId={selectedTierForModal}
         isOwnProfile={isOwnProfile}
         creatorId={profile?._id || profile?.id || viewedUserId || 'unknown'}
         onSubscriptionChange={(subscribed) => {

@@ -220,24 +220,19 @@ const ProfileHeader: React.FC<ProfileHeaderProps> = ({
               </Text>
             </TouchableOpacity>
 
-            {hasSubscriptionTier && (
+            {hasSubscriptionTier && !isSubscribed && (
               <TouchableOpacity
-                style={[
-                  styles.actionBtnBlack, 
-                  isSubscribed 
-                    ? { backgroundColor: '#ff3b30' }
-                    : { backgroundColor: '#FFD60A' }
-                ]}
+                style={[styles.actionBtnBlack, { backgroundColor: '#FFD60A' }]}
                 onPress={onSubscribe}
               >
                 <Feather 
-                  name={isSubscribed ? "x-circle" : "star"} 
+                  name="star" 
                   size={14} 
-                  color={isSubscribed ? "#fff" : "#000"} 
+                  color="#000" 
                   style={{ marginRight: 6 }} 
                 />
-                <Text style={[styles.actionBtnText, { color: isSubscribed ? "#fff" : "#000" }]}>
-                  {isSubscribed ? 'Cancel Subscription' : 'Subscribe'}
+                <Text style={[styles.actionBtnText, { color: "#000" }]}>
+                  Subscribe
                 </Text>
               </TouchableOpacity>
             )}
