@@ -469,12 +469,14 @@ export const useCreatePost = (params: any = {}) => {
   };
 
   const handleShare = async () => {
+    if (loading) return; // Prevent double-tap submission
     if (!selectedImages || selectedImages.length === 0) {
       Alert.alert('No media', 'Please select at least one image or video.');
       return;
     }
 
     try {
+      setLoading(true);
       hapticMedium();
       const authUserId = await getAuthenticatedUserId();
       if (!authUserId) throw new Error('User not authenticated');
@@ -529,7 +531,7 @@ export const useCreatePost = (params: any = {}) => {
 
         if (res && res.success) {
           if (params.editPostId) {
-            const updatedData = res.data || {};
+            const updatedData = (res as any).data || {};
             feedEventEmitter.emitFeedUpdate({
               type: 'POST_UPDATED',
               postId: params.editPostId as string,
@@ -567,6 +569,7 @@ export const useCreatePost = (params: any = {}) => {
       router.replace({ pathname: '/(tabs)/home', params: { refreshFeed: String(Date.now()) } });
       
     } catch (e: any) {
+      setLoading(false);
       console.error('[handleShare] ❌ Error:', e);
       Alert.alert('Error', e.message || 'Something went wrong');
     }

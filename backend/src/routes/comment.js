@@ -4,9 +4,10 @@ const mongoose = require('mongoose');
 const { verifyToken } = require('../middleware/authMiddleware');
 const validate = require('../middleware/validateMiddleware');
 const { createCommentSchema } = require('../validations/commentValidation');
+const { commentLimiter } = require('../middleware/rateLimiters');
 
-// Add comment to post (JWT required)
-router.post('/:postId', verifyToken, validate(createCommentSchema), async (req, res) => {
+// Add comment to post (JWT required, rate limited)
+router.post('/:postId', verifyToken, commentLimiter, validate(createCommentSchema), async (req, res) => {
   try {
     const { postId } = req.params;
     const { text } = req.body;

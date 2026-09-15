@@ -3,6 +3,9 @@ const router = express.Router();
 const multer = require('multer');
 const s3Service = require('../utils/s3Service');
 const { verifyToken } = require('../middleware/authMiddleware');
+const { uploadLimiter } = require('../middleware/rateLimiters');
+
+router.use(uploadLimiter);
 
 const upload = multer({
   storage: multer.memoryStorage(),

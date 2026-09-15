@@ -4,6 +4,10 @@ const multer = require('multer');
 const { verifyToken } = require('../middleware/authMiddleware');
 const logger = require('../utils/logger');
 const s3Service = require('../utils/s3Service');
+const { uploadLimiter } = require('../middleware/rateLimiters');
+
+// Apply upload rate limiter across all upload routes (15 uploads / 5 min per user)
+router.use(uploadLimiter);
 
 // Configure multer for memory storage with 100MB limit for high-res videos
 const upload = multer({ 

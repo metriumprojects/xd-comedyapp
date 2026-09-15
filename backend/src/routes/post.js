@@ -7,14 +7,15 @@ const { get, set } = require('../utils/redis');
 const postController = require('../controllers/postController');
 const validate = require('../middleware/validateMiddleware');
 const { createPostSchema, updatePostSchema } = require('../validations/postValidation');
+const { postCreateLimiter, searchLimiter } = require('../middleware/rateLimiters');
 
 // Helper: escape user input for use in MongoDB $regex to prevent ReDoS
 function escapeRegex(str) {
   return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
-// Create post (POST /api/posts) — must be authenticated
-router.post('/', verifyToken, validate(createPostSchema), postController.createPost);
+// Create post (POST /api/posts) — must be authenticated, rate limited
+router.post('/', verifyToken, postCreateLimiter, validate(createPostSchema), postController.createPost);
 
 router.get('/feed', optionalAuth, async (req, res) => {
   try {
@@ -141,7 +142,7 @@ router.get('/by-location', optionalAuth, async (req, res) => {
 
 // Search posts by caption, hashtags, tags, or location (GET /api/posts/search?q=query&filter=videos)
 // MUST be placed before /:id route!
-router.get('/search', optionalAuth, async (req, res) => {
+router.get('/search', optionalAuth, searchLimiter, async (req, res) => {
   try {
     const rawQ = req.query.q || req.query.query || '';
     const filterMode = req.query.filter || 'videos';

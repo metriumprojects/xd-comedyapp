@@ -53,14 +53,8 @@ app.set('trust proxy', 1);
 const PORT = process.env.PORT || 5000;
 
 // ============= RATE LIMITING =============
-const limiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: process.env.NODE_ENV === 'production' ? 1500 : 999999, // prevent rate limiting in dev/testing
-  message: { success: false, error: 'Too many requests, please try again later.' },
-  standardHeaders: true,
-  legacyHeaders: false,
-});
-app.use('/api/', limiter);
+const { globalLimiter } = require('./middleware/rateLimiters');
+app.use('/api/', globalLimiter);
 
 // ============= SENTRY INITIALIZATION =============
 // Must be called before any other middleware

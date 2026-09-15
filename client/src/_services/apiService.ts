@@ -48,7 +48,22 @@ function getCircuitBucket(key: string): CircuitBucket {
   return b;
 }
 
+let lastRateLimitAlertTime = 0;
+function notifyRateLimit(message: string) {
+  const now = Date.now();
+  if (now - lastRateLimitAlertTime > 6000) {
+    lastRateLimitAlertTime = now;
+    if (Platform.OS !== 'web') {
+      try {
+        const { Alert } = require('react-native');
+        Alert.alert('Slow Down', message);
+      } catch (_) {}
+    }
+  }
+}
+
 function isRetryableError(error: any): boolean {
+  if (error?.response?.status === 429) return false; // Never retry rate-limited calls
   return (
     error?.code === 'ERR_NETWORK' ||
     error?.code === 'ECONNABORTED' ||
@@ -179,6 +194,17 @@ function getAxiosInstance() {
             if (__DEV__) console.error('[API] Failed to clear storage:', e);
           }
         }
+
+        // Handle 429 Too Many Requests - Polite, non-crashing user notification
+        if (error.response?.status === 429) {
+          const serverMsg =
+            error.response.data?.error ||
+            error.response.data?.message ||
+            "You're doing that a bit too fast. Please wait a moment and try again.";
+          error.message = serverMsg;
+          notifyRateLimit(serverMsg);
+        }
+
         return Promise.reject(error);
       }
     );

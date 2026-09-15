@@ -173,8 +173,27 @@ export default function CreatePostScreen() {
               }}>
                 <Text style={{ fontSize: 15, fontWeight: '600', color: COLORS.textPrimary }}>Clear all</Text>
               </TouchableOpacity>
-              <TouchableOpacity onPress={handleShare} style={{ backgroundColor: COLORS.primary, paddingHorizontal: 35, paddingVertical: 12, borderRadius: 8 }}>
-                <Text style={{ color: COLORS.textLight, fontWeight: 'bold', fontSize: 15 }}>{isEditMode ? 'Save' : 'Share'}</Text>
+              <TouchableOpacity
+                onPress={handleShare}
+                disabled={loading}
+                style={{
+                  backgroundColor: COLORS.primary,
+                  paddingHorizontal: 35,
+                  paddingVertical: 12,
+                  borderRadius: 8,
+                  opacity: loading ? 0.6 : 1,
+                  minWidth: 100,
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}
+              >
+                {loading ? (
+                  <ActivityIndicator size="small" color={COLORS.textLight} />
+                ) : (
+                  <Text style={{ color: COLORS.textLight, fontWeight: 'bold', fontSize: 15 }}>
+                    {isEditMode ? 'Save' : 'Share'}
+                  </Text>
+                )}
               </TouchableOpacity>
             </View>
           </View>

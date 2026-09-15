@@ -1,5 +1,5 @@
 import React, { useRef } from 'react';
-import { View, TextInput, TouchableOpacity, Text, StyleSheet, Platform } from 'react-native';
+import { View, TextInput, TouchableOpacity, Text, StyleSheet, Platform, ActivityIndicator } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Image as ExpoImage } from 'expo-image';
 import COLORS from '@/src/theme/colors';
@@ -77,8 +77,12 @@ export const CommentInput: React.FC<CommentInputProps> = ({
             multiline
             blurOnSubmit={false}
           />
-          <TouchableOpacity onPressIn={handlePost} disabled={isSubmitting || !newComment.trim()}>
-            <Text style={[styles.postBtn, (!newComment.trim() || isSubmitting) && { opacity: 0.4 }]}>Post</Text>
+          <TouchableOpacity onPressIn={handlePost} disabled={isSubmitting || !newComment.trim()} style={{ minWidth: 36, alignItems: 'center', justifyContent: 'center' }}>
+            {isSubmitting ? (
+              <ActivityIndicator size="small" color={COLORS.info} />
+            ) : (
+              <Text style={[styles.postBtn, (!newComment.trim() || isSubmitting) && { opacity: 0.4 }]}>Post</Text>
+            )}
           </TouchableOpacity>
         </View>
       </View>
