@@ -25,7 +25,8 @@
     "fix-dev-build": "node scripts/fixDevBuild.js",
     "verify:patches": "node scripts/verifyPatches.js",
     "validate:prod": "node scripts/validateProductionEnv.js",
-    "assets:trips-png": "node scripts/generate-trips-png-assets.mjs"
+    "assets:trips-png": "node scripts/generate-trips-png-assets.mjs",
+    "test:maps": "node scripts/testGoogleMapsKey.js"
   },
   "dependencies": {
     "@expo/vector-icons": "~14.0.4",
