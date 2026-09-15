@@ -2,7 +2,12 @@ import { Ionicons } from '@expo/vector-icons';
 import { Image as ExpoImage } from 'expo-image';
 import React, { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Alert, Animated, Keyboard, KeyboardAvoidingView, Modal, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
-import DraggableFlatList, { RenderItemParams, ScaleDecorator } from 'react-native-draggable-flatlist';
+import {
+  NestableScrollContainer,
+  NestableDraggableFlatList,
+  RenderItemParams,
+  ScaleDecorator,
+} from 'react-native-draggable-flatlist';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import AsyncStorage from '@/lib/storage';
@@ -642,7 +647,7 @@ export default function EditSectionsModal({
               <View style={{ width: 40 }} />
             </View>
 
-            <ScrollView contentContainerStyle={[styles.content, { paddingBottom: Math.max(insets.bottom, 20) }]} keyboardShouldPersistTaps="handled">
+            <NestableScrollContainer contentContainerStyle={[styles.content, { paddingBottom: Math.max(insets.bottom, 20) }]} keyboardShouldPersistTaps="handled">
               {/* Create new section button */}
               {!showCreateInput && isOwner ? (
                 <TouchableOpacity
@@ -724,16 +729,14 @@ export default function EditSectionsModal({
               ) : null}
 
           {/* Draggable Sections list */}
-          <View style={{ minHeight: sections.length * 80 }}>
-            <DraggableFlatList
-              data={sections}
-              onDragEnd={({ data }) => handleReorderSections(data)}
-              keyExtractor={(item, index) => String(item._id || `${item.name}_${index}`)}
-              renderItem={renderSectionItem}
-              scrollEnabled={false}
-              dragItemOverflow={true}
-            />
-          </View>
+          <NestableDraggableFlatList
+            data={sections}
+            onDragEnd={({ data }) => handleReorderSections(data)}
+            keyExtractor={(item, index) => String(item._id || `${item.name}_${index}`)}
+            renderItem={renderSectionItem}
+            dragItemOverflow={true}
+            activationDistance={15}
+          />
 
           {/* Section management instructions */}
           {selectedSectionForEdit && (
@@ -901,7 +904,7 @@ export default function EditSectionsModal({
               </TouchableOpacity>
             </View>
           )}
-            </ScrollView>
+            </NestableScrollContainer>
           </View>
         </KeyboardAvoidingView>
       </GestureHandlerRootView>
