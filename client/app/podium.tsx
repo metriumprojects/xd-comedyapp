@@ -10,7 +10,8 @@ import {
   Dimensions,
   Platform,
   Modal,
-  Alert
+  Alert,
+  RefreshControl
 } from 'react-native';
 import { Image as ExpoImage } from 'expo-image';
 import { Ionicons, Feather } from '@expo/vector-icons';
@@ -30,123 +31,7 @@ import { logoutUser } from '@/src/_services/firebaseAuthService';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
-// Fallback Mock Data for UI Excellence if DB is empty
-const MOCK_CREATORS = [
-  {
-    creator: {
-      id: 'creator-1',
-      name: 'Terry Herwitz',
-      username: 'terryherwitz',
-      avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&h=150&fit=crop'
-    },
-    totalLaughs: 3986,
-    totalVideos: 25,
-    rank: 1,
-    funniestVideo: {
-      id: 'video-1',
-      thumbnailUrl: 'https://images.unsplash.com/photo-1517841905240-472988babdf9?w=300&h=300&fit=crop',
-      caption: 'How did I manage to build this thing without breaking...',
-      laughCount: 2590,
-      viewsCount: 32000,
-      likesCount: 1325
-    }
-  },
-  {
-    creator: {
-      id: 'creator-2',
-      name: 'Kianna',
-      username: 'kianna',
-      avatar: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=150&h=150&fit=crop'
-    },
-    totalLaughs: 2215,
-    totalVideos: 18,
-    rank: 2,
-    funniestVideo: {
-      id: 'video-2',
-      thumbnailUrl: 'https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?w=300&h=300&fit=crop',
-      caption: 'My favorite phone prank 😂',
-      laughCount: 1820,
-      viewsCount: 24000,
-      likesCount: 980
-    }
-  },
-  {
-    creator: {
-      id: 'creator-3',
-      name: 'Alena Donin',
-      username: 'alenadonin',
-      avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&h=150&fit=crop'
-    },
-    totalLaughs: 765,
-    totalVideos: 12,
-    rank: 3,
-    funniestVideo: {
-      id: 'video-3',
-      thumbnailUrl: 'https://images.unsplash.com/photo-1501196354995-cbb51c65aaea?w=300&h=300&fit=crop',
-      caption: 'This dog is the funniest dog with the longest ears',
-      laughCount: 650,
-      viewsCount: 15000,
-      likesCount: 510
-    }
-  },
-  {
-    creator: {
-      id: 'creator-4',
-      name: 'Leo',
-      username: 'leo_comedy',
-      avatar: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=150&h=150&fit=crop'
-    },
-    totalLaughs: 620,
-    totalVideos: 10,
-    rank: 4,
-    funniestVideo: {
-      id: 'video-4',
-      thumbnailUrl: 'https://images.unsplash.com/photo-1534308983496-4fabb1a015ee?w=300&h=300&fit=crop',
-      caption: 'When the waiter brings the wrong food and you try to be nice',
-      laughCount: 480,
-      viewsCount: 10000,
-      likesCount: 390
-    }
-  },
-  {
-    creator: {
-      id: 'creator-5',
-      name: 'Miracle Rhiel Madsen',
-      username: 'miracle',
-      avatar: 'https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=150&h=150&fit=crop'
-    },
-    totalLaughs: 510,
-    totalVideos: 8,
-    rank: 5,
-    funniestVideo: {
-      id: 'video-5',
-      thumbnailUrl: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=300&h=300&fit=crop',
-      caption: 'High school logic makes zero sense',
-      laughCount: 410,
-      viewsCount: 8000,
-      likesCount: 290
-    }
-  }
-];
 
-const MOCK_VIDEOS = MOCK_CREATORS.map(item => ({
-  id: item.funniestVideo.id,
-  thumbnailUrl: item.funniestVideo.thumbnailUrl,
-  mediaUrl: item.funniestVideo.thumbnailUrl,
-  caption: item.funniestVideo.caption,
-  laughCount: item.funniestVideo.laughCount,
-  viewsCount: item.funniestVideo.viewsCount,
-  likesCount: item.funniestVideo.likesCount,
-  rank: item.rank,
-  creator: {
-    id: item.creator.id,
-    name: item.creator.name,
-    username: item.creator.username,
-    avatar: item.creator.avatar,
-    totalLaughs: item.totalLaughs,
-    totalVideos: item.totalVideos
-  }
-}));
 
 // Resolve a thumbnail URL: prefer thumbnailUrl, fall back to video-to-jpg conversion
 const resolveThumbnail = (thumbnailUrl?: string | null, mediaUrl?: string | null): string => {
@@ -219,7 +104,7 @@ export default function PodiumScreen() {
 
   // Navigate to a creator's profile
   const navigateToCreator = (creatorId: string) => {
-    if (!creatorId || creatorId.startsWith('creator-')) return; // Skip mock data
+    if (!creatorId) return;
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => { });
     if (currentUserId && creatorId === currentUserId) {
       router.push('/(tabs)/profile');
@@ -230,7 +115,7 @@ export default function PodiumScreen() {
 
   // Navigate to a video/post detail
   const navigateToPost = (postId: string) => {
-    if (!postId || postId.startsWith('video-')) return; // Skip mock data
+    if (!postId) return;
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => { });
     router.push({ pathname: '/post-detail', params: { id: postId } });
   };
@@ -239,36 +124,38 @@ export default function PodiumScreen() {
   const [activeTimeframe, setActiveTimeframe] = useState<'weekly' | 'monthly' | 'all'>('weekly');
   const [searchQuery, setSearchQuery] = useState('');
   const [loading, setLoading] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
   const [rankings, setRankings] = useState<any[]>([]);
 
   // Fetch rankings from API
+  const fetchRankings = async () => {
+    try {
+      const res = await apiService.getPodiumRankings(activeType, activeTimeframe);
+      if (res?.success && Array.isArray(res.data)) {
+        setRankings(res.data);
+      } else {
+        setRankings([]);
+      }
+    } catch (error) {
+      console.warn('[PodiumScreen] API fetch error:', error);
+      setRankings([]);
+    }
+  };
+
   useEffect(() => {
     let isMounted = true;
-    const fetchRankings = async () => {
-      setLoading(true);
-      try {
-        const res = await apiService.getPodiumRankings(activeType, activeTimeframe);
-        if (isMounted) {
-          if (res?.success && Array.isArray(res.data) && res.data.length > 0) {
-            setRankings(res.data);
-          } else {
-            // Use visual mock backups if empty or error
-            setRankings(activeType === 'creators' ? MOCK_CREATORS : MOCK_VIDEOS);
-          }
-        }
-      } catch (error) {
-        console.warn('[PodiumScreen] API fetch error:', error);
-        if (isMounted) {
-          setRankings(activeType === 'creators' ? MOCK_CREATORS : MOCK_VIDEOS);
-        }
-      } finally {
-        if (isMounted) setLoading(false);
-      }
-    };
-
-    fetchRankings();
+    setLoading(true);
+    fetchRankings().finally(() => {
+      if (isMounted) setLoading(false);
+    });
     return () => { isMounted = false; };
   }, [activeType, activeTimeframe]);
+
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    await fetchRankings();
+    setRefreshing(false);
+  };
 
   const handleTabPress = (type: 'creators' | 'videos') => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => { });
@@ -518,11 +405,46 @@ export default function PodiumScreen() {
           <ActivityIndicator size="large" color="#000000" />
           <Text style={styles.loaderText}>Fetching Podium Rankings...</Text>
         </View>
+      ) : rankings.length === 0 ? (
+        <ScrollView
+          style={styles.scrollBody}
+          contentContainerStyle={[styles.scrollContent, { flexGrow: 1, justifyContent: 'center' }]}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor="#000" />}
+          showsVerticalScrollIndicator={false}
+        >
+          <View style={styles.emptyContainer}>
+            <View style={styles.emptyIconCircle}>
+              <Ionicons name="podium-outline" size={42} color="#F59E0B" />
+            </View>
+            <Text style={styles.emptyTitle}>No Activity Yet</Text>
+            <Text style={styles.emptySubtitle}>
+              {activeType === 'creators'
+                ? `No creator laughs recorded for ${activeTimeframe === 'weekly' ? 'this week' : activeTimeframe === 'monthly' ? 'this month' : 'all time'} yet.`
+                : `No video laughs recorded for ${activeTimeframe === 'weekly' ? 'this week' : activeTimeframe === 'monthly' ? 'this month' : 'all time'} yet.`}
+            </Text>
+            <Text style={styles.emptyHint}>
+              Post funny videos and get laughs to take your spot on the podium! 👑
+            </Text>
+            <TouchableOpacity
+              style={styles.emptyCreateBtn}
+              onPress={() => router.push('/create-post' as any)}
+            >
+              <Ionicons name="videocam-outline" size={18} color="#fff" style={{ marginRight: 6 }} />
+              <Text style={styles.emptyCreateBtnText}>Create Post</Text>
+            </TouchableOpacity>
+          </View>
+        </ScrollView>
       ) : (
-        <ScrollView style={styles.scrollBody} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+        <ScrollView
+          style={styles.scrollBody}
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor="#000" />}
+        >
 
           {/* 5. 3D Visual Podium */}
-          <View style={styles.podiumContainer}>
+          {(top1 || top2 || top3) && (
+            <View style={styles.podiumContainer}>
             {/* RANK 2 (Left) */}
             {top2 && (
               <View style={styles.podiumCol}>
@@ -625,6 +547,7 @@ export default function PodiumScreen() {
               </View>
             )}
           </View>
+          )}
 
           {/* 6. Rankings list below the podium */}
           <View style={styles.listContainer}>
@@ -1449,6 +1372,61 @@ const styles = StyleSheet.create({
   cancelText: {
     color: '#6b7280',
     fontSize: 16,
+    fontWeight: '600',
+  },
+  emptyContainer: {
+    paddingVertical: 50,
+    paddingHorizontal: 30,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  emptyIconCircle: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: '#FFFBEB',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 16,
+    borderWidth: 1.5,
+    borderColor: '#FDE68A',
+  },
+  emptyTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#111827',
+    marginBottom: 8,
+  },
+  emptySubtitle: {
+    fontSize: 14,
+    color: '#6B7280',
+    textAlign: 'center',
+    lineHeight: 20,
+    marginBottom: 6,
+  },
+  emptyHint: {
+    fontSize: 13,
+    color: '#9CA3AF',
+    textAlign: 'center',
+    lineHeight: 18,
+    marginBottom: 22,
+  },
+  emptyCreateBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#000000',
+    paddingHorizontal: 22,
+    paddingVertical: 12,
+    borderRadius: 24,
+    shadowColor: '#000',
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 3,
+  },
+  emptyCreateBtnText: {
+    color: '#ffffff',
+    fontSize: 14,
     fontWeight: '600',
   },
 });

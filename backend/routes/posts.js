@@ -720,9 +720,10 @@ router.get('/podium', optionalAuth, async (req, res, next) => {
       dateFilter = { createdAt: { $gte: oneMonthAgo } };
     }
 
-    // 2. Base query: public posts only, must be videos
+    // 2. Base query: public posts only, must be videos with at least 1 laugh
     const matchQuery = {
       mediaType: 'video',
+      laughCount: { $gt: 0 },
       $or: [
         { isPrivate: { $ne: true } },
         { visibility: 'Everyone' }
