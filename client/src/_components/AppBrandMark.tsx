@@ -5,7 +5,7 @@ import { Image as ExpoImage } from 'expo-image';
 /** From `logo-trips.svg` — good next to wordmark. */
 const LOGO_TRIPS_MARK = require('../../assets/images/logo-trips-mark.png') as ImageSourcePropType;
 /** From `logo-trips-app.svg` — clearer in the tab bar at small sizes. */
-const LOGO_APP_RASTER = require('../../assets/images/icon.png') as ImageSourcePropType;
+const LOGO_APP_RASTER = require('../../assets/images/comedy-transparent.png') as ImageSourcePropType;
 
 type Size = 'sm' | 'md' | 'lg';
 

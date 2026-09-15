@@ -10,8 +10,8 @@
     "android": {
       "versionCode": 129,
       "adaptiveIcon": {
-        "backgroundColor": "#FFFFFF",
-        "foregroundImage": "./assets/images/icon.png",
+        "backgroundColor": "#000000",
+        "foregroundImage": "./assets/images/android-icon-foreground.png",
         "monochromeImage": "./assets/images/icon.png"
       },
       "softwareKeyboardLayoutMode": "resize",
