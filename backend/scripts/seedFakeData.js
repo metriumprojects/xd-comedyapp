@@ -1,21 +1,12 @@
 const mongoose = require('mongoose');
 const xlsx = require('xlsx');
-const cloudinary = require('cloudinary').v2;
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
 require('dotenv').config();
-
-// Models
+const s3Service = require('../src/utils/s3Service');
 const User = require('../src/models/User');
 const Post = require('../src/models/Post');
-
-// Cloudinary Config
-cloudinary.config({
-  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
-  api_key: process.env.CLOUDINARY_API_KEY,
-  api_secret: process.env.CLOUDINARY_API_SECRET,
-});
 
 const MONGO_URI = process.env.MONGO_URI;
 const ASSETS_PATH = path.join(__dirname, '..', '..', 'client', 'assets', 'fake data');
@@ -90,10 +81,8 @@ async function seed() {
       if (fs.existsSync(picPath)) {
           try {
               console.log(`Uploading profile pic for ${userData.username}...`);
-              const picResult = await cloudinary.uploader.upload(picPath, {
-                  folder: 'profile_pics',
-                  public_id: userData.username
-              });
+              const picBuffer = fs.readFileSync(picPath);
+              const picResult = await s3Service.uploadMedia(picBuffer, 'profile_pics', 'avatar', 'image', path.basename(picPath));
               avatarUrl = picResult.secure_url;
           } catch (e) {
               console.error(`Failed to upload profile pic for ${userData.username}:`, e.message);
@@ -179,9 +168,8 @@ async function seed() {
 
           try {
             console.log(`  [Post ${postsCreated + 1}/${totalPostsToCreate}] Uploading ${category} image ${imageNum}...`);
-            const result = await cloudinary.uploader.upload(imagePath, {
-              folder: `posts/${category.toLowerCase()}`,
-            });
+            const imgBuffer = fs.readFileSync(imagePath);
+            const result = await s3Service.uploadMedia(imgBuffer, `posts/${category.toLowerCase()}`, 'post', 'image', path.basename(imagePath));
 
             const postDate = randomDate(POST_START_DATE, END_DATE);
 

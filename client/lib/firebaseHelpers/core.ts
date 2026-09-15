@@ -1028,8 +1028,8 @@ export async function createPost(
     let autoThumbnailUrl = '';
     const mediaUrls = [];
     for (const uri of mediaUris || []) {
-      // If it's already an uploaded image/video from our server/cloudinary, don't re-upload
-      if (uri.startsWith('http') && (uri.includes('cloudinary.com') || uri.includes(API_BASE_URL.replace('/api', '')))) {
+      // If it's already an uploaded image/video from our server/S3/CDN, don't re-upload
+      if (uri.startsWith('http') && (uri.includes('amazonaws.com') || uri.includes('s3.') || uri.includes('cloudinary.com') || uri.includes(API_BASE_URL.replace('/api', '')))) {
         mediaUrls.push(uri);
         continue;
       }
@@ -1542,7 +1542,7 @@ export async function updatePost(
 
     const mediaUrls = [];
     for (const uri of mediaUris || []) {
-      if (uri.startsWith('http') && (uri.includes('cloudinary.com') || uri.includes(API_BASE_URL.replace('/api', '')))) {
+      if (uri.startsWith('http') && (uri.includes('amazonaws.com') || uri.includes('s3.') || uri.includes('cloudinary.com') || uri.includes(API_BASE_URL.replace('/api', '')))) {
         mediaUrls.push(uri);
         continue;
       }

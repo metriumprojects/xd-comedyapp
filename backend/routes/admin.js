@@ -3,7 +3,6 @@ const router = express.Router();
 const mongoose = require('mongoose');
 const { verifyToken } = require('../src/middleware/authMiddleware');
 const multer = require('multer');
-const cloudinary = require('cloudinary').v2;
 const logger = require('../src/utils/logger');
 
 // Configure multer for memory storage
@@ -15,10 +14,11 @@ const upload = multer({
 const s3Service = require('../src/utils/s3Service');
 
 // Helper for S3 Upload
-async function uploadToCloudinary(fileBuffer, folder, originalName = 'image.jpg') {
+async function uploadToS3(fileBuffer, folder, originalName = 'image.jpg') {
   const result = await s3Service.uploadMedia(fileBuffer, folder, 'admin', 'image', originalName);
   return result.secure_url;
 }
+const uploadToCloudinary = uploadToS3; // Backward-compatible alias
 
 /**
  * @route   POST /api/admin/login

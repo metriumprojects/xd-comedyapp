@@ -1570,34 +1570,41 @@ router.post('/:conversationId/messages/:messageId/reactions', verifyToken, async
 
 // ===== MEDIA UPLOAD ROUTES =====
 
-// POST /upload-media - Upload image/video/audio to message
+// POST /upload-media - Upload image/video/audio to message via AWS S3
 router.post('/upload-media', verifyToken, async (req, res) => {
   try {
-    const cloudinary = require('cloudinary').v2;
+    const s3Service = require('../utils/s3Service');
     const { file, mediaType } = req.body; // file is base64 or URL
 
     if (!file) {
       return res.status(400).json({ success: false, error: 'File required' });
     }
 
-    // Upload to Cloudinary
-    const uploadOptions = {
-      resource_type: mediaType === 'audio' ? 'auto' : 'auto',
-      folder: 'messages'
-    };
-
-    if (mediaType === 'video') {
-      uploadOptions.video_sampling = 5; // For faster uploads
+    let buffer;
+    let originalName = `media_${Date.now()}`;
+    if (typeof file === 'string' && file.startsWith('data:') && file.includes(';base64,')) {
+      const parts = file.split(';base64,');
+      buffer = Buffer.from(parts[1], 'base64');
+      const mime = parts[0].replace('data:', '');
+      if (mime.includes('image/')) originalName += '.jpg';
+      else if (mime.includes('video/')) originalName += '.mp4';
+      else if (mime.includes('audio/')) originalName += '.m4a';
+    } else if (typeof file === 'string') {
+      buffer = Buffer.from(file.replace(/^data:[a-z\/-]+;base64,/, ''), 'base64');
+    } else {
+      return res.status(400).json({ success: false, error: 'Invalid file payload format' });
     }
 
-    const result = await cloudinary.uploader.upload(file, uploadOptions);
+    const s3Type = mediaType === 'audio' ? 'audio' : (mediaType === 'video' ? 'video' : 'image');
+    const result = await s3Service.uploadMedia(buffer, 'messages', 'message', s3Type, originalName);
 
     res.json({
       success: true,
       url: result.secure_url,
-      publicId: result.public_id,
+      publicId: result.secure_url,
       mediaType,
-      duration: result.duration || null
+      thumbnailUrl: result.thumbnailUrl || null,
+      duration: null
     });
   } catch (err) {
     logger.error('[POST] /upload-media error:', err.message);

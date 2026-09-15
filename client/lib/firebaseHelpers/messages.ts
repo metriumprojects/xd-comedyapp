@@ -147,7 +147,7 @@ export async function sendMediaMessage(
 }
 
 /**
- * Upload media file to cloudinary
+ * Upload media file to S3 via backend API
  */
 export async function uploadMedia(
   file: string, // base64 or file path

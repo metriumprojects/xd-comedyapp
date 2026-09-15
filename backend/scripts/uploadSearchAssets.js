@@ -1,8 +1,8 @@
 const mongoose = require('mongoose');
-const cloudinary = require('cloudinary').v2;
 const fs = require('fs');
 const path = require('path');
 require('dotenv').config({ path: path.join(__dirname, '../.env') });
+const s3Service = require('../src/utils/s3Service');
 
 // Import model - but since it's a standalone script, we might need to define it if it's not registered
 const RegionSchema = new mongoose.Schema({
@@ -15,13 +15,6 @@ const RegionSchema = new mongoose.Schema({
 
 const Region = mongoose.models.Region || mongoose.model('Region', RegionSchema);
 
-// Cloudinary Config
-cloudinary.config({
-  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
-  api_key: process.env.CLOUDINARY_API_KEY,
-  api_secret: process.env.CLOUDINARY_API_SECRET,
-});
-
 const ASSETS_BASE_PATH = path.join(__dirname, '../../client/assets');
 
 const folders = [
@@ -30,20 +23,18 @@ const folders = [
   { path: 'cities', type: 'city' },
 ];
 
-async function uploadToCloudinary(filePath, folderName) {
+async function uploadToS3(filePath, folderName) {
   try {
-    const result = await cloudinary.uploader.upload(filePath, {
-      folder: `search_cards/${folderName}`,
-      use_filename: true,
-      unique_filename: false,
-      overwrite: true,
-    });
+    const fileBuffer = fs.readFileSync(filePath);
+    const fileName = path.basename(filePath);
+    const result = await s3Service.uploadMedia(fileBuffer, `search_cards/${folderName}`, 'admin', 'image', fileName);
     return result.secure_url;
   } catch (error) {
     console.error(`Upload failed for ${filePath}: ${error.message}`);
     return null;
   }
 }
+const uploadToCloudinary = uploadToS3;
 
 async function run() {
   try {

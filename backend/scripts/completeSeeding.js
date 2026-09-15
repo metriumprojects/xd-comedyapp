@@ -1,21 +1,14 @@
 const mongoose = require('mongoose');
 const xlsx = require('xlsx');
-const cloudinary = require('cloudinary').v2;
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
 require('dotenv').config();
+const s3Service = require('../src/utils/s3Service');
 
 // Models
 const User = require('../src/models/User');
 const Post = require('../src/models/Post');
-
-// Cloudinary Config
-cloudinary.config({
-  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
-  api_key: process.env.CLOUDINARY_API_KEY,
-  api_secret: process.env.CLOUDINARY_API_SECRET,
-});
 
 const MONGO_URI = process.env.MONGO_URI;
 const ASSETS_PATH = path.join(__dirname, '..', '..', 'client', 'assets', 'fake data');
@@ -70,9 +63,8 @@ async function completeSeed() {
         
         console.log(`[${i+1}/${data.length}] Uploading ${category} image ${imageNum} for @${user.username}...`);
         
-        const result = await cloudinary.uploader.upload(imagePath, {
-          folder: `posts/${category.toLowerCase()}`,
-        });
+        const imgBuffer = fs.readFileSync(imagePath);
+        const result = await s3Service.uploadMedia(imgBuffer, `posts/${category.toLowerCase()}`, 'post', 'image', path.basename(imagePath));
 
         const postDate = randomDate(POST_START_DATE, END_DATE);
 
