@@ -11,7 +11,7 @@
     "android": "expo run:android",
     "ios": "expo run:ios",
     "web": "expo start --web",
-    "lint": "eslint app hooks lib src components config services utils types",
+    "lint": "eslint app hooks lib src config services utils types",
     "lint:expo": "expo lint",
     "lint:all": "eslint .",
     "test": "jest",
