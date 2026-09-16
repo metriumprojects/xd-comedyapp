@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Dimensions, Modal, Platform, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { FlashList } from '@shopify/flash-list';
 import { feedEventEmitter } from '../../lib/feedEventEmitter';
@@ -84,20 +84,27 @@ export default function PostViewerModal({
     if (selectedPostIndex < 0 || selectedPostIndex >= posts.length) return;
 
     targetIndexRef.current = selectedPostIndex;
+    if (selectedPostIndex === 0) {
+      didInitialScrollRef.current = true;
+    } else {
+      didInitialScrollRef.current = false;
+    }
     
     // FlashList initial positioning is much faster
     const timer = setTimeout(() => {
-      if (!flashListRef.current || didInitialScrollRef.current) return;
+      if (!flashListRef.current) return;
       try {
-        flashListRef.current.scrollToIndex({ 
-          index: selectedPostIndex, 
-          animated: false
-        });
+        if (selectedPostIndex > 0) {
+          flashListRef.current.scrollToIndex({ 
+            index: selectedPostIndex, 
+            animated: false
+          });
+        }
         didInitialScrollRef.current = true;
       } catch (e) {
-        // Fallback
+        didInitialScrollRef.current = true;
       }
-    }, 16); // Even shorter delay for FlashList
+    }, 30);
 
     return () => clearTimeout(timer);
   }, [visible, selectedPostIndex]);
@@ -108,6 +115,47 @@ export default function PostViewerModal({
     });
     return () => subscription.remove();
   }, [onClose]);
+
+  const [activePostId, setActivePostId] = useState<string | null>(() => {
+    if (Array.isArray(posts) && selectedPostIndex >= 0 && selectedPostIndex < posts.length) {
+      const p = posts[selectedPostIndex];
+      return String(p?.id || p?._id || '');
+    }
+    return null;
+  });
+
+  // When selectedPostIndex or visible changes, sync activePostId
+  useEffect(() => {
+    if (visible && Array.isArray(posts) && selectedPostIndex >= 0 && selectedPostIndex < posts.length) {
+      const p = posts[selectedPostIndex];
+      setActivePostId(String(p?.id || p?._id || ''));
+      if (selectedPostIndex === 0) {
+        didInitialScrollRef.current = true;
+      } else {
+        didInitialScrollRef.current = false;
+      }
+    }
+  }, [visible, selectedPostIndex, posts]);
+
+  const onViewableItemsChanged = useRef(({ viewableItems }: any) => {
+    // Before initial scroll completes to selectedPostIndex, don't let index 0 overwrite activePostId
+    if (!didInitialScrollRef.current && targetIndexRef.current > 0) {
+      return;
+    }
+    if (viewableItems && viewableItems.length > 0) {
+      const visibleItem = viewableItems[0]?.item;
+      if (visibleItem) {
+        const id = String(visibleItem.id || visibleItem._id || '');
+        if (id) {
+          setActivePostId(id);
+        }
+      }
+    }
+  }).current;
+
+  const viewabilityConfig = useRef({
+    itemVisiblePercentThreshold: 35,
+  }).current;
 
   return (
     <Modal
@@ -146,22 +194,29 @@ export default function PostViewerModal({
           initialScrollIndex={selectedPostIndex >= 0 && selectedPostIndex < posts.length ? selectedPostIndex : undefined}
           snapToAlignment="start"
           decelerationRate="fast"
+          onViewableItemsChanged={onViewableItemsChanged}
+          viewabilityConfig={viewabilityConfig}
           // Each cell hosts PostCard's comment sheet; on Android clipping detaches and reattaches
           // its native subtree, which swallows the first touch inside the sheet.
           removeClippedSubviews={false}
-          renderItem={({ item }) => (
-            <PostCard
-              post={item}
-              currentUser={authUser}
-              showMenu={true}
-              onCloseOuterModal={onClose}
-              onCommentPress={(pid, avatar) => {
-                setCommentModalPostId(pid);
-                setCommentModalAvatar(avatar);
-                setCommentModalVisible(true);
-              }}
-            />
-          )}
+          renderItem={({ item }) => {
+            const itemId = String(item?.id || item?._id || '');
+            const isItemActive = posts.length <= 1 || (activePostId ? itemId === activePostId : true);
+            return (
+              <PostCard
+                post={item}
+                currentUser={authUser}
+                showMenu={true}
+                isActive={isItemActive}
+                onCloseOuterModal={onClose}
+                onCommentPress={(pid, avatar) => {
+                  setCommentModalPostId(pid);
+                  setCommentModalAvatar(avatar);
+                  setCommentModalVisible(true);
+                }}
+              />
+            );
+          }}
           contentContainerStyle={{ paddingBottom: insets.bottom }}
         />
       </View>

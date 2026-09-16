@@ -132,56 +132,93 @@ async function generateVideoThumbnail(videoBuffer) {
 }
 
 /**
- * Compress video using fluent-ffmpeg
- * Resizes to max 720p height, uses h264/aac and +faststart flag for instant-play streaming
+/**
+ * Compress video into multi-quality variants (720p primary + 360p low-bandwidth)
+ * Both variants use H.264/AAC with +faststart flag for instant-play streaming
  * @param {Buffer} videoBuffer - Video file buffer
- * @returns {Promise<Buffer>} Optimized MP4 video buffer
+ * @param {string} context - Upload context
+ * @returns {Promise<{ buffer720p: Buffer, buffer360p: Buffer | null }>}
  */
-async function compressVideo(videoBuffer, context) {
-  // Performance optimization: Skip CPU-heavy compression for stories or videos pre-optimized on device
-  if (context === 'story' || process.env.SKIP_BACKEND_VIDEO_COMPRESSION === 'true' || videoBuffer.length < 20 * 1024 * 1024) {
-    logger.info(`⚡ Skipping backend video compression (Context: ${context || 'general'}, Buffer size: ${(videoBuffer.length / 1024 / 1024).toFixed(2)}MB).`);
-    return videoBuffer;
+async function compressVideoVariants(videoBuffer, context) {
+  if (process.env.SKIP_BACKEND_VIDEO_COMPRESSION === 'true') {
+    logger.info(`⚡ Skipping backend video compression via env flag.`);
+    return { buffer720p: videoBuffer, buffer360p: null };
   }
 
   const tempDir = os.tmpdir();
   const randomSuffix = Math.random().toString(36).substring(7);
-  const tempInputPath = path.join(tempDir, `temp_input_${randomSuffix}.mp4`);
-  const tempOutputPath = path.join(tempDir, `temp_output_${randomSuffix}.mp4`);
+  const tempInputPath = path.join(tempDir, `temp_in_${randomSuffix}.mp4`);
+  const temp720Path = path.join(tempDir, `temp_720_${randomSuffix}.mp4`);
+  const temp360Path = path.join(tempDir, `temp_360_${randomSuffix}.mp4`);
+
+  let buffer720p = videoBuffer;
+  let buffer360p = null;
 
   try {
-    // Write buffer to temporary file
     await fs.writeFile(tempInputPath, videoBuffer);
 
-    await new Promise((resolve, reject) => {
-      ffmpeg(tempInputPath)
-        .videoCodec('libx264')
-        .audioCodec('aac')
-        .outputOptions([
-          '-preset fast',
-          '-crf 26',
-          '-movflags +faststart',
-          '-vf scale=-2:min(720\\,ih)' // Resize to max 720p height, maintaining aspect ratio
-        ])
-        .output(tempOutputPath)
-        .on('end', resolve)
-        .on('error', (err) => {
-          reject(err);
-        })
-        .run();
-    });
+    // 1. Primary Quality (720p max, high quality H.264 + faststart)
+    try {
+      await new Promise((resolve, reject) => {
+        ffmpeg(tempInputPath)
+          .videoCodec('libx264')
+          .audioCodec('aac')
+          .outputOptions([
+            '-preset veryfast',
+            '-crf 26',
+            '-movflags +faststart',
+            '-vf scale=-2:min(720\\,ih)' // Resize to max 720p height, maintaining aspect ratio
+          ])
+          .output(temp720Path)
+          .on('end', resolve)
+          .on('error', (err) => {
+            reject(err);
+          })
+          .run();
+      });
+      buffer720p = await fs.readFile(temp720Path);
+    } catch (err) {
+      logger.warn(`720p video transcode failed, using original buffer: ${err.message}`);
+    }
 
-    // Read compressed file into buffer
-    const compressedBuffer = await fs.readFile(tempOutputPath);
-    return compressedBuffer;
+    // 2. Low-Bandwidth / Fast-Start Variant (360p max, 600k bitrate, ~700KB total)
+    try {
+      await new Promise((resolve, reject) => {
+        ffmpeg(tempInputPath)
+          .videoCodec('libx264')
+          .audioCodec('aac')
+          .audioBitrate('96k')
+          .outputOptions([
+            '-preset veryfast',
+            '-crf 30',
+            '-b:v 600k',
+            '-maxrate 600k',
+            '-bufsize 1200k',
+            '-movflags +faststart',
+            '-vf scale=-2:min(360\\,ih)' // Resize to max 360p height
+          ])
+          .output(temp360Path)
+          .on('end', resolve)
+          .on('error', (err) => {
+            reject(err);
+          })
+          .run();
+      });
+      buffer360p = await fs.readFile(temp360Path);
+    } catch (err) {
+      logger.warn(`360p video transcode skipped: ${err.message}`);
+    }
+
   } catch (err) {
-    logger.warn(`Video compression failed, returning original buffer: ${err.message}`);
-    return videoBuffer;
+    logger.warn(`Video transcoding pipeline error: ${err.message}`);
   } finally {
     // Clean up temporary files
     try { await fs.unlink(tempInputPath); } catch (_) {}
-    try { await fs.unlink(tempOutputPath); } catch (_) {}
+    try { await fs.unlink(temp720Path); } catch (_) {}
+    try { await fs.unlink(temp360Path); } catch (_) {}
   }
+
+  return { buffer720p, buffer360p };
 }
 
 /**
@@ -203,6 +240,7 @@ async function uploadMedia(fileBuffer, folder, context, mediaType = 'auto', orig
   let width = null;
   let height = null;
   let thumbnailUrl = null;
+  let url360p = null;
 
   // 1. Handle Image Optimization & Dimension Parsing
   if (mediaType === 'image' || mediaType === 'auto') {
@@ -224,11 +262,16 @@ async function uploadMedia(fileBuffer, folder, context, mediaType = 'auto', orig
     }
   }
 
-  // 2. Handle Video Thumbnailing & Compression
+  // 2. Handle Video Thumbnailing & Multi-Quality Compression
   if (finalMediaType === 'video' || (mediaType === 'auto' && finalMediaType !== 'image')) {
     finalMediaType = 'video';
     try {
       const thumbBuffer = await generateVideoThumbnail(fileBuffer);
+      // Automatically detect real dimensions from the extracted video frame!
+      const thumbMeta = await sharp(thumbBuffer).metadata();
+      width = thumbMeta.width || null;
+      height = thumbMeta.height || null;
+
       const thumbKey = `${baseKey}-thumb.jpg`;
       thumbnailUrl = await uploadBufferToS3(thumbBuffer, thumbKey, 'image/jpeg');
     } catch (err) {
@@ -236,9 +279,16 @@ async function uploadMedia(fileBuffer, folder, context, mediaType = 'auto', orig
     }
 
     try {
-      logger.info('🎬 Compressing video before uploading to S3...');
-      finalBuffer = await compressVideo(fileBuffer, context);
-      logger.info('✅ Video compression complete');
+      logger.info('🎬 Compressing video (720p & 360p) before uploading to S3...');
+      const { buffer720p, buffer360p } = await compressVideoVariants(fileBuffer, context);
+      finalBuffer = buffer720p;
+
+      // Upload low-bandwidth 360p variant if created
+      if (buffer360p) {
+        const previewKey = `${baseKey}_360p.mp4`;
+        url360p = await uploadBufferToS3(buffer360p, previewKey, 'video/mp4');
+      }
+      logger.info('✅ Video multi-resolution compression complete');
     } catch (err) {
       logger.warn(`Video compression failed, using original file buffer: ${err.message}`);
     }
@@ -255,6 +305,11 @@ async function uploadMedia(fileBuffer, folder, context, mediaType = 'auto', orig
   return {
     url: s3Url,
     secure_url: s3Url, // For backwards compatibility
+    url360p,
+    variants: {
+      '720p': s3Url,
+      ...(url360p ? { '360p': url360p } : {})
+    },
     mediaType: finalMediaType,
     resource_type: finalMediaType, // For backwards compatibility
     width,

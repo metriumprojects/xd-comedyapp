@@ -54,10 +54,12 @@ router.post('/post', verifyToken, upload.single('file'), handleMulterError, asyn
     res.json({ 
       success: true, 
       url: result.secure_url, 
+      url360p: result.url360p,
+      variants: result.variants,
       mediaType: result.resource_type,
       width: result.width,
       height: result.height,
-      aspectRatio: result.width && result.height ? result.width / result.height : 1,
+      aspectRatio: result.aspectRatio,
       thumbnailUrl: result.thumbnailUrl
     });
   } catch (err) {
@@ -75,7 +77,15 @@ router.post('/story', verifyToken, uploadStory.single('file'), handleMulterError
 
     const result = await s3Service.uploadMedia(req.file.buffer, `stories/${userId}`, 'story', mediaType, req.file.originalname || 'file');
 
-    res.json({ success: true, url: result.secure_url, mediaType: result.resource_type, thumbnailUrl: result.thumbnailUrl });
+    res.json({ 
+      success: true, 
+      url: result.secure_url, 
+      url360p: result.url360p,
+      variants: result.variants,
+      mediaType: result.resource_type, 
+      thumbnailUrl: result.thumbnailUrl,
+      aspectRatio: result.aspectRatio
+    });
   } catch (err) {
     logger.error('Error uploading story media: %s', err.message);
     res.status(500).json({ success: false, error: `Upload failed: ${err.message}` });
@@ -95,13 +105,18 @@ router.post('/upload', verifyToken, upload.single('file'), handleMulterError, as
     res.json({ 
       success: true, 
       url: result.secure_url, 
+      url360p: result.url360p,
+      variants: result.variants,
       thumbnailUrl: result.thumbnailUrl,
+      aspectRatio: result.aspectRatio,
       data: { 
         url: result.secure_url,
+        url360p: result.url360p,
+        variants: result.variants,
         thumbnailUrl: result.thumbnailUrl,
         width: result.width,
         height: result.height,
-        aspectRatio: result.width && result.height ? result.width / result.height : 1
+        aspectRatio: result.aspectRatio
       } 
     });
   } catch (err) {

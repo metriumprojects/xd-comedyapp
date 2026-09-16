@@ -1,4 +1,4 @@
-import React, { useRef, useEffect } from 'react';
+import React, { useRef, useEffect, useState } from 'react';
 import {
   View,
   Text,
@@ -150,6 +150,16 @@ const ProfileGrid: React.FC<ProfileGridProps> = ({
 }) => {
   const horizontalScrollRef = useRef<ScrollView>(null);
   const lastScrolledIndexRef = useRef<number>(TAB_ORDER.indexOf(segmentTab));
+  const [visitedTabs, setVisitedTabs] = useState<Set<string>>(() => new Set([segmentTab, 'grid']));
+
+  useEffect(() => {
+    setVisitedTabs((prev) => {
+      if (prev.has(segmentTab)) return prev;
+      const next = new Set(prev);
+      next.add(segmentTab);
+      return next;
+    });
+  }, [segmentTab]);
 
   useEffect(() => {
     const targetIdx = TAB_ORDER.indexOf(segmentTab);
@@ -208,10 +218,10 @@ const ProfileGrid: React.FC<ProfileGridProps> = ({
                 onSelectSection={(secName) => onSelectSection?.(secName)}
                 subscriptionSectionName={subscriptionTitle}
                 isSubscribed={isSubscribed}
-                activeSubscribedTierIds={activeSubscribedTierIds}
-                sectionSourcePosts={sectionSourcePosts}
-                getPostId={getPostId}
-                isOwnProfile={isOwnProfile}
+                activeSubscribedTierIds={activeSubscribedTierIds || []}
+                sectionSourcePosts={sectionSourcePosts || []}
+                getPostId={getPostId || ((p: any) => String(p?._id || p?.id || ''))}
+                isOwnProfile={!!isOwnProfile}
                 currentUserId={currentUserId}
                 onEditSections={onEditSections}
               />
@@ -230,43 +240,51 @@ const ProfileGrid: React.FC<ProfileGridProps> = ({
           />
         </View>
 
-        {/* Page 1: Tagged */}
+        {/* Page 1: Tagged - lazily rendered when visited */}
         <View style={{ width: SCREEN_WIDTH }}>
-          <RenderGridPage
-            posts={taggedPosts}
-            loading={loading}
-            emptyIcon="person-outline"
-            emptyTitle="No tagged posts yet"
-            onPressPost={onPressPost}
-            normalizeMediaUrl={normalizeMediaUrl}
-            isVideoUrl={isVideoUrl}
-            DEFAULT_IMAGE_URL={DEFAULT_IMAGE_URL}
-          />
+          {visitedTabs.has('tagged') && (
+            <RenderGridPage
+              posts={taggedPosts}
+              loading={loading}
+              emptyIcon="person-outline"
+              emptyTitle="No tagged posts yet"
+              onPressPost={onPressPost}
+              normalizeMediaUrl={normalizeMediaUrl}
+              isVideoUrl={isVideoUrl}
+              DEFAULT_IMAGE_URL={DEFAULT_IMAGE_URL}
+            />
+          )}
         </View>
 
-        {/* Page 2: Liked */}
+        {/* Page 2: Liked - lazily rendered when visited */}
         <View style={{ width: SCREEN_WIDTH }}>
-          <RenderGridPage
-            posts={likedPosts}
-            loading={loading}
-            emptyIcon="heart-outline"
-            emptyTitle="No liked reels yet"
-            emptySub="Reels liked by this user will appear here."
-            onPressPost={onPressPost}
-            normalizeMediaUrl={normalizeMediaUrl}
-            isVideoUrl={isVideoUrl}
-            DEFAULT_IMAGE_URL={DEFAULT_IMAGE_URL}
-          />
+          {visitedTabs.has('heart') && (
+            <RenderGridPage
+              posts={likedPosts}
+              loading={loading}
+              emptyIcon="heart-outline"
+              emptyTitle="No liked reels yet"
+              emptySub="Reels liked by this user will appear here."
+              onPressPost={onPressPost}
+              normalizeMediaUrl={normalizeMediaUrl}
+              isVideoUrl={isVideoUrl}
+              DEFAULT_IMAGE_URL={DEFAULT_IMAGE_URL}
+            />
+          )}
         </View>
 
-        {/* Page 3: Star (Subscriptions) */}
+        {/* Page 3: Star (Subscriptions) - lazily rendered when visited */}
         <View style={{ width: SCREEN_WIDTH }}>
-          <ProfileSubscriptions currentUserId={currentUserId} />
+          {visitedTabs.has('star') && (
+            <ProfileSubscriptions currentUserId={currentUserId} />
+          )}
         </View>
 
-        {/* Page 4: Stats */}
+        {/* Page 4: Stats - lazily rendered when visited */}
         <View style={{ width: SCREEN_WIDTH }}>
-          <ProfileStatistics creatorPosts={creatorPosts} currentUserId={currentUserId} />
+          {visitedTabs.has('stats') && (
+            <ProfileStatistics creatorPosts={creatorPosts} currentUserId={currentUserId} />
+          )}
         </View>
       </ScrollView>
     </ScrollView>

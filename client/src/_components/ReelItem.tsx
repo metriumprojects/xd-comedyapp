@@ -16,7 +16,6 @@ import {
   KeyboardAvoidingView,
   Keyboard
 } from 'react-native';
-import { Video, ResizeMode } from 'expo-av';
 import { useVideoPlayer, VideoView } from 'expo-video';
 import { useReelsStore } from '@/store/useReelsStore';
 import { Ionicons, Feather, MaterialCommunityIcons } from '@expo/vector-icons';
@@ -46,6 +45,11 @@ import { ReelReactionBurst, FloatingParticleItem, ReactionType } from './ReelRea
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
+// Module-level caches to eliminate per-reel AsyncStorage and network thrashing
+let cachedCanonicalUserId: string | null = null;
+const creatorStoriesCache = new Map<string, { stories: any[]; timestamp: number }>();
+let cachedSeenStoryIds: Set<string> | null = null;
+
 interface ReelItemProps {
   post: any;
   currentUser: any;
@@ -73,24 +77,31 @@ export const ReelItem = React.memo<ReelItemProps>(({
 }) => {
   const router = useRouter();
   const user = useUser();
-  const [resolvedUserId, setResolvedUserId] = useState<string>('');
+  const directUserId = typeof currentUser === 'string'
+    ? currentUser
+    : (currentUser?._id || currentUser?.id || currentUser?.uid || currentUser?.firebaseUid || '');
+  const [resolvedUserId, setResolvedUserId] = useState<string>(directUserId || cachedCanonicalUserId || '');
 
   const isActive = useReelsStore((state) => state.activeIndex === index) && isScreenFocused;
+  // High-performance preload: active reel + immediate adjacent reel (±1)
+  // Dedicates full device bandwidth and decoder pipeline to the next upcoming video without saturating hardware decoders
   const shouldLoad = useReelsStore((state) => Math.abs(index - state.activeIndex) <= 1);
 
   useEffect(() => {
+    if (resolvedUserId || cachedCanonicalUserId) return;
     const fetchCanonicalId = async () => {
       try {
         const canonicalId = await resolveCanonicalUserId();
         if (canonicalId) {
+          cachedCanonicalUserId = canonicalId;
           setResolvedUserId(canonicalId);
         }
       } catch (e) {
-        console.warn('[ReelItem] Failed to resolve canonical user ID:', e);
+        // Silently continue
       }
     };
     fetchCanonicalId();
-  }, []);
+  }, [resolvedUserId]);
 
 
 
@@ -337,33 +348,55 @@ export const ReelItem = React.memo<ReelItemProps>(({
 
   useEffect(() => {
     if (!shouldLoad) return;
-    const fetchStories = async () => {
-      const creatorUserId = post?.userId?._id || post?.userId;
-      if (!creatorUserId) return;
-      try {
-        const res = await apiService.get(`/stories/user/${creatorUserId}`);
-        if (res?.success && Array.isArray(res.data)) {
-          setCreatorStories(res.data);
-        } else {
-          setCreatorStories([]);
-        }
-      } catch (err) {
-        console.warn('[ReelItem] Failed to fetch creator stories:', err);
-        setCreatorStories([]);
+    const creatorUserId = String(post?.userId?._id || post?.userId?.id || post?.userId || '');
+    if (!creatorUserId) return;
+
+    // 1. Check followedStories passed from home.tsx (0ms instant!)
+    if (Array.isArray(followedStories) && followedStories.length > 0) {
+      const matched = followedStories.filter((s: any) => {
+        const sUid = String(s?.userId?._id || s?.userId?.id || s?.userId || s?.uid || '');
+        return sUid === creatorUserId;
+      });
+      if (matched.length > 0) {
+        setCreatorStories(matched);
+        return;
       }
-    };
-    fetchStories();
-  }, [post?.userId, shouldLoad]);
+    }
+
+    // 2. Check in-memory cache (TTL: 2 minutes)
+    const cached = creatorStoriesCache.get(creatorUserId);
+    if (cached && Date.now() - cached.timestamp < 120000) {
+      setCreatorStories(cached.stories);
+      return;
+    }
+
+    // 3. Only fetch from API if not in cache
+    let isMounted = true;
+    apiService.get(`/stories/user/${creatorUserId}`)
+      .then((res) => {
+        if (!isMounted) return;
+        const data = res?.success && Array.isArray(res.data) ? res.data : [];
+        creatorStoriesCache.set(creatorUserId, { stories: data, timestamp: Date.now() });
+        setCreatorStories(data);
+      })
+      .catch(() => {
+        if (isMounted) setCreatorStories([]);
+      });
+
+    return () => { isMounted = false; };
+  }, [post?.userId, shouldLoad, followedStories]);
 
   const loadSeenStoryIds = useCallback(async () => {
+    if (cachedSeenStoryIds) {
+      setSeenStoryIds(Array.from(cachedSeenStoryIds));
+      return;
+    }
     try {
       const raw = await AsyncStorage.getItem('seenStoryIds');
       const arr = raw ? JSON.parse(raw) : [];
-      if (Array.isArray(arr)) {
-        setSeenStoryIds(arr.map((x: any) => String(x)));
-      } else {
-        setSeenStoryIds([]);
-      }
+      const idList = Array.isArray(arr) ? arr.map((x: any) => String(x)) : [];
+      cachedSeenStoryIds = new Set(idList);
+      setSeenStoryIds(idList);
     } catch {
       setSeenStoryIds([]);
     }
@@ -1171,7 +1204,7 @@ export const ReelItem = React.memo<ReelItemProps>(({
           <ExpoImage
             source={thumbUrl ? { uri: thumbUrl } : undefined}
             style={StyleSheet.absoluteFill}
-            contentFit="cover"
+            contentFit="contain"
           />
         )
       ) : (
@@ -1592,60 +1625,62 @@ export const ReelItem = React.memo<ReelItemProps>(({
         </View>
       )}
 
-      {/* Comments Drawer Modal */}
-      <Modal
-        visible={showComments}
-        animationType="slide"
-        transparent={true}
-        onRequestClose={() => {
-          setShowComments(false);
-          setAutoFocusComment(false);
-        }}
-      >
-        <KeyboardAvoidingView
-          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-          style={{ flex: 1 }}
+      {/* Comments Drawer Modal - lazily mounted */}
+      {showComments && (
+        <Modal
+          visible={showComments}
+          animationType="slide"
+          transparent={true}
+          onRequestClose={() => {
+            setShowComments(false);
+            setAutoFocusComment(false);
+          }}
         >
-          <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' }}>
-            <Pressable
-              style={{ flex: 1 }}
-              onPress={() => {
-                // Keyboard up: first tap just lowers it, like Instagram. Second tap closes the sheet.
-                if (Keyboard.isVisible()) {
-                  Keyboard.dismiss();
-                  return;
-                }
-                setShowComments(false);
-                setAutoFocusComment(false);
-              }}
-            />
-            <Animated.View
-              style={[
-                styles.commentsSheet,
-                { transform: [{ translateY }] }
-              ]}
-            >
-              {/* Drag Handle */}
-              <View
-                {...panResponder.panHandlers}
-                style={styles.commentsHandleContainer}
-              >
-                <View style={styles.commentsHandle} />
-              </View>
-
-              <CommentSection
-                postId={post._id || post.id}
-                postOwnerId={post?.userId?._id || post?.userId}
-                currentAvatar={currentUser?.avatar || currentUser?.photoURL || ''}
-                currentUser={currentUser}
-                maxHeight={containerHeight * 0.8}
-                initialTab="comment"
-                autoFocusInput={autoFocusComment}
+          <KeyboardAvoidingView
+            behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+            style={{ flex: 1 }}
+          >
+            <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' }}>
+              <Pressable
+                style={{ flex: 1 }}
+                onPress={() => {
+                  // Keyboard up: first tap just lowers it, like Instagram. Second tap closes the sheet.
+                  if (Keyboard.isVisible()) {
+                    Keyboard.dismiss();
+                    return;
+                  }
+                  setShowComments(false);
+                  setAutoFocusComment(false);
+                }}
               />
-            </Animated.View>
-          </View>
-        </KeyboardAvoidingView>
-      </Modal>
+              <Animated.View
+                style={[
+                  styles.commentsSheet,
+                  { transform: [{ translateY }] }
+                ]}
+              >
+                {/* Drag Handle */}
+                <View
+                  {...panResponder.panHandlers}
+                  style={styles.commentsHandleContainer}
+                >
+                  <View style={styles.commentsHandle} />
+                </View>
+
+                <CommentSection
+                  postId={post._id || post.id}
+                  postOwnerId={post?.userId?._id || post?.userId}
+                  currentAvatar={currentUser?.avatar || currentUser?.photoURL || ''}
+                  currentUser={currentUser}
+                  maxHeight={containerHeight * 0.8}
+                  initialTab="comment"
+                  autoFocusInput={autoFocusComment}
+                />
+              </Animated.View>
+            </View>
+          </KeyboardAvoidingView>
+        </Modal>
+      )}
 
       {/* Share Modal */}
       {showShare && (
@@ -1674,110 +1709,112 @@ export const ReelItem = React.memo<ReelItemProps>(({
         />
       )}
 
-      {/* Post Options Menu Modal */}
-      <Modal
-        visible={showMenu}
-        animationType="slide"
-        transparent={true}
-        onRequestClose={() => setShowMenu(false)}
-      >
-        <Pressable
-          style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.4)' }}
-          onPress={() => setShowMenu(false)}
-        />
-        <View style={styles.menuSheet}>
-          <View style={styles.menuHandle} />
+      {/* Post Options Menu Modal - lazily mounted */}
+      {showMenu && (
+        <Modal
+          visible={showMenu}
+          animationType="slide"
+          transparent={true}
+          onRequestClose={() => setShowMenu(false)}
+        >
+          <Pressable
+            style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.4)' }}
+            onPress={() => setShowMenu(false)}
+          />
+          <View style={styles.menuSheet}>
+            <View style={styles.menuHandle} />
 
-          {isOwner ? (
-            <TouchableOpacity
-              style={styles.menuItem}
-              onPress={() => {
-                setShowMenu(false);
-                setTimeout(() => {
-                  feedEventEmitter.emit('closePostViewer');
-                  setTimeout(() => {
-                    router.push(`/create-post?editPostId=${post._id}`);
-                  }, 500);
-                }, 250);
-              }}
-            >
-              <Feather name="edit-3" size={20} color={COLORS.textPrimary} />
-              <Text style={styles.menuItemText}>Edit Reel</Text>
-            </TouchableOpacity>
-          ) : (
-            <>
+            {isOwner ? (
               <TouchableOpacity
                 style={styles.menuItem}
                 onPress={() => {
                   setShowMenu(false);
-                  Alert.alert(
-                    "Report Reel",
-                    "Why are you reporting this reel?",
-                    [
-                      { text: "Spam", onPress: () => {
-                          apiService.reportContent({ targetId: post._id, targetType: 'post', reason: 'spam' });
-                          feedEventEmitter.emitFeedUpdate({ type: 'POST_DELETED', postId: post._id });
-                          Alert.alert("Reported", "This reel has been hidden from your feed.");
-                      }},
-                      { text: "Inappropriate", onPress: () => {
-                          apiService.reportContent({ targetId: post._id, targetType: 'post', reason: 'inappropriate' });
-                          feedEventEmitter.emitFeedUpdate({ type: 'POST_DELETED', postId: post._id });
-                          Alert.alert("Reported", "This reel has been hidden from your feed.");
-                      }},
-                      { text: "Cancel", style: "cancel" }
-                    ]
-                  );
+                  setTimeout(() => {
+                    feedEventEmitter.emit('closePostViewer');
+                    setTimeout(() => {
+                      router.push(`/create-post?editPostId=${post._id}`);
+                    }, 500);
+                  }, 250);
                 }}
               >
-                <Feather name="flag" size={20} color={COLORS.danger} />
-                <Text style={[styles.menuItemText, { color: COLORS.danger }]}>Report Reel</Text>
+                <Feather name="edit-3" size={20} color={COLORS.textPrimary} />
+                <Text style={styles.menuItemText}>Edit Reel</Text>
               </TouchableOpacity>
+            ) : (
+              <>
+                <TouchableOpacity
+                  style={styles.menuItem}
+                  onPress={() => {
+                    setShowMenu(false);
+                    Alert.alert(
+                      "Report Reel",
+                      "Why are you reporting this reel?",
+                      [
+                        { text: "Spam", onPress: () => {
+                            apiService.reportContent({ targetId: post._id, targetType: 'post', reason: 'spam' });
+                            feedEventEmitter.emitFeedUpdate({ type: 'POST_DELETED', postId: post._id });
+                            Alert.alert("Reported", "This reel has been hidden from your feed.");
+                        }},
+                        { text: "Inappropriate", onPress: () => {
+                            apiService.reportContent({ targetId: post._id, targetType: 'post', reason: 'inappropriate' });
+                            feedEventEmitter.emitFeedUpdate({ type: 'POST_DELETED', postId: post._id });
+                            Alert.alert("Reported", "This reel has been hidden from your feed.");
+                        }},
+                        { text: "Cancel", style: "cancel" }
+                      ]
+                    );
+                  }}
+                >
+                  <Feather name="flag" size={20} color={COLORS.danger} />
+                  <Text style={[styles.menuItemText, { color: COLORS.danger }]}>Report Reel</Text>
+                </TouchableOpacity>
 
-              <TouchableOpacity
-                style={styles.menuItem}
-                onPress={() => {
-                  setShowMenu(false);
-                  const targetAuthorId = post?.userId?._id || post?.userId?.id || post?.userId?.uid || post?.userId?.firebaseUid || post?.userId;
-                  const myUserId = currentUser?._id || currentUser?.id || currentUser?.uid || currentUser?.firebaseUid;
-                  if (!targetAuthorId || !myUserId) return;
+                <TouchableOpacity
+                  style={styles.menuItem}
+                  onPress={() => {
+                    setShowMenu(false);
+                    const targetAuthorId = post?.userId?._id || post?.userId?.id || post?.userId?.uid || post?.userId?.firebaseUid || post?.userId;
+                    const myUserId = currentUser?._id || currentUser?.id || currentUser?.uid || currentUser?.firebaseUid;
+                    if (!targetAuthorId || !myUserId) return;
 
-                  Alert.alert(
-                    "Block User",
-                    `Block @${postUserName}? You won't see their posts in your feed anymore.`,
-                    [
-                      { text: "Cancel", style: "cancel" },
-                      {
-                        text: "Block",
-                        style: "destructive",
-                        onPress: async () => {
-                          try {
-                            const { userService } = require('@/lib/userService');
-                            await userService.blockUser(String(myUserId), String(targetAuthorId));
-                            feedEventEmitter.emitFeedUpdate({ type: 'USER_BLOCKED', userId: String(targetAuthorId) });
-                            Alert.alert("Blocked", `@${postUserName} has been blocked.`);
-                          } catch (err) {
-                            Alert.alert("Error", "Failed to block user.");
+                    Alert.alert(
+                      "Block User",
+                      `Block @${postUserName}? You won't see their posts in your feed anymore.`,
+                      [
+                        { text: "Cancel", style: "cancel" },
+                        {
+                          text: "Block",
+                          style: "destructive",
+                          onPress: async () => {
+                            try {
+                              const { userService } = require('@/lib/userService');
+                              await userService.blockUser(String(myUserId), String(targetAuthorId));
+                              feedEventEmitter.emitFeedUpdate({ type: 'USER_BLOCKED', userId: String(targetAuthorId) });
+                              Alert.alert("Blocked", `@${postUserName} has been blocked.`);
+                            } catch (err) {
+                              Alert.alert("Error", "Failed to block user.");
+                            }
                           }
                         }
-                      }
-                    ]
-                  );
-                }}
-              >
-                <Ionicons name="ban-outline" size={20} color={COLORS.danger} />
-                <Text style={[styles.menuItemText, { color: COLORS.danger }]}>Block @{postUserName}</Text>
-              </TouchableOpacity>
-            </>
-          )}
+                      ]
+                    );
+                  }}
+                >
+                  <Ionicons name="ban-outline" size={20} color={COLORS.danger} />
+                  <Text style={[styles.menuItemText, { color: COLORS.danger }]}>Block @{postUserName}</Text>
+                </TouchableOpacity>
+              </>
+            )}
 
-          <TouchableOpacity
-            style={styles.menuCancelBtn}
-            onPress={() => setShowMenu(false)}
-          >
-            <Text style={styles.menuCancelText}>Cancel</Text>
-          </TouchableOpacity>
-        </View>
-      </Modal>
+            <TouchableOpacity
+              style={styles.menuCancelBtn}
+              onPress={() => setShowMenu(false)}
+            >
+              <Text style={styles.menuCancelText}>Cancel</Text>
+            </TouchableOpacity>
+          </View>
+        </Modal>
+      )}
 
       {/* Saved Toast Banner Overlay */}
       {showSavedToast && (
@@ -1801,17 +1838,19 @@ export const ReelItem = React.memo<ReelItemProps>(({
       )}
 
       {/* Save To Collection Modal */}
-      <SaveToCollectionModal
-        visible={showCollectionModal}
-        onClose={() => setShowCollectionModal(false)}
-        postId={post._id || post.id}
-        postImageUrl={thumbUrl}
-        currentUserId={activeUserId}
-        onSaveChange={(saved) => {
-          setIsSaved(saved);
-        }}
-        initialGloballySaved={isSaved}
-      />
+      {showCollectionModal && (
+        <SaveToCollectionModal
+          visible={showCollectionModal}
+          onClose={() => setShowCollectionModal(false)}
+          postId={post._id || post.id}
+          postImageUrl={thumbUrl}
+          currentUserId={activeUserId}
+          onSaveChange={(saved) => {
+            setIsSaved(saved);
+          }}
+          initialGloballySaved={isSaved}
+        />
+      )}
 
       {isLocked && (
         <View style={styles.lockedOverlay}>
@@ -1984,13 +2023,11 @@ const ReelVideoPlayer: React.FC<ReelVideoPlayerProps> = ({
     };
   }, [player, setIsLoaded, setIsBuffering]);
 
-  const isLandscape = typeof aspectRatio === 'number' && aspectRatio > 1.1;
-
   return (
     <VideoView
       player={player}
       style={StyleSheet.absoluteFill}
-      contentFit={isLandscape ? "contain" : "cover"}
+      contentFit="contain"
       nativeControls={false}
     />
   );

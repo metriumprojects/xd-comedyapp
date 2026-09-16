@@ -630,7 +630,7 @@ export async function toggleUserPrivacy(uid: string, isPrivate: boolean) {
 }
 
 // ============= MEDIA =============
-export async function uploadMedia(uri: string, mediaType: 'image' | 'video' = 'image', path?: string): Promise<{ success: boolean; url?: string; error?: string; thumbnailUrl?: string }> {
+export async function uploadMedia(uri: string, mediaType: 'image' | 'video' = 'image', path?: string): Promise<{ success: boolean; url?: string; error?: string; thumbnailUrl?: string; aspectRatio?: number; width?: number; height?: number }> {
   try {
     console.log(`[uploadMedia] 📤 Starting ${mediaType} upload from URI:`, uri);
 
@@ -707,7 +707,7 @@ async function uploadWithMultipart(
   uri: string,
   mediaType: 'image' | 'video',
   path?: string
-): Promise<{ success: boolean; url?: string; error?: string; thumbnailUrl?: string }> {
+): Promise<{ success: boolean; url?: string; error?: string; thumbnailUrl?: string; aspectRatio?: number; width?: number; height?: number }> {
   try {
     const token = await AsyncStorage.getItem('token');
     const endpointUrl = `${API_BASE_URL}/upload/upload`;
@@ -770,11 +770,14 @@ async function uploadWithMultipart(
 
     const url = response?.data?.url || response?.url || response?.secureUrl;
     const thumbnailUrl = response?.data?.thumbnailUrl || response?.thumbnailUrl;
+    const aspectRatio = response?.data?.aspectRatio || response?.aspectRatio;
+    const width = response?.data?.width || response?.width;
+    const height = response?.data?.height || response?.height;
     if (!url) {
       return { success: false, error: 'No URL returned from multipart upload' };
     }
 
-    return { success: true, url, thumbnailUrl };
+    return { success: true, url, thumbnailUrl, aspectRatio, width, height };
   } catch (err: any) {
     return { success: false, error: err?.message || 'Multipart upload failed' };
   }
@@ -1026,6 +1029,7 @@ export async function createPost(
     };
 
     let autoThumbnailUrl = '';
+    let detectedAspectRatio = aspectRatio;
     const mediaUrls = [];
     for (const uri of mediaUris || []) {
       // If it's already an uploaded image/video from our server/S3/CDN, don't re-upload
@@ -1046,6 +1050,9 @@ export async function createPost(
       mediaUrls.push(upload.url);
       if (itemType === 'video' && upload.thumbnailUrl && !autoThumbnailUrl) {
         autoThumbnailUrl = upload.thumbnailUrl;
+      }
+      if (!detectedAspectRatio && upload.aspectRatio) {
+        detectedAspectRatio = upload.aspectRatio;
       }
     }
 
@@ -1080,7 +1087,7 @@ export async function createPost(
       type: postType,
       allowedFollowers: allowedFollowers.length > 0 ? allowedFollowers : undefined,
       isPrivate: allowedFollowers.length > 0,  // mark as private when group is selected
-      aspectRatio,
+      aspectRatio: detectedAspectRatio || aspectRatio,
     };
     if (subscriptionTierId) {
       payload.subscriptionTierId = subscriptionTierId;

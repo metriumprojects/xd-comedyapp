@@ -66,6 +66,7 @@ interface Collection {
 
 interface SavedPost {
   id: string;
+  _id?: string;
   imageUrl: string;
   gridThumb?: string;
   mediaType?: 'image' | 'video';
@@ -73,6 +74,14 @@ interface SavedPost {
   mediaUrls?: string[];
   imageUrls?: string[];
   thumbnailUrl?: string;
+  media?: any[];
+  aspectRatio?: number;
+  viewsCount?: number;
+  laughCount?: number;
+  tomatoCount?: number;
+  visibility?: string;
+  user?: any;
+  userId?: any;
 }
 
 const videoThumbnailCache = new Map<string, string>();
@@ -86,7 +95,7 @@ const SavedGridItem = React.memo(({
   index: number;
   onPress: () => void;
 }) => {
-  const mainMediaUrl = item.mediaUrl || item.imageUrl || (Array.isArray(item.mediaUrls) && item.mediaUrls[0]) || '';
+  const mainMediaUrl = item.mediaUrl || item.imageUrl || (Array.isArray(item.mediaUrls) && item.mediaUrls[0]) || (item.media?.[0]?.url) || '';
   const isVideo = item.mediaType === 'video' || isVideoUrl(mainMediaUrl) || isVideoUrl(item.imageUrl);
 
   const initialMediaUrl = item.gridThumb || item.thumbnailUrl || (isVideo ? getVideoThumbnailUrl(mainMediaUrl) : mainMediaUrl) || '';
@@ -124,6 +133,8 @@ const SavedGridItem = React.memo(({
   }, [item, isVideo, mainMediaUrl]);
 
   const finalUri = normalizeMediaUrl(thumbUrl || mainMediaUrl);
+  const views = item.viewsCount || 0;
+  const formattedViews = views >= 1000 ? `${(views / 1000).toFixed(1)}K` : views;
 
   return (
     <TouchableOpacity
@@ -138,9 +149,24 @@ const SavedGridItem = React.memo(({
         cachePolicy="memory-disk"
         transition={150}
       />
+      {item.visibility === 'Subscribers' && (
+        <View style={styles.subscriberBadge}>
+          <Feather name="lock" size={9} color={COLORS.warning} />
+          <Text style={styles.subscriberBadgeText}>PRO</Text>
+        </View>
+      )}
       {isVideo && (
-        <View style={styles.playIconOverlay}>
-          <Ionicons name="play" size={16} color={COLORS.textLight} />
+        <View style={styles.thumbnailOverlayBottom}>
+          <View style={styles.statLeft}>
+            <Feather name="play" size={10} color={COLORS.textLight} style={{ marginRight: 2 }} />
+            <Text style={styles.statText}>{formattedViews}</Text>
+          </View>
+          {(item.laughCount !== undefined || item.tomatoCount !== undefined) && (
+            <View style={styles.statRight}>
+              <Text style={styles.statText}>😂 {item.laughCount || 0}</Text>
+              <Text style={styles.statText}> 🍅 {item.tomatoCount || 0}</Text>
+            </View>
+          )}
         </View>
       )}
     </TouchableOpacity>
@@ -306,7 +332,7 @@ export default function SavedScreen() {
       }
 
       setAllSavedPosts(mergedSavedRaw.map((p: any) => {
-        const mainMediaUrl = p.mediaUrl || p.imageUrl || (Array.isArray(p.mediaUrls) ? p.mediaUrls[0] : '');
+        const mainMediaUrl = p.mediaUrl || p.imageUrl || (Array.isArray(p.mediaUrls) ? p.mediaUrls[0] : '') || (p.media?.[0]?.url) || '';
         const isVideo = p.mediaType === 'video' || isVideoUrl(mainMediaUrl);
         let thumb = p.thumbnailUrl;
         if (!thumb && isVideo) {
@@ -316,11 +342,30 @@ export default function SavedScreen() {
           thumb = mainMediaUrl;
         }
 
+        const media = (Array.isArray(p.media) && p.media.length > 0)
+          ? p.media
+          : (mainMediaUrl ? [{
+              url: mainMediaUrl,
+              type: isVideo ? 'video' : 'image',
+              aspectRatio: p.aspectRatio,
+              thumbnailUrl: thumb || mainMediaUrl,
+            }] : []);
+
         return {
           ...p,
           id: p._id || p.id,
+          _id: p._id || p.id,
           imageUrl: mainMediaUrl || '',
           gridThumb: thumb || mainMediaUrl,
+          mediaType: isVideo ? 'video' : (p.mediaType || 'image'),
+          mediaUrls: Array.isArray(p.mediaUrls) && p.mediaUrls.length > 0 ? p.mediaUrls : (mainMediaUrl ? [mainMediaUrl] : []),
+          media,
+          aspectRatio: p.aspectRatio,
+          thumbnailUrl: thumb || p.thumbnailUrl,
+          viewsCount: p.viewsCount || 0,
+          laughCount: p.laughCount || 0,
+          tomatoCount: p.tomatoCount || 0,
+          user: p.user || p.userId || p.authorData,
         };
       }));
 
@@ -341,11 +386,34 @@ export default function SavedScreen() {
       try {
         await setCachedData(SAVED_CACHE_KEY(activeUid), {
           collections: mergedSections,
-          allSavedPosts: mergedSavedRaw.map((p: any) => ({
-            ...p,
-            id: p._id || p.id,
-            imageUrl: p.mediaUrl || p.imageUrl || (Array.isArray(p.mediaUrls) ? p.mediaUrls[0] : '') || '',
-          })),
+          allSavedPosts: mergedSavedRaw.map((p: any) => {
+            const mainMediaUrl = p.mediaUrl || p.imageUrl || (Array.isArray(p.mediaUrls) ? p.mediaUrls[0] : '') || (p.media?.[0]?.url) || '';
+            const isVideo = p.mediaType === 'video' || isVideoUrl(mainMediaUrl);
+            const thumb = p.thumbnailUrl || (isVideo ? getVideoThumbnailUrl(mainMediaUrl) : mainMediaUrl);
+            const media = (Array.isArray(p.media) && p.media.length > 0)
+              ? p.media
+              : (mainMediaUrl ? [{
+                  url: mainMediaUrl,
+                  type: isVideo ? 'video' : 'image',
+                  aspectRatio: p.aspectRatio,
+                  thumbnailUrl: thumb || mainMediaUrl,
+                }] : []);
+            return {
+              ...p,
+              id: p._id || p.id,
+              _id: p._id || p.id,
+              imageUrl: mainMediaUrl || '',
+              gridThumb: thumb || mainMediaUrl,
+              mediaType: isVideo ? 'video' : (p.mediaType || 'image'),
+              mediaUrls: Array.isArray(p.mediaUrls) && p.mediaUrls.length > 0 ? p.mediaUrls : (mainMediaUrl ? [mainMediaUrl] : []),
+              media,
+              aspectRatio: p.aspectRatio,
+              thumbnailUrl: thumb,
+              viewsCount: p.viewsCount || 0,
+              laughCount: p.laughCount || 0,
+              tomatoCount: p.tomatoCount || 0,
+            };
+          }),
           likedPosts: likes,
           savedPosts: saves,
         }, { ttl: 24 * 60 * 60 * 1000 });
@@ -902,7 +970,8 @@ export default function SavedScreen() {
             index={index}
             onPress={() => {
               hapticLight();
-              setSelectedPostIndex(index);
+              const modalIndex = displayedPosts.findIndex((p: any) => (p.id || p._id) === (item.id || item._id));
+              setSelectedPostIndex(modalIndex >= 0 ? modalIndex : index);
               setPostViewerVisible(true);
             }}
           />
@@ -1315,7 +1384,7 @@ export default function SavedScreen() {
         posts: displayedPosts,
         selectedPostIndex: selectedPostIndex,
         profile: null, // Multiple authors in saved feed, modal will handle user info if it can
-        authUser: currentUserId ? { uid: currentUserId } : null,
+        authUser: currentUserId ? { _id: currentUserId, id: currentUserId, uid: currentUserId } : null,
         likedPosts: likedPosts,
         savedPosts: savedPosts,
         handleLikePost: handleLikePost,
@@ -1733,5 +1802,49 @@ const styles = StyleSheet.create({
     height: 24,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  subscriberBadge: {
+    position: 'absolute',
+    top: 6,
+    right: 6,
+    backgroundColor: 'rgba(0,0,0,0.65)',
+    paddingHorizontal: 5,
+    paddingVertical: 2,
+    borderRadius: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 2,
+    zIndex: 10,
+  },
+  subscriberBadgeText: {
+    color: COLORS.warning,
+    fontSize: 8,
+    fontWeight: '700',
+  },
+  thumbnailOverlayBottom: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    backgroundColor: 'rgba(0,0,0,0.4)',
+    paddingVertical: 3,
+    paddingHorizontal: 5,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  statLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  statRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+  },
+  statText: {
+    color: COLORS.textLight,
+    fontSize: 9,
+    fontWeight: '600',
   },
 });

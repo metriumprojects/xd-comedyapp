@@ -17,6 +17,8 @@ import { likePost, unlikePost, sendPostMessage } from "../../lib/firebaseHelpers
 import { apiService } from '@/src/_services/apiService';
 import { BACKEND_URL } from "../../lib/api";
 import COLORS from '@/src/theme/colors';
+import { isVideoUrl } from '../../lib/utils/media';
+import { getVideoThumbnailUrl } from '../../lib/imageHelpers';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -32,6 +34,7 @@ interface PostCardProps {
   mirror?: boolean;
   containerHeight?: number;
   onCloseOuterModal?: () => void;
+  isActive?: boolean;
 }
 
 
@@ -43,7 +46,8 @@ const PostCard: React.FC<PostCardProps> = ({
   onCommentPress,
   mirror = false,
   containerHeight,
-  onCloseOuterModal
+  onCloseOuterModal,
+  isActive
 }) => {
 
   const router = useRouter();
@@ -265,11 +269,37 @@ const PostCard: React.FC<PostCardProps> = ({
   }, [activeIndex]);
 
   const mediaData = useMemo(() => {
-    const rawMedia = Array.isArray(post?.media) ? post.media : [];
+    let rawMedia = Array.isArray(post?.media) && post.media.length > 0 ? post.media : [];
+
+    if (rawMedia.length === 0) {
+      const urls: string[] = [];
+      if (Array.isArray(post?.mediaUrls) && post.mediaUrls.length > 0) {
+        urls.push(...post.mediaUrls.filter(Boolean));
+      } else if (Array.isArray(post?.imageUrls) && post.imageUrls.length > 0) {
+        urls.push(...post.imageUrls.filter(Boolean));
+      } else if (post?.mediaUrl) {
+        urls.push(post.mediaUrl);
+      } else if (post?.imageUrl) {
+        urls.push(post.imageUrl);
+      }
+
+      if (urls.length > 0) {
+        rawMedia = urls.map((url: string) => {
+          const isVid = post?.mediaType === 'video' || isVideoUrl(url);
+          return {
+            url,
+            type: isVid ? 'video' : 'image',
+            aspectRatio: post?.aspectRatio,
+            thumbnailUrl: post?.thumbnailUrl || post?.gridThumb || (isVid ? getVideoThumbnailUrl(url) : undefined),
+          };
+        });
+      }
+    }
+
     return rawMedia.map((m: any, idx: number) => ({
       ...m,
       // Pass the grid thumbnail to the first item so it loads instantly from cache
-      thumbnailUrl: m.thumbnailUrl || (idx === 0 ? (post?.thumbnailUrl || post?.imageUrl) : undefined)
+      thumbnailUrl: m.thumbnailUrl || (idx === 0 ? (post?.thumbnailUrl || post?.imageUrl || post?.gridThumb) : undefined)
     }));
   }, [post]);
 
@@ -346,6 +376,7 @@ const PostCard: React.FC<PostCardProps> = ({
           media={mediaData}
           activeIndex={activeIndex}
           onScroll={onScroll}
+          isActive={isActive}
           onMediaPress={(index) => {
             if (post?.taggedUsers && post.taggedUsers.length > 0) {
               setShowTagsOverlay(!showTagsOverlay);

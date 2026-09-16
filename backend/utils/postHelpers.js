@@ -214,7 +214,7 @@ async function enrichPostsWithUserData(posts, viewerId = null) {
             mediaList.push({
               url,
               type: isVideo ? 'video' : 'image',
-              aspectRatio: m.aspectRatio || p.aspectRatio || 1,
+              aspectRatio: m.aspectRatio || p.aspectRatio || (isVideo ? undefined : 1),
               width: m.width || undefined,
               height: m.height || undefined
             });

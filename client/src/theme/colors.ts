@@ -63,6 +63,7 @@ export const lightTheme = {
   danger: PALETTE.danger,
   dangerLight: PALETTE.dangerLight,
   success: PALETTE.success,
+  successLight: '#ECFDF5',
   info: PALETTE.info,
   black: PALETTE.black,
   white: PALETTE.white,

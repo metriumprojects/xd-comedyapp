@@ -160,7 +160,7 @@ const PreviewVideoPlayer = React.memo(({ videoUrl, height }: { videoUrl: string;
   };
 
   return (
-    <View style={{ width: windowWidth, height, backgroundColor: COLORS.black }}>
+    <View style={{ width: windowWidth, height, backgroundColor: COLORS.white }}>
       <TouchableOpacity
         activeOpacity={1}
         onPress={togglePlayPause}
@@ -281,7 +281,7 @@ const MediaPreviewItem = React.memo(({
   }, [uri, isVideo, providedThumbnail]);
 
   return (
-    <View style={{ width: windowWidth, height, backgroundColor: COLORS.black, justifyContent: 'center', alignItems: 'center' }}>
+    <View style={{ width: windowWidth, height, backgroundColor: COLORS.white, justifyContent: 'center', alignItems: 'center' }}>
       {isVideo ? (
         isPlaying && playableUri && !isNativeUri(playableUri) ? (
           <PreviewVideoPlayer videoUrl={playableUri} height={height} />
@@ -334,7 +334,7 @@ const MediaPreview: React.FC<MediaPreviewProps> = ({ uris, thumbnails, isVideo, 
   if (uris.length === 0) return null;
 
   return (
-    <View style={{ height, width: windowWidth, backgroundColor: COLORS.black }}>
+    <View style={{ height, width: windowWidth, backgroundColor: COLORS.white }}>
       <ScrollView horizontal pagingEnabled showsHorizontalScrollIndicator={false}>
         {uris.map((uri, index) => (
           <MediaPreviewItem

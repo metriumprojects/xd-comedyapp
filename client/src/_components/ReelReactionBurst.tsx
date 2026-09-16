@@ -383,6 +383,10 @@ export const ReelReactionBurst: React.FC<ReelReactionBurstProps> = ({
     }
   }, [isMegaExploded, explodedType, megaEmojiScale, megaEmojiOpacity, flashAnim]);
 
+  if (particles.length === 0 && !isHolding && !isMegaExploded && !activeSplat) {
+    return null;
+  }
+
   return (
     <View style={StyleSheet.absoluteFill} pointerEvents="none">
       {/* Full Screen Flash Glow on Blast */}

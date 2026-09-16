@@ -103,55 +103,17 @@ export const ProfileStatistics: React.FC<ProfileStatisticsProps> = ({
     );
   };
 
-// Spring Animated Number Ticker Component (Robinhood / Apple Fitness style)
-const SpringAnimatedNumber: React.FC<{ rawValue: number | string; style?: any }> = ({ rawValue, style }) => {
-  const numericVal = typeof rawValue === 'number' ? rawValue : (parseInt(String(rawValue).replace(/[^0-9]/g, ''), 10) || 0);
-  const animVal = useRef(new Animated.Value(0)).current;
-  const [currentNum, setCurrentNum] = useState<number>(0);
-
-  useEffect(() => {
-    animVal.setValue(0);
-    const id = animVal.addListener(({ value }) => {
-      setCurrentNum(Math.floor(value));
-    });
-
-    Animated.spring(animVal, {
-      toValue: numericVal,
-      tension: 40,
-      friction: 7,
-      useNativeDriver: true,
-    }).start();
-
-    return () => {
-      animVal.removeListener(id);
-    };
-  }, [numericVal]);
-
-  const formattedDisplay = useMemo(() => {
-    if (typeof rawValue === 'string' && (rawValue.endsWith('K') || rawValue.endsWith('M'))) {
-      if (currentNum >= 1000000) return `${(currentNum / 1000000).toFixed(1)}M`;
-      if (currentNum >= 1000) return `${(currentNum / 1000).toFixed(1)}K`;
-      return String(currentNum);
-    }
-    if (currentNum >= 1000000) return `${(currentNum / 1000000).toFixed(1)}M`;
-    if (currentNum >= 1000) return `${(currentNum / 1000).toFixed(1)}K`;
-    return String(currentNum);
-  }, [currentNum, rawValue]);
-
-  return <Text style={style}>{formattedDisplay}</Text>;
-};
-
-  const renderStatValue = (val: string | number, width = 60) => {
-    if (loading) {
+  const renderStatValue = (val: string | number, isStatLoading = false, width = 60) => {
+    if (isStatLoading) {
       return (
         <Animated.View style={{ width, height: 28, backgroundColor: COLORS.border, borderRadius: 6, marginVertical: 4, opacity: skeletonOpacity }} />
       );
     }
-    return <SpringAnimatedNumber rawValue={val} style={styles.statValue} />;
+    return <Text style={styles.statValue}>{val}</Text>;
   };
 
   const renderBalanceValue = (val: string, width = 120) => {
-    if (loading) {
+    if (loading && !balance && !connectStatus && totalEarnings === '0.00') {
       return (
         <Animated.View style={{ width, height: 36, backgroundColor: COLORS.border, borderRadius: 6, marginVertical: 4, opacity: skeletonOpacity }} />
       );
@@ -161,7 +123,9 @@ const SpringAnimatedNumber: React.FC<{ rawValue: number | string; style?: any }>
 
   const loadSubscribers = useCallback(async () => {
     if (!currentUserId) return;
-    setLoading(true);
+    if (subscribers.length === 0) {
+      setLoading(true);
+    }
     try {
       // Load real subscribers from backend API
       const response = await subscriptionService.getMySubscribers();
@@ -429,15 +393,15 @@ const SpringAnimatedNumber: React.FC<{ rawValue: number | string; style?: any }>
         </View>
         <View style={styles.statsGrid}>
           <View style={styles.statCol}>
-            {renderStatValue(stats.views, 50)}
+            {renderStatValue(stats.views, false, 50)}
             <Text style={styles.statLabel}>Total views</Text>
           </View>
           <View style={styles.statCol}>
-            {renderStatValue(stats.laughs, 50)}
+            {renderStatValue(stats.laughs, false, 50)}
             <Text style={styles.statLabel}>Total laughs</Text>
           </View>
           <View style={styles.statCol}>
-            {renderStatValue(activeSubscribersCount, 40)}
+            {renderStatValue(activeSubscribersCount, loading && subscribers.length === 0, 40)}
             <Text style={styles.statLabel}>Subscribers</Text>
           </View>
         </View>

@@ -1,8 +1,33 @@
 import { BACKEND_URL, DEFAULT_AVATAR_URL } from '../api';
 
+const CDN_URL = process.env.EXPO_PUBLIC_MEDIA_CDN_URL 
+  ? process.env.EXPO_PUBLIC_MEDIA_CDN_URL.trim().replace(/\/+$/, '') 
+  : '';
+
+/**
+ * Rewrites raw AWS S3 URLs to CloudFront CDN URLs if CDN is configured.
+ */
+export const getCdnUrl = (rawUrl: string): string => {
+  if (!rawUrl || !CDN_URL) return rawUrl;
+
+  // Match virtual-hosted style: https://bucket-name.s3.region.amazonaws.com/key
+  const virtualHostMatch = rawUrl.match(/^https?:\/\/[a-zA-Z0-9.\-_]+\.s3[.-][a-zA-Z0-9\-_]*\.amazonaws\.com\/(.+)$/);
+  if (virtualHostMatch && virtualHostMatch[1]) {
+    return `${CDN_URL}/${virtualHostMatch[1]}`;
+  }
+
+  // Match path style: https://s3.region.amazonaws.com/bucket-name/key
+  const pathStyleMatch = rawUrl.match(/^https?:\/\/s3[.-][a-zA-Z0-9\-_]*\.amazonaws\.com\/[^\/]+\/(.+)$/);
+  if (pathStyleMatch && pathStyleMatch[1]) {
+    return `${CDN_URL}/${pathStyleMatch[1]}`;
+  }
+
+  return rawUrl;
+};
+
 /**
  * Normalizes a media URL to ensure it has the correct protocol and base URL.
- * Handles Cloudinary, local backend paths, and various protocols.
+ * Handles Cloudinary, S3 CDN mapping, local backend paths, and various protocols.
  */
 export const normalizeMediaUrl = (url: string | null | undefined): string => {
   if (!url) return '';
@@ -14,7 +39,11 @@ export const normalizeMediaUrl = (url: string | null | undefined): string => {
   // Handle already valid or special protocols
   if (
     lower.startsWith('http://') || 
-    lower.startsWith('https://') || 
+    lower.startsWith('https://')
+  ) {
+    return getCdnUrl(trimmed);
+  }
+  if (
     lower.startsWith('data:') || 
     lower.startsWith('file:') || 
     lower.startsWith('ph:')
@@ -24,7 +53,7 @@ export const normalizeMediaUrl = (url: string | null | undefined): string => {
 
   // Handle protocol-relative URLs
   if (trimmed.startsWith('//')) {
-    return `https:${trimmed}`;
+    return getCdnUrl(`https:${trimmed}`);
   }
 
   // Handle Cloudinary specific cases if they don't have protocol
@@ -86,4 +115,20 @@ export const getOptimizedMediaUrl = (url: string | null | undefined): string => 
   }
 
   return normalized;
+};
+
+/**
+ * Resolves a video URL according to quality preference ('360p' for fast start / low bandwidth, '720p' or 'auto' for standard).
+ */
+export const getVideoQualityUrl = (
+  url: string | null | undefined,
+  quality: 'auto' | '360p' | '720p' = 'auto'
+): string => {
+  if (!url) return '';
+  const optimized = getOptimizedMediaUrl(url);
+  if (quality === '360p' && isVideoUrl(optimized)) {
+    if (optimized.includes('_360p.mp4')) return optimized;
+    return optimized.replace(/\.mp4($|\?)/i, '_360p.mp4$1');
+  }
+  return optimized;
 };

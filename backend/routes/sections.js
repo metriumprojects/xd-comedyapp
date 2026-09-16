@@ -3,6 +3,7 @@ const router = express.Router();
 const mongoose = require('mongoose');
 const { resolveUserIdentifiers } = require('../src/utils/userUtils');
 const { verifyToken } = require('../src/middleware/authMiddleware');
+const { enrichPostsWithUserData } = require('../utils/postHelpers');
 
 // Use centralized Section model
 const Section = mongoose.models.Section || mongoose.model('Section');
@@ -141,8 +142,10 @@ router.get('/:userId/sections', async (req, res) => {
       ]
     }).lean();
 
+    const enrichedPosts = await enrichPostsWithUserData(postsData, requesterId);
+
     const postCache = {};
-    postsData.forEach(p => {
+    enrichedPosts.forEach(p => {
       if (p._id) postCache[String(p._id)] = p;
       if (p.id) postCache[String(p.id)] = p;
     });

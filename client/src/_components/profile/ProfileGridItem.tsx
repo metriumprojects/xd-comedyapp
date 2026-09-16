@@ -1,5 +1,5 @@
 import React from 'react';
-import { TouchableOpacity, StyleSheet, Dimensions, View, Text } from 'react-native';
+import { TouchableOpacity, StyleSheet, Dimensions, View, Text, InteractionManager } from 'react-native';
 import { Image as ExpoImage } from 'expo-image';
 import { Feather } from '@expo/vector-icons';
 import { getVideoThumbnailUrl } from '../../../lib/imageHelpers';
@@ -46,25 +46,29 @@ const ProfileGridItem = React.memo(({
       if (videoThumbnailCache.has(mainMediaUrl)) {
         setThumbUrl(videoThumbnailCache.get(mainMediaUrl)!);
       } else {
-        import('expo-video-thumbnails')
-          .then(({ getThumbnailAsync }) => {
-            getThumbnailAsync(mainMediaUrl, { time: 1000 })
-              .then(({ uri }) => {
-                if (uri) {
-                  videoThumbnailCache.set(mainMediaUrl, uri);
-                  if (isMounted) setThumbUrl(uri);
-                }
-              })
-              .catch(() => {});
-          })
-          .catch(() => {});
+        // Run thumbnail generation after scroll interactions complete to maintain 60 FPS
+        InteractionManager.runAfterInteractions(() => {
+          if (!isMounted) return;
+          import('expo-video-thumbnails')
+            .then(({ getThumbnailAsync }) => {
+              getThumbnailAsync(mainMediaUrl, { time: 1000 })
+                .then(({ uri }) => {
+                  if (uri) {
+                    videoThumbnailCache.set(mainMediaUrl, uri);
+                    if (isMounted) setThumbUrl(uri);
+                  }
+                })
+                .catch(() => {});
+            })
+            .catch(() => {});
+        });
       }
     } else {
       setThumbUrl(resolved);
     }
 
     return () => { isMounted = false; };
-  }, [item.thumbnailUrl, mainMediaUrl, isVideo]);
+  }, [item.thumbnailUrl, mainMediaUrl, isVideo, isVideoUrl]);
 
   const normalizedUrl = normalizeMediaUrl(thumbUrl) || DEFAULT_IMAGE_URL;
 
@@ -124,24 +128,23 @@ const styles = StyleSheet.create({
     height: GRID_SIZE,
     borderWidth: 1,
     borderColor: COLORS.textLight,
-    position: 'relative',
-    backgroundColor: COLORS.surface,
   },
   gridImage: {
     width: '100%',
     height: '100%',
+    backgroundColor: COLORS.inputBg,
   },
   thumbnailOverlayBottom: {
     position: 'absolute',
     bottom: 0,
     left: 0,
     right: 0,
-    backgroundColor: 'rgba(0,0,0,0.4)',
-    paddingVertical: 4,
-    paddingHorizontal: 6,
+    backgroundColor: 'rgba(0,0,0,0.45)',
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 6,
+    paddingVertical: 4,
   },
   statLeft: {
     flexDirection: 'row',
@@ -154,7 +157,7 @@ const styles = StyleSheet.create({
   },
   statText: {
     color: COLORS.textLight,
-    fontSize: 9,
+    fontSize: 10,
     fontWeight: '600',
   },
 });

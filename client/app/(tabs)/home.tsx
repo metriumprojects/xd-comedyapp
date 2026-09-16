@@ -94,7 +94,7 @@ export default function Home() {
         try {
           const { getUserStories } = await import('../../lib/firebaseHelpers/index');
           const res = await getUserStories(currentUserId, currentUserId);
-          const rawStories = res?.stories || res?.data || (Array.isArray(res) ? res : []);
+          const rawStories = (res as any)?.stories || (res as any)?.data || (Array.isArray(res) ? res : []);
           if (Array.isArray(rawStories) && rawStories.length > 0) {
             let targetIdx = rawStories.length - 1;
             if (storyId) {
@@ -351,11 +351,21 @@ export default function Home() {
 
   const handleScroll = useCallback((event: any) => {
     const y = event.nativeEvent.contentOffset.y;
-    const index = Math.round(y / containerHeight);
-    if (index !== activeIndex) {
-      setActiveIndex(index);
+    const targetIndex = Math.round(y / containerHeight);
+    // Smooth threshold: only transition activeIndex when user has swiped past 60% of the item
+    // Prevents jittery re-renders and decoder thrashing mid-drag
+    if (targetIndex !== activeIndex && Math.abs(y - targetIndex * containerHeight) < containerHeight * 0.4) {
+      setActiveIndex(targetIndex);
     }
-  }, [containerHeight, activeIndex]);
+  }, [containerHeight, activeIndex, setActiveIndex]);
+
+  const handleMomentumScrollEnd = useCallback((event: any) => {
+    const y = event.nativeEvent.contentOffset.y;
+    const targetIndex = Math.round(y / containerHeight);
+    if (targetIndex !== activeIndex && targetIndex >= 0 && targetIndex < filteredPosts.length) {
+      setActiveIndex(targetIndex);
+    }
+  }, [containerHeight, activeIndex, filteredPosts.length, setActiveIndex]);
 
   const keyboardOpenRef = useRef(false);
 
@@ -443,6 +453,7 @@ export default function Home() {
           pagingEnabled
           showsVerticalScrollIndicator={false}
           onScroll={handleScroll}
+          onMomentumScrollEnd={handleMomentumScrollEnd}
           scrollEventThrottle={16}
           onEndReached={loadMorePosts}
           onEndReachedThreshold={1.5}
