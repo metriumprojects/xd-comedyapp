@@ -155,6 +155,13 @@ export default function Home() {
     if (currentUserId) {
       fetchFollowedStories();
     }
+    const onFeedUpdated = () => {
+      fetchFollowedStories();
+    };
+    feedEventEmitter.on('feedUpdated', onFeedUpdated);
+    return () => {
+      feedEventEmitter.off('feedUpdated', onFeedUpdated);
+    };
   }, [currentUserId, fetchFollowedStories]);
 
   const [isFullscreenMode, setIsFullscreenMode] = useState(false);
@@ -432,9 +439,10 @@ export default function Home() {
         isFullscreenMode={isFullscreenMode}
         onToggleFullscreen={toggleFullscreen}
         followedStories={followedStories}
+        isHomeStoriesViewerVisible={isHomeStoriesViewerVisible}
       />
     );
-  }, [currentUserData, currentUserId, isMuted, containerHeight, isFullscreenMode, isScreenFocused, followedStories, toggleMute, toggleFullscreen]);
+  }, [currentUserData, currentUserId, isMuted, containerHeight, isFullscreenMode, isScreenFocused, followedStories, isHomeStoriesViewerVisible, toggleMute, toggleFullscreen]);
 
   const keyExtractor = useCallback((item: any, index: number) => {
     const id = item?.id || item?._id;
@@ -451,6 +459,7 @@ export default function Home() {
           renderItem={renderReelItem}
           keyExtractor={keyExtractor}
           pagingEnabled
+          keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
           onScroll={handleScroll}
           onMomentumScrollEnd={handleMomentumScrollEnd}

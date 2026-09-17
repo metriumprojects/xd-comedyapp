@@ -40,6 +40,12 @@ function firstHttpString(...candidates: any[]): string {
 
 export function flattenStoryPayload(raw: any): Record<string, any> {
   if (!raw || typeof raw !== 'object') return {};
+  if (Array.isArray((raw as any).stories) && (raw as any).stories.length > 0 && !(raw as any).imageUrl && !(raw as any).image && !(raw as any).video && !(raw as any).mediaUrl) {
+    const inner = (raw as any).stories[0];
+    if (inner && typeof inner === 'object') {
+      return flattenStoryPayload({ ...raw, ...inner });
+    }
+  }
   const nested = (raw as any).story;
   if (nested && typeof nested === 'object' && !Array.isArray(nested)) {
     return { ...nested, ...raw };
@@ -303,10 +309,16 @@ export function pickStoryId(flat: any, raw: any, index: number): string {
  * Pick displayable image + optional video URL from a flattened story object.
  */
 export function pickStoryMedia(flat: any): { imageUrl: string; videoUrl?: string; mediaType: 'image' | 'video' } {
-  const typeRaw = String(flat?.mediaType || flat?.type || '').toLowerCase();
+  const postMeta = flat?.postMetadata || (flat?.story && flat?.story?.postMetadata);
+  const typeRaw = String(flat?.mediaType || flat?.type || postMeta?.mediaType || '').toLowerCase();
   const mime = String(flat?.mimeType || '').toLowerCase();
 
-  const videoDirect = firstHttpString(flat?.videoUrl, flat?.video, flat?.movieUrl);
+  const videoDirect = firstHttpString(
+    flat?.videoUrl,
+    flat?.video,
+    flat?.movieUrl,
+    postMeta?.videoUrl
+  );
   const mediaUrl = firstHttpString(flat?.mediaUrl, flat?.url, flat?.src, flat?.uri);
   const imageDirect = firstHttpString(
     flat?.imageUrl,
@@ -316,6 +328,8 @@ export function pickStoryMedia(flat: any): { imageUrl: string; videoUrl?: string
     flat?.coverImage,
     flat?.photoURL,
     flat?.photo,
+    postMeta?.imageUrl,
+    postMeta?.thumbnailUrl,
     typeof flat?.content === 'object' ? flat?.content?.url : undefined,
     Array.isArray(flat?.media) ? flat?.media?.[0]?.url : undefined,
     flat?.file?.url
@@ -332,7 +346,9 @@ export function pickStoryMedia(flat: any): { imageUrl: string; videoUrl?: string
     let thumb = firstHttpString(
       flat?.thumbnailUrl,
       flat?.thumbUrl,
-      flat?.coverImage
+      flat?.coverImage,
+      postMeta?.imageUrl,
+      postMeta?.thumbnailUrl
     );
     if (!thumb && flat?.imageUrl && !VIDEO_EXT.test(String(flat.imageUrl))) {
       thumb = flat.imageUrl;
@@ -386,15 +402,19 @@ export function storyForStoriesViewer(raw: any, index: number): any {
   const postMetadata =
     flat.postMetadata || raw.postMetadata || (raw.story && raw.story.postMetadata) || undefined;
 
+  const finalVideoUrl = media.videoUrl || postMetadata?.videoUrl;
+  const finalMediaType = finalVideoUrl ? 'video' : media.mediaType;
+  const finalImageUrl = media.imageUrl || postMetadata?.imageUrl || '';
+
   return {
     ...flat,
     id,
     userId: String(flat.userId || flat.authorId || flat.uid || ''),
     userName: String(flat.userName || flat.username || flat.displayName || flat.name || 'User'),
     userAvatar: String(flat.userAvatar || flat.avatar || flat.photoURL || ''),
-    imageUrl: media.imageUrl,
-    videoUrl: media.videoUrl,
-    mediaType: media.mediaType,
+    imageUrl: finalImageUrl,
+    videoUrl: finalVideoUrl,
+    mediaType: finalMediaType,
     createdAt: flat.createdAt ?? flat.timestamp ?? Date.now(),
     postMetadata,
     isPostShare: !!(

@@ -1,6 +1,6 @@
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, KeyboardAvoidingView, Modal, Platform, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, KeyboardAvoidingView, Modal, Platform, StyleSheet, Text, TouchableOpacity, View, Keyboard } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import PostViewerModal from '@/src/_components/PostViewerModal';
@@ -192,19 +192,24 @@ export default function PostDetailScreen() {
           setCommentModalVisible(false);
         }}
       >
-        <KeyboardAvoidingView
-          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-          style={{ flex: 1 }}
-        >
-          <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' }}>
-            <TouchableOpacity
-              activeOpacity={1}
-              style={{ flex: 1 }}
-              onPress={() => {
-                hapticLight();
-                setCommentModalVisible(false);
-              }}
-            />
+        <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)' }}>
+          <TouchableOpacity
+            activeOpacity={1}
+            style={StyleSheet.absoluteFillObject}
+            onPress={() => {
+              if (Keyboard.isVisible()) {
+                Keyboard.dismiss();
+                return;
+              }
+              hapticLight();
+              setCommentModalVisible(false);
+            }}
+          />
+          <KeyboardAvoidingView
+            behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+            style={{ flex: 1, justifyContent: 'flex-end' }}
+            pointerEvents="box-none"
+          >
             <View style={{ backgroundColor: COLORS.card, height: '80%', borderTopLeftRadius: 20, borderTopRightRadius: 20 }}>
               <View style={{ width: 40, height: 4, backgroundColor: COLORS.border, borderRadius: 2, alignSelf: 'center', marginVertical: 10 }} />
               <View style={{ flexDirection: 'row', justifyContent: 'space-between', paddingHorizontal: 16, paddingBottom: 10, borderBottomWidth: 0.5, borderBottomColor: COLORS.border }}>
@@ -225,8 +230,8 @@ export default function PostDetailScreen() {
                 currentUser={currentUser}
               />
             </View>
-          </View>
-        </KeyboardAvoidingView>
+          </KeyboardAvoidingView>
+        </View>
       </Modal>
     </SafeAreaView>
   );

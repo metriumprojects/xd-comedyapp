@@ -1171,7 +1171,8 @@ export default function Profile({ userIdProp }: any) {
               }
             }
 
-            const modalIndex = currentPostsArray.findIndex((p: any) => (p.id || p._id) === (item.id || item._id));
+            const targetId = String(item?.id || item?._id || '');
+            const modalIndex = currentPostsArray.findIndex((p: any) => String(p?.id || p?._id || '') === targetId);
             setSelectedPostIndex(modalIndex >= 0 ? modalIndex : idx);
             setPostViewerVisible(true);
           }}

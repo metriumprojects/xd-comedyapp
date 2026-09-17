@@ -197,24 +197,25 @@ const ProfileModals: React.FC<ProfileModalsProps> = (props) => {
       </Modal>
 
       <Modal visible={commentModalVisible} animationType="slide" transparent={true} onRequestClose={() => setCommentModalVisible(false)}>
-        <KeyboardAvoidingView
-          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-          style={{ flex: 1 }}
-        >
-          <View style={styles.commentModalContainer}>
-            <TouchableOpacity
-              style={{ flex: 1 }}
-              activeOpacity={1}
-              onPress={() => {
-                // Keyboard up: first tap just lowers it, like Instagram. Second tap closes the sheet.
-                if (Keyboard.isVisible()) {
-                  Keyboard.dismiss();
-                  return;
-                }
-                setCommentModalVisible(false);
-              }}
-            />
-            <View style={[styles.commentSheet, { height: getModalHeight(0.8) }]}>
+        <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)' }}>
+          <TouchableOpacity
+            style={StyleSheet.absoluteFillObject}
+            activeOpacity={1}
+            onPress={() => {
+              // Keyboard up: first tap just lowers it, like Instagram. Second tap closes the sheet.
+              if (Keyboard.isVisible()) {
+                Keyboard.dismiss();
+                return;
+              }
+              setCommentModalVisible(false);
+            }}
+          />
+          <KeyboardAvoidingView
+            behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+            style={{ flex: 1, justifyContent: 'flex-end' }}
+            pointerEvents="box-none"
+          >
+            <View style={[styles.commentSheet, { height: '80%' }]}>
               <View style={styles.commentHandleContainer}>
                 <View style={styles.commentHandle} />
                 <Text style={styles.commentTitle}>Comments</Text>
@@ -228,8 +229,8 @@ const ProfileModals: React.FC<ProfileModalsProps> = (props) => {
                 />
               )}
             </View>
-          </View>
-        </KeyboardAvoidingView>
+          </KeyboardAvoidingView>
+        </View>
       </Modal>
 
       {/* Edit sections modal */}

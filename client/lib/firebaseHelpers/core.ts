@@ -630,7 +630,12 @@ export async function toggleUserPrivacy(uid: string, isPrivate: boolean) {
 }
 
 // ============= MEDIA =============
-export async function uploadMedia(uri: string, mediaType: 'image' | 'video' = 'image', path?: string): Promise<{ success: boolean; url?: string; error?: string; thumbnailUrl?: string; aspectRatio?: number; width?: number; height?: number }> {
+export async function uploadMedia(
+  uri: string,
+  mediaType: 'image' | 'video' = 'image',
+  path?: string,
+  onProgress?: (percent: number) => void
+): Promise<{ success: boolean; url?: string; error?: string; thumbnailUrl?: string; aspectRatio?: number; width?: number; height?: number }> {
   try {
     console.log(`[uploadMedia] 📤 Starting ${mediaType} upload from URI:`, uri);
 
@@ -648,7 +653,7 @@ export async function uploadMedia(uri: string, mediaType: 'image' | 'video' = 'i
 
     // Fast path: all local uploads via multipart (industry standard)
     if (finalUri.startsWith('file://') || finalUri.startsWith('content://') || finalUri.startsWith('/') || !finalUri.includes('://')) {
-      const multipartResult = await uploadWithMultipart(finalUri, mediaType, path);
+      const multipartResult = await uploadWithMultipart(finalUri, mediaType, path, onProgress);
       if (multipartResult?.success && multipartResult?.url) {
         return multipartResult;
       }
@@ -665,7 +670,7 @@ export async function uploadMedia(uri: string, mediaType: 'image' | 'video' = 'i
         const { uri: downloadedUri } = await FileSystem.downloadAsync(finalUri, localUri);
         console.log('[uploadMedia] ✅ Downloaded to:', downloadedUri);
 
-        return uploadWithMultipart(downloadedUri, mediaType, path);
+        return uploadWithMultipart(downloadedUri, mediaType, path, onProgress);
       } catch (err: any) {
         console.error('[uploadMedia] ❌ Remote download error:', err.message);
         throw err;
@@ -687,7 +692,7 @@ export async function uploadMedia(uri: string, mediaType: 'image' | 'video' = 'i
 
         console.log('[uploadMedia] ✅ Resolved to local URI:', localUri);
         // Recurse with resolved local URI
-        return uploadMedia(localUri, mediaType, path);
+        return uploadMedia(localUri, mediaType, path, onProgress);
       } catch (err: any) {
         console.error('[uploadMedia] ❌ iOS resolve error:', err.message);
         throw err;
@@ -706,7 +711,8 @@ export async function uploadMedia(uri: string, mediaType: 'image' | 'video' = 'i
 async function uploadWithMultipart(
   uri: string,
   mediaType: 'image' | 'video',
-  path?: string
+  path?: string,
+  onProgress?: (percent: number) => void
 ): Promise<{ success: boolean; url?: string; error?: string; thumbnailUrl?: string; aspectRatio?: number; width?: number; height?: number }> {
   try {
     const token = await AsyncStorage.getItem('token');
@@ -744,6 +750,15 @@ async function uploadWithMultipart(
       xhr.setRequestHeader('Accept', 'application/json');
       if (token) {
         xhr.setRequestHeader('Authorization', `Bearer ${token}`);
+      }
+
+      if (xhr.upload && typeof onProgress === 'function') {
+        xhr.upload.onprogress = (event) => {
+          if (event.lengthComputable && event.total > 0) {
+            const percent = Math.round((event.loaded * 100) / event.total);
+            onProgress(percent);
+          }
+        };
       }
 
       xhr.onload = () => {
@@ -982,7 +997,8 @@ export async function createPost(
   thumbnailUrlRaw?: string,
   aspectRatio?: number,
   subscriptionTierId?: string | null,
-  galleryAssets?: any[]
+  galleryAssets?: any[],
+  onProgress?: (percent: number) => void
 ) {
   try {
     const normalizeLocationKey = (val: any) => String(val || '').trim().toLowerCase();
@@ -1031,10 +1047,15 @@ export async function createPost(
     let autoThumbnailUrl = '';
     let detectedAspectRatio = aspectRatio;
     const mediaUrls = [];
-    for (const uri of mediaUris || []) {
+    const validMediaUris = mediaUris || [];
+    const totalMedia = validMediaUris.length || 1;
+    let mediaIndex = 0;
+
+    for (const uri of validMediaUris) {
       // If it's already an uploaded image/video from our server/S3/CDN, don't re-upload
       if (uri.startsWith('http') && (uri.includes('amazonaws.com') || uri.includes('s3.') || uri.includes('cloudinary.com') || uri.includes(API_BASE_URL.replace('/api', '')))) {
         mediaUrls.push(uri);
+        mediaIndex++;
         continue;
       }
 
@@ -1045,7 +1066,15 @@ export async function createPost(
         : (lower.endsWith('.mp4') || lower.endsWith('.mov') || lower.endsWith('.m4v') || lower.endsWith('.avi') || lower.includes('video'));
       const itemType: 'image' | 'video' = isItemVideo ? 'video' : 'image';
 
-      const upload = await uploadMedia(uri, itemType);
+      const currentIndex = mediaIndex;
+      const upload = await uploadMedia(uri, itemType, undefined, (percent) => {
+        if (typeof onProgress === 'function') {
+          // Weight media uploads up to 90% of overall progress
+          const itemWeight = 90 / totalMedia;
+          const currentProgress = Math.round(currentIndex * itemWeight + (percent / 100) * itemWeight);
+          onProgress(Math.min(90, Math.max(1, currentProgress)));
+        }
+      });
       if (!upload?.url) throw new Error(upload?.error || 'Upload failed');
       mediaUrls.push(upload.url);
       if (itemType === 'video' && upload.thumbnailUrl && !autoThumbnailUrl) {
@@ -1054,6 +1083,7 @@ export async function createPost(
       if (!detectedAspectRatio && upload.aspectRatio) {
         detectedAspectRatio = upload.aspectRatio;
       }
+      mediaIndex++;
     }
 
     const locationKeys = buildLocationKeys();
@@ -1096,8 +1126,14 @@ export async function createPost(
       payload.thumbnailUrl = uploadedThumbnailUrl;
     }
 
+    if (typeof onProgress === 'function') {
+      onProgress(92);
+    }
     console.log('[createPost] Posting to /posts with payload:', payload);
     const res = await apiService.post('/posts', payload);
+    if (typeof onProgress === 'function') {
+      onProgress(100);
+    }
 
     console.log('[createPost] Full response:', JSON.stringify(res, null, 2));
 
@@ -1513,7 +1549,9 @@ export async function updatePost(
   postType: string = 'post',
   thumbnailUrlRaw?: string,
   aspectRatio?: number,
-  subscriptionTierId?: string | null
+  subscriptionTierId?: string | null,
+  galleryAssets?: any[],
+  onProgress?: (percent: number) => void
 ) {
   try {
     const normalizeLocationKey = (val: any) => String(val || '').trim().toLowerCase();
@@ -1548,14 +1586,27 @@ export async function updatePost(
     };
 
     const mediaUrls = [];
-    for (const uri of mediaUris || []) {
+    const validMediaUris = mediaUris || [];
+    const totalMedia = validMediaUris.length || 1;
+    let mediaIndex = 0;
+
+    for (const uri of validMediaUris) {
       if (uri.startsWith('http') && (uri.includes('amazonaws.com') || uri.includes('s3.') || uri.includes('cloudinary.com') || uri.includes(API_BASE_URL.replace('/api', '')))) {
         mediaUrls.push(uri);
+        mediaIndex++;
         continue;
       }
-      const upload = await uploadMedia(uri, mediaType);
+      const currentIndex = mediaIndex;
+      const upload = await uploadMedia(uri, mediaType, undefined, (percent) => {
+        if (typeof onProgress === 'function') {
+          const itemWeight = 90 / totalMedia;
+          const currentProgress = Math.round(currentIndex * itemWeight + (percent / 100) * itemWeight);
+          onProgress(Math.min(90, Math.max(1, currentProgress)));
+        }
+      });
       if (!upload?.url) throw new Error(upload?.error || 'Upload failed');
       mediaUrls.push(upload.url);
+      mediaIndex++;
     }
 
     const locationKeys = buildLocationKeys();
@@ -1585,7 +1636,14 @@ export async function updatePost(
 
     if (thumbnailUrlRaw) payload.thumbnailUrl = thumbnailUrlRaw;
 
+    if (typeof onProgress === 'function') {
+      onProgress(92);
+    }
     const res = await apiService.patch(`/posts/${postId}`, payload);
+    if (typeof onProgress === 'function') {
+      onProgress(100);
+    }
+
     if (!res || !res.success) {
       throw new Error(res?.error || 'Update API returned failure');
     }

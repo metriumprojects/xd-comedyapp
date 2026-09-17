@@ -485,7 +485,7 @@ export const useCreatePost = (params: any = {}) => {
       
       const { useUploadQueue } = require('@/lib/useUploadQueue');
 
-      const uploadAction = async () => {
+      const uploadAction = async (onProgress?: (percent: number) => void) => {
         let res;
         if (params.editPostId) {
           res = await updatePost(
@@ -505,7 +505,9 @@ export const useCreatePost = (params: any = {}) => {
             postType === 'STORY' ? 'story' : 'post',
             undefined,
             undefined,
-            subscriptionTierId
+            subscriptionTierId,
+            galleryAssets,
+            onProgress
           );
         } else {
           res = await createPost(
@@ -525,7 +527,8 @@ export const useCreatePost = (params: any = {}) => {
             customThumbnailUri || undefined,
             undefined,
             subscriptionTierId,
-            galleryAssets
+            galleryAssets,
+            onProgress
           );
         }
 

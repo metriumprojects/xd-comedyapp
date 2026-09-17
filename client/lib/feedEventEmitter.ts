@@ -43,6 +43,28 @@ class FeedEventEmitter extends EventEmitter {
     this.emit('feedUpdate', event);
   }
 
+  private subscriptionsMap = new Map<any, any>();
+
+  // Standard on/off event listener support
+  on(event: string, callback: (...args: any[]) => void) {
+    // @ts-ignore - EventEmitter methods
+    const sub = this.addListener(event, callback);
+    this.subscriptionsMap.set(callback, sub);
+    return sub;
+  }
+
+  off(event: string, callback?: any) {
+    if (callback && typeof callback.remove === 'function') {
+      callback.remove();
+      return;
+    }
+    const sub = this.subscriptionsMap.get(callback);
+    if (sub && typeof sub.remove === 'function') {
+      sub.remove();
+      this.subscriptionsMap.delete(callback);
+    }
+  }
+
   // Subscribe to feed updates
   onFeedUpdate(callback: (event: FeedEvent) => void) {
     // @ts-ignore - EventEmitter methods

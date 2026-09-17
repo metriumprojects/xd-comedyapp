@@ -324,10 +324,48 @@ const PostCard: React.FC<PostCardProps> = ({
         .filter(Boolean)
         .forEach(id => viewerIds.push(String(id)));
     }
+    if (user) {
+      [user._id, user.id, user.uid, user.firebaseUid]
+        .filter(Boolean)
+        .forEach(id => {
+          const s = String(id);
+          if (!viewerIds.includes(s)) viewerIds.push(s);
+        });
+    }
 
     if (authorIds.length === 0 || viewerIds.length === 0) return false;
     return authorIds.some(aid => viewerIds.includes(aid));
-  }, [post, currentUser]);
+  }, [post, currentUser, user]);
+
+  // Views tracking: Track real views when post is actively visible for >1.5s (industry standard)
+  const hasViewedRef = useRef(false);
+  const rawPostId = post?._id || post?.id;
+
+  useEffect(() => {
+    hasViewedRef.current = false;
+  }, [rawPostId]);
+
+  const isCardActive = isActive !== undefined ? isActive : true;
+
+  useEffect(() => {
+    if (!isCardActive || !rawPostId || hasViewedRef.current) return;
+    // Creator exclusion: never track creator viewing own post
+    if (isOwner) return;
+
+    const timer = setTimeout(async () => {
+      if (hasViewedRef.current) return;
+      hasViewedRef.current = true;
+
+      try {
+        const cleanId = String(rawPostId).split('-loop')[0];
+        await apiService.post(`/posts/${cleanId}/view`, {});
+      } catch (e) {
+        // Silently continue
+      }
+    }, 1500);
+
+    return () => clearTimeout(timer);
+  }, [isCardActive, rawPostId, isOwner]);
 
   const submitPostReport = async (reason: string) => {
     try {
@@ -655,25 +693,26 @@ const PostCard: React.FC<PostCardProps> = ({
         statusBarTranslucent={true}
         onRequestClose={() => { Keyboard.dismiss(); setShowComments(false); }}
       >
-        <KeyboardAvoidingView
-          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-          style={{ flex: 1 }}
-        >
-          <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' }}>
-            {/* Backdrop area on top to dismiss modal */}
-            <TouchableOpacity
-              style={{ flex: 1 }}
-              activeOpacity={1}
-              onPress={() => {
-                // Keyboard up: first tap just lowers it, like Instagram. Second tap closes the sheet.
-                if (Keyboard.isVisible()) {
-                  Keyboard.dismiss();
-                  return;
-                }
-                setShowComments(false);
-              }}
-            />
+        <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)' }}>
+          {/* Backdrop area to dismiss modal */}
+          <TouchableOpacity
+            style={StyleSheet.absoluteFillObject}
+            activeOpacity={1}
+            onPress={() => {
+              // Keyboard up: first tap just lowers it, like Instagram. Second tap closes the sheet.
+              if (Keyboard.isVisible()) {
+                Keyboard.dismiss();
+                return;
+              }
+              setShowComments(false);
+            }}
+          />
 
+          <KeyboardAvoidingView
+            behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+            style={{ flex: 1, justifyContent: 'flex-end' }}
+            pointerEvents="box-none"
+          >
             {/* Sheet */}
             <Animated.View
               style={{
@@ -708,8 +747,8 @@ const PostCard: React.FC<PostCardProps> = ({
                 initialTab={showComments === 'reactions' ? 'reactions' : 'comment'}
               />
             </Animated.View>
-          </View>
-        </KeyboardAvoidingView>
+          </KeyboardAvoidingView>
+        </View>
       </Modal>
 
       <Modal

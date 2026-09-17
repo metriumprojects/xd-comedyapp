@@ -315,24 +315,47 @@ export default function StoryCreatorScreen() {
     useEffect(() => {
         if (sharePostId && sharePostData) {
             try {
-                const parsedPost = JSON.parse(decodeURIComponent(sharePostData));
-                const imageUrl = parsedPost.media?.[0]?.url || parsedPost.imageUrl || parsedPost.thumbnailUrl || '';
-                
-                setSelectedUri(imageUrl || 'placeholder');
+                let rawData = sharePostData;
+                try {
+                    rawData = decodeURIComponent(sharePostData);
+                } catch {
+                    // if already decoded or malformed, keep rawData
+                }
+                const parsedPost = typeof rawData === 'string' ? JSON.parse(rawData) : rawData;
+
+                const isVideo = parsedPost.mediaType === 'video' ||
+                    parsedPost.type === 'video' ||
+                    !!parsedPost.videoUrl ||
+                    (Array.isArray(parsedPost.media) && parsedPost.media[0]?.type === 'video') ||
+                    /\.(mp4|mov|m4v|webm)(\?|$)/i.test(String(parsedPost.videoUrl || parsedPost.media?.[0]?.url || ''));
+
+                const videoUrl = isVideo ? (parsedPost.videoUrl || parsedPost.media?.[0]?.url || '') : '';
+                const imageUrl = parsedPost.thumbnailUrl ||
+                    parsedPost.thumbnail ||
+                    parsedPost.media?.[0]?.thumbnailUrl ||
+                    parsedPost.media?.[0]?.url ||
+                    parsedPost.imageUrl ||
+                    '';
+
+                const targetUri = videoUrl || imageUrl || 'placeholder';
+
+                setSelectedUri(targetUri);
                 setSelectedAsset({
                     id: 'share_post_' + sharePostId,
-                    uri: imageUrl || 'placeholder',
-                    mediaType: 'photo',
+                    uri: targetUri,
+                    mediaType: isVideo ? 'video' : 'photo',
                 });
-                
+
                 setSharedPostMetadata({
                     postId: sharePostId,
                     userName: parsedPost.userName || parsedPost.user?.displayName || parsedPost.user?.name || 'User',
                     userAvatar: parsedPost.userAvatar || parsedPost.user?.profilePicture || parsedPost.user?.avatar || parsedPost.user?.photoURL || '',
                     caption: parsedPost.caption || parsedPost.text || '',
-                    imageUrl: imageUrl
+                    imageUrl: imageUrl,
+                    videoUrl: videoUrl,
+                    mediaType: isVideo ? 'video' : 'photo',
                 });
-                
+
                 setStep('editor');
             } catch (err) {
                 console.error('[StoryCreator] Failed to parse sharePostData:', err);
@@ -502,7 +525,7 @@ export default function StoryCreatorScreen() {
 
             let uploadUri = selectedUri;
             const mediaType = selectedAsset?.mediaType || 'photo';
-            if (mediaType === 'photo') {
+            if (!sharedPostMetadata && mediaType === 'photo') {
                 if (textOverlays.length > 0 && captureRef !== null) {
                     try {
                         setSelectedOverlayId(null);
@@ -543,7 +566,7 @@ export default function StoryCreatorScreen() {
                 mediaType === 'video' ? 'video' : 'image',
                 undefined,
                 selectedLocation || undefined,
-                undefined,
+                sharedPostMetadata?.imageUrl || undefined,
                 visibility,
                 selectedGroupId ? [selectedGroupId] : [],
                 (p: number) => setUploadProgress(Math.round(p)),
@@ -793,18 +816,8 @@ export default function StoryCreatorScreen() {
                     >
                         {/* Preview */}
                         <TouchableWithoutFeedback onPress={openTextEditor}>
-                            <View ref={previewRef} collapsable={false} style={styles.preview}>
-                                {sharedPostMetadata ? (
-                                    <>
-                                        <Image 
-                                            source={{ uri: selectedUri }} 
-                                            style={styles.previewImg} 
-                                            resizeMode="cover"
-                                            blurRadius={Platform.OS === 'ios' ? 25 : 15} 
-                                        />
-                                        <View style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(0,0,0,0.45)' }]} />
-                                    </>
-                                ) : selectedUri ? (
+                            <View ref={previewRef} collapsable={false} style={[styles.preview, sharedPostMetadata && { backgroundColor: '#000000' }]}>
+                                {sharedPostMetadata ? null : selectedUri ? (
                                     selectedAsset?.mediaType === 'video' ? (
                                         <AutoplayVideoPreview uri={selectedUri} rawUri={selectedAsset?.uri} style={styles.previewImg} />
                                     ) : (
@@ -824,11 +837,28 @@ export default function StoryCreatorScreen() {
                                                 {sharedPostMetadata.userName}
                                             </Text>
                                         </View>
-                                        <Image 
-                                            source={{ uri: sharedPostMetadata.imageUrl }} 
-                                            style={styles.sharedPostCardImage} 
-                                            resizeMode="cover"
-                                        />
+                                        {sharedPostMetadata.mediaType === 'video' ? (
+                                            <View style={{ position: 'relative', width: '100%', aspectRatio: 1, marginBottom: 8, overflow: 'hidden', borderRadius: 8, backgroundColor: '#000' }}>
+                                                {sharedPostMetadata.videoUrl ? (
+                                                    <AutoplayVideoPreview uri={sharedPostMetadata.videoUrl} style={StyleSheet.absoluteFill} />
+                                                ) : (
+                                                    <Image
+                                                        source={{ uri: sharedPostMetadata.imageUrl }}
+                                                        style={StyleSheet.absoluteFill}
+                                                        resizeMode="cover"
+                                                    />
+                                                )}
+                                                <View style={{ position: 'absolute', bottom: 8, right: 8, backgroundColor: 'rgba(0,0,0,0.6)', borderRadius: 12, width: 24, height: 24, alignItems: 'center', justifyContent: 'center' }}>
+                                                    <Feather name="video" size={13} color="#fff" />
+                                                </View>
+                                            </View>
+                                        ) : (
+                                            <Image 
+                                                source={{ uri: sharedPostMetadata.imageUrl }} 
+                                                style={styles.sharedPostCardImage} 
+                                                resizeMode="cover"
+                                            />
+                                        )}
                                         {sharedPostMetadata.caption ? (
                                             <Text style={styles.sharedPostCardCaption} numberOfLines={2}>
                                                 <Text style={{ fontWeight: '700' }}>{sharedPostMetadata.userName} </Text>

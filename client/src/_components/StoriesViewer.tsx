@@ -3,7 +3,7 @@ import { AVPlaybackStatus, ResizeMode, Video } from 'expo-av';
 import { Image as ExpoImage } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 // Firebase removed - using Backend API
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState, useCallback } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -140,6 +140,8 @@ function StoryTextOverlays({ postMetadata, mediaLoaded }: { postMetadata?: any; 
 
 interface Story {
   id: string;
+  _id?: string;
+  storyId?: string;
   userId: string;
   userName: string;
   userAvatar: string;
@@ -163,6 +165,8 @@ interface Story {
     userAvatar?: string;
     caption?: string;
     imageUrl?: string;
+    videoUrl?: string;
+    mediaType?: 'image' | 'video' | 'photo' | string;
     textOverlays?: string | any[];
   };
 }
@@ -205,6 +209,14 @@ export default function StoriesViewer({ stories, onClose, initialIndex = 0, isHi
   const [showHighlightModal, setShowHighlightModal] = useState(false);
   const [showNewHighlightModal, setShowNewHighlightModal] = useState(false);
 
+  const [localStories, setLocalStories] = useState<Story[]>(() => {
+    let arr = Array.isArray(stories) ? stories : [];
+    if (arr.length === 1 && Array.isArray((arr[0] as any)?.stories) && (arr[0] as any).stories.length > 0) {
+      arr = (arr[0] as any).stories;
+    }
+    return arr.map((s, i) => storyForStoriesViewer(s, i));
+  });
+
   const {
     currentIndex,
     setCurrentIndex,
@@ -218,14 +230,13 @@ export default function StoriesViewer({ stories, onClose, initialIndex = 0, isHi
     goToNext,
     goToPrevious
   } = useStories(
-    stories,
+    localStories,
     initialIndex,
     onClose,
     showComments || showHighlightModal || showNewHighlightModal || showShareModal
   );
 
   const [isMuted, setIsMuted] = useState(true);
-  const [localStories, setLocalStories] = useState(stories);
   const currentStory = localStories[currentIndex];
   const videoRef = useRef<Video>(null);
   const [currentUser, setCurrentUser] = useState<any>(null);
@@ -236,6 +247,38 @@ export default function StoriesViewer({ stories, onClose, initialIndex = 0, isHi
   const [newHighlightVisibility, setNewHighlightVisibility] = useState<'Public' | 'Private'>('Public');
   const [userHighlights, setUserHighlights] = useState<any[]>([]);
   const [loadingHighlights, setLoadingHighlights] = useState(false);
+  const [showPostPill, setShowPostPill] = useState(false);
+  const pillTimerRef = useRef<NodeJS.Timeout | null>(null);
+
+  useEffect(() => {
+    setShowPostPill(false);
+    if (pillTimerRef.current) clearTimeout(pillTimerRef.current);
+  }, [currentIndex]);
+
+  const handleOpenPost = useCallback(() => {
+    if (pillTimerRef.current) clearTimeout(pillTimerRef.current);
+    setShowPostPill(false);
+    const targetPostId = currentStory?.postMetadata?.postId;
+    if (targetPostId) {
+      onClose();
+      router.push({
+        pathname: '/post-detail',
+        params: { postId: targetPostId }
+      } as any);
+    }
+  }, [currentStory?.postMetadata?.postId, onClose, router]);
+
+  const handleCardPress = useCallback(() => {
+    if (!showPostPill) {
+      setShowPostPill(true);
+      if (pillTimerRef.current) clearTimeout(pillTimerRef.current);
+      pillTimerRef.current = setTimeout(() => {
+        setShowPostPill(false);
+      }, 4000);
+    } else {
+      handleOpenPost();
+    }
+  }, [showPostPill, handleOpenPost]);
 
   // Robust date parsing for createdAt coming as number | string | Date | Firestore-like
   const toDate = (input: any): Date | null => {
@@ -277,7 +320,10 @@ export default function StoriesViewer({ stories, onClose, initialIndex = 0, isHi
 
   // Keep localStories in sync with props and ensure index stays in-bounds.
   useEffect(() => {
-    const arr = Array.isArray(stories) ? stories : [];
+    let arr = Array.isArray(stories) ? stories : [];
+    if (arr.length === 1 && Array.isArray((arr[0] as any)?.stories) && (arr[0] as any).stories.length > 0) {
+      arr = (arr[0] as any).stories;
+    }
     setLocalStories(arr.map((s, i) => storyForStoriesViewer(s, i)));
     setCurrentIndex(initialIndex);
   }, [stories, initialIndex]);
@@ -502,11 +548,17 @@ export default function StoriesViewer({ stories, onClose, initialIndex = 0, isHi
     else if (currentIndex >= localStories.length) setCurrentIndex(localStories.length - 1);
   }, [localStories, localStories.length, currentIndex]);
 
-  // Ensure shared post stories automatically start the progress bar timer
+  // Ensure shared post stories automatically start the progress bar timer and blur overlay does not freeze
   useEffect(() => {
     if (currentStory?.isPostShare || currentStory?.postMetadata) {
       setImageLoading(false);
     }
+    // Safety fallback: if media loading takes more than 1500ms, dismiss blur overlay
+    // so the card UI, thumbnail, and buttons are visible while video finishes buffering
+    const timer = setTimeout(() => {
+      setImageLoading(false);
+    }, 1500);
+    return () => clearTimeout(timer);
   }, [currentIndex, currentStory?.id, currentStory?.isPostShare, currentStory?.postMetadata, setImageLoading]);
 
 
@@ -566,8 +618,9 @@ export default function StoriesViewer({ stories, onClose, initialIndex = 0, isHi
   // Navigation and progress are handled by useStories hook
 
   const currentStoryAvatarUrl = normalizeRemoteUrl(currentStory?.userAvatar) || DEFAULT_AVATAR_URL;
-  const currentStoryImageUrl = normalizeRemoteUrl(currentStory?.imageUrl);
-  const currentStoryVideoUrl = normalizeRemoteUrl(currentStory?.videoUrl);
+  const currentStoryImageUrl = normalizeRemoteUrl(currentStory?.imageUrl) || normalizeRemoteUrl(currentStory?.postMetadata?.imageUrl);
+  const currentStoryVideoUrl = normalizeRemoteUrl(currentStory?.videoUrl) || normalizeRemoteUrl(currentStory?.postMetadata?.videoUrl);
+  const isVideoStory = currentStory?.mediaType === 'video' || !!currentStoryVideoUrl || currentStory?.postMetadata?.mediaType === 'video';
   const isOwnCurrentStory = String(currentStory?.userId || '') === String(currentUser?.uid || '');
   const isLiked = (currentStory?.likes || [])?.includes(currentUser?.uid || '') || false;
   const likesCount = currentStory?.likes?.length || 0;
@@ -719,67 +772,136 @@ export default function StoriesViewer({ stories, onClose, initialIndex = 0, isHi
               </View>
             )}
 
-            {/* Background for Card Mode (Blurred) */}
-            {currentStory.isPostShare && (
-              <View style={StyleSheet.absoluteFill}>
-                <ExpoImage
-                  key={'bg_shared_' + currentStory.id}
-                  source={{ uri: currentStoryImageUrl }}
-                  style={StyleSheet.absoluteFill}
-                  blurRadius={Platform.OS === 'ios' ? 25 : 15}
-                  contentFit="cover"
-                  cachePolicy="memory-disk"
-                />
-                <View style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(0,0,0,0.45)' }]} />
-              </View>
-            )}
+            {/* Background for Card Mode (pure solid black, blur removed) */}
 
             <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
               {currentStory.isPostShare ? (
-                /* Premium Card UI for Shared Posts */
-                <TouchableOpacity
-                  activeOpacity={0.9}
-                  onPress={() => {
-                    onClose();
-                    router.push({
-                      pathname: '/post-detail',
-                      params: { postId: currentStory.postMetadata?.postId }
-                    } as any);
-                  }}
-                  style={viewerStyles.postCard}
-                >
-                  <View style={viewerStyles.postCardHeader}>
-                    <ExpoImage
-                      key={'avatar_' + currentStory.id}
-                      source={{ uri: currentStory.postMetadata?.userAvatar || DEFAULT_AVATAR_URL }}
-                      style={viewerStyles.postCardAvatar}
-                      contentFit="cover"
-                      cachePolicy="memory-disk"
-                    />
-                    <Text style={viewerStyles.postCardUsername} numberOfLines={1}>{currentStory.postMetadata?.userName || 'User'}</Text>
-                    <Feather name="more-horizontal" size={16} color={COLORS.textPrimary} style={{ marginLeft: 'auto' }} />
-                  </View>
-                  <ExpoImage
-                    key={'card_img_' + currentStory.id}
-                    source={{ uri: currentStoryImageUrl }}
-                    style={viewerStyles.postCardImage}
-                    contentFit="cover"
-                    cachePolicy="memory-disk"
-                    onLoadEnd={() => setImageLoading(false)}
+                <>
+                  <Pressable
+                    style={StyleSheet.absoluteFill}
+                    onPress={() => {
+                      if (showPostPill) {
+                        setShowPostPill(false);
+                      } else {
+                        goToNext();
+                      }
+                    }}
                   />
-                  {currentStory.postMetadata?.caption ? (
-                    <View style={viewerStyles.postCardFooter}>
-                      <Text style={viewerStyles.postCardCaption} numberOfLines={2}>
-                        <Text style={{ fontWeight: '700', color: COLORS.textPrimary }}>{currentStory.postMetadata?.userName} </Text>
-                        {currentStory.postMetadata?.caption}
-                      </Text>
+                  {/* Premium Card UI for Shared Posts */}
+                  <View style={[viewerStyles.postCardWrapper, { zIndex: 30 }]} pointerEvents="box-none">
+                    <View style={viewerStyles.postCard}>
+                      <TouchableOpacity
+                        activeOpacity={0.8}
+                        onPress={handleOpenPost}
+                        style={viewerStyles.postCardHeader}
+                      >
+                        <ExpoImage
+                          key={'avatar_' + currentStory.id}
+                          source={{ uri: currentStory.postMetadata?.userAvatar || DEFAULT_AVATAR_URL }}
+                          style={viewerStyles.postCardAvatar}
+                          contentFit="cover"
+                          cachePolicy="memory-disk"
+                        />
+                        <Text style={viewerStyles.postCardUsername} numberOfLines={1}>{currentStory.postMetadata?.userName || 'User'}</Text>
+                        <Feather name="more-horizontal" size={16} color={COLORS.textPrimary} style={{ marginLeft: 'auto' }} />
+                      </TouchableOpacity>
+
+                      {/* Media in Card (Video if reel/video, Image if photo) */}
+                      <TouchableOpacity
+                        activeOpacity={0.95}
+                        onPress={handleCardPress}
+                        style={viewerStyles.postCardMediaBox}
+                      >
+                        {(currentStoryVideoUrl || isVideoStory) ? (
+                          <Video
+                            ref={videoRef}
+                            source={{ uri: currentStoryVideoUrl || currentStoryImageUrl }}
+                            style={viewerStyles.postCardImage}
+                            resizeMode={ResizeMode.COVER}
+                            shouldPlay={!isPaused && !showComments}
+                            isMuted={isMuted}
+                            isLooping={false}
+                            pointerEvents="none"
+                            usePoster={!!(currentStoryImageUrl && !currentStoryImageUrl.endsWith('.mp4') && !currentStoryImageUrl.endsWith('.mov'))}
+                            posterSource={(currentStoryImageUrl && !currentStoryImageUrl.endsWith('.mp4') && !currentStoryImageUrl.endsWith('.mov')) ? { uri: currentStoryImageUrl } : undefined}
+                            posterStyle={{ resizeMode: 'cover' }}
+                            onLoadStart={() => setImageLoading(true)}
+                            onLoad={status => {
+                              setImageLoading(false);
+                              const isStatusObject = status !== null && typeof status === 'object';
+                              if (isStatusObject && status.isLoaded && 'durationMillis' in status && typeof status.durationMillis === 'number') {
+                                setVideoDuration(status.durationMillis);
+                              }
+                            }}
+                            onError={() => setImageLoading(false)}
+                            onPlaybackStatusUpdate={(status: AVPlaybackStatus) => {
+                              if (status.isLoaded) {
+                                const isOverlayOpen = showComments || showHighlightModal || showNewHighlightModal || showShareModal;
+                                if (status.didJustFinish && !isPaused && !isOverlayOpen) {
+                                  const playedTime = status.positionMillis || 0;
+                                  if (playedTime > 500) {
+                                    goToNext();
+                                  }
+                                }
+                                setImageLoading(status.isBuffering);
+                              } else {
+                                setImageLoading(true);
+                              }
+                            }}
+                          />
+                        ) : (
+                          <ExpoImage
+                            key={'card_img_' + currentStory.id}
+                            source={{ uri: currentStoryImageUrl }}
+                            style={viewerStyles.postCardImage}
+                            contentFit="cover"
+                            cachePolicy="memory-disk"
+                            pointerEvents="none"
+                            onLoadEnd={() => setImageLoading(false)}
+                          />
+                        )}
+
+                        {/* Instagram-style floating "View Post >" / "Watch Reel >" Pill */}
+                        {showPostPill && (
+                          <TouchableOpacity
+                            activeOpacity={0.9}
+                            onPress={handleOpenPost}
+                            style={viewerStyles.instagramPill}
+                          >
+                            {(currentStoryVideoUrl || isVideoStory) && (
+                              <Ionicons name="play" size={12} color="#000000" style={{ marginRight: 4 }} />
+                            )}
+                            <Text style={viewerStyles.instagramPillText}>
+                              {(currentStoryVideoUrl || isVideoStory) ? 'Watch Reel' : 'View Post'}
+                            </Text>
+                            <Feather name="chevron-right" size={14} color="#000000" />
+                          </TouchableOpacity>
+                        )}
+                      </TouchableOpacity>
+
+                      {currentStory.postMetadata?.caption ? (
+                        <TouchableOpacity
+                          activeOpacity={0.8}
+                          onPress={handleOpenPost}
+                          style={viewerStyles.postCardFooter}
+                        >
+                          <Text style={viewerStyles.postCardCaption} numberOfLines={2}>
+                            <Text style={{ fontWeight: '700', color: COLORS.textPrimary }}>{currentStory.postMetadata?.userName} </Text>
+                            {currentStory.postMetadata?.caption}
+                          </Text>
+                        </TouchableOpacity>
+                      ) : (
+                        <TouchableOpacity
+                          activeOpacity={0.8}
+                          onPress={handleOpenPost}
+                          style={{ padding: 10 }}
+                        >
+                          <Text style={{ fontSize: 12, color: COLORS.textSecondary }}>View post</Text>
+                        </TouchableOpacity>
+                      )}
                     </View>
-                  ) : (
-                    <View style={{ padding: 10 }}>
-                      <Text style={{ fontSize: 12, color: COLORS.textSecondary }}>View post</Text>
-                    </View>
-                  )}
-                </TouchableOpacity>
+                  </View>
+                </>
               ) : (
                 /* Full Screen UI for Gallery Uploads */
                 <View style={StyleSheet.absoluteFill}>
@@ -908,9 +1030,29 @@ export default function StoriesViewer({ stories, onClose, initialIndex = 0, isHi
 
         {/* Navigation Areas */}
         {!showComments && (
-          <View style={viewerStyles.navOverlay}>
-            <TouchableOpacity onPress={goToPrevious} style={viewerStyles.navSide} activeOpacity={1} />
-            <TouchableOpacity onPress={goToNext} style={viewerStyles.navSide} activeOpacity={1} />
+          <View style={viewerStyles.navOverlay} pointerEvents="box-none">
+            <TouchableOpacity
+              onPress={() => {
+                if (showPostPill) {
+                  setShowPostPill(false);
+                } else {
+                  goToPrevious();
+                }
+              }}
+              style={currentStory.isPostShare ? viewerStyles.navSideCardMode : viewerStyles.navSide}
+              activeOpacity={1}
+            />
+            <TouchableOpacity
+              onPress={() => {
+                if (showPostPill) {
+                  setShowPostPill(false);
+                } else {
+                  goToNext();
+                }
+              }}
+              style={currentStory.isPostShare ? viewerStyles.navSideCardMode : viewerStyles.navSide}
+              activeOpacity={1}
+            />
           </View>
         )}
 
@@ -1208,6 +1350,10 @@ const viewerStyles = StyleSheet.create({
     height: '100%',
     backgroundColor: COLORS.black,
   },
+  postCardWrapper: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   postCard: {
     width: width * 0.85,
     backgroundColor: COLORS.card,
@@ -1239,10 +1385,40 @@ const viewerStyles = StyleSheet.create({
     fontWeight: '700',
     color: COLORS.textPrimary,
   },
+  postCardMediaBox: {
+    position: 'relative',
+    width: '100%',
+    aspectRatio: 1,
+    backgroundColor: COLORS.surface,
+    overflow: 'hidden',
+  },
   postCardImage: {
     width: '100%',
     aspectRatio: 1,
     backgroundColor: COLORS.surface,
+  },
+  instagramPill: {
+    position: 'absolute',
+    alignSelf: 'center',
+    bottom: 16,
+    backgroundColor: '#ffffff',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
+    flexDirection: 'row',
+    alignItems: 'center',
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.35,
+    shadowRadius: 6,
+    elevation: 8,
+    zIndex: 50,
+  },
+  instagramPillText: {
+    color: '#000000',
+    fontSize: 13,
+    fontWeight: '700',
+    marginRight: 2,
   },
   postCardFooter: {
     padding: 12,
@@ -1332,9 +1508,14 @@ const viewerStyles = StyleSheet.create({
     left: 0,
     right: 0,
     flexDirection: 'row',
+    justifyContent: 'space-between',
   },
   navSide: {
     flex: 1,
+  },
+  navSideCardMode: {
+    width: (width - (width * 0.85)) / 2,
+    height: '100%',
   },
   footer: {
     position: 'absolute',

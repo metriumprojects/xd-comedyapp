@@ -10,6 +10,7 @@ const {
 const { notificationQueue } = require('../services/queue');
 const { verifyToken, optionalAuth } = require('../src/middleware/authMiddleware');
 const postService = require('../services/postService');
+const feedRecommendationService = require('../services/feedRecommendationService');
 const logger = require('../src/utils/logger');
 const cacheMiddleware = require('../src/middleware/cacheMiddleware');
 const validate = require('../src/middleware/validateMiddleware');
@@ -28,7 +29,7 @@ function resolvePostQuery(postId) {
 
 // Helper to resolve viewer/requester user ID from auth token, query params, or headers
 function getViewerId(req) {
-  return req.userId || req.query?.requesterUserId || req.query?.viewerId || req.query?.userId || req.headers?.['x-user-id'] || null;
+  return req.userId || req.user?.userId || req.query?.requesterUserId || req.query?.viewerId || req.query?.userId || req.headers?.['x-user-id'] || req.headers?.['userid'] || null;
 }
 
 // --- Basic CRUD ---
@@ -144,96 +145,22 @@ router.get('/feed', optionalAuth, async (req, res, next) => {
     }
     const baseQuery = baseConditions.length === 1 ? baseConditions[0] : { $and: baseConditions };
 
-    // 2. Mixed feed strategy
-    const isFirstPage = !cursor && skip === 0;
+    // 2. Smart Reels Recommendation & Shuffling Engine
+    const result = await feedRecommendationService.getRecommendedFeed({
+      baseQuery,
+      limit,
+      skip,
+      viewerId: currentUserId,
+      cursor
+    });
 
-    if (isFirstPage) {
-      const sixHoursAgo = new Date(Date.now() - 6 * 60 * 60 * 1000);
-      const recentQuery = { 
-        $and: [
-          baseQuery, 
-          { 
-            $or: [
-              { createdAt: { $gte: sixHoursAgo } },
-              { updatedAt: { $gte: sixHoursAgo } }
-            ] 
-          }
-        ] 
-      };
-      
-      const recentPosts = await postService.getEnrichedPosts(recentQuery, {
-        limit: Math.min(limit, 5),
-        sort: { updatedAt: -1, createdAt: -1 },
-        viewerId: currentUserId
-      });
-
-      const remainingSlots = limit - recentPosts.length;
-      let discoveryPosts = [];
-
-      if (remainingSlots > 0) {
-        const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
-        // Exclude recent posts AND reported posts from discovery to prevent duplicates
-        const recentIds = recentPosts.map(p => p._id || p.id).filter(Boolean);
-        const excludeIds = [...new Set([
-          ...recentIds.filter(id => mongoose.Types.ObjectId.isValid(id)).map(String),
-          ...reportedPostIds
-        ])];
-        const excludeObjectIds = excludeIds
-          .filter(id => mongoose.Types.ObjectId.isValid(id))
-          .map(id => new mongoose.Types.ObjectId(id));
-
-        const discoveryQuery = {
-          $and: [
-            baseQuery,
-            { createdAt: { $gte: thirtyDaysAgo } },
-            ...(excludeObjectIds.length > 0 ? [{ _id: { $nin: excludeObjectIds } }] : [])
-          ]
-        };
-
-        discoveryPosts = await postService.getEnrichedPosts(discoveryQuery, {
-          limit: remainingSlots,
-          viewerId: currentUserId,
-          randomize: true
-        });
-      }
-
-      // Deduplicate: with very few posts, $sample can still return overlaps
-      const seenIds = new Set();
-      const finalPosts = [...recentPosts, ...discoveryPosts].filter(p => {
-        const id = String(p._id || p.id || '');
-        if (!id || seenIds.has(id)) return false;
-        seenIds.add(id);
-        return true;
-      });
-
-      const lastPost = finalPosts.length > 0 ? finalPosts[finalPosts.length - 1] : null;
-      const nextCursor = lastPost ? (lastPost._id || lastPost.id) : null;
-      const nextCursorDate = lastPost?.createdAt || null;
-
-      res.json({ 
-        success: true, 
-        data: finalPosts,
-        cursor: nextCursor ? String(nextCursor) : null,
-        cursorDate: nextCursorDate
-      });
-    } else {
-      const finalPosts = await postService.getEnrichedPosts(baseQuery, { 
-        skip: cursor ? 0 : skip, 
-        limit, 
-        viewerId: currentUserId,
-        cursor,
-        cursorDate
-      });
-
-      const lastPost = finalPosts.length > 0 ? finalPosts[finalPosts.length - 1] : null;
-
-      res.json({ 
-        success: true, 
-        data: finalPosts,
-        cursor: lastPost ? String(lastPost._id || lastPost.id) : null,
-        cursorDate: lastPost?.createdAt || null
-      });
-    }
+    res.json({ 
+      success: true, 
+      data: result.posts,
+      cursor: result.cursor,
+      cursorDate: result.cursorDate,
+      count: result.posts.length
+    });
   } catch (err) {
     next(err);
   }
@@ -298,7 +225,9 @@ router.get('/recommended', optionalAuth, async (req, res, next) => {
       randomize: true
     });
 
-    res.json({ success: true, data: finalPosts });
+    const unstacked = feedRecommendationService.applyCreatorAntiStacking(finalPosts);
+
+    res.json({ success: true, data: unstacked });
   } catch (err) {
     next(err);
   }
@@ -983,11 +912,37 @@ router.post('/:postId/rate', verifyToken, async (req, res) => {
   }
 });
 
-// --- In-Memory Smart View Counter Batcher ---
+// --- In-Memory Smart View Counter, Deduplication & Anti-Spam System ---
 const pendingViewCounts = new Map(); // postId -> accumulated view increments
+const recentViewsMap = new Map();    // `${cleanId}:${viewerKey}` -> timestamp (ms)
+const postCreatorCache = new Map();  // cleanId -> creatorUserId (string)
+const ipRateLimitMap = new Map();    // ip -> { count, resetAt }
+
+const VIEW_COOLDOWN_MS = 24 * 60 * 60 * 1000; // 24 hours cooldown for unique views
+const MAX_AUTHOR_CACHE = 10000;
+const IP_RATE_LIMIT_MAX = 120; // max 120 view hits per minute per IP
+const IP_RATE_LIMIT_WINDOW = 60 * 1000;
+
+// Periodic cleanup of deduplication and rate limit maps to prevent RAM growth
+const cleanupInterval = setInterval(() => {
+  const cutoff = Date.now() - VIEW_COOLDOWN_MS;
+  for (const [key, timestamp] of recentViewsMap.entries()) {
+    if (timestamp < cutoff) {
+      recentViewsMap.delete(key);
+    }
+  }
+
+  const now = Date.now();
+  for (const [ip, data] of ipRateLimitMap.entries()) {
+    if (now > data.resetAt) {
+      ipRateLimitMap.delete(ip);
+    }
+  }
+}, 15 * 60 * 1000);
+if (cleanupInterval.unref) cleanupInterval.unref();
 
 // Flush accumulated views to MongoDB in 1 bulk write operation every 5 seconds
-setInterval(async () => {
+const batchFlushInterval = setInterval(async () => {
   if (pendingViewCounts.size === 0) return;
 
   const entries = Array.from(pendingViewCounts.entries());
@@ -1007,10 +962,11 @@ setInterval(async () => {
     console.warn('[ViewBatcher] Error flushing views to DB:', err.message);
   }
 }, 5000);
+if (batchFlushInterval.unref) batchFlushInterval.unref();
 
 /**
  * POST /api/posts/:id/view
- * Record a real video/post view (In-Memory Batching)
+ * Record a real video/post view with Creator Exclusion & 24h Unique View Deduplication
  */
 router.post('/:id/view', optionalAuth, async (req, res) => {
   try {
@@ -1020,15 +976,86 @@ router.post('/:id/view', optionalAuth, async (req, res) => {
       return res.status(400).json({ success: false, error: 'Invalid post ID' });
     }
 
-    // Accumulate view in RAM buffer
+    // 1. IP Rate Limiting (Prevent automated bot flood)
+    const rawIp = req.headers['x-forwarded-for'] || req.socket?.remoteAddress || req.ip || '';
+    const clientIp = typeof rawIp === 'string' ? rawIp.split(',')[0].trim() : '127.0.0.1';
+    const now = Date.now();
+
+    let ipData = ipRateLimitMap.get(clientIp);
+    if (!ipData || now > ipData.resetAt) {
+      ipData = { count: 1, resetAt: now + IP_RATE_LIMIT_WINDOW };
+      ipRateLimitMap.set(clientIp, ipData);
+    } else {
+      ipData.count++;
+      if (ipData.count > IP_RATE_LIMIT_MAX) {
+        return res.status(429).json({ success: false, error: 'Too many view requests' });
+      }
+    }
+
+    // 2. Resolve Viewer & Post Creator
+    const viewerId = getViewerId(req);
+
+    let creatorId = postCreatorCache.get(cleanId);
+    if (!creatorId) {
+      const Post = mongoose.model('Post');
+      const postDoc = await Post.findById(cleanId).select('userId').lean();
+      if (!postDoc) {
+        return res.status(404).json({ success: false, error: 'Post not found' });
+      }
+      creatorId = String(postDoc.userId || '');
+      if (postCreatorCache.size >= MAX_AUTHOR_CACHE) {
+        const firstKey = postCreatorCache.keys().next().value;
+        postCreatorCache.delete(firstKey);
+      }
+      postCreatorCache.set(cleanId, creatorId);
+    }
+
+    // 3. Creator Exclusion: Creator views are NEVER counted
+    if (viewerId && String(viewerId) === String(creatorId)) {
+      return res.json({ 
+        success: true, 
+        counted: false, 
+        reason: 'creator_view', 
+        postId: cleanId 
+      });
+    }
+
+    // 4. Unique View Deduplication (24h Cooldown Window)
+    const dedupKey = viewerId 
+      ? `${cleanId}:u:${viewerId}` 
+      : `${cleanId}:ip:${clientIp}`;
+
+    const lastViewedAt = recentViewsMap.get(dedupKey);
+    if (lastViewedAt && (now - lastViewedAt) < VIEW_COOLDOWN_MS) {
+      return res.json({ 
+        success: true, 
+        counted: false, 
+        reason: 'duplicate_view', 
+        postId: cleanId 
+      });
+    }
+
+    // Mark as viewed in deduplication cache
+    recentViewsMap.set(dedupKey, now);
+
+    // 5. Accumulate view in RAM buffer for high-throughput batching
     const current = pendingViewCounts.get(cleanId) || 0;
     pendingViewCounts.set(cleanId, current + 1);
 
-    res.json({ success: true, postId: cleanId });
+    res.json({ success: true, counted: true, postId: cleanId });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
   }
 });
+
+// Expose internals for unit testing
+router._viewTrackingInternal = {
+  pendingViewCounts,
+  recentViewsMap,
+  postCreatorCache,
+  ipRateLimitMap,
+  VIEW_COOLDOWN_MS
+};
 
 
 /**

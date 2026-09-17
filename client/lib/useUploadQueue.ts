@@ -9,7 +9,7 @@ export interface UploadTask {
   status: UploadStatus;
   progress: number;
   error?: string;
-  action: () => Promise<any>;
+  action: (onProgress?: (percent: number) => void) => Promise<any>;
 }
 
 interface UploadQueueState {
@@ -44,7 +44,7 @@ export const useUploadQueue = create<UploadQueueState>((set, get) => ({
   retryTask: (id) => {
     set((state) => ({
       tasks: state.tasks.map((t) =>
-        t.id === id ? { ...t, status: 'pending', error: undefined } : t
+        t.id === id ? { ...t, status: 'pending', progress: 0, error: undefined } : t
       ),
     }));
     processNextUpload();
@@ -65,13 +65,22 @@ const processNextUpload = async () => {
 
   useUploadQueue.setState((s) => ({
     tasks: s.tasks.map((t) =>
-      t.id === task.id ? { ...t, status: 'uploading', progress: 50 } : t
+      t.id === task.id ? { ...t, status: 'uploading', progress: 0 } : t
     ),
   }));
 
   try {
-    // Execute the provided async action (e.g. createPost, createStory)
-    await task.action();
+    const onProgress = (percent: number) => {
+      const clamped = Math.max(0, Math.min(99, Math.round(percent)));
+      useUploadQueue.setState((s) => ({
+        tasks: s.tasks.map((t) =>
+          t.id === task.id ? { ...t, progress: Math.max(t.progress, clamped) } : t
+        ),
+      }));
+    };
+
+    // Execute the provided async action (e.g. createPost, createStory) with real-time progress callback
+    await task.action(onProgress);
 
     useUploadQueue.setState((s) => ({
       tasks: s.tasks.map((t) =>

@@ -27,14 +27,19 @@ export default function UploadProgressBanner() {
 
             {/* Middle Text */}
             <View style={styles.textContainer}>
-              <Text style={styles.title}>
-                {isUploading && `Uploading ${task.type}...`}
-                {isSuccess && `${task.type} uploaded successfully!`}
-                {isError && `Failed to upload ${task.type}`}
-              </Text>
+              <View style={styles.headerRow}>
+                <Text style={styles.title}>
+                  {isUploading && `Uploading ${task.type}...`}
+                  {isSuccess && `${task.type} uploaded successfully!`}
+                  {isError && `Failed to upload ${task.type}`}
+                </Text>
+                {isUploading && (
+                  <Text style={styles.percentageText}>{Math.round(task.progress)}%</Text>
+                )}
+              </View>
               {isUploading && (
                 <View style={styles.progressBarBg}>
-                  <View style={[styles.progressBarFill, { width: `${task.progress}%` }]} />
+                  <View style={[styles.progressBarFill, { width: `${Math.max(3, Math.min(100, task.progress))}%` }]} />
                 </View>
               )}
               {isError && <Text style={styles.errorText} numberOfLines={1}>{task.error}</Text>}
@@ -93,11 +98,22 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
   },
+  headerRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 4,
+  },
   title: {
     fontSize: 13,
     fontWeight: '600',
     color: '#FFFFFF',
-    marginBottom: 4,
+  },
+  percentageText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: COLORS.primary,
+    marginLeft: 8,
   },
   progressBarBg: {
     height: 4,

@@ -970,7 +970,8 @@ export default function SavedScreen() {
             index={index}
             onPress={() => {
               hapticLight();
-              const modalIndex = displayedPosts.findIndex((p: any) => (p.id || p._id) === (item.id || item._id));
+              const targetId = String(item?.id || item?._id || '');
+              const modalIndex = displayedPosts.findIndex((p: any) => String(p?.id || p?._id || '') === targetId);
               setSelectedPostIndex(modalIndex >= 0 ? modalIndex : index);
               setPostViewerVisible(true);
             }}
@@ -1405,19 +1406,24 @@ export default function SavedScreen() {
           setCommentModalVisible(false);
         }}
       >
-        <KeyboardAvoidingView
-          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-          style={{ flex: 1 }}
-        >
-          <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' }}>
-            <TouchableOpacity
-              activeOpacity={1}
-              style={{ flex: 1 }}
-              onPress={() => {
-                hapticLight();
-                setCommentModalVisible(false);
-              }}
-            />
+        <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)' }}>
+          <TouchableOpacity
+            activeOpacity={1}
+            style={StyleSheet.absoluteFillObject}
+            onPress={() => {
+              if (Keyboard.isVisible()) {
+                Keyboard.dismiss();
+                return;
+              }
+              hapticLight();
+              setCommentModalVisible(false);
+            }}
+          />
+          <KeyboardAvoidingView
+            behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+            style={{ flex: 1, justifyContent: 'flex-end' }}
+            pointerEvents="box-none"
+          >
             <View style={{ backgroundColor: COLORS.card, height: '80%', borderTopLeftRadius: 20, borderTopRightRadius: 20 }}>
               <View style={{ width: 40, height: 4, backgroundColor: COLORS.border, borderRadius: 2, alignSelf: 'center', marginVertical: 10 }} />
               <View style={{ flexDirection: 'row', justifyContent: 'space-between', paddingHorizontal: 16, paddingBottom: 10, borderBottomWidth: 0.5, borderBottomColor: COLORS.border }}>
@@ -1438,8 +1444,8 @@ export default function SavedScreen() {
                 currentUser={currentUserId ? { uid: currentUserId } : null}
               />
             </View>
-          </View>
-        </KeyboardAvoidingView>
+          </KeyboardAvoidingView>
+        </View>
       </Modal>
 
       {/* Delete modal */}

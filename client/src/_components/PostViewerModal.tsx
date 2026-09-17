@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Dimensions, Modal, Platform, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { FlashList } from '@shopify/flash-list';
 import { feedEventEmitter } from '../../lib/feedEventEmitter';
@@ -71,43 +71,16 @@ export default function PostViewerModal({
 }: PostViewerModalProps): React.ReactElement {
   const flashListRef = useRef<FlashList<any>>(null);
   const insets = useSafeAreaInsets();
-  const didInitialScrollRef = useRef(false);
-  const targetIndexRef = useRef(0);
 
-  useEffect(() => {
-    if (!visible) {
-      didInitialScrollRef.current = false;
-      return;
+  // Slice posts from selectedPostIndex so the tapped post is placed right at the top (index 0),
+  // perfectly matching Instagram's behavior and completely avoiding any layout/offset glitches!
+  const displayPosts = useMemo(() => {
+    if (!Array.isArray(posts) || posts.length === 0) return [];
+    if (selectedPostIndex > 0 && selectedPostIndex < posts.length) {
+      return posts.slice(selectedPostIndex);
     }
-    if (!flashListRef.current) return;
-    if (!Array.isArray(posts) || posts.length === 0) return;
-    if (selectedPostIndex < 0 || selectedPostIndex >= posts.length) return;
-
-    targetIndexRef.current = selectedPostIndex;
-    if (selectedPostIndex === 0) {
-      didInitialScrollRef.current = true;
-    } else {
-      didInitialScrollRef.current = false;
-    }
-    
-    // FlashList initial positioning is much faster
-    const timer = setTimeout(() => {
-      if (!flashListRef.current) return;
-      try {
-        if (selectedPostIndex > 0) {
-          flashListRef.current.scrollToIndex({ 
-            index: selectedPostIndex, 
-            animated: false
-          });
-        }
-        didInitialScrollRef.current = true;
-      } catch (e) {
-        didInitialScrollRef.current = true;
-      }
-    }, 30);
-
-    return () => clearTimeout(timer);
-  }, [visible, selectedPostIndex]);
+    return posts;
+  }, [posts, selectedPostIndex]);
 
   useEffect(() => {
     const subscription = feedEventEmitter.addListener('closePostViewer', () => {
@@ -117,31 +90,23 @@ export default function PostViewerModal({
   }, [onClose]);
 
   const [activePostId, setActivePostId] = useState<string | null>(() => {
-    if (Array.isArray(posts) && selectedPostIndex >= 0 && selectedPostIndex < posts.length) {
-      const p = posts[selectedPostIndex];
+    if (Array.isArray(displayPosts) && displayPosts.length > 0) {
+      const p = displayPosts[0];
       return String(p?.id || p?._id || '');
     }
     return null;
   });
 
-  // When selectedPostIndex or visible changes, sync activePostId
+  // When displayPosts or visible changes, sync activePostId to the top post
   useEffect(() => {
-    if (visible && Array.isArray(posts) && selectedPostIndex >= 0 && selectedPostIndex < posts.length) {
-      const p = posts[selectedPostIndex];
+    if (visible && Array.isArray(displayPosts) && displayPosts.length > 0) {
+      const p = displayPosts[0];
       setActivePostId(String(p?.id || p?._id || ''));
-      if (selectedPostIndex === 0) {
-        didInitialScrollRef.current = true;
-      } else {
-        didInitialScrollRef.current = false;
-      }
+      flashListRef.current?.scrollToOffset({ offset: 0, animated: false });
     }
-  }, [visible, selectedPostIndex, posts]);
+  }, [visible, displayPosts]);
 
   const onViewableItemsChanged = useRef(({ viewableItems }: any) => {
-    // Before initial scroll completes to selectedPostIndex, don't let index 0 overwrite activePostId
-    if (!didInitialScrollRef.current && targetIndexRef.current > 0) {
-      return;
-    }
     if (viewableItems && viewableItems.length > 0) {
       const visibleItem = viewableItems[0]?.item;
       if (visibleItem) {
@@ -184,16 +149,12 @@ export default function PostViewerModal({
 
         <FlashList
           ref={flashListRef}
-          data={posts}
+          data={displayPosts}
           keyExtractor={(item, index) => String(item?.id || item?._id || index)}
-          estimatedItemSize={SCREEN_HEIGHT * 0.75}
+          estimatedItemSize={500}
+          keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
-          onScrollBeginDrag={() => {
-            didInitialScrollRef.current = true;
-          }}
-          initialScrollIndex={selectedPostIndex >= 0 && selectedPostIndex < posts.length ? selectedPostIndex : undefined}
-          snapToAlignment="start"
-          decelerationRate="fast"
+          decelerationRate="normal"
           onViewableItemsChanged={onViewableItemsChanged}
           viewabilityConfig={viewabilityConfig}
           // Each cell hosts PostCard's comment sheet; on Android clipping detaches and reattaches
@@ -201,7 +162,7 @@ export default function PostViewerModal({
           removeClippedSubviews={false}
           renderItem={({ item }) => {
             const itemId = String(item?.id || item?._id || '');
-            const isItemActive = posts.length <= 1 || (activePostId ? itemId === activePostId : true);
+            const isItemActive = displayPosts.length <= 1 || (activePostId ? itemId === activePostId : false);
             return (
               <PostCard
                 post={item}

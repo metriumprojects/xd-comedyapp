@@ -44,8 +44,23 @@ export default function UserPostsScreen() {
   const [loadingMore, setLoadingMore] = useState(false);
   const [hasMore, setHasMore] = useState(true);
   const [skip, setSkip] = useState(0);
+  const [activePostId, setActivePostId] = useState<string | null>(null);
   const { isOnline } = useNetworkStatus();
   const { showBanner } = useOfflineBanner();
+
+  const onViewableItemsChanged = useRef(({ viewableItems }: any) => {
+    if (viewableItems && viewableItems.length > 0) {
+      const visibleItem = viewableItems[0]?.item;
+      if (visibleItem) {
+        const id = String(visibleItem.id || visibleItem._id || '');
+        if (id) setActivePostId(id);
+      }
+    }
+  }).current;
+
+  const viewabilityConfig = useRef({
+    itemVisiblePercentThreshold: 40,
+  }).current;
 
   const single = useMemo(() => {
     return (params as any)?.single === 'true' || (params as any)?.single === true;
@@ -347,16 +362,23 @@ export default function UserPostsScreen() {
         maxToRenderPerBatch={4}
         windowSize={5}
         updateCellsBatchingPeriod={40}
+        onViewableItemsChanged={onViewableItemsChanged}
+        viewabilityConfig={viewabilityConfig}
         // Each cell hosts PostCard's comment sheet; on Android clipping detaches and reattaches
         // its native subtree, which swallows the first touch inside the sheet.
         removeClippedSubviews={false}
-        renderItem={({ item }: { item: any }) => (
-          <PostCard
-            post={item}
-            currentUser={viewerId}
-            showMenu={true}
-          />
-        )}
+        renderItem={({ item, index }: { item: any, index: number }) => {
+          const itemId = String(item?.id || item?._id || '');
+          const isItemActive = posts.length <= 1 || (activePostId ? itemId === activePostId : index === 0);
+          return (
+            <PostCard
+              post={item}
+              currentUser={viewerId}
+              showMenu={true}
+              isActive={isItemActive}
+            />
+          );
+        }}
         onEndReached={onEndReached}
         onEndReachedThreshold={0.5}
         ListFooterComponent={

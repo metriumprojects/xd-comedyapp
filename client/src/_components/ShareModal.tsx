@@ -180,7 +180,7 @@ export default function ShareModal({
               pathname: '/story-creator',
               params: {
                 sharePostId: postId,
-                sharePostData: JSON.stringify(sharePayload)
+                sharePostData: encodeURIComponent(JSON.stringify(sharePayload))
               }
             } as any);
           }, Platform.OS === 'ios' ? 250 : 100);

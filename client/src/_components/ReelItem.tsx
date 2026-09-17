@@ -26,6 +26,7 @@ import { CommentSection } from './CommentSection';
 import ShareModal from './ShareModal';
 import SaveToCollectionModal from './SaveToCollectionModal';
 import StoriesViewer from './StoriesViewer';
+import { storyForStoriesViewer } from '../../lib/storyViewer';
 import { likePost, unlikePost, sendPostMessage, followUser, unfollowUser } from '../../lib/firebaseHelpers';
 import { apiService } from '@/src/_services/apiService';
 import { normalizeAvatarUrl, getOptimizedMediaUrl, isVideoUrl } from '../../lib/utils/media';
@@ -45,6 +46,19 @@ import { ReelReactionBurst, FloatingParticleItem, ReactionType } from './ReelRea
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
+// Helper: safely extracts clean string user ID from any post/user shape
+const getTargetCreatorId = (p: any): string => {
+  if (!p) return '';
+  const u = p.userId || p.user || p.author || p.authorData;
+  if (typeof u === 'string' && u.trim() && u !== '[object Object]') return u.trim();
+  if (typeof u === 'object' && u !== null) {
+    const id = u._id || u.id || u.uid || u.firebaseUid;
+    if (typeof id === 'string' && id.trim() && id !== '[object Object]') return id.trim();
+    if (id && typeof id === 'object' && id._id) return String(id._id);
+  }
+  return '';
+};
+
 // Module-level caches to eliminate per-reel AsyncStorage and network thrashing
 let cachedCanonicalUserId: string | null = null;
 const creatorStoriesCache = new Map<string, { stories: any[]; timestamp: number }>();
@@ -61,6 +75,7 @@ interface ReelItemProps {
   isFullscreenMode: boolean;
   onToggleFullscreen: () => void;
   followedStories?: any[];
+  isHomeStoriesViewerVisible?: boolean;
 }
 
 export const ReelItem = React.memo<ReelItemProps>(({
@@ -73,7 +88,8 @@ export const ReelItem = React.memo<ReelItemProps>(({
   containerHeight,
   isFullscreenMode,
   onToggleFullscreen,
-  followedStories = []
+  followedStories = [],
+  isHomeStoriesViewerVisible = false
 }) => {
   const router = useRouter();
   const user = useUser();
@@ -301,26 +317,35 @@ export const ReelItem = React.memo<ReelItemProps>(({
     setViewsCount(post?.viewsCount || 0);
   }, [post?._id]);
 
-  // Track real view when video has been active on screen for >1.5 seconds
+  // Track real view when video has been active on screen for >1.5 seconds (Creator excluded & unique views)
   useEffect(() => {
     if (!isActive || !post?._id || hasViewedRef.current) return;
+
+    // Creator Exclusion: Never track creator viewing their own post
+    const targetCreator = getTargetCreatorId(post);
+    const myId = String(currentUser?._id || currentUser?.id || currentUser?.uid || currentUser?.firebaseUid || resolvedUserId || '');
+    if (myId && targetCreator && myId === targetCreator) {
+      return;
+    }
 
     const timer = setTimeout(async () => {
       if (hasViewedRef.current) return;
       hasViewedRef.current = true;
 
-      setViewsCount((prev: number) => prev + 1);
-
       try {
         const cleanId = String(post._id).split('-loop')[0];
-        await apiService.post(`/posts/${cleanId}/view`, {});
+        const res: any = await apiService.post(`/posts/${cleanId}/view`, {});
+        // Only increment view count if counted (not duplicate / not creator)
+        if (res?.counted) {
+          setViewsCount((prev: number) => prev + 1);
+        }
       } catch (e) {
         console.warn('[ReelItem] View tracking failed:', e);
       }
     }, 1500);
 
     return () => clearTimeout(timer);
-  }, [isActive, post?._id]);
+  }, [isActive, post?._id, currentUser, resolvedUserId]);
 
   // Save Toast & Collection selector states
   const [showSavedToast, setShowSavedToast] = useState(false);
@@ -348,43 +373,72 @@ export const ReelItem = React.memo<ReelItemProps>(({
 
   useEffect(() => {
     if (!shouldLoad) return;
-    const creatorUserId = String(post?.userId?._id || post?.userId?.id || post?.userId || '');
-    if (!creatorUserId) return;
+    const creatorUserId = getTargetCreatorId(post);
+    const creatorFirebaseUid = String(post?.userId?.firebaseUid || post?.user?.firebaseUid || post?.userId?.uid || '');
+    if (!creatorUserId && !creatorFirebaseUid) return;
 
     // 1. Check followedStories passed from home.tsx (0ms instant!)
     if (Array.isArray(followedStories) && followedStories.length > 0) {
-      const matched = followedStories.filter((s: any) => {
-        const sUid = String(s?.userId?._id || s?.userId?.id || s?.userId || s?.uid || '');
-        return sUid === creatorUserId;
+      const matchedGroup = followedStories.find((g: any) => {
+        const sUid = String(g?.userId?._id || g?.userId?.id || g?.userId || g?.uid || '');
+        return sUid && (sUid === creatorUserId || (creatorFirebaseUid && sUid === creatorFirebaseUid));
       });
-      if (matched.length > 0) {
-        setCreatorStories(matched);
+      if (matchedGroup && Array.isArray(matchedGroup.stories) && matchedGroup.stories.length > 0) {
+        setCreatorStories(matchedGroup.stories);
         return;
       }
     }
 
-    // 2. Check in-memory cache (TTL: 2 minutes)
-    const cached = creatorStoriesCache.get(creatorUserId);
-    if (cached && Date.now() - cached.timestamp < 120000) {
+    const targetLookupId = creatorUserId || creatorFirebaseUid;
+    if (!targetLookupId) return;
+
+    // 2. Check in-memory cache (TTL: 30 seconds)
+    const cached = creatorStoriesCache.get(targetLookupId);
+    if (cached && Date.now() - cached.timestamp < 30000) {
       setCreatorStories(cached.stories);
       return;
     }
 
     // 3. Only fetch from API if not in cache
     let isMounted = true;
-    apiService.get(`/stories/user/${creatorUserId}`)
+    apiService.get(`/stories/user/${targetLookupId}`)
       .then((res) => {
         if (!isMounted) return;
-        const data = res?.success && Array.isArray(res.data) ? res.data : [];
-        creatorStoriesCache.set(creatorUserId, { stories: data, timestamp: Date.now() });
-        setCreatorStories(data);
+        const raw = res?.success && Array.isArray(res.data) ? res.data : [];
+        const formatted = raw.map((s: any, idx: number) => storyForStoriesViewer(s, idx));
+        creatorStoriesCache.set(targetLookupId, { stories: formatted, timestamp: Date.now() });
+        setCreatorStories(formatted);
       })
       .catch(() => {
         if (isMounted) setCreatorStories([]);
       });
 
     return () => { isMounted = false; };
-  }, [post?.userId, shouldLoad, followedStories]);
+  }, [post?.userId, post?.user, shouldLoad, followedStories]);
+
+  useEffect(() => {
+    const handleFeedUpdate = () => {
+      creatorStoriesCache.clear();
+      const creatorUserId = getTargetCreatorId(post);
+      const creatorFirebaseUid = String(post?.userId?.firebaseUid || post?.user?.firebaseUid || post?.userId?.uid || '');
+      const targetLookupId = creatorUserId || creatorFirebaseUid;
+      if (targetLookupId) {
+        apiService.get(`/stories/user/${targetLookupId}`)
+          .then((res) => {
+            const raw = res?.success && Array.isArray(res.data) ? res.data : [];
+            const formatted = raw.map((s: any, idx: number) => storyForStoriesViewer(s, idx));
+            creatorStoriesCache.set(targetLookupId, { stories: formatted, timestamp: Date.now() });
+            setCreatorStories(formatted);
+          })
+          .catch(() => {});
+      }
+    };
+
+    feedEventEmitter.on('feedUpdated', handleFeedUpdate);
+    return () => {
+      feedEventEmitter.off('feedUpdated', handleFeedUpdate);
+    };
+  }, [post?.userId, post?.user]);
 
   const loadSeenStoryIds = useCallback(async () => {
     if (cachedSeenStoryIds) {
@@ -1188,14 +1242,14 @@ export const ReelItem = React.memo<ReelItemProps>(({
           </View>
         )
       ) : videoUrl ? (
-        shouldLoad ? (
+        (shouldLoad && !storiesViewerVisible && !viewerVisible && !isHomeStoriesViewerVisible) ? (
           <ReelVideoPlayer
             videoUrl={videoUrl}
             isActive={isActive}
             isPlaying={isPlaying}
             isMuted={isMuted}
             isLocked={isLocked}
-            storiesViewerVisible={storiesViewerVisible}
+            storiesViewerVisible={storiesViewerVisible || viewerVisible || !!isHomeStoriesViewerVisible}
             setIsLoaded={setIsLoaded}
             setIsBuffering={setIsBuffering}
             aspectRatio={post?.aspectRatio}
@@ -1320,7 +1374,7 @@ export const ReelItem = React.memo<ReelItemProps>(({
             {/* Creator Profile Avatar */}
             <View style={[styles.avatarContainer, creatorStories.length > 0 && { borderWidth: 0 }]}>
               {creatorStories.length > 0 ? (
-              <LinearGradient
+                <LinearGradient
                   colors={creatorStoriesSeen ? [COLORS.border, COLORS.border] : ['#F58529', '#DD2A7B', '#8134AF']}
                   style={styles.storyRing}
                 >
@@ -1339,9 +1393,21 @@ export const ReelItem = React.memo<ReelItemProps>(({
                 </LinearGradient>
               ) : (
                 <TouchableOpacity
-                  onPress={() => {
-                    const uid = post?.userId?._id || post?.userId;
-                    if (uid) router.push(`/user-profile?uid=${uid}`);
+                  onPress={async () => {
+                    const lookupId = getTargetCreatorId(post);
+                    if (lookupId) {
+                      try {
+                        const res = await apiService.get(`/stories/user/${lookupId}`);
+                        if (res?.success && Array.isArray(res.data) && res.data.length > 0) {
+                          const formatted = res.data.map((s: any, idx: number) => storyForStoriesViewer(s, idx));
+                          creatorStoriesCache.set(lookupId, { stories: formatted, timestamp: Date.now() });
+                          setCreatorStories(formatted);
+                          setStoriesViewerVisible(true);
+                          return;
+                        }
+                      } catch (_) {}
+                    }
+                    if (lookupId) router.push(`/user-profile?uid=${lookupId}`);
                   }}
                 >
                   <ExpoImage
@@ -1636,23 +1702,25 @@ export const ReelItem = React.memo<ReelItemProps>(({
             setAutoFocusComment(false);
           }}
         >
-          <KeyboardAvoidingView
-            behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-            style={{ flex: 1 }}
-          >
-            <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' }}>
-              <Pressable
-                style={{ flex: 1 }}
-                onPress={() => {
-                  // Keyboard up: first tap just lowers it, like Instagram. Second tap closes the sheet.
-                  if (Keyboard.isVisible()) {
-                    Keyboard.dismiss();
-                    return;
-                  }
-                  setShowComments(false);
-                  setAutoFocusComment(false);
-                }}
-              />
+          <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)' }}>
+            <TouchableOpacity
+              style={StyleSheet.absoluteFillObject}
+              activeOpacity={1}
+              onPress={() => {
+                // Keyboard up: first tap just lowers it, like Instagram. Second tap closes the sheet.
+                if (Keyboard.isVisible()) {
+                  Keyboard.dismiss();
+                  return;
+                }
+                setShowComments(false);
+                setAutoFocusComment(false);
+              }}
+            />
+            <KeyboardAvoidingView
+              behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+              style={{ flex: 1, justifyContent: 'flex-end' }}
+              pointerEvents="box-none"
+            >
               <Animated.View
                 style={[
                   styles.commentsSheet,
@@ -1677,8 +1745,8 @@ export const ReelItem = React.memo<ReelItemProps>(({
                   autoFocusInput={autoFocusComment}
                 />
               </Animated.View>
-            </View>
-          </KeyboardAvoidingView>
+            </KeyboardAvoidingView>
+          </View>
         </Modal>
       )}
 
@@ -1896,7 +1964,7 @@ export const ReelItem = React.memo<ReelItemProps>(({
         />
       )}
 
-      {(viewerVisible || storiesViewerVisible) && (
+      {(viewerVisible || storiesViewerVisible) && ((storiesViewerVisible ? creatorStories.length > 0 : activeViewerStories.length > 0)) && (
         <Modal
           visible={viewerVisible || storiesViewerVisible}
           animationType="fade"
