@@ -6,7 +6,7 @@ const logger = require('../utils/logger');
 const mongoose = require('mongoose');
 const { registerMessagingSocket } = require('../socket/registerMessagingSocket');
 const { toObjectId } = require('../utils/userUtils');
-const { sendExpoPushToUser } = require('../../services/pushNotificationService');
+const { sendExpoPushToUser } = require('../services/notificationService');
 const { getRedisConnectionConfig } = require('../utils/redis');
 
 const initSockets = (server, secret) => {

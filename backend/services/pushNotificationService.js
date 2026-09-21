@@ -168,5 +168,6 @@ module.exports = {
   sendPushNotification,
   sendBulkPushNotifications,
   sendEventNotification,
+  sendExpoPushToUser: (...args) => require('../src/services/notificationService').sendExpoPushToUser(...args),
 };
 
