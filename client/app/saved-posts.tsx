@@ -5,7 +5,7 @@ import { useFocusEffect, useRouter, useLocalSearchParams } from 'expo-router';
 import { Image as ExpoImage } from 'expo-image';
 import AsyncStorage from '@/lib/storage';
 import { Ionicons } from '@expo/vector-icons';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { useSafeHeaderInsets } from '@/hooks/useSafeHeaderInsets';
 import { API_BASE_URL } from '../lib/api';
 import { useAppDialog } from '@/src/_components/AppDialogProvider';
 import { safeRouterBack } from '@/lib/safeRouterBack';
@@ -13,6 +13,7 @@ import COLORS from '@/src/theme/colors';
 
 export default function SavedPostsScreen() {
   const router = useRouter();
+  const { top: safeTop, bottom: safeBottom } = useSafeHeaderInsets();
   const params = useLocalSearchParams();
   const targetUserId = typeof params.userId === 'string' ? params.userId : null;
   const [savedPosts, setSavedPosts] = useState<any[]>([]);
@@ -194,17 +195,17 @@ export default function SavedPostsScreen() {
 
   if (loading) {
     return (
-      <SafeAreaView style={styles.container}>
+      <View style={[styles.container, { paddingTop: safeTop, paddingBottom: safeBottom }]}>
         <View style={styles.centerContainer}>
           <ActivityIndicator size="large" color={COLORS.info} />
           <Text style={styles.loadingText}>Loading saved posts...</Text>
         </View>
-      </SafeAreaView>
+      </View>
     );
   }
 
   return (
-    <SafeAreaView style={styles.container}>
+    <View style={[styles.container, { paddingTop: safeTop, paddingBottom: safeBottom }]}>
       <View style={styles.header}>
         <TouchableOpacity onPress={() => safeRouterBack()}>
           <Ionicons name="chevron-back" size={28} color={COLORS.textPrimary} />
@@ -232,7 +233,7 @@ export default function SavedPostsScreen() {
           estimatedItemSize={320}
         />
       )}
-    </SafeAreaView>
+    </View>
   );
 }
 
@@ -288,18 +289,18 @@ const styles = StyleSheet.create({
     paddingBottom: 32,
   },
   postCard: {
-    backgroundColor: COLORS.background,
-    marginBottom: 12,
+    backgroundColor: COLORS.card,
     borderRadius: 12,
+    marginBottom: 16,
     overflow: 'hidden',
     borderWidth: 1,
-    borderColor: COLORS.inputBg,
+    borderColor: COLORS.border,
   },
   postImageContainer: {
-    position: 'relative',
     width: '100%',
-    height: 240,
-    backgroundColor: COLORS.surface,
+    height: 200,
+    backgroundColor: COLORS.inputBg,
+    position: 'relative',
   },
   postImage: {
     width: '100%',
@@ -308,19 +309,17 @@ const styles = StyleSheet.create({
   emptyImage: {
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: COLORS.surface,
+    padding: 16,
   },
   emptyText: {
-    fontSize: 14,
     color: COLORS.textMuted,
     textAlign: 'center',
-    paddingHorizontal: 16,
   },
   unsaveButton: {
     position: 'absolute',
     top: 12,
     right: 12,
-    backgroundColor: 'rgba(255, 255, 255, 0.9)',
+    backgroundColor: COLORS.background,
     borderRadius: 20,
     padding: 8,
     shadowColor: COLORS.black,
@@ -336,11 +335,10 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: COLORS.textPrimary,
     marginBottom: 8,
-    lineHeight: 20,
   },
   postStats: {
     flexDirection: 'row',
-    justifyContent: 'flex-start',
+    alignItems: 'center',
     gap: 16,
   },
   stat: {
@@ -351,6 +349,5 @@ const styles = StyleSheet.create({
   statText: {
     fontSize: 12,
     color: COLORS.textSecondary,
-    fontWeight: '500',
   },
 });

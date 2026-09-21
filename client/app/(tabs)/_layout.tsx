@@ -1,5 +1,5 @@
 import { Feather, Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
-import { Tabs, useFocusEffect, useRouter, usePathname, useSegments } from "expo-router";
+import { Tabs, useFocusEffect, useRouter, usePathname } from "expo-router";
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, Alert, Animated, Dimensions, StyleSheet, Text, TouchableOpacity, View, FlatList, Modal, ScrollView, Platform, InteractionManager } from 'react-native';
 import AsyncStorage from '@/lib/storage';
@@ -9,7 +9,6 @@ import { getPushNotificationToken, requestNotificationPermissions, savePushToken
 import { getAllStoriesForFeed, getUserProfile } from "../../lib/firebaseHelpers/index";
 import { DEFAULT_AVATAR_URL } from "../../lib/api";
 import { useLocalSearchParams } from "expo-router";
-import { AppBrandMark } from '@/src/_components/AppBrandMark';
 import GroupsDrawer from '@/src/_components/GroupsDrawer';
 import NotificationsModal from '@/src/_components/NotificationsModal';
 import StoriesRow from '@/src/_components/StoriesRow';
@@ -25,6 +24,7 @@ import { getNotificationDisplayText } from '../../lib/notificationText';
 import { feedEventEmitter } from '@/lib/feedEventEmitter';
 import { useUIStore } from '../../store/useUIStore';
 import COLORS from '@/src/theme/colors';
+import { useSwipeDownToDismiss } from '@/hooks/useSwipeDownToDismiss';
 
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
@@ -93,6 +93,18 @@ export default function TabsLayout() {
       sub.remove();
     };
   }, []);
+
+  const {
+    headerPanHandlers: menuHeaderPanHandlers,
+    sheetPanHandlers: menuSheetPanHandlers,
+    animatedStyle: menuAnimatedStyle,
+    dismiss: dismissMenu,
+  } = useSwipeDownToDismiss({
+    onDismiss: () => setMenuVisible(false),
+    visible: menuVisible,
+    initialSlideIn: true,
+    initialOffset: 460,
+  });
   const [groupsDrawerVisible, setGroupsDrawerVisible] = useState(false);
   const [showStoriesViewer, setShowStoriesViewer] = useState(false);
   const [selectedStories, setSelectedStories] = useState<any[]>([]);
@@ -102,14 +114,22 @@ export default function TabsLayout() {
   const [storyMedia, setStoryMedia] = useState<{ uri: string; type: string } | null>(null);
   const params = useLocalSearchParams();
   const openedStoryIdRef = useRef<string | null>(null);
-  const isSearchScreen = pathname === '/search' || pathname.includes('/search');
-  const isSavedScreen = pathname === '/saved' || pathname.includes('/saved');
-  const segments = useSegments();
-  const currentTab = segments[segments.length - 1];
-  const isHomeScreen = currentTab === 'home' || segments.length <= 1 || pathname === '/home' || pathname === '/' || pathname === '/(tabs)' || pathname === '/(tabs)/home';
-  const hideTopOverlay = isHomeScreen || isSearchScreen || isSavedScreen;
+  // Reliable tab tracking using navigation state rather than raw URL segments
+  // This completely prevents desync/jumping when screens are pushed on top of tabs.
+  const [activeTab, setActiveTab] = useState<'home' | 'profile' | 'saved' | 'search' | 'post'>(() => {
+    if (pathname?.includes('/profile')) return 'profile';
+    if (pathname?.includes('/saved')) return 'saved';
+    return 'home';
+  });
+
+  const isProfileScreen = activeTab === 'profile';
+  const isHomeScreen = activeTab === 'home';
+  const isSearchScreen = activeTab === 'search';
+  const isSavedScreen = activeTab === 'saved';
+
+  // Only the Profile tab displays the persistent TopMenu overlay header
+  const hideTopOverlay = !isProfileScreen;
   const insets = useSafeAreaInsets();
-  const isProfileScreen = currentTab === 'profile';
   const currentHeaderHeight = TOP_MENU_HEIGHT;
   const currentSafeTop = Math.max(insets.top, 12);
   const totalHeaderHeight = currentHeaderHeight + currentSafeTop;
@@ -271,6 +291,17 @@ export default function TabsLayout() {
         <TabEventContext.Provider value={{ emitHomeTabPress, subscribeHomeTabPress }}>
           <Tabs
             initialRouteName="home"
+            screenListeners={{
+              state: (e: any) => {
+                const state = e.data?.state;
+                if (state && typeof state.index === 'number' && Array.isArray(state.routes)) {
+                  const currentRoute = state.routes[state.index];
+                  if (currentRoute?.name) {
+                    setActiveTab(currentRoute.name as any);
+                  }
+                }
+              },
+            }}
             screenOptions={{
               headerShown: false,
               // Header is now in-flow and animates its own height.
@@ -302,7 +333,11 @@ export default function TabsLayout() {
             <Tabs.Screen
               name="home"
               listeners={{
+                focus: () => {
+                  setActiveTab('home');
+                },
                 tabPress: () => {
+                  setActiveTab('home');
                   emitHomeTabPress();
                   logAnalyticsEvent('tab_home_press', {});
                 },
@@ -414,7 +449,11 @@ export default function TabsLayout() {
             <Tabs.Screen
               name="profile"
               listeners={{
+                focus: () => {
+                  setActiveTab('profile');
+                },
                 tabPress: () => {
+                  setActiveTab('profile');
                   logAnalyticsEvent('tab_profile_press', {});
                 },
               }}
@@ -468,30 +507,28 @@ export default function TabsLayout() {
       )}
 
 
-      {/* Modern clean bottom sheet for settings/activity */}
+      {/* Modern clean Google-style bottom sheet for settings/activity */}
       {menuVisible && (
-        <Modal
-          visible={menuVisible}
-          transparent
-          animationType="slide"
-          onRequestClose={() => setMenuVisible(false)}
-        >
+        <View style={[StyleSheet.absoluteFillObject, { zIndex: 9999 }]} pointerEvents="box-none">
           <View style={styles.menuOverlay}>
             <TouchableOpacity
               style={{ flex: 1, width: '100%' }}
               activeOpacity={1}
-              onPress={() => setMenuVisible(false)}
+              onPress={() => dismissMenu()}
             />
             <View style={{ width: '100%' }}>
-              <View style={[styles.igSheet, { paddingBottom: Math.max(insets.bottom, isSmallDevice ? 24 : 32) + 12 }]}>
-                {/* Handle */}
-                <View style={styles.handleContainer}>
+              <Animated.View 
+                {...menuSheetPanHandlers}
+                style={[styles.igSheet, menuAnimatedStyle, { paddingBottom: Math.max(insets.bottom, isSmallDevice ? 20 : 28) + 8 }]}
+              >
+                {/* Drag Handle / Header Area - Instant touch grab on top area */}
+                <View {...menuHeaderPanHandlers} style={styles.dragHeader}>
                   <View style={styles.igHandle} />
                 </View>
 
                 {/* Menu Items Container */}
                 <View style={styles.menuItemsContainer}>
-                  {/* Settings Group */}
+                  {/* Settings & Monetization Group */}
                   <View style={styles.menuGroup}>
                     <TouchableOpacity
                       style={styles.igItem}
@@ -507,6 +544,28 @@ export default function TabsLayout() {
                         <Feather name="settings" size={ICON_SIZE} color={COLORS.primary} />
                       </LinearGradient>
                       <Text style={styles.igText}>Settings</Text>
+                      <Feather name="chevron-right" size={CHEVRON_SIZE} color={COLORS.border} style={styles.chevron} />
+                    </TouchableOpacity>
+
+                    <View style={styles.separator} />
+
+                    <TouchableOpacity
+                      style={styles.igItem}
+                      activeOpacity={0.7}
+                      onPress={() => {
+                        setMenuVisible(false);
+                        router.push('/manage-subscriptions');
+                      }}
+                    >
+                      <LinearGradient
+                        colors={['rgba(251, 188, 4, 0.15)', 'rgba(255, 141, 0, 0.15)']}
+                        start={{ x: 0, y: 0 }}
+                        end={{ x: 1, y: 0 }}
+                        style={styles.iconContainer}
+                      >
+                        <Feather name="layers" size={ICON_SIZE} color={COLORS.primary} />
+                      </LinearGradient>
+                      <Text style={styles.igText}>Tier Management</Text>
                       <Feather name="chevron-right" size={CHEVRON_SIZE} color={COLORS.border} style={styles.chevron} />
                     </TouchableOpacity>
                   </View>
@@ -602,15 +661,15 @@ export default function TabsLayout() {
                   <TouchableOpacity
                     style={styles.cancelButton}
                     activeOpacity={0.7}
-                    onPress={() => { logAnalyticsEvent('close_menu'); setMenuVisible(false); }}
+                    onPress={() => { logAnalyticsEvent('close_menu'); dismissMenu(); }}
                   >
                     <Text style={styles.cancelText}>Cancel</Text>
                   </TouchableOpacity>
                 </View>
-              </View>
+              </Animated.View>
             </View>
           </View>
-        </Modal>
+        </View>
       )}
 
       {/* Groups Drawer */}
@@ -621,7 +680,6 @@ export default function TabsLayout() {
 
 function TopMenu({ setMenuVisible, setGroupsDrawerVisible }: { setMenuVisible: (v: boolean) => void; setGroupsDrawerVisible: (v: boolean) => void }): React.ReactElement {
   const router = useRouter();
-  const tabEvents = useTabEvent();
   const insets = useSafeAreaInsets();
   const [currentUserId, setCurrentUserId] = useState<string>('');
   const [unreadNotif, setUnreadNotif] = useState(0);
@@ -629,10 +687,6 @@ function TopMenu({ setMenuVisible, setGroupsDrawerVisible }: { setMenuVisible: (
   const [profileUsername, setProfileUsername] = useState<string>('');
 
   const [notificationsModalVisible, setNotificationsModalVisible] = React.useState(false);
-
-  const segments = useSegments();
-  const isProfileScreen = segments[segments.length - 1] === 'profile';
-  const isHomeScreen = segments[segments.length - 1] === 'home';
 
   useEffect(() => {
     let isMounted = true;
@@ -645,7 +699,7 @@ function TopMenu({ setMenuVisible, setGroupsDrawerVisible }: { setMenuVisible: (
       } catch { }
     })();
     return () => { isMounted = false; };
-  }, [segments]);
+  }, []);
 
   // Get notifications from hook
   // 60s poll — frequent polling causes re-renders that stutter the scroll
@@ -782,25 +836,7 @@ function TopMenu({ setMenuVisible, setGroupsDrawerVisible }: { setMenuVisible: (
       height: (isSmallDevice ? 50 : 56) + Math.max(insets.top, 12)
     }]}>
       <View style={{ flexDirection: 'row', alignItems: 'center', minWidth: 150, marginRight: 8 }}>
-        {isProfileScreen ? null : (
-          <TouchableOpacity
-            style={{ flexDirection: 'row', alignItems: 'center', height: 46, justifyContent: 'center' }}
-            activeOpacity={0.85}
-            onPress={() => {
-              tabEvents?.emitHomeTabPress?.();
-              if (!isHomeScreen) {
-                router.replace('/(tabs)/home');
-              }
-            }}
-          >
-            <AppBrandMark
-              size="sm"
-              showWordmark
-              iconAsset="app"
-              variant="tabBar"
-            />
-          </TouchableOpacity>
-        )}
+        {/* Profile tab header has no brand logo on the left to keep it completely stable */}
       </View>
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
         <TouchableOpacity style={styles.topBtn} onPress={() => { logAnalyticsEvent('open_groups_drawer'); setGroupsDrawerVisible(true); }}>
@@ -883,7 +919,7 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
-    backgroundColor: 'rgba(0,0,0,0.5)',
+    backgroundColor: 'transparent',
     justifyContent: 'flex-end',
     alignItems: 'center',
     zIndex: 999,
@@ -891,30 +927,33 @@ const styles = StyleSheet.create({
   igSheet: {
     width: '100%',
     backgroundColor: COLORS.surface,
-    borderTopLeftRadius: isSmallDevice ? 18 : 24,
-    borderTopRightRadius: isSmallDevice ? 18 : 24,
-    paddingTop: isSmallDevice ? 40 : 48,
-    paddingBottom: isSmallDevice ? 24 : 32,
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
+    paddingTop: 0,
+    paddingBottom: isSmallDevice ? 20 : 28,
     maxHeight: SCREEN_HEIGHT * 0.85,
     shadowColor: COLORS.black,
-    shadowOpacity: 0.2,
+    shadowOpacity: 0.12,
     shadowRadius: 20,
-    shadowOffset: { width: 0, height: -4 },
+    shadowOffset: { width: 0, height: -6 },
     elevation: 20,
   },
-  handleContainer: {
+  dragHeader: {
+    width: '100%',
     alignItems: 'center',
-    paddingVertical: 8,
+    justifyContent: 'center',
+    paddingTop: 18,
+    paddingBottom: 16,
   },
   igHandle: {
-    width: isSmallDevice ? 32 : 36,
-    height: 4,
-    borderRadius: 2,
-    backgroundColor: COLORS.border,
+    width: 40,
+    height: 5,
+    borderRadius: 2.5,
+    backgroundColor: '#D1D5DB',
   },
   menuItemsContainer: {
     paddingHorizontal: isSmallDevice ? 12 : 16,
-    paddingTop: isSmallDevice ? 8 : 12,
+    paddingTop: 6,
   },
   menuGroup: {
     backgroundColor: COLORS.background,

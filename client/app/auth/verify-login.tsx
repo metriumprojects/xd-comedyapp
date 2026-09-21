@@ -68,7 +68,7 @@ export default function VerifyLoginScreen() {
   const handleResendVerification = async () => {
     setResending(true);
     try {
-      if (auth.currentUser) {
+      if (auth && auth.currentUser) {
         await sendEmailVerification(auth.currentUser);
         Alert.alert('Sent', 'Verification link has been resent to your email.');
       } else {

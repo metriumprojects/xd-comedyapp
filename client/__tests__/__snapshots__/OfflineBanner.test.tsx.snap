@@ -15,7 +15,7 @@ exports[`OfflineBanner renders correctly when back online 1`] = `
         "marginTop": 8,
         "paddingHorizontal": 16,
         "paddingVertical": 10,
-        "shadowColor": "#000",
+        "shadowColor": "#000000",
         "shadowOffset": {
           "height": 2,
           "width": 0,
@@ -60,7 +60,7 @@ exports[`OfflineBanner renders correctly when offline 1`] = `
         "marginTop": 8,
         "paddingHorizontal": 16,
         "paddingVertical": 10,
-        "shadowColor": "#000",
+        "shadowColor": "#000000",
         "shadowOffset": {
           "height": 2,
           "width": 0,
@@ -69,8 +69,8 @@ exports[`OfflineBanner renders correctly when offline 1`] = `
         "shadowRadius": 4,
       },
       {
-        "backgroundColor": "#1F2937",
-        "borderColor": "#374151",
+        "backgroundColor": "#111827",
+        "borderColor": "#E5E7EB",
         "borderWidth": 1,
       },
       undefined,

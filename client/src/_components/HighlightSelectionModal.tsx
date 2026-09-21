@@ -2,6 +2,7 @@ import { Feather, Ionicons } from '@expo/vector-icons';
 import React from 'react';
 import {
   ActivityIndicator,
+  Animated,
   Dimensions,
   FlatList,
   Image,
@@ -14,6 +15,8 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import COLORS from '@/src/theme/colors';
+import StoryThumbnail from './StoryThumbnail';
+import { useSwipeDownToDismiss } from '@/hooks/useSwipeDownToDismiss';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
@@ -52,6 +55,12 @@ export default function HighlightSelectionModal({
   const insets = useSafeAreaInsets();
   const hasHighlights = highlights && highlights.length > 0;
   const resolveHighlightId = (h: any) => String(h?.id || h?._id || '');
+
+  const { headerPanHandlers, sheetPanHandlers, animatedStyle, dismiss } = useSwipeDownToDismiss({
+    onDismiss: onClose,
+    visible,
+    initialSlideIn: true,
+  });
 
   const isStoryInHighlight = (item: any, storyId?: string) => {
     if (!storyId || !item) return false;
@@ -99,7 +108,7 @@ export default function HighlightSelectionModal({
           }
         }}
       >
-        <Image source={{ uri: item.coverImage }} style={styles.highlightCover} />
+        <StoryThumbnail uri={item.coverImage} style={styles.highlightCover} resizeMode="cover" />
         <Text style={styles.highlightTitle} numberOfLines={1}>{item.title}</Text>
         {isProcessing ? (
           <ActivityIndicator size="small" color={COLORS.primary} style={styles.addIcon} />
@@ -114,18 +123,20 @@ export default function HighlightSelectionModal({
 
   const innerContent = (
     <View style={styles.overlay}>
-      <TouchableOpacity style={styles.dismissArea} activeOpacity={1} onPress={onClose} />
+      <TouchableOpacity style={styles.dismissArea} activeOpacity={1} onPress={() => dismiss()} />
       
-      <View style={[styles.sheet, { paddingBottom: Math.max(insets.bottom, 20) }]}>
-        <View style={styles.handle} />
-        
-        <View style={styles.header}>
-          <Text style={styles.headerTitle}>Add to a highlight</Text>
-          {hasHighlights && (
-            <TouchableOpacity onPress={onCreateNew} disabled={!!processingHighlightId}>
-              <Text style={[styles.newBtnText, !!processingHighlightId && { opacity: 0.5 }]}>New highlight</Text>
-            </TouchableOpacity>
-          )}
+      <Animated.View {...sheetPanHandlers} style={[styles.sheet, animatedStyle, { paddingBottom: Math.max(insets.bottom, 20) }]}>
+        <View {...headerPanHandlers} style={{ width: '100%', paddingTop: 4 }}>
+          <View style={styles.handle} />
+          
+          <View style={styles.header}>
+            <Text style={styles.headerTitle}>Add to a highlight</Text>
+            {hasHighlights && (
+              <TouchableOpacity onPress={onCreateNew} disabled={!!processingHighlightId}>
+                <Text style={[styles.newBtnText, !!processingHighlightId && { opacity: 0.5 }]}>New highlight</Text>
+              </TouchableOpacity>
+            )}
+          </View>
         </View>
 
         {loading ? (
@@ -141,7 +152,7 @@ export default function HighlightSelectionModal({
         ) : (
           renderEmptyState()
         )}
-      </View>
+      </Animated.View>
     </View>
   );
 
@@ -155,7 +166,7 @@ export default function HighlightSelectionModal({
   }
 
   return (
-    <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
+    <Modal visible={visible} animationType="none" transparent onRequestClose={() => dismiss()}>
       {innerContent}
     </Modal>
   );
@@ -164,7 +175,7 @@ export default function HighlightSelectionModal({
 const styles = StyleSheet.create({
   overlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
+    backgroundColor: 'transparent',
     justifyContent: 'flex-end',
   },
   dismissArea: {
@@ -172,18 +183,24 @@ const styles = StyleSheet.create({
   },
   sheet: {
     backgroundColor: COLORS.card,
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
     minHeight: 300,
     maxHeight: SCREEN_HEIGHT * 0.7,
+    shadowColor: '#000',
+    shadowOpacity: 0.12,
+    shadowRadius: 20,
+    shadowOffset: { width: 0, height: -6 },
+    elevation: 20,
   },
   handle: {
     width: 40,
-    height: 4,
-    backgroundColor: COLORS.border,
-    borderRadius: 2,
+    height: 5,
+    backgroundColor: '#D1D5DB',
+    borderRadius: 2.5,
     alignSelf: 'center',
-    marginVertical: 12,
+    marginTop: 14,
+    marginBottom: 8,
   },
   header: {
     flexDirection: 'row',

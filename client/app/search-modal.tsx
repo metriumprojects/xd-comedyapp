@@ -22,6 +22,7 @@ import {
 } from "react-native";
 import { Image as ExpoImage } from 'expo-image';
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
+import { useSafeHeaderInsets } from '@/hooks/useSafeHeaderInsets';
 import { searchUsers } from "../lib/firebaseHelpers/index";
 import COLORS from "@/src/theme/colors";
 import { safeRouterBack } from '@/lib/safeRouterBack';
@@ -45,14 +46,17 @@ interface SearchModalProps {
   initialQuery?: string;
 }
 
+export type SearchFilter = 'videos' | 'users' | 'all' | 'location' | 'laugh' | 'tomato';
+
 export default function SearchModal({ initialQuery: propQuery }: SearchModalProps = {}) {
   const router = useRouter();
   const params = useLocalSearchParams();
   const insets = useSafeAreaInsets();
+  const { top: safeTop } = useSafeHeaderInsets();
 
   const queryFromParams = (propQuery || params.initialQuery || params.q || params.query || '') as string;
   const [q, setQ] = useState<string>(queryFromParams);
-  const [filter, setFilter] = useState<'videos' | 'users' | 'all'>('videos');
+  const [filter, setFilter] = useState<SearchFilter>('videos');
   const inputRef = useRef<TextInput>(null);
 
   useFocusEffect(
@@ -256,7 +260,7 @@ export default function SearchModal({ initialQuery: propQuery }: SearchModalProp
 
   return (
     <SafeAreaView style={styles.container} edges={['left', 'right']}>
-      <View style={{ flex: 1, paddingTop: Math.max(insets.top + 2, 0) }}>
+      <View style={{ flex: 1, paddingTop: safeTop + 2 }}>
         <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
 
           {/* Header Bar */}

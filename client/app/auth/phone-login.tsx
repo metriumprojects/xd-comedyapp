@@ -364,6 +364,12 @@ const styles = StyleSheet.create({
     color: COLORS.textSecondary,
     marginBottom: 8,
   },
+  labelRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
   forgotPasswordContainer: {
     alignItems: 'flex-end',
     marginBottom: 15,

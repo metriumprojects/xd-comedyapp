@@ -3,6 +3,8 @@ import * as MediaLibrary from 'expo-media-library';
 import { apiService } from '@/src/_services/apiService';
 import { useAppStore } from '@/store/useAppStore';
 import { API_BASE_URL } from '../api';
+import { CHUNKED_UPLOAD_THRESHOLD, chunkedS3Upload } from '../../src/services/chunkedS3Upload';
+import { getCachedUserProfile } from '../../hooks/useUserProfile';
 import {
   sendLiveComment as socketSendLiveComment,
   subscribeToLiveStream as socketSubscribeToLiveStream,
@@ -635,7 +637,7 @@ export async function uploadMedia(
   mediaType: 'image' | 'video' = 'image',
   path?: string,
   onProgress?: (percent: number) => void
-): Promise<{ success: boolean; url?: string; error?: string; thumbnailUrl?: string; aspectRatio?: number; width?: number; height?: number }> {
+): Promise<{ success: boolean; url?: string; error?: string; thumbnailUrl?: string; aspectRatio?: number; width?: number; height?: number; mediaType?: string }> {
   try {
     console.log(`[uploadMedia] 📤 Starting ${mediaType} upload from URI:`, uri);
 
@@ -648,6 +650,33 @@ export async function uploadMedia(
         console.log('[uploadMedia] 🎬 Video compressed. New URI:', finalUri);
       } catch (compressError) {
         console.warn('[uploadMedia] ⚠️ Video compression failed, using original:', compressError);
+      }
+    }
+
+    // Instagram-style: large videos use S3 multipart (direct to S3, resumable)
+    if (mediaType === 'video') {
+      try {
+        const FileSystem = require('expo-file-system');
+        const info = await FileSystem.getInfoAsync(finalUri, { size: true });
+        const size = Number(info?.size || 0);
+        if (size >= CHUNKED_UPLOAD_THRESHOLD) {
+          console.log(`[uploadMedia] 📦 Chunked S3 upload (${(size / 1024 / 1024).toFixed(1)}MB)`);
+          const folderHint = String(path || '');
+          const context = folderHint.includes('stor') ? 'story' : folderHint.includes('media/') ? 'media' : 'post';
+          const chunked = await chunkedS3Upload({
+            uri: finalUri,
+            mediaType: 'video',
+            context,
+            onProgress,
+          });
+          if (chunked?.success && chunked.url) {
+            onProgress?.(100);
+            return { ...chunked, mediaType: 'video' };
+          }
+          console.warn('[uploadMedia] Chunked upload failed, falling back to single-shot:', chunked?.error);
+        }
+      } catch (chunkErr: any) {
+        console.warn('[uploadMedia] Chunked path error, falling back:', chunkErr?.message || chunkErr);
       }
     }
 
@@ -720,17 +749,26 @@ async function uploadWithMultipart(
 
     const safeType = mediaType === 'video' ? 'video' : 'image';
 
-    // Dynamically detect file extension from URI
-    const extension = uri.split('.').pop()?.toLowerCase() || (safeType === 'video' ? 'mp4' : 'jpg');
+    // Dynamically detect file extension from clean URI path
+    const cleanUriPath = uri.split('?')[0].split('#')[0];
+    const rawExt = cleanUriPath.split('.').pop()?.toLowerCase() || '';
+    const validExts = ['jpg', 'jpeg', 'png', 'webp', 'gif', 'heic', 'heif', 'mp4', 'mov', 'm4v', 'webm', 'm4a', 'mp3'];
+    const extension = validExts.includes(rawExt) ? rawExt : (safeType === 'video' ? 'mp4' : 'jpg');
 
-    // Match correct MIME type for iOS (especially .mov QuickTime videos)
+    // Match correct MIME type for iOS/Android
     let contentType = 'image/jpeg';
     if (safeType === 'video') {
       contentType = extension === 'mov' ? 'video/quicktime' : 'video/mp4';
     } else if (extension === 'png') {
       contentType = 'image/png';
+    } else if (extension === 'webp') {
+      contentType = 'image/webp';
     } else if (extension === 'gif') {
       contentType = 'image/gif';
+    } else if (extension === 'heic') {
+      contentType = 'image/heic';
+    } else if (extension === 'heif') {
+      contentType = 'image/heif';
     }
 
     const fileName = `${safeType}-${Date.now()}.${extension}`;
@@ -822,12 +860,65 @@ async function uploadStoryMedia(uri: string, userId: string, mediaType: 'image' 
       }
     }
 
+    // Compress story video before upload for optimal mobile streaming
+    if (mediaType === 'video') {
+      try {
+        const { compressVideoSafe } = require('../mediaUtils');
+        console.log('[uploadStoryMedia] 🎬 Compressing story video before upload...');
+        finalUri = await compressVideoSafe(finalUri);
+        console.log('[uploadStoryMedia] 🎬 Story video compressed. New URI:', finalUri);
+      } catch (compressError) {
+        console.warn('[uploadStoryMedia] ⚠️ Video compression failed, using original:', compressError);
+      }
+    }
+
+    // Large story videos: chunked S3 multipart (same as posts)
+    if (mediaType === 'video') {
+      try {
+        const FileSystem = require('expo-file-system');
+        const sizeInfo = await FileSystem.getInfoAsync(finalUri, { size: true });
+        const size = Number(sizeInfo?.size || 0);
+        if (size >= CHUNKED_UPLOAD_THRESHOLD) {
+          onProgress?.(8);
+          const chunked = await chunkedS3Upload({
+            uri: finalUri,
+            mediaType: 'video',
+            context: 'story',
+            onProgress: (p: number) => onProgress?.(Math.max(8, Math.min(98, p))),
+          });
+          if (chunked?.success && chunked.url) {
+            onProgress?.(100);
+            return {
+              success: true,
+              url: chunked.url,
+              mediaType: 'video',
+              thumbnailUrl: chunked.thumbnailUrl,
+            };
+          }
+          console.warn('[uploadStoryMedia] Chunked failed, falling back:', chunked?.error);
+        }
+      } catch (chunkErr: any) {
+        console.warn('[uploadStoryMedia] Chunked path error:', chunkErr?.message || chunkErr);
+      }
+    }
+
     const endpointUrl = `${API_BASE_URL}/upload/story`;
     const token = await AsyncStorage.getItem('token');
 
     const safeType = mediaType === 'video' ? 'video' : 'image';
-    const contentType = safeType === 'video' ? 'video/mp4' : 'image/jpeg';
-    const fileName = safeType === 'video' ? `story-${Date.now()}.mp4` : `story-${Date.now()}.jpg`;
+    const cleanUriPath = finalUri.split('?')[0].split('#')[0];
+    const rawExt = cleanUriPath.split('.').pop()?.toLowerCase() || '';
+    const validExts = ['jpg', 'jpeg', 'png', 'webp', 'gif', 'heic', 'heif', 'mp4', 'mov', 'm4v', 'webm'];
+    const extension = validExts.includes(rawExt) ? rawExt : (safeType === 'video' ? 'mp4' : 'jpg');
+    let contentType = 'image/jpeg';
+    if (safeType === 'video') {
+      contentType = extension === 'mov' ? 'video/quicktime' : 'video/mp4';
+    } else if (extension === 'png') {
+      contentType = 'image/png';
+    } else if (extension === 'webp') {
+      contentType = 'image/webp';
+    }
+    const fileName = `${safeType}-${Date.now()}.${extension}`;
 
     const formData = new FormData();
     formData.append('userId', userId);
@@ -1251,12 +1342,14 @@ export async function addCommentReply(postId: string, parentCommentId: string, r
 }
 
 // ============= STORIES =============
+const inFlightStoriesMap = new Map<string, Promise<any>>();
+
 export async function createStory(
   userId: string,
   mediaUri: string,
   mediaType: 'image' | 'video' = 'image',
   userNameRaw?: string,
-  locationData?: { name?: string; address?: string; placeId?: string },
+  locationData?: { name?: string; address?: string; placeId?: string; neighborhood?: string; city?: string; country?: string; countryCode?: string; lat?: number; lon?: number; verified?: boolean },
   thumbnailUrlRaw?: string,
   visibility: string = 'Everyone',
   allowedFollowers: string[] = [],
@@ -1264,80 +1357,106 @@ export async function createStory(
   isPostShare?: boolean,
   postMetadata?: any
 ) {
-  let mediaUrl: string | undefined;
-  let thumbnailUrl: string | undefined = thumbnailUrlRaw;
-
-  if (typeof mediaUri === 'string' && (mediaUri.startsWith('http://') || mediaUri.startsWith('https://'))) {
-    mediaUrl = mediaUri;
-  } else if (mediaType === 'video' || typeof onProgress === 'function') {
-    const uploadRes = await uploadStoryMedia(mediaUri, userId, mediaType, (p) => {
-      if (!onProgress) return;
-      const clamped = Math.max(0, Math.min(100, p));
-      onProgress(Math.min(95, clamped));
-    });
-    if (!uploadRes?.success || !uploadRes?.url) {
-      throw new Error(uploadRes?.error || 'Upload failed');
-    }
-    mediaUrl = uploadRes.url;
-    thumbnailUrl = uploadRes.thumbnailUrl || thumbnailUrl;
-  } else {
-    const upload = await uploadImage(mediaUri);
-    if (!upload?.url) throw new Error(upload?.error || 'Upload failed');
-    mediaUrl = upload.url;
+  const targetShareId = postMetadata?.postId || postMetadata?.shareStoryId || postMetadata?.id || '';
+  const dedupeKey = targetShareId ? `${userId}_share_${targetShareId}` : `${userId}_uri_${mediaUri}`;
+  if (inFlightStoriesMap.has(dedupeKey)) {
+    console.log('[createStory] ⚠️ Reusing in-flight story creation promise for dedupeKey:', dedupeKey);
+    return inFlightStoriesMap.get(dedupeKey)!;
   }
 
-  // Get user's actual name
-  let userName = userNameRaw || 'Anonymous';
-  if (!userNameRaw) {
+  const storyPromise = (async () => {
     try {
-      console.log('[createStory] Fetching profile for userId:', userId);
-      const userProfileRes: any = await apiService.get(`/users/${userId}`);
-      console.log('[createStory] User profile result:', userProfileRes);
-      if (userProfileRes?.success && userProfileRes?.data) {
-        if (userProfileRes.data.displayName) {
-          userName = userProfileRes.data.displayName;
-          console.log('[createStory] Using displayName:', userName);
-        } else if (userProfileRes.data.name) {
-          userName = userProfileRes.data.name;
-          console.log('[createStory] Using name:', userName);
-        } else if (userProfileRes.data.userName) {
-          userName = userProfileRes.data.userName;
-          console.log('[createStory] Using userName:', userName);
+      let mediaUrl: string | undefined;
+      let thumbnailUrl: string | undefined = thumbnailUrlRaw;
+
+      if (typeof mediaUri === 'string' && (mediaUri.startsWith('http://') || mediaUri.startsWith('https://'))) {
+        mediaUrl = mediaUri;
+      } else if (mediaType === 'video' || typeof onProgress === 'function') {
+        const uploadRes = await uploadStoryMedia(mediaUri, userId, mediaType, (p) => {
+          if (!onProgress) return;
+          const clamped = Math.max(0, Math.min(100, p));
+          onProgress(Math.min(95, clamped));
+        });
+        if (!uploadRes?.success || !uploadRes?.url) {
+          throw new Error(uploadRes?.error || 'Upload failed');
         }
+        mediaUrl = uploadRes.url;
+        thumbnailUrl = uploadRes.thumbnailUrl || thumbnailUrl;
+
+        if (mediaType === 'video' && mediaUrl && mediaUri) {
+          try {
+            const { registerStoryVideoCache } = await import('@/src/media/storyMediaSession');
+            registerStoryVideoCache(mediaUrl, mediaUri).catch(() => {});
+          } catch {}
+        }
+      } else {
+        const upload = await uploadImage(mediaUri);
+        if (!upload?.url) throw new Error(upload?.error || 'Upload failed');
+        mediaUrl = upload.url;
       }
+
+      // Resolve user's actual name synchronously from cache or params (no blocking network fetch)
+      let userName = userNameRaw || 'User';
+      if (!userNameRaw || userNameRaw === 'Anonymous' || userNameRaw === 'User') {
+        try {
+          const cached = getCachedUserProfile(userId);
+          if (cached && cached.name && cached.name !== 'User' && cached.name !== 'Unknown') {
+            userName = cached.displayName || cached.name || cached.username || userName;
+          }
+        } catch {}
+      }
+
+      console.log('[createStory] Final userName to send:', userName);
+
+      if (typeof onProgress === 'function') {
+        onProgress(97);
+      }
+
+      const res = await apiService.post('/stories', {
+        userId,
+        userName,
+        mediaUrl: mediaUrl,
+        mediaType,
+        locationData,
+        thumbnailUrl,
+        visibility,
+        allowedFollowers,
+        isPrivate: visibility !== 'Everyone',
+        isPostShare,
+        postMetadata
+      });
+
+      // Unwrap API response
+      const storyData = res?.data || res;
+
+      return {
+        success: true,
+        storyId: storyData?._id || storyData?.id || storyData?.storyId,
+        story: storyData
+      };
     } catch (err) {
-      console.log('[createStory] Could not fetch user profile for name:', err);
+      throw err;
+    } finally {
+      setTimeout(() => {
+        inFlightStoriesMap.delete(dedupeKey);
+      }, 5000);
     }
-  }
+  })();
 
-  console.log('[createStory] Final userName to send:', userName);
-
-  if (typeof onProgress === 'function') {
-    onProgress(97);
-  }
-
-  const res = await apiService.post('/stories', {
-    userId,
-    userName,
-    mediaUrl: mediaUrl,
-    mediaType,
-    locationData,
-    thumbnailUrl,
-    visibility,
-    allowedFollowers,
-    isPrivate: visibility !== 'Everyone',
-    isPostShare,
-    postMetadata
-  });
-
-  // Unwrap API response
-  const storyData = res?.data || res;
-
-  return {
-    success: true,
-    storyId: storyData?._id || storyData?.id || storyData?.storyId,
-    story: storyData
-  };
+  inFlightStoriesMap.set(dedupeKey, storyPromise);
+  const resolved = await storyPromise;
+  try {
+    if (resolved?.success) {
+      const { feedEventEmitter } = await import('@/lib/feedEventEmitter');
+      feedEventEmitter.emitFeedUpdate({
+        type: 'STORY_CREATED',
+        storyId: String(resolved.storyId || ''),
+        data: resolved.story,
+      });
+      feedEventEmitter.emit('feedUpdated');
+    }
+  } catch {}
+  return resolved;
 }
 
 

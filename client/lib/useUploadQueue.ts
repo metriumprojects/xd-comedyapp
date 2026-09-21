@@ -9,21 +9,25 @@ export interface UploadTask {
   status: UploadStatus;
   progress: number;
   error?: string;
+  retries?: number;
   action: (onProgress?: (percent: number) => void) => Promise<any>;
 }
 
 interface UploadQueueState {
   tasks: UploadTask[];
+  isProcessing: boolean;
   enqueueUpload: (task: Omit<UploadTask, 'id' | 'status' | 'progress'>) => void;
   removeTask: (id: string) => void;
   retryTask: (id: string) => void;
   clearCompleted: () => void;
 }
 
-const generateId = () => Math.random().toString(36).substring(2, 15);
+const generateId = () => Math.random().toString(36).substring(2, 15) + Date.now().toString(36);
+const MAX_AUTO_RETRIES = 2;
 
 export const useUploadQueue = create<UploadQueueState>((set, get) => ({
   tasks: [],
+  isProcessing: false,
 
   enqueueUpload: (taskData) => {
     const newTask: UploadTask = {
@@ -31,6 +35,7 @@ export const useUploadQueue = create<UploadQueueState>((set, get) => ({
       id: generateId(),
       status: 'pending',
       progress: 0,
+      retries: 0,
     };
 
     set((state) => ({ tasks: [newTask, ...state.tasks] }));
@@ -44,7 +49,7 @@ export const useUploadQueue = create<UploadQueueState>((set, get) => ({
   retryTask: (id) => {
     set((state) => ({
       tasks: state.tasks.map((t) =>
-        t.id === id ? { ...t, status: 'pending', progress: 0, error: undefined } : t
+        t.id === id ? { ...t, status: 'pending', progress: 0, error: undefined, retries: 0 } : t
       ),
     }));
     processNextUpload();
@@ -54,55 +59,76 @@ export const useUploadQueue = create<UploadQueueState>((set, get) => ({
     set((state) => ({
       tasks: state.tasks.filter((t) => t.status !== 'success'),
     }));
-  }
+  },
 }));
 
+let activeProcessingPromise: Promise<void> | null = null;
+
 const processNextUpload = async () => {
-  const state = useUploadQueue.getState();
-  const task = state.tasks.find((t) => t.status === 'pending');
-  
-  if (!task) return;
+  if (activeProcessingPromise) return activeProcessingPromise;
 
-  useUploadQueue.setState((s) => ({
-    tasks: s.tasks.map((t) =>
-      t.id === task.id ? { ...t, status: 'uploading', progress: 0 } : t
-    ),
-  }));
+  activeProcessingPromise = (async () => {
+    try {
+      while (true) {
+        const state = useUploadQueue.getState();
+        const task = state.tasks.find((t) => t.status === 'pending');
 
-  try {
-    const onProgress = (percent: number) => {
-      const clamped = Math.max(0, Math.min(99, Math.round(percent)));
-      useUploadQueue.setState((s) => ({
-        tasks: s.tasks.map((t) =>
-          t.id === task.id ? { ...t, progress: Math.max(t.progress, clamped) } : t
-        ),
-      }));
-    };
+        if (!task) {
+          useUploadQueue.setState({ isProcessing: false });
+          break;
+        }
 
-    // Execute the provided async action (e.g. createPost, createStory) with real-time progress callback
-    await task.action(onProgress);
+        useUploadQueue.setState((s) => ({
+          isProcessing: true,
+          tasks: s.tasks.map((t) => (t.id === task.id ? { ...t, status: 'uploading', progress: 0 } : t)),
+        }));
 
-    useUploadQueue.setState((s) => ({
-      tasks: s.tasks.map((t) =>
-        t.id === task.id ? { ...t, status: 'success', progress: 100 } : t
-      ),
-    }));
+        try {
+          const onProgress = (percent: number) => {
+            const clamped = Math.max(0, Math.min(99, Math.round(percent)));
+            useUploadQueue.setState((s) => ({
+              tasks: s.tasks.map((t) => (t.id === task.id ? { ...t, progress: Math.max(t.progress, clamped) } : t)),
+            }));
+          };
 
-    setTimeout(() => {
-      const currentState = useUploadQueue.getState();
-      if (currentState.tasks.find(t => t.id === task.id)?.status === 'success') {
-         currentState.removeTask(task.id);
+          // Execute the async upload action with progress callback
+          await task.action(onProgress);
+
+          useUploadQueue.setState((s) => ({
+            tasks: s.tasks.map((t) => (t.id === task.id ? { ...t, status: 'success', progress: 100 } : t)),
+          }));
+
+          setTimeout(() => {
+            const currentState = useUploadQueue.getState();
+            if (currentState.tasks.find((t) => t.id === task.id)?.status === 'success') {
+              currentState.removeTask(task.id);
+            }
+          }, 3000);
+        } catch (error: any) {
+          const retries = (task.retries || 0) + 1;
+          const errMsg = error?.message || 'Upload failed';
+          const isNetworkErr = /network|timeout|connection|abort|econnreset/i.test(errMsg);
+
+          if (retries <= MAX_AUTO_RETRIES && isNetworkErr) {
+            console.warn(`[UploadQueue] Retrying task ${task.id} (attempt ${retries}/${MAX_AUTO_RETRIES})...`);
+            // Brief backoff
+            await new Promise((r) => setTimeout(r, 1500 * retries));
+            useUploadQueue.setState((s) => ({
+              tasks: s.tasks.map((t) => (t.id === task.id ? { ...t, status: 'pending', retries, progress: 0 } : t)),
+            }));
+          } else {
+            console.error('[UploadQueue] Error processing task:', error);
+            useUploadQueue.setState((s) => ({
+              tasks: s.tasks.map((t) => (t.id === task.id ? { ...t, status: 'error', error: errMsg, retries } : t)),
+            }));
+          }
+        }
       }
-    }, 3000);
+    } finally {
+      activeProcessingPromise = null;
+      useUploadQueue.setState({ isProcessing: false });
+    }
+  })();
 
-  } catch (error: any) {
-    console.error('[UploadQueue] Error processing task:', error);
-    useUploadQueue.setState((s) => ({
-      tasks: s.tasks.map((t) =>
-        t.id === task.id ? { ...t, status: 'error', error: error.message || 'Upload failed' } : t
-      ),
-    }));
-  }
-
-  processNextUpload();
+  return activeProcessingPromise;
 };

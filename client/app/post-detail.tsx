@@ -1,7 +1,7 @@
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, KeyboardAvoidingView, Modal, Platform, StyleSheet, Text, TouchableOpacity, View, Keyboard } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { useSafeHeaderInsets } from '@/hooks/useSafeHeaderInsets';
 import { Ionicons } from '@expo/vector-icons';
 import PostViewerModal from '@/src/_components/PostViewerModal';
 import CommentSection from '@/src/_components/CommentSection';
@@ -18,6 +18,7 @@ export default function PostDetailScreen() {
   const id = (params.id || params.postId) as string;
   const openComments = params.openComments;
   const router = useRouter();
+  const { top: safeTop, bottom: safeBottom } = useSafeHeaderInsets();
   const [currentUser, setCurrentUser] = useState<any>(null);
   const [post, setPost] = useState<any>(null);
   const [profile, setProfile] = useState<any>(null);
@@ -154,14 +155,14 @@ export default function PostDetailScreen() {
 
   if (loading) {
     return (
-      <SafeAreaView style={styles.container} edges={["top", "bottom"]}>
+      <View style={[styles.container, { paddingTop: safeTop, paddingBottom: safeBottom }]}>
         <ActivityIndicator size="small" color={COLORS.textMuted} style={{ marginTop: 40 }} />
-      </SafeAreaView>
+      </View>
     );
   }
 
   return (
-    <SafeAreaView style={styles.container} edges={["top", "bottom"]}>
+    <View style={[styles.container, { paddingTop: safeTop, paddingBottom: safeBottom }]}>
       {showBanner && (
         <OfflineBanner text="You’re offline — showing saved post" />
       )}
@@ -233,7 +234,7 @@ export default function PostDetailScreen() {
           </KeyboardAvoidingView>
         </View>
       </Modal>
-    </SafeAreaView>
+    </View>
   );
 }
 

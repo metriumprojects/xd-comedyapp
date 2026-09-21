@@ -116,7 +116,17 @@ app.use((req, res, next) => {
   }
   next();
 });
-app.use(helmet({ contentSecurityPolicy: false })); // Disable CSP for easier dev testing
+app.use(helmet({
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      scriptSrc: ["'self'", "'unsafe-inline'"],
+      styleSrc: ["'self'", "'unsafe-inline'"],
+      imgSrc: ["'self'", "data:", "https:", "http:"],
+      connectSrc: ["'self'", "https:", "wss:", "ws:"],
+    }
+  }
+}));
 app.use(mongoSanitize());
 app.use(hpp());
 // Stripe webhook needs raw body for signature verification — must come BEFORE json parser
@@ -173,19 +183,39 @@ setupSentryErrorHandler(app);
 const errorAlertMiddleware = require('./middleware/errorAlertMiddleware');
 app.use(errorAlertMiddleware);
 
-// ============= SHARE PREVIEW ENDPOINTS =============
-app.get('/api/share/post/:id', (req, res) => res.redirect(301, `/share/post/${req.params.id}`));
-app.get('/api/share/story/:id', (req, res) => res.redirect(301, `/share/story/${req.params.id}`));
-app.get('/api/share/profile/:id', (req, res) => res.redirect(301, `/share/profile/${req.params.id}`));
+// ============= SHARE PREVIEW HELPERS & ENDPOINTS =============
+function escapeHtml(str) {
+  if (str == null) return '';
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+}
+
+function sanitizeUrl(url) {
+  if (!url || typeof url !== 'string') return '';
+  const trimmed = url.trim();
+  if (/^https?:\/\//i.test(trimmed)) {
+    return encodeURI(trimmed);
+  }
+  return '';
+}
+
+app.get('/api/share/post/:id', (req, res) => res.redirect(301, `/share/post/${encodeURIComponent(req.params.id)}`));
+app.get('/api/share/story/:id', (req, res) => res.redirect(301, `/share/story/${encodeURIComponent(req.params.id)}`));
+app.get('/api/share/profile/:id', (req, res) => res.redirect(301, `/share/profile/${encodeURIComponent(req.params.id)}`));
 
 app.get('/share/post/:id', async (req, res) => {
-  const postId = req.params.id;
+  const rawId = req.params.id || '';
+  const cleanId = rawId.replace(/[^a-zA-Z0-9_-]/g, '');
   try {
     const Post = mongoose.model('Post');
     const User = mongoose.model('User');
     let post = null;
-    if (mongoose.Types.ObjectId.isValid(postId)) {
-      post = await Post.findById(postId).lean();
+    if (mongoose.Types.ObjectId.isValid(cleanId)) {
+      post = await Post.findById(cleanId).lean();
     }
     let authorName = 'Someone';
     let imageUrl = '';
@@ -200,16 +230,20 @@ app.get('/share/post/:id', async (req, res) => {
       }
     }
 
-    res.send(`
-<!DOCTYPE html>
+    const safeAuthor = escapeHtml(authorName);
+    const safeCaption = escapeHtml(caption);
+    const safeImage = sanitizeUrl(imageUrl);
+    const safeDeepLink = `comedy-app://post-detail?id=${encodeURIComponent(cleanId)}`;
+
+    res.send(`<!DOCTYPE html>
 <html>
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Check out this post on Comedy App!</title>
-  <meta property="og:title" content="Check out ${authorName}'s post on Comedy App!" />
-  <meta property="og:description" content="${caption ? caption.replace(/"/g, '&quot;') : 'Shared a new comedy moment'}" />
-  ${imageUrl ? `<meta property="og:image" content="${imageUrl}" />` : ''}
+  <meta property="og:title" content="Check out ${safeAuthor}'s post on Comedy App!" />
+  <meta property="og:description" content="${safeCaption || 'Shared a new comedy moment'}" />
+  ${safeImage ? `<meta property="og:image" content="${safeImage}" />` : ''}
   <style>
     body {
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
@@ -276,35 +310,34 @@ app.get('/share/post/:id', async (req, res) => {
   </style>
   <script>
     window.onload = function() {
-      var deepLinkUrl = "comedy-app://post-detail?id=${postId}";
-      window.location.href = deepLinkUrl;
+      window.location.href = ${JSON.stringify(safeDeepLink)};
     };
   </script>
 </head>
 <body>
   <div class="card">
-    <img class="avatar" src="https://ui-avatars.com/api/?name=${encodeURIComponent(authorName)}&background=FF8D00&color=fff&size=120" alt="Avatar">
-    <h1>Check out ${authorName}'s post on Comedy App!</h1>
-    <p>${caption ? '"' + caption + '"' : 'Shared a new comedy moment'}</p>
-    ${imageUrl ? '<img class="post-preview" src="' + imageUrl + '" alt="Post Media">' : ''}
-    <a href="comedy-app://post-detail?id=${postId}" class="btn">Open in Comedy App</a>
+    <img class="avatar" src="https://ui-avatars.com/api/?name=${encodeURIComponent(authorName)}&amp;background=FF8D00&amp;color=fff&amp;size=120" alt="Avatar">
+    <h1>Check out ${safeAuthor}'s post on Comedy App!</h1>
+    <p>${safeCaption ? '&ldquo;' + safeCaption + '&rdquo;' : 'Shared a new comedy moment'}</p>
+    ${safeImage ? `<img class="post-preview" src="${safeImage}" alt="Post Media">` : ''}
+    <a href="${escapeHtml(safeDeepLink)}" class="btn">Open in Comedy App</a>
   </div>
 </body>
-</html>
-    `);
+</html>`);
   } catch (err) {
     res.status(500).send('Error loading post preview');
   }
 });
 
 app.get('/share/story/:id', async (req, res) => {
-  const storyId = req.params.id;
+  const rawId = req.params.id || '';
+  const cleanId = rawId.replace(/[^a-zA-Z0-9_-]/g, '');
   try {
     const Story = mongoose.model('Story');
     const User = mongoose.model('User');
     let story = null;
-    if (mongoose.Types.ObjectId.isValid(storyId)) {
-      story = await Story.findById(storyId).lean();
+    if (mongoose.Types.ObjectId.isValid(cleanId)) {
+      story = await Story.findById(cleanId).lean();
     }
     let authorName = 'Someone';
     let imageUrl = '';
@@ -319,13 +352,20 @@ app.get('/share/story/:id', async (req, res) => {
       }
     }
 
-    res.send(`
-<!DOCTYPE html>
+    const safeAuthor = escapeHtml(authorName);
+    const safeCaption = escapeHtml(caption);
+    const safeImage = sanitizeUrl(imageUrl);
+    const safeDeepLink = `comedy-app://story-detail?id=${encodeURIComponent(cleanId)}`;
+
+    res.send(`<!DOCTYPE html>
 <html>
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Check out this story on Comedy App!</title>
+  <meta property="og:title" content="Check out ${safeAuthor}'s story on Comedy App!" />
+  <meta property="og:description" content="${safeCaption || 'Shared a new story'}" />
+  ${safeImage ? `<meta property="og:image" content="${safeImage}" />` : ''}
   <style>
     body {
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
@@ -379,23 +419,123 @@ app.get('/share/story/:id', async (req, res) => {
   </style>
   <script>
     window.onload = function() {
-      var deepLinkUrl = "comedy-app://story-detail?id=${storyId}";
-      window.location.href = deepLinkUrl;
+      window.location.href = ${JSON.stringify(safeDeepLink)};
     };
   </script>
 </head>
 <body>
   <div class="card">
-    <img class="avatar" src="https://ui-avatars.com/api/?name=${encodeURIComponent(authorName)}&background=FF8D00&color=fff&size=120" alt="Avatar">
-    <h1>Check out ${authorName}'s story on Comedy App!</h1>
-    <p>${caption ? '"' + caption + '"' : 'Shared a new story'}</p>
-    <a href="comedy-app://story-detail?id=${storyId}" class="btn">Open in Comedy App</a>
+    <img class="avatar" src="https://ui-avatars.com/api/?name=${encodeURIComponent(authorName)}&amp;background=FF8D00&amp;color=fff&amp;size=120" alt="Avatar">
+    <h1>Check out ${safeAuthor}'s story on Comedy App!</h1>
+    <p>${safeCaption ? '&ldquo;' + safeCaption + '&rdquo;' : 'Shared a new story'}</p>
+    <a href="${escapeHtml(safeDeepLink)}" class="btn">Open in Comedy App</a>
   </div>
 </body>
-</html>
-    `);
+</html>`);
   } catch (err) {
     res.status(500).send('Error loading story preview');
+  }
+});
+
+app.get('/share/profile/:id', async (req, res) => {
+  const rawId = req.params.id || '';
+  const cleanId = rawId.replace(/[^a-zA-Z0-9_-]/g, '');
+  try {
+    const User = mongoose.model('User');
+    let user = null;
+    if (mongoose.Types.ObjectId.isValid(cleanId)) {
+      user = await User.findById(cleanId).select('displayName username avatar bio').lean();
+    } else {
+      user = await User.findOne({
+        $or: [{ username: cleanId.toLowerCase() }, { firebaseUid: cleanId }, { uid: cleanId }]
+      }).select('displayName username avatar bio').lean();
+    }
+
+    const displayName = (user && (user.displayName || user.username)) || 'Comedy Creator';
+    const avatar = (user && user.avatar) || '';
+    const bio = (user && user.bio) || '';
+    const safeName = escapeHtml(displayName);
+    const safeBio = escapeHtml(bio);
+    const safeAvatar = sanitizeUrl(avatar);
+    const safeDeepLink = `comedy-app://user-profile?id=${encodeURIComponent(cleanId)}`;
+
+    res.send(`<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>${safeName} on Comedy App</title>
+  <meta property="og:title" content="${safeName} on Comedy App" />
+  <meta property="og:description" content="${safeBio || 'Follow for funny moments and comedy posts'}" />
+  ${safeAvatar ? `<meta property="og:image" content="${safeAvatar}" />` : ''}
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      background-color: #121212;
+      color: #ffffff;
+      margin: 0;
+      padding: 0;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+    }
+    .card {
+      background: #1e1e1e;
+      border: 1px solid #333;
+      border-radius: 16px;
+      max-width: 450px;
+      width: 90%;
+      padding: 24px;
+      text-align: center;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+    }
+    .avatar {
+      width: 80px;
+      height: 80px;
+      border-radius: 50%;
+      object-fit: cover;
+      background: #333;
+      margin-bottom: 12px;
+    }
+    h1 {
+      font-size: 22px;
+      color: #fff;
+      margin: 0 0 8px 0;
+    }
+    p {
+      font-size: 15px;
+      color: #bbb;
+      margin: 0 0 20px 0;
+    }
+    .btn {
+      display: block;
+      background: #FF8D00;
+      color: #fff;
+      text-decoration: none;
+      padding: 14px 24px;
+      border-radius: 10px;
+      font-weight: bold;
+      font-size: 16px;
+    }
+  </style>
+  <script>
+    window.onload = function() {
+      window.location.href = ${JSON.stringify(safeDeepLink)};
+    };
+  </script>
+</head>
+<body>
+  <div class="card">
+    <img class="avatar" src="${safeAvatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(displayName)}&amp;background=FF8D00&amp;color=fff&amp;size=160`}" alt="Avatar">
+    <h1>${safeName}</h1>
+    <p>${safeBio ? safeBio : 'Comedy Creator on Comedy App'}</p>
+    <a href="${escapeHtml(safeDeepLink)}" class="btn">View Profile on Comedy App</a>
+  </div>
+</body>
+</html>`);
+  } catch (err) {
+    res.status(500).send('Error loading profile preview');
   }
 });
 
@@ -443,6 +583,12 @@ function gracefulShutdown(signal) {
     server.close(() => {
       console.log('✅ HTTP server closed.');
       if (io) {
+        if (io.redisPubClient) {
+          try { io.redisPubClient.disconnect(); } catch (_) {}
+        }
+        if (io.redisSubClient) {
+          try { io.redisSubClient.disconnect(); } catch (_) {}
+        }
         io.close(() => console.log('✅ Socket.IO closed.'));
       }
       mongoose.connection.close(false).then(() => {

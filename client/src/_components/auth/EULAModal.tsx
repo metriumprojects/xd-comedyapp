@@ -44,7 +44,7 @@ export const EULAModal: React.FC<EULAModalProps> = ({
 
           {/* Scrollable Content */}
           <ScrollView 
-            style={styles.scroll} 
+            style={styles.scrollContainer} 
             contentContainerStyle={styles.scrollContent}
             showsVerticalScrollIndicator={true}
           >

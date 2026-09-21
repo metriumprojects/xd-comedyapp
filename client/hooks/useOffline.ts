@@ -17,7 +17,15 @@ export async function setCachedData<T>(key: string, data: T, options: { ttl?: nu
   await AsyncStorage.setItem(`cache_${key}`, JSON.stringify(cacheEntry));
 }
 
-export async function getCachedData<T>(key: string): Promise<T | null> {
+export async function removeCachedData(key: string): Promise<void> {
+  try {
+    await AsyncStorage.removeItem(`cache_${key}`);
+  } catch (error) {
+    console.error(`Error removing cache for ${key}:`, error);
+  }
+}
+
+export async function getCachedData<T>(key: string, options?: { allowStale?: boolean }): Promise<T | null> {
   try {
     const cached = await AsyncStorage.getItem(`cache_${key}`);
     if (!cached) {
@@ -26,11 +34,10 @@ export async function getCachedData<T>(key: string): Promise<T | null> {
     const cacheEntry: CacheEntry<T> = JSON.parse(cached);
     const now = Date.now();
     const age = now - cacheEntry.timestamp;
-    if (age > cacheEntry.ttl) {
-      await AsyncStorage.removeItem(`cache_${key}`);
+    if (age > cacheEntry.ttl && !options?.allowStale) {
       return null;
     }
-    return cacheEntry.data;
+    return cacheEntry.data ?? null;
   } catch (error) {
     console.error(`Error reading cache for ${key}:`, error);
     return null;

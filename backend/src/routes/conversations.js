@@ -24,6 +24,20 @@ const findConversationByAnyId = async (id) => {
   });
 };
 
+const findMessageByAnyId = async (messageId) => {
+  const id = String(messageId || '').trim();
+  if (!id || id === 'null' || id === 'undefined') return null;
+
+  const msgQuery = [
+    { id },
+    { tempId: id },
+  ];
+  if (mongoose.Types.ObjectId.isValid(id)) {
+    msgQuery.push({ _id: new mongoose.Types.ObjectId(id) });
+  }
+  return Message.findOne({ $or: msgQuery });
+};
+
 const isStrictLegacyPairConversationId = (value) => {
   const id = String(value || '');
   if (!id || id.startsWith('grp_')) return false;
@@ -78,6 +92,32 @@ const findThreadConversations = async (conversation) => {
       { $expr: { $eq: [{ $size: '$participants' }, 2] } }
     ]
   });
+};
+
+/** Same smart resolution as GET /:id/messages — pair keys (A_B) often aren't stored as conversationId. */
+const resolveConversationsForId = async (conversationId) => {
+  const id = String(conversationId || '').trim();
+  if (!id || id === 'null' || id === 'undefined') return [];
+
+  if (id.includes('_') && !id.startsWith('grp_')) {
+    const [p1, p2] = id.split('_');
+    if (p1 && p2) {
+      const p1Ids = await resolveUserIdVariants(p1);
+      const p2Ids = await resolveUserIdVariants(p2);
+      const pair = await Conversation.find({
+        $and: [
+          { isGroup: { $ne: true } },
+          { participants: { $in: p1Ids } },
+          { participants: { $in: p2Ids } },
+          { $expr: { $eq: [{ $size: '$participants' }, 2] } }
+        ]
+      }).sort({ lastMessageAt: -1 });
+      if (pair?.length) return pair;
+    }
+  }
+
+  const single = await findConversationByAnyId(id);
+  return single ? [single] : [];
 };
 
 // Get conversations for user with populated participant data
@@ -581,6 +621,84 @@ router.post('/:id/unarchive', verifyToken, async (req, res) => {
     return res.json({ success: true });
   } catch (err) {
     logger.error('[POST] /conversations/:id/unarchive - Error:', err.message);
+    return res.status(500).json({ success: false, error: 'Operation failed' });
+  }
+});
+
+// POST /:id/leave — leave group chat (Instagram-style: remove self from participants)
+router.post('/:id/leave', verifyToken, async (req, res) => {
+  try {
+    const id = req.params.id;
+    const actorId = String(req.userId || req.body?.userId || '');
+    const firebaseUidFromToken = req.user?.firebaseUid;
+
+    if (!actorId) {
+      return res.status(401).json({ success: false, error: 'Unauthorized' });
+    }
+
+    const variants = await resolveUserIdVariants(actorId);
+    const idsToMatch = new Set([String(actorId), ...variants.map(String)]);
+    if (firebaseUidFromToken) idsToMatch.add(String(firebaseUidFromToken));
+
+    const conversation = await findConversationByAnyId(id);
+    if (!conversation) {
+      return res.status(404).json({ success: false, error: 'Conversation not found' });
+    }
+    if (!conversation.isGroup && String(conversation.type || '').toLowerCase() !== 'group') {
+      // 1:1 — treat leave as hide-for-me
+      const threadConvos = await findThreadConversations(conversation);
+      const convoIds = Array.isArray(threadConvos) && threadConvos.length > 0
+        ? threadConvos.map((c) => c._id)
+        : [conversation._id];
+      await Conversation.updateMany(
+        { _id: { $in: convoIds } },
+        {
+          $addToSet: { deletedBy: { $each: Array.from(idsToMatch) } },
+          $pull: { archivedBy: { $in: Array.from(idsToMatch) } },
+        }
+      );
+      return res.json({ success: true, left: true });
+    }
+
+    const participants = Array.isArray(conversation.participants)
+      ? conversation.participants.map(String)
+      : [];
+    const isMember = participants.some((p) => idsToMatch.has(String(p)));
+    if (!isMember) {
+      // Already not a member — idempotent success so client can exit cleanly
+      return res.json({ success: true, left: true, alreadyLeft: true });
+    }
+
+    conversation.participants = participants.filter((p) => !idsToMatch.has(String(p)));
+
+    const adminIds = Array.isArray(conversation.groupAdminIds)
+      ? conversation.groupAdminIds.map(String)
+      : [];
+    conversation.groupAdminIds = adminIds.filter((a) => !idsToMatch.has(String(a)));
+
+    // If admins emptied but members remain, promote first remaining member
+    if (conversation.participants.length > 0 && conversation.groupAdminIds.length === 0) {
+      conversation.groupAdminIds = [String(conversation.participants[0])];
+    }
+
+    const deletedBy = new Set(
+      (Array.isArray(conversation.deletedBy) ? conversation.deletedBy : []).map(String)
+    );
+    idsToMatch.forEach((uid) => deletedBy.add(String(uid)));
+    conversation.deletedBy = Array.from(deletedBy);
+
+    conversation.updatedAt = new Date();
+    await conversation.save();
+
+    logger.info('[POST] /conversations/:id/leave - user left group:', {
+      id,
+      actorId,
+      remaining: conversation.participants.length,
+    });
+
+    return res.json({ success: true, left: true, data: conversation });
+  } catch (err) {
+    logger.error('[POST] /conversations/:id/leave - Error:', err.message);
     return res.status(500).json({ success: false, error: 'Operation failed' });
   }
 });
@@ -1356,45 +1474,64 @@ router.get('/users/:userId', verifyToken, async (req, res) => {
 // PATCH /:conversationId/messages/:messageId - Edit message
 router.patch('/:conversationId/messages/:messageId', verifyToken, async (req, res) => {
   try {
-    const userId = String(req.userId || '');
+    const rawUserId = String(req.userId || '');
     const { text } = req.body;
     const { conversationId, messageId } = req.params;
 
     logger.info('[PATCH] /:conversationId/messages/:messageId - Request:', {
       conversationId,
       messageId,
-      userId,
+      rawUserId,
       text: text?.substring(0, 30)
     });
 
-    if (!userId || !text) {
+    if (!rawUserId || !text) {
       return res.status(400).json({ success: false, error: 'userId and text required' });
     }
 
-    // Find conversation
-    const conversation = await Conversation.findOne({
-      $or: [
-        { conversationId: conversationId },
-        { _id: mongoose.Types.ObjectId.isValid(conversationId) ? new mongoose.Types.ObjectId(conversationId) : null }
-      ]
-    });
-
-    if (!conversation) {
-      logger.info('[PATCH] Conversation not found:', conversationId);
-      return res.status(404).json({ success: false, error: 'Conversation not found' });
-    }
-
-    // Find message in Message collection
-    const message = await Message.findOne({ $or: [{ id: messageId }, { _id: mongoose.Types.ObjectId.isValid(messageId) ? messageId : null }] });
+    let message = await findMessageByAnyId(messageId);
     if (!message) {
-      logger.info('[PATCH] Message not found:', messageId);
+      const convos = await resolveConversationsForId(conversationId);
+      if (convos.length) {
+        const convoIds = [];
+        convos.forEach((c) => {
+          if (c.conversationId) convoIds.push(String(c.conversationId));
+          if (c._id) convoIds.push(String(c._id));
+        });
+        const scoped = [
+          { id: messageId, conversationId: { $in: convoIds } },
+          { tempId: messageId, conversationId: { $in: convoIds } },
+        ];
+        if (mongoose.Types.ObjectId.isValid(messageId)) {
+          scoped.push({ _id: new mongoose.Types.ObjectId(messageId), conversationId: { $in: convoIds } });
+        }
+        message = await Message.findOne({ $or: scoped });
+      }
+    }
+    if (!message) {
+      logger.info('[PATCH] Message not found:', messageId, 'convo:', conversationId);
       return res.status(404).json({ success: false, error: 'Message not found' });
     }
 
-    // Check authorization
-    if (message.senderId !== userId) {
-      logger.info('[PATCH] Unauthorized - senderId:', message.senderId, 'userId:', userId);
+    // Check authorization with user identifier variants
+    const senderVariants = await resolveUserIdVariants(rawUserId);
+    const senderSet = new Set([String(rawUserId), ...senderVariants.map(String)]);
+    const isSender = senderSet.has(String(message.senderId)) || String(message.senderId) === String(rawUserId);
+
+    if (!isSender) {
+      logger.info('[PATCH] Unauthorized - senderId:', message.senderId, 'userId:', rawUserId);
       return res.status(403).json({ success: false, error: 'Unauthorized - you can only edit your own messages' });
+    }
+
+    // Media-only messages cannot be edited. Empty sharedPost shells from schema defaults are OK.
+    const mType = String(message.mediaType || '').toLowerCase();
+    const isExplicitMedia = ['image', 'video', 'audio', 'post', 'story'].includes(mType);
+    const hasMediaUrl = isExplicitMedia && Boolean(message.imageUrl || message.mediaUrl || message.audioUrl || message.videoUrl);
+    const hasSharedPost = Boolean(message.sharedPost?.postId || message.sharedPost?.imageUrl || message.sharedPost?.id);
+    const hasSharedStory = Boolean(message.sharedStory?.storyId || message.sharedStory?.mediaUrl || message.sharedStory?.id);
+    if (isExplicitMedia || hasMediaUrl || hasSharedPost || hasSharedStory) {
+      logger.info('[PATCH] Cannot edit picture or media message:', messageId);
+      return res.status(400).json({ success: false, error: 'Picture and media messages cannot be edited' });
     }
 
     // Update message
@@ -1402,8 +1539,78 @@ router.patch('/:conversationId/messages/:messageId', verifyToken, async (req, re
     message.editedAt = new Date();
     await message.save();
 
+    // If this is the latest message in the thread, refresh inbox preview text (don't bump lastMessageAt)
+    try {
+      const msgConvoId = String(message.conversationId || conversationId || '');
+      const msgTs = new Date(message.timestamp || message.createdAt || 0).getTime();
+      const newer = await Message.findOne({
+        conversationId: msgConvoId,
+        $or: [
+          { timestamp: { $gt: new Date(msgTs) } },
+          { createdAt: { $gt: new Date(msgTs) } },
+        ],
+        _id: { $ne: message._id },
+      }).select('_id').lean();
+
+      if (!newer && msgConvoId) {
+        const preview = String(text || '').trim().slice(0, 500);
+        await Conversation.updateMany(
+          {
+            $or: [
+              { conversationId: msgConvoId },
+              ...(mongoose.Types.ObjectId.isValid(msgConvoId)
+                ? [{ _id: new mongoose.Types.ObjectId(msgConvoId) }]
+                : []),
+              ...(mongoose.Types.ObjectId.isValid(conversationId)
+                ? [{ _id: new mongoose.Types.ObjectId(conversationId) }]
+                : []),
+              { conversationId: String(conversationId) },
+            ],
+          },
+          { $set: { lastMessage: preview, updatedAt: new Date() } }
+        );
+      }
+    } catch (previewErr) {
+      logger.warn('[PATCH] lastMessage preview update failed:', previewErr?.message || previewErr);
+    }
+
+    // Realtime sync so peers (and this client via socket) see the edit
+    try {
+      const io = req.app.get('io');
+      if (io) {
+        const payload = {
+          ...(typeof message.toObject === 'function' ? message.toObject() : message),
+          id: String(message.id || message._id),
+          conversationId: String(message.conversationId || conversationId),
+          editedAt: message.editedAt,
+          text: String(text),
+          lastMessage: String(text || '').trim().slice(0, 500),
+        };
+        const room = String(message.conversationId || conversationId);
+        io.to(room).emit('messageEdited', payload);
+        if (message.recipientId) {
+          io.to(`user_${message.recipientId}`).emit('messageEdited', payload);
+          io.to(`user_${message.recipientId}`).emit('conversationUpdated', {
+            conversationId: room,
+            lastMessage: payload.lastMessage,
+            editedAt: message.editedAt,
+          });
+        }
+        if (message.senderId) {
+          io.to(`user_${message.senderId}`).emit('messageEdited', payload);
+          io.to(`user_${message.senderId}`).emit('conversationUpdated', {
+            conversationId: room,
+            lastMessage: payload.lastMessage,
+            editedAt: message.editedAt,
+          });
+        }
+      }
+    } catch (socketErr) {
+      logger.warn('[PATCH] socket emit failed:', socketErr?.message || socketErr);
+    }
+
     logger.info('[PATCH] Message updated:', messageId);
-    res.json({ success: true, data: message });
+    res.json({ success: true, data: message, message });
   } catch (err) {
     logger.error('[PATCH] /:conversationId/messages/:messageId error:', err.message);
     return res.status(500).json({ success: false, error: 'Operation failed' });
@@ -1426,30 +1633,35 @@ router.delete('/:conversationId/messages/:messageId', verifyToken, async (req, r
       return res.status(400).json({ success: false, error: 'userId required' });
     }
 
-    // Find conversation
-    const conversation = await Conversation.findOne({
-      $or: [
-        { conversationId: conversationId },
-        { _id: mongoose.Types.ObjectId.isValid(conversationId) ? new mongoose.Types.ObjectId(conversationId) : null }
-      ]
-    });
-
-    if (!conversation) {
-      logger.info('[DELETE] Conversation not found:', conversationId);
-      return res.status(404).json({ success: false, error: 'Conversation not found' });
+    let message = await findMessageByAnyId(messageId);
+    if (!message) {
+      const convos = await resolveConversationsForId(conversationId);
+      if (convos.length) {
+        const convoIds = [];
+        convos.forEach((c) => {
+          if (c.conversationId) convoIds.push(String(c.conversationId));
+          if (c._id) convoIds.push(String(c._id));
+        });
+        const scoped = [
+          { id: messageId, conversationId: { $in: convoIds } },
+          { tempId: messageId, conversationId: { $in: convoIds } },
+        ];
+        if (mongoose.Types.ObjectId.isValid(messageId)) {
+          scoped.push({ _id: new mongoose.Types.ObjectId(messageId), conversationId: { $in: convoIds } });
+        }
+        message = await Message.findOne({ $or: scoped });
+      }
     }
 
-    // Find message in Message collection
-    const message = await Message.findOne({ $or: [{ id: messageId }, { _id: mongoose.Types.ObjectId.isValid(messageId) ? messageId : null }] });
     if (!message) {
       logger.info('[DELETE] Message not found:', messageId);
       return res.status(404).json({ success: false, error: 'Message not found' });
     }
 
     // Check authorization with user identifier alias resolution
-    const { resolveUserIdentifiers } = require('../utils/userUtils');
-    const { candidates } = await resolveUserIdentifiers(userId);
-    const isOwner = candidates.some(c => String(c) === String(message.senderId)) || String(message.senderId) === String(userId);
+    const senderVariants = await resolveUserIdVariants(userId);
+    const senderSet = new Set([String(userId), ...senderVariants.map(String)]);
+    const isOwner = senderSet.has(String(message.senderId)) || String(message.senderId) === String(userId);
 
     if (!isOwner) {
       logger.info('[DELETE] Unauthorized - senderId:', message.senderId, 'userId:', userId);
@@ -1462,14 +1674,27 @@ router.delete('/:conversationId/messages/:messageId', verifyToken, async (req, r
     // Emit real-time delete event to conversation room
     const io = req.app.get('io') || global.io;
     if (io) {
-      io.to(`conversation_${conversationId}`).emit('message_deleted', {
-        conversationId,
+      const room = String(message.conversationId || conversationId);
+      io.to(`conversation_${room}`).emit('message_deleted', {
+        conversationId: room,
         messageId: String(messageId)
       });
-      io.emit('message_deleted', {
-        conversationId,
+      io.to(room).emit('messageDeleted', {
+        conversationId: room,
         messageId: String(messageId)
       });
+      if (message.recipientId) {
+        io.to(`user_${message.recipientId}`).emit('messageDeleted', {
+          conversationId: room,
+          messageId: String(messageId)
+        });
+      }
+      if (message.senderId) {
+        io.to(`user_${message.senderId}`).emit('messageDeleted', {
+          conversationId: room,
+          messageId: String(messageId)
+        });
+      }
     }
 
     logger.info('[DELETE] Message deleted:', messageId);
@@ -1501,8 +1726,8 @@ router.post('/:conversationId/messages/:messageId/reactions', verifyToken, async
       return res.status(400).json({ success: false, error: 'userId and reaction/emoji required' });
     }
 
-    // Find conversation
-    const conversation = await Conversation.findOne({
+    // Find conversation (with pair-key fallback like edit/delete routes)
+    let conversation = await Conversation.findOne({
       $or: [
         { conversationId: conversationId },
         { _id: mongoose.Types.ObjectId.isValid(conversationId) ? new mongoose.Types.ObjectId(conversationId) : null }
@@ -1510,8 +1735,15 @@ router.post('/:conversationId/messages/:messageId/reactions', verifyToken, async
     });
 
     if (!conversation) {
-      logger.info('[POST] Conversation not found:', conversationId);
-      return res.status(404).json({ success: false, error: 'Conversation not found' });
+      // Fallback: resolve pair key (e.g. "userId1_userId2") to actual conversation
+      const convos = await resolveConversationsForId(conversationId);
+      if (convos && convos.length > 0) {
+        conversation = convos[0];
+        logger.info('[POST /reactions] Resolved conversation via pair key fallback:', conversation.conversationId || conversation._id);
+      } else {
+        logger.info('[POST] Conversation not found:', conversationId);
+        return res.status(404).json({ success: false, error: 'Conversation not found' });
+      }
     }
 
     // Find message in Message collection
@@ -1560,8 +1792,32 @@ router.post('/:conversationId/messages/:messageId/reactions', verifyToken, async
     message.markModified('reactions');
     await message.save();
 
-    logger.info('[POST] Reactions updated for message:', messageId);
-    res.json({ success: true, data: { reactions: message.reactions } });
+    const finalReactions = message.reactions instanceof Map 
+      ? Object.fromEntries(message.reactions)
+      : (message.reactions || {});
+
+    logger.info('[POST] Reactions updated for message:', messageId, finalReactions);
+
+    // Broadcast reaction change over Socket.io
+    try {
+      const io = req.app.get('io');
+      if (io) {
+        const payload = {
+          conversationId: String(conversationId),
+          messageId: String(message.id || message._id),
+          reactions: finalReactions,
+        };
+
+        const room = String(conversation.conversationId || conversationId);
+        io.to(room).emit('messageReaction', payload);
+        if (message.recipientId) io.to(`user_${message.recipientId}`).emit('messageReaction', payload);
+        if (message.senderId) io.to(`user_${message.senderId}`).emit('messageReaction', payload);
+      }
+    } catch (socketErr) {
+      logger.warn('[POST /reactions] socket emit failed:', socketErr?.message || socketErr);
+    }
+
+    res.json({ success: true, data: { reactions: finalReactions } });
   } catch (err) {
     logger.error('[POST] /:conversationId/messages/:messageId/reactions error:', err.message);
     return res.status(500).json({ success: false, error: 'Operation failed' });
@@ -1833,10 +2089,12 @@ router.post('/:conversationId/messages/media', verifyToken, validate(sendMessage
 router.post('/stories', verifyToken, async (req, res) => {
   try {
     const Story = mongoose.model('Story');
-    const { userId, mediaUrl, mediaType, caption, userName, userAvatar } = req.body;
+    const { mediaUrl, mediaType, caption, userName, userAvatar } = req.body;
+    // SECURITY: Use authenticated userId from verified token to prevent impersonation
+    const userId = req.userId;
 
     if (!userId || !mediaUrl) {
-      return res.status(400).json({ success: false, error: 'userId and mediaUrl required' });
+      return res.status(400).json({ success: false, error: 'mediaUrl required' });
     }
 
     const story = await Story.create({

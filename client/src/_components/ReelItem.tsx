@@ -31,8 +31,10 @@ import { likePost, unlikePost, sendPostMessage, followUser, unfollowUser } from 
 import { apiService } from '@/src/_services/apiService';
 import { normalizeAvatarUrl, getOptimizedMediaUrl, isVideoUrl } from '../../lib/utils/media';
 import { getVideoThumbnailUrl } from '../../lib/imageHelpers';
+import { isLocallyCached, getLocalCachePath } from '@/src/media/videoCache';
 import { ReelBufferSkeleton } from './HomeReelSkeleton';
 import { feedEventEmitter } from '../../lib/feedEventEmitter';
+import { userService } from '../../lib/userService';
 import { hapticLight } from '@/lib/haptics';
 import { useUser } from './UserContext';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -98,7 +100,8 @@ export const ReelItem = React.memo<ReelItemProps>(({
     : (currentUser?._id || currentUser?.id || currentUser?.uid || currentUser?.firebaseUid || '');
   const [resolvedUserId, setResolvedUserId] = useState<string>(directUserId || cachedCanonicalUserId || '');
 
-  const isActive = useReelsStore((state) => state.activeIndex === index) && isScreenFocused;
+  const isModalOpen = useReelsStore((state) => state.isModalOpen);
+  const isActive = useReelsStore((state) => state.activeIndex === index) && isScreenFocused && !isModalOpen;
   // High-performance preload: active reel + immediate adjacent reel (±1)
   // Dedicates full device bandwidth and decoder pipeline to the next upcoming video without saturating hardware decoders
   const shouldLoad = useReelsStore((state) => Math.abs(index - state.activeIndex) <= 1);
@@ -125,6 +128,34 @@ export const ReelItem = React.memo<ReelItemProps>(({
   const insets = useSafeAreaInsets();
 
   const [isLoaded, setIsLoaded] = useState(false);
+  const [showThumb, setShowThumb] = useState(true);
+  const thumbOpacity = useRef(new Animated.Value(1)).current;
+
+  // Smoothly fade out thumbnail when video is readyToPlay so custom aspect ratio thumbnails never show behind video
+  useEffect(() => {
+    if (isLoaded) {
+      Animated.timing(thumbOpacity, {
+        toValue: 0,
+        duration: 150,
+        useNativeDriver: true,
+      }).start(() => {
+        setShowThumb(false);
+      });
+    } else {
+      setShowThumb(true);
+      thumbOpacity.setValue(1);
+    }
+  }, [isLoaded, thumbOpacity]);
+
+  // Reset thumbnail placeholder when unmounted / scrolled out of window
+  useEffect(() => {
+    if (!shouldLoad) {
+      setIsLoaded(false);
+      setShowThumb(true);
+      thumbOpacity.setValue(1);
+    }
+  }, [shouldLoad, thumbOpacity]);
+
   const [isBuffering, setIsBuffering] = useState(false);
   const [isPlaying, setIsPlaying] = useState(true);
   const [isLiked, setIsLiked] = useState(() => {
@@ -1066,6 +1097,15 @@ export const ReelItem = React.memo<ReelItemProps>(({
     return getOptimizedMediaUrl(url);
   }, [post]);
 
+  // Use local cached file if available for 0ms offline/disk instant playback
+  const playableVideoUrl = useMemo(() => {
+    if (!videoUrl) return '';
+    if (isLocallyCached(videoUrl)) {
+      return getLocalCachePath(videoUrl);
+    }
+    return videoUrl;
+  }, [videoUrl]);
+
   const imageUrls = useMemo(() => {
     const urls = Array.isArray(post?.mediaUrls) ? [...post.mediaUrls] : [];
     if (urls.length === 0 && post?.imageUrl) {
@@ -1242,33 +1282,49 @@ export const ReelItem = React.memo<ReelItemProps>(({
           </View>
         )
       ) : videoUrl ? (
-        (shouldLoad && !storiesViewerVisible && !viewerVisible && !isHomeStoriesViewerVisible) ? (
-          <ReelVideoPlayer
-            videoUrl={videoUrl}
-            isActive={isActive}
-            isPlaying={isPlaying}
-            isMuted={isMuted}
-            isLocked={isLocked}
-            storiesViewerVisible={storiesViewerVisible || viewerVisible || !!isHomeStoriesViewerVisible}
-            setIsLoaded={setIsLoaded}
-            setIsBuffering={setIsBuffering}
-            aspectRatio={post?.aspectRatio}
-          />
-        ) : (
-          <ExpoImage
-            source={thumbUrl ? { uri: thumbUrl } : undefined}
-            style={StyleSheet.absoluteFill}
-            contentFit="contain"
-          />
-        )
+        <>
+          {/* Render thumbnail placeholder until video is loaded, then fade out so custom aspect ratio thumbnails never bleed through */}
+          {thumbUrl && showThumb ? (
+            <Animated.View
+              pointerEvents="none"
+              style={[
+                StyleSheet.absoluteFill,
+                { opacity: thumbOpacity }
+              ]}
+            >
+              <ExpoImage
+                source={{ uri: thumbUrl }}
+                style={StyleSheet.absoluteFill}
+                contentFit="contain"
+                cachePolicy="memory-disk"
+                priority="high"
+              />
+            </Animated.View>
+          ) : null}
+
+          {/* Mount video player for active and preloaded adjacent reels */}
+          {shouldLoad && !storiesViewerVisible && !viewerVisible && !isHomeStoriesViewerVisible ? (
+            <ReelVideoPlayer
+              videoUrl={playableVideoUrl}
+              isActive={isActive}
+              isPlaying={isPlaying}
+              isMuted={isMuted}
+              isLocked={isLocked}
+              storiesViewerVisible={storiesViewerVisible || viewerVisible || !!isHomeStoriesViewerVisible}
+              setIsLoaded={setIsLoaded}
+              setIsBuffering={setIsBuffering}
+              aspectRatio={post?.aspectRatio}
+            />
+          ) : null}
+        </>
       ) : (
         <View style={[StyleSheet.absoluteFill, { justifyContent: 'center', alignItems: 'center', backgroundColor: COLORS.black }]}>
           <Text style={{ color: COLORS.textLight }}>No Video Available</Text>
         </View>
       )}
 
-      {/* Centered Buffering Spinner (Overlay) */}
-      {(isBuffering || !isLoaded) && (
+      {/* Centered Buffering Spinner: only show when active, buffering, and no thumbnail is present */}
+      {isActive && isBuffering && !thumbUrl && (
         <ReelBufferSkeleton />
       )}
 
@@ -1855,7 +1911,6 @@ export const ReelItem = React.memo<ReelItemProps>(({
                           style: "destructive",
                           onPress: async () => {
                             try {
-                              const { userService } = require('@/lib/userService');
                               await userService.blockUser(String(myUserId), String(targetAuthorId));
                               feedEventEmitter.emitFeedUpdate({ type: 'USER_BLOCKED', userId: String(targetAuthorId) });
                               Alert.alert("Blocked", `@${postUserName} has been blocked.`);
@@ -2042,6 +2097,7 @@ const ReelVideoPlayer: React.FC<ReelVideoPlayerProps> = ({
   const player = useVideoPlayer(videoUrl, (p) => {
     p.loop = true;
     p.muted = isMuted;
+    p.staysActiveInBackground = false;
     if (shouldPlay) {
       p.play();
     }

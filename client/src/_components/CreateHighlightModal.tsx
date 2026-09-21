@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react';
 import {
   ActivityIndicator,
   Alert,
+  Animated,
   Image,
   KeyboardAvoidingView,
   Modal,
@@ -21,6 +22,8 @@ import { createHighlight, uploadImage, getUserStories } from '../../lib/firebase
 import { getKeyboardOffset } from '../../utils/responsive';
 import { getVideoThumbnailUrl } from '../../lib/imageHelpers';
 import COLORS from '@/src/theme/colors';
+import StoryThumbnail, { resolveStoryThumbnailUrlSync, getOrGenerateStoryThumbnail, isVideo } from './StoryThumbnail';
+import { useSwipeDownToDismiss } from '@/hooks/useSwipeDownToDismiss';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
@@ -53,15 +56,16 @@ export default function CreateHighlightModal({
   const [loadingStories, setLoadingStories] = useState(false);
   const [selectedStoryIds, setSelectedStoryIds] = useState<Set<string>>(new Set());
 
+  const { headerPanHandlers, sheetPanHandlers, animatedStyle, dismiss } = useSwipeDownToDismiss({
+    onDismiss: onClose,
+    visible,
+    initialSlideIn: true,
+    initialOffset: 500,
+  });
+
   const resolveStoryThumbnail = (story: any) => {
     if (!story) return '';
-    const isVideo = story.mediaType === 'video' || !!story.video || !!story.videoUrl;
-    if (isVideo) {
-      const videoUrl = story.videoUrl || story.video || '';
-      const posterUrl = story.thumbnail || story.thumbnailUrl || (story.imageUrl !== story.videoUrl ? story.imageUrl : '') || story.image || '';
-      return getVideoThumbnailUrl(videoUrl, posterUrl);
-    }
-    return story.imageUrl || story.image || '';
+    return resolveStoryThumbnailUrlSync(story);
   };
 
   useEffect(() => {
@@ -80,6 +84,10 @@ export default function CreateHighlightModal({
                 const previewUrl = resolveStoryThumbnail(includedStory);
                 if (previewUrl) {
                   setCoverImage(previewUrl);
+                } else {
+                  getOrGenerateStoryThumbnail(includedStory).then((generated) => {
+                    if (generated) setCoverImage(generated);
+                  }).catch(() => {});
                 }
               }
             }
@@ -98,25 +106,25 @@ export default function CreateHighlightModal({
     }
   }, [visible, userId, storyToInclude, defaultCoverUri]);
 
-  const toggleStory = (storyId: string, mediaUrl: string) => {
+  const toggleStory = async (storyId: string, story: any) => {
     const nextSelected = new Set(selectedStoryIds);
     if (nextSelected.has(storyId)) {
       nextSelected.delete(storyId);
-      if (coverImage === mediaUrl) {
-        if (nextSelected.size > 0) {
-          const firstId = Array.from(nextSelected)[0];
-          const firstStory = stories.find(s => String(s.id || s._id) === firstId);
-          if (firstStory) {
-            setCoverImage(resolveStoryThumbnail(firstStory));
-          }
-        } else {
-          setCoverImage(null);
+      if (nextSelected.size > 0) {
+        const firstId = Array.from(nextSelected)[0];
+        const firstStory = stories.find(s => String(s.id || s._id) === firstId);
+        if (firstStory) {
+          const thumb = resolveStoryThumbnail(firstStory) || await getOrGenerateStoryThumbnail(firstStory);
+          if (thumb) setCoverImage(thumb);
         }
+      } else {
+        setCoverImage(null);
       }
     } else {
       nextSelected.add(storyId);
       if (!coverImage || nextSelected.size === 1) {
-        setCoverImage(mediaUrl);
+        const thumb = resolveStoryThumbnail(story) || await getOrGenerateStoryThumbnail(story);
+        if (thumb) setCoverImage(thumb);
       }
     }
     setSelectedStoryIds(nextSelected);
@@ -249,7 +257,7 @@ export default function CreateHighlightModal({
               <TouchableOpacity
                 key={storyId}
                 activeOpacity={0.8}
-                onPress={() => toggleStory(storyId, mediaUrl)}
+                onPress={() => toggleStory(storyId, story)}
                 style={{
                   width: itemWidth,
                   height: itemWidth * 1.3,
@@ -262,7 +270,7 @@ export default function CreateHighlightModal({
                   marginBottom: 8,
                 }}
               >
-                <Image source={{ uri: mediaUrl }} style={{ width: '100%', height: '100%' }} resizeMode="cover" />
+                <StoryThumbnail story={story} uri={mediaUrl} style={{ width: '100%', height: '100%' }} resizeMode="cover" />
 
                 {/* Checkbox overlay */}
                 <View style={{
@@ -295,36 +303,39 @@ export default function CreateHighlightModal({
   };
 
   return (
-    <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
+    <Modal visible={visible} animationType="none" transparent onRequestClose={() => dismiss()}>
       <View style={styles.modalRoot}>
-        {/* Full-screen dark backdrop */}
+        {/* Full-screen transparent backdrop */}
         <TouchableOpacity
           style={styles.backdrop}
           activeOpacity={1}
-          onPress={onClose}
+          onPress={() => dismiss()}
         />
 
         <View style={styles.keyboardAvoidingView}>
-          <TouchableOpacity style={styles.dismissArea} activeOpacity={1} onPress={onClose} />
+          <TouchableOpacity style={styles.dismissArea} activeOpacity={1} onPress={() => dismiss()} />
 
-          <View style={[styles.container, { paddingBottom: Math.max(insets.bottom, 20) }]}>
+          <Animated.View style={[styles.container, animatedStyle, { paddingBottom: Math.max(insets.bottom, 20) }]}>
             {/* Solid white background extension below container */}
             <View style={styles.bottomSolidExtension} />
-            <View style={styles.handle} />
 
-            {/* Custom Header */}
-            <View style={styles.header}>
-              <TouchableOpacity onPress={onClose} disabled={loading}>
-                <Text style={styles.headerActionText}>Cancel</Text>
-              </TouchableOpacity>
-              <Text style={styles.headerTitle}>New highlight</Text>
-              <TouchableOpacity onPress={handleCreate} disabled={loading || !name.trim() || selectedStoryIds.size === 0}>
-                {loading ? (
-                  <ActivityIndicator size="small" color={COLORS.primary} />
-                ) : (
-                  <Text style={[styles.headerActionText, styles.headerSaveText, (name.trim() && selectedStoryIds.size > 0) && { color: COLORS.info, fontWeight: '700' }]}>Save</Text>
-                )}
-              </TouchableOpacity>
+            <View {...headerPanHandlers} style={{ width: '100%', paddingTop: 4 }}>
+              <View style={styles.handle} />
+
+              {/* Custom Header */}
+              <View style={styles.header}>
+                <TouchableOpacity onPress={() => dismiss()} disabled={loading}>
+                  <Text style={styles.headerActionText}>Cancel</Text>
+                </TouchableOpacity>
+                <Text style={styles.headerTitle}>New highlight</Text>
+                <TouchableOpacity onPress={handleCreate} disabled={loading || !name.trim() || selectedStoryIds.size === 0}>
+                  {loading ? (
+                    <ActivityIndicator size="small" color={COLORS.primary} />
+                  ) : (
+                    <Text style={[styles.headerActionText, styles.headerSaveText, (name.trim() && selectedStoryIds.size > 0) && { color: COLORS.info, fontWeight: '700' }]}>Save</Text>
+                  )}
+                </TouchableOpacity>
+              </View>
             </View>
 
             <ScrollView
@@ -337,7 +348,7 @@ export default function CreateHighlightModal({
               {/* Central Cover Preview */}
               <TouchableOpacity style={styles.coverContainer} onPress={handlePickImage}>
                 {coverImage ? (
-                  <Image source={{ uri: coverImage }} style={styles.coverImage} />
+                  <StoryThumbnail uri={coverImage} style={styles.coverImage} resizeMode="cover" />
                 ) : (
                   <View style={styles.placeholderCover}>
                     <Ionicons name="image-outline" size={48} color={COLORS.border} />
@@ -371,7 +382,7 @@ export default function CreateHighlightModal({
               {/* Stories Picker Grid */}
               {renderStoriesGrid()}
             </ScrollView>
-          </View>
+          </Animated.View>
         </View>
       </View>
     </Modal>
@@ -385,7 +396,7 @@ const styles = StyleSheet.create({
   },
   backdrop: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0,0,0,0.5)',
+    backgroundColor: 'transparent',
   },
   keyboardAvoidingView: {
     flex: 1,
@@ -396,10 +407,15 @@ const styles = StyleSheet.create({
   },
   container: {
     backgroundColor: COLORS.background,
-    borderTopLeftRadius: 30,
-    borderTopRightRadius: 30,
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
     height: SCREEN_HEIGHT * 0.88,
     position: 'relative',
+    shadowColor: '#000',
+    shadowOpacity: 0.12,
+    shadowRadius: 20,
+    shadowOffset: { width: 0, height: -6 },
+    elevation: 20,
   },
   bottomSolidExtension: {
     position: 'absolute',
@@ -410,12 +426,13 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.background,
   },
   handle: {
-    width: 40,
-    height: 4,
-    backgroundColor: COLORS.border,
-    borderRadius: 2,
+    width: 38,
+    height: 4.5,
+    backgroundColor: '#DADCE0',
+    borderRadius: 2.5,
     alignSelf: 'center',
-    marginVertical: 12,
+    marginTop: 12,
+    marginBottom: 8,
   },
   header: {
     flexDirection: 'row',

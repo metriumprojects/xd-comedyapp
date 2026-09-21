@@ -69,6 +69,11 @@ const ProfileSections: React.FC<ProfileSectionsProps> = ({
         const isArchivedTier = !!(s as any)?.isArchived;
         const showLock = isSubscriptionFolder && !isOwnProfile && !subscribedToThisTier;
 
+        // Never render an archived tier folder to viewers who are neither the creator nor an active subscriber
+        if (isArchivedTier && !isOwnProfile && !subscribedToThisTier) {
+          return null;
+        }
+
         return (
           <Pressable
             key={`section-${String((s as any)?._id || s.name)}-${idx}`}

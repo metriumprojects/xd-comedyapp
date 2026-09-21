@@ -79,14 +79,24 @@ export const normalizeAvatarUrl = (url: string | null | undefined): string => {
  */
 export const isVideoUrl = (url: string | null | undefined): boolean => {
   if (!url) return false;
-  const lower = url.toLowerCase();
+  const cleanUrl = url.split('?')[0].toLowerCase();
+  if (
+    cleanUrl.endsWith('.jpg') ||
+    cleanUrl.endsWith('.jpeg') ||
+    cleanUrl.endsWith('.png') ||
+    cleanUrl.endsWith('.webp') ||
+    cleanUrl.endsWith('.avif')
+  ) {
+    return false;
+  }
   return (
-    lower.endsWith('.mp4') || 
-    lower.endsWith('.mov') || 
-    lower.endsWith('.avi') || 
-    lower.endsWith('.mkv') ||
-    lower.includes('video/upload') || // Cloudinary video pattern
-    lower.includes('.m4v')
+    cleanUrl.endsWith('.mp4') || 
+    cleanUrl.endsWith('.mov') || 
+    cleanUrl.endsWith('.avi') || 
+    cleanUrl.endsWith('.mkv') ||
+    cleanUrl.includes('video/upload') || // Cloudinary video pattern
+    cleanUrl.endsWith('.m4v') ||
+    cleanUrl.endsWith('.webm')
   );
 };
 

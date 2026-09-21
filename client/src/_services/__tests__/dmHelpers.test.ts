@@ -161,6 +161,66 @@ describe('mergeMessages', () => {
     expect(mergeMessages(single, [])).toHaveLength(1);
     expect(mergeMessages([], single)).toHaveLength(1);
   });
+
+  it('deduplicates and replaces optimistic temp message when confirmed message arrives with tempId', () => {
+    const tempId = 'temp_text_123456';
+    const existing = [
+      normalizeMessage({
+        id: tempId,
+        tempId,
+        senderId: 'userA',
+        text: 'Hello world',
+        createdAt: '2026-09-19T00:00:00Z',
+        sent: false,
+        tempOrigin: true,
+      }),
+    ];
+
+    const incoming = [
+      normalizeMessage({
+        id: '66fa9876543210',
+        tempId,
+        senderId: 'userA',
+        text: 'Hello world',
+        createdAt: '2026-09-19T00:00:01Z',
+        sent: true,
+      }),
+    ];
+
+    const result = mergeMessages(existing, incoming);
+    expect(result).toHaveLength(1);
+    expect(result[0].id).toBe('66fa9876543210');
+    expect(result[0].tempId).toBe(tempId);
+    expect(result[0].sent).toBe(true);
+  });
+
+  it('matches and updates unconfirmed message from same sender with identical text sent recently', () => {
+    const existing = [
+      normalizeMessage({
+        id: 'temp_msg_abc',
+        senderId: 'userA',
+        text: 'Quick test',
+        createdAt: new Date(Date.now() - 1000).toISOString(),
+        sent: false,
+        tempOrigin: true,
+      }),
+    ];
+
+    const incoming = [
+      normalizeMessage({
+        id: 'real_mongo_id_999',
+        senderId: 'userA',
+        text: 'Quick test',
+        createdAt: new Date().toISOString(),
+        sent: true,
+      }),
+    ];
+
+    const result = mergeMessages(existing, incoming);
+    expect(result).toHaveLength(1);
+    expect(result[0].id).toBe('real_mongo_id_999');
+    expect(result[0].sent).toBe(true);
+  });
 });
 
 // ==================== createTempId ====================

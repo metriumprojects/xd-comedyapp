@@ -35,6 +35,7 @@ interface PostCardProps {
   containerHeight?: number;
   onCloseOuterModal?: () => void;
   isActive?: boolean;
+  isVisible?: boolean;
 }
 
 
@@ -47,7 +48,8 @@ const PostCard: React.FC<PostCardProps> = ({
   mirror = false,
   containerHeight,
   onCloseOuterModal,
-  isActive
+  isActive,
+  isVisible
 }) => {
 
   const router = useRouter();
@@ -82,6 +84,52 @@ const PostCard: React.FC<PostCardProps> = ({
     post?.commentCount !== undefined ? post.commentCount : (post?.commentsCount || 0)
   );
   const [localShareCount, setLocalShareCount] = useState<number>(post?.shareCount || 0);
+  const [localCaption, setLocalCaption] = useState<string>(post?.caption || post?.text || post?.content || '');
+  const [localLocationName, setLocalLocationName] = useState<string>(post?.locationData?.name || post?.locationName || post?.location || '');
+
+  const currentPostId = String(post?._id || post?.id || '');
+
+  useEffect(() => {
+    setLocalCaption(post?.caption || post?.text || post?.content || '');
+    setLocalLocationName(post?.locationData?.name || post?.locationName || post?.location || '');
+  }, [currentPostId, post?.caption, post?.text, post?.content, post?.updatedAt, post?.location, post?.locationName, post?.locationData]);
+
+  // Listen directly for POST_UPDATED events for this post for instant 0ms update
+  useEffect(() => {
+    if (!currentPostId) return;
+    const sub = feedEventEmitter.onPostUpdated(currentPostId, (_, data) => {
+      if (!data || typeof data !== 'object') return;
+      if (data.caption !== undefined) {
+        setLocalCaption(String(data.caption));
+      } else if (data.text !== undefined) {
+        setLocalCaption(String(data.text));
+      } else if (data.content !== undefined) {
+        setLocalCaption(String(data.content));
+      }
+
+      if (data.locationName !== undefined) {
+        setLocalLocationName(String(data.locationName));
+      } else if (data.location !== undefined) {
+        setLocalLocationName(String(data.location));
+      }
+
+      if (data.reactions) {
+        setLocalReactions(data.reactions);
+      }
+      if (data.isLiked !== undefined) setIsLiked(data.isLiked);
+      if (data.likeCount !== undefined) setLikeCount(data.likeCount);
+
+      if (data.commentCount !== undefined) {
+        setLocalCommentCount(data.count || data.commentCount);
+      } else if (data.commentsCount !== undefined) {
+        setLocalCommentCount(data.commentsCount);
+      }
+    });
+
+    return () => {
+      if (sub && typeof sub.remove === 'function') sub.remove();
+    };
+  }, [currentPostId]);
 
   // Sync like state when user or post changes
   useEffect(() => {
@@ -214,7 +262,7 @@ const PostCard: React.FC<PostCardProps> = ({
   // Derived data
   const postUserName = post?.userName || post?.user?.displayName || post?.user?.name || post?.userId?.displayName || post?.userId?.name || 'User';
   const postUserAvatar = post?.userAvatar || post?.user?.profilePicture || post?.user?.avatar || post?.user?.photoURL || post?.userId?.avatar || post?.userId?.profilePicture;
-  const locationName = post?.locationData?.name || post?.locationName || post?.location || '';
+  const locationName = localLocationName || post?.locationData?.name || post?.locationName || post?.location || '';
   
   const getPostTime = (timestamp: any) => {
     if (!timestamp) return '';
@@ -345,7 +393,8 @@ const PostCard: React.FC<PostCardProps> = ({
     hasViewedRef.current = false;
   }, [rawPostId]);
 
-  const isCardActive = isActive !== undefined ? isActive : true;
+  const effectiveActive = isActive !== undefined ? isActive : (isVisible !== undefined ? isVisible : true);
+  const isCardActive = effectiveActive;
 
   useEffect(() => {
     if (!isCardActive || !rawPostId || hasViewedRef.current) return;
@@ -414,7 +463,7 @@ const PostCard: React.FC<PostCardProps> = ({
           media={mediaData}
           activeIndex={activeIndex}
           onScroll={onScroll}
-          isActive={isActive}
+          isActive={effectiveActive}
           onMediaPress={(index) => {
             if (post?.taggedUsers && post.taggedUsers.length > 0) {
               setShowTagsOverlay(!showTagsOverlay);
@@ -523,7 +572,7 @@ const PostCard: React.FC<PostCardProps> = ({
 
         <PostCaption 
           postUserName={postUserName}
-          caption={post?.caption || post?.text || ''}
+          caption={localCaption || post?.caption || post?.text || post?.content || ''}
           hashtags={post?.hashtags || []}
           isExpanded={isExpanded}
           onToggleExpand={() => setIsExpanded(!isExpanded)}
@@ -807,4 +856,32 @@ const PostCard: React.FC<PostCardProps> = ({
   );
 };
 
-export default React.memo(PostCard);
+const arePostCardPropsEqual = (prevProps: any, nextProps: any) => {
+  const p1 = prevProps.post;
+  const p2 = nextProps.post;
+  const id1 = String(p1?._id || p1?.id || '');
+  const id2 = String(p2?._id || p2?.id || '');
+
+  if (id1 !== id2) return false;
+  if (prevProps.isActive !== nextProps.isActive) return false;
+  if (prevProps.isVisible !== nextProps.isVisible) return false;
+  if (prevProps.mirror !== nextProps.mirror) return false;
+  if (p1?.isLiked !== p2?.isLiked) return false;
+  if ((p1?.likeCount || 0) !== (p2?.likeCount || 0)) return false;
+  if ((p1?.commentCount || p1?.commentsCount || 0) !== (p2?.commentCount || p2?.commentsCount || 0)) return false;
+
+  // Check all fields that can be edited so React re-renders PostCard on post edit
+  if (p1?.updatedAt !== p2?.updatedAt) return false;
+  if ((p1?.caption || p1?.text || p1?.content || '') !== (p2?.caption || p2?.text || p2?.content || '')) return false;
+  if ((p1?.location || p1?.locationName || p1?.locationData?.name || '') !== (p2?.location || p2?.locationName || p2?.locationData?.name || '')) return false;
+  if (p1?.category !== p2?.category) return false;
+  if (p1?.visibility !== p2?.visibility) return false;
+
+  const u1 = String(prevProps.currentUser?._id || prevProps.currentUser?.id || prevProps.currentUser || '');
+  const u2 = String(nextProps.currentUser?._id || nextProps.currentUser?.id || nextProps.currentUser || '');
+  if (u1 !== u2) return false;
+
+  return true;
+};
+
+export default React.memo(PostCard, arePostCardPropsEqual);

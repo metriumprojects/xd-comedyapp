@@ -20,6 +20,7 @@ import { ResizeMode, Video } from 'expo-av';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as ImagePicker from 'expo-image-picker';
 import * as ImageManipulator from 'expo-image-manipulator';
+import { useRouter } from 'expo-router';
 import { createStory } from '@/lib/firebaseHelpers';
 import { feedEventEmitter } from '@/lib/feedEventEmitter';
 import COLORS from '@/src/theme/colors';
@@ -71,6 +72,9 @@ export const UploadStoryModal: React.FC<UploadStoryModalProps> = ({
   setUploadProgress,
   showSuccess,
 }) => {
+  const router = useRouter();
+  const isSharingRef = React.useRef(false);
+
   return (
     <Modal visible={visible} animationType="slide" transparent={false} onRequestClose={onClose}>
       <SafeAreaView style={{ flex: 1, backgroundColor: COLORS.background }}>
@@ -203,7 +207,8 @@ export const UploadStoryModal: React.FC<UploadStoryModalProps> = ({
                 style={[styles.shareButton, !selectedMedia && styles.shareButtonDisabled]}
                 disabled={!selectedMedia || uploading}
                 onPress={async () => {
-                  if (!selectedMedia || !currentUserId || uploading) return;
+                  if (!selectedMedia || !currentUserId || uploading || isSharingRef.current) return;
+                  isSharingRef.current = true;
                   setUploading(true);
                   setUploadProgress(0);
                   try {
@@ -231,6 +236,7 @@ export const UploadStoryModal: React.FC<UploadStoryModalProps> = ({
                     if (storyRes?.success) {
                       setUploadProgress(100);
                       setTimeout(() => {
+                        isSharingRef.current = false;
                         onClose();
                         setSelectedMedia(null);
                         setUploading(false);
@@ -248,6 +254,7 @@ export const UploadStoryModal: React.FC<UploadStoryModalProps> = ({
                       }, 500);
                     }
                   } catch (err: any) {
+                    isSharingRef.current = false;
                     setUploading(false);
                     const msg = err?.message || 'Something went wrong while sharing your story.';
                     Alert.alert('Upload Failed', msg);

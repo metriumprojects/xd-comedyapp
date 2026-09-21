@@ -4,21 +4,7 @@ export interface Notification {
   _id: string;
   recipientId: string;
   senderId: string;
-  type:
-    | 'like'
-    | 'comment'
-    | 'follow'
-    | 'follow-request'
-    | 'follow-approved'
-    | 'new-follower'
-    | 'mention'
-    | 'tag'
-    | 'message'
-    | 'dm'
-    | 'story'
-    | 'story-mention'
-    | 'story-reply'
-    | 'live';
+  type: string;
   postId?: string;
   commentId?: string;
   storyId?: string;
@@ -30,6 +16,12 @@ export interface Notification {
   read: boolean;
   createdAt: string;
   readAt?: string;
+  postThumbnail?: string;
+  thumbnailUrl?: string;
+  post?: any;
+  data?: any;
+  id?: string;
+  [key: string]: any;
 }
 
 export const notificationService = {

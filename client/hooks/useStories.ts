@@ -6,13 +6,18 @@ interface Story {
   mediaType?: 'image' | 'video';
   videoUrl?: string;
   imageUrl?: string;
+  postMetadata?: {
+    mediaType?: string;
+    videoUrl?: string;
+  };
 }
 
 export function useStories(
   stories: Story[],
   initialIndex: number,
   onClose: () => void,
-  extraPauseCondition: boolean = false
+  extraPauseCondition: boolean = false,
+  isCurrentVideoExplicit?: boolean
 ) {
   const [currentIndex, setCurrentIndex] = useState(initialIndex);
   const [isPaused, setIsPaused] = useState(false);
@@ -29,63 +34,80 @@ export function useStories(
   const onCloseRef = useRef(onClose);
   useEffect(() => { onCloseRef.current = onClose; }, [onClose]);
 
+  const elapsedRef = useRef(0);
+
   const goToNext = useCallback(() => {
     const currIndex = currentIndexRef.current;
     const currentStories = storiesRef.current || [];
-    console.log('[useStories] ⏭️ goToNext called. currentIndex:', currIndex, 'stories.length:', currentStories.length, 'Stack trace:\n', new Error().stack);
     if (currIndex < currentStories.length - 1) {
-      console.log('[useStories] ⏭️ Incrementing index to:', currIndex + 1);
       setCurrentIndex(prev => prev + 1);
       setImageLoading(true);
       setVideoDuration(5000);
+      elapsedRef.current = 0;
       progressSv.value = 0;
     } else {
-      console.log('[useStories] 🏁 Calling onClose() from goToNext. End of stories reached.');
       onCloseRef.current();
     }
   }, [progressSv]);
 
   const goToPrevious = useCallback(() => {
     const currIndex = currentIndexRef.current;
-    console.log('[useStories] ⏮️ goToPrevious called. currentIndex:', currIndex);
     if (currIndex > 0) {
       setCurrentIndex(prev => prev - 1);
       setImageLoading(true);
       setVideoDuration(5000);
+      elapsedRef.current = 0;
       progressSv.value = 0;
     }
   }, [progressSv]);
 
-  // Clean stable JS-based timer for autoplay progress
+  // Reset elapsed timer and progress on index change
   useEffect(() => {
+    elapsedRef.current = 0;
+    progressSv.value = 0;
+  }, [currentIndex, progressSv]);
+
+  const currentStory = stories[currentIndex] as any;
+  const isVideo = isCurrentVideoExplicit !== undefined
+    ? isCurrentVideoExplicit
+    : (
+        currentStory?.mediaType === 'video' ||
+        !!currentStory?.videoUrl ||
+        !!currentStory?.video ||
+        currentStory?.postMetadata?.mediaType === 'video' ||
+        !!currentStory?.postMetadata?.videoUrl
+      );
+
+  // Stable JS-based timer for photo stories ONLY.
+  // Video stories are driven synchronously by expo-av onPlaybackStatusUpdate.
+  useEffect(() => {
+    if (isVideo) {
+      return;
+    }
+
     const isActuallyPaused = isPaused || imageLoading || extraPauseCondition;
-    console.log('[useStories] JS Timer Effect. currentIndex:', currentIndex, 'isActuallyPaused:', isActuallyPaused);
-    
     if (isActuallyPaused) {
       return;
     }
 
-    const duration = stories[currentIndex]?.mediaType === 'video' ? videoDuration : 5000;
-    const intervalTime = 30; // Update progress every 30ms for butter-smooth animation (60fps-like)
-    let elapsed = 0;
-    progressSv.value = 0;
+    const duration = 5000;
+    const intervalTime = 30; // 30ms for 60fps-like progress animation
 
     const timer = setInterval(() => {
-      elapsed += intervalTime;
-      const progressPercent = Math.min(100, (elapsed / duration) * 100);
+      elapsedRef.current += intervalTime;
+      const progressPercent = Math.min(100, (elapsedRef.current / duration) * 100);
       progressSv.value = progressPercent;
 
-      if (elapsed >= duration) {
+      if (elapsedRef.current >= duration) {
         clearInterval(timer);
         goToNext();
       }
     }, intervalTime);
 
     return () => {
-      console.log('[useStories] JS Timer Cleanup for currentIndex:', currentIndex);
       clearInterval(timer);
     };
-  }, [currentIndex, isPaused, imageLoading, videoDuration, stories, goToNext, progressSv, extraPauseCondition]);
+  }, [currentIndex, isPaused, imageLoading, isVideo, stories, goToNext, progressSv, extraPauseCondition]);
 
   return {
     currentIndex,
@@ -101,4 +123,3 @@ export function useStories(
     goToPrevious
   };
 }
-

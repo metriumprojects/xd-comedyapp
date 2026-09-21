@@ -1,101 +1,124 @@
 const { Queue, Worker } = require('bullmq');
 const Redis = require('ioredis');
 const { sendExpoPushToUser } = require('../src/services/notificationService');
-
-const connection = {
-  host: process.env.REDIS_HOST || '127.0.0.1',
-  port: process.env.REDIS_PORT || 6379,
-  maxRetriesPerRequest: 1, // Minimize retry spam
-  enableOfflineQueue: false // Don't queue commands if offline
-};
+const { getRedisConnectionConfig } = require('../src/utils/redis');
 
 let redisAvailable = false;
+let redisClient = null;
 let realNotificationQueue = null;
 let notificationWorker = null;
 
-/**
- * 10/10 Resilience:
- * We don't even TRY to initialize BullMQ if we're in a local environment
- * and Redis isn't explicitly requested or already running.
- * This prevents the annoying ECONNREFUSED spam.
- */
+const config = getRedisConnectionConfig();
 
-const redisClient = new Redis({
-  ...connection,
-  lazyConnect: true
-});
+if (config) {
+  // Create client to probe connectivity
+  const probeOptions = {
+    maxRetriesPerRequest: 1,
+    enableOfflineQueue: false,
+    lazyConnect: true,
+  };
 
-// SILENCE: Add error listener before connecting to handle the "Unhandled error event"
-redisClient.on('error', () => {});
+  if (config.url) {
+    if (config.tls) probeOptions.tls = config.tls;
+    redisClient = new Redis(config.url, probeOptions);
+  } else {
+    redisClient = new Redis({
+      ...config,
+      ...probeOptions,
+    });
+  }
 
-// Try to connect once to see if it's there
-console.log('🔍 Checking Redis availability for background jobs...');
-redisClient.connect().then(() => {
-  redisAvailable = true;
-  console.log('✅ Redis connected - Background queues enabled');
-  
-  // Initialize BullMQ only after successful connection
-  realNotificationQueue = new Queue('notifications', { connection });
-  realNotificationQueue.on('error', () => {}); // Silence internal errors
-  
-  notificationWorker = new Worker('notifications', async job => {
-    const { userId, title, body, data, senderId } = job.data;
-    console.log(`[Queue] Processing background notification for ${userId}`);
-    
-    // 1. Save to Database for in-app history
-    try {
-      const mongoose = require('mongoose');
-      const Notification = mongoose.model('Notification');
-      const User = mongoose.model('User');
+  // Silence unhandled errors before connect
+  redisClient.on('error', () => {});
 
-      let senderName = 'Someone';
-      let senderAvatar = null;
-      if (senderId) {
-        const sender = await User.findOne({
-          $or: [
-            { _id: mongoose.Types.ObjectId.isValid(senderId) ? new mongoose.Types.ObjectId(senderId) : null },
-            { firebaseUid: senderId },
-            { uid: senderId }
-          ]
-        }).select('displayName name avatar photoURL profilePicture').lean();
-        
-        if (sender) {
-          senderName = sender.displayName || sender.name || 'Someone';
-          senderAvatar = sender.avatar || sender.photoURL || sender.profilePicture || null;
-        }
-      }
+  console.log('🔍 Checking Redis availability for background jobs...');
+  redisClient.connect().then(() => {
+    redisAvailable = true;
+    console.log('✅ Redis connected - Background queues enabled');
 
-      const notification = new Notification({
-        recipientId: userId,
-        senderId: senderId || null,
-        senderName,
-        senderAvatar,
-        type: data?.type || 'generic',
-        message: body,
-        data: data || {},
-        postId: data?.postId || null,
-        storyId: data?.storyId || null,
-        read: false,
-        createdAt: new Date()
-      });
-      await notification.save();
-    } catch (dbErr) {
-      console.warn('[Queue] Failed to save notification to DB:', dbErr.message);
+    // Create BullMQ connections:
+    // IMPORTANT: BullMQ Worker strictly requires maxRetriesPerRequest: null
+    const bullConnection = config.url
+      ? new Redis(config.url, {
+          tls: config.tls,
+          maxRetriesPerRequest: null,
+          enableOfflineQueue: false,
+        })
+      : {
+          ...config,
+          maxRetriesPerRequest: null,
+          enableOfflineQueue: false,
+        };
+
+    if (bullConnection instanceof Redis) {
+      bullConnection.on('error', () => {});
     }
 
-    // 2. Send Push Alert
-    return await sendExpoPushToUser(userId, { title, body, data });
-  }, { connection });
-  
-  notificationWorker.on('error', () => {}); // Silence internal errors
-  notificationWorker.on('failed', (job, err) => {
-    console.warn(`[Queue] Job ${job?.id} failed: ${err.message}`);
+    realNotificationQueue = new Queue('notifications', { connection: bullConnection });
+    realNotificationQueue.on('error', () => {});
+
+    notificationWorker = new Worker('notifications', async job => {
+      const { userId, title, body, data, senderId } = job.data;
+      console.log(`[Queue] Processing background notification for ${userId}`);
+
+      // 1. Save to Database for in-app history
+      try {
+        const mongoose = require('mongoose');
+        const Notification = mongoose.model('Notification');
+        const User = mongoose.model('User');
+
+        let senderName = 'Someone';
+        let senderAvatar = null;
+        if (senderId) {
+          const sender = await User.findOne({
+            $or: [
+              { _id: mongoose.Types.ObjectId.isValid(senderId) ? new mongoose.Types.ObjectId(senderId) : null },
+              { firebaseUid: senderId },
+              { uid: senderId }
+            ]
+          }).select('displayName name avatar photoURL profilePicture').lean();
+
+          if (sender) {
+            senderName = sender.displayName || sender.name || 'Someone';
+            senderAvatar = sender.avatar || sender.photoURL || sender.profilePicture || null;
+          }
+        }
+
+        const notification = new Notification({
+          recipientId: userId,
+          senderId: senderId || null,
+          senderName,
+          senderAvatar,
+          type: data?.type || 'generic',
+          message: body,
+          data: data || {},
+          postId: data?.postId || null,
+          storyId: data?.storyId || null,
+          read: false,
+          createdAt: new Date()
+        });
+        await notification.save();
+      } catch (dbErr) {
+        console.warn('[Queue] Failed to save notification to DB:', dbErr.message);
+      }
+
+      // 2. Send Push Alert
+      return await sendExpoPushToUser(userId, { title, body, data });
+    }, { connection: bullConnection });
+
+    notificationWorker.on('error', () => {});
+    notificationWorker.on('failed', (job, err) => {
+      console.warn(`[Queue] Job ${job?.id} failed: ${err.message}`);
+    });
+  }).catch(() => {
+    redisAvailable = false;
+    if (redisClient) {
+      redisClient.disconnect();
+    }
   });
-}).catch(err => {
-  // Silence connection errors - we'll just stay in inline mode
-  redisAvailable = false;
-  redisClient.disconnect();
-});
+} else {
+  console.log('ℹ️ Redis not configured - background jobs running in inline mode.');
+}
 
 const notificationQueue = {
   add: async (type, payload) => {
@@ -113,15 +136,14 @@ const notificationQueue = {
 
 async function processInline(payload) {
   const { userId, title, body, data, senderId } = payload;
-  
+
   // 1. Save to Database for in-app history (Fire and forget)
   (async () => {
     try {
       const mongoose = require('mongoose');
       const Notification = mongoose.model('Notification');
       const User = mongoose.model('User');
-      
-      // Resolve real sender details for the database record
+
       let senderName = 'Someone';
       let senderAvatar = null;
       if (senderId) {
@@ -132,7 +154,7 @@ async function processInline(payload) {
             { uid: senderId }
           ]
         }).select('displayName name avatar photoURL profilePicture').lean();
-        
+
         if (sender) {
           senderName = sender.displayName || sender.name || 'Someone';
           senderAvatar = sender.avatar || sender.photoURL || sender.profilePicture || null;
@@ -162,7 +184,6 @@ async function processInline(payload) {
   // 2. Send Push Alert (Fire and forget)
   sendExpoPushToUser(userId, { title, body, data })
     .catch(err => {
-      // Only log if it's a real logic error, not just a missing token
       if (err.message && !err.message.includes('no pushToken')) {
         console.warn('[Inline-Notification] Warning:', err.message);
       }
@@ -171,5 +192,10 @@ async function processInline(payload) {
 }
 
 module.exports = {
-  notificationQueue
+  notificationQueue,
+  redisClient,
+  isRedisAvailable: () => redisAvailable,
+  get redisAvailable() {
+    return redisAvailable;
+  }
 };

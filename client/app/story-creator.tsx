@@ -35,6 +35,7 @@ import { apiService } from '@/src/_services/apiService';
 import { hapticLight, hapticMedium, hapticSuccess } from '@/lib/haptics';
 import { feedEventEmitter } from '../lib/feedEventEmitter';
 import { mapService } from '../services';
+import { compressVideoSafe } from '../lib/mediaUtils';
 import COLORS from '@/src/theme/colors';
 let captureRef: ((ref: any, opts?: any) => Promise<string>) | null = null;
 try {
@@ -202,10 +203,19 @@ const DraggableText = ({
 // ─────────────────────────────────────────────
 // Helper: copy native video URI to cache for expo-av playback
 async function copyStoryVideoToCache(nativeUri: string): Promise<string> {
+  if (!nativeUri) return nativeUri;
+  if (nativeUri.startsWith('file://') && !nativeUri.includes('%')) {
+    try {
+      const info = await FileSystem.getInfoAsync(nativeUri);
+      if (info.exists) return nativeUri;
+    } catch (_) {}
+  }
   const hash = nativeUri.replace(/[^a-zA-Z0-9]/g, '_').slice(-60);
   const dest = `${FileSystem.cacheDirectory}storyvidcache_${hash}.mp4`;
-  const info = await FileSystem.getInfoAsync(dest);
-  if (info.exists) return dest;
+  try {
+    const info = await FileSystem.getInfoAsync(dest);
+    if (info.exists) return dest;
+  } catch (_) {}
 
   try {
     await FileSystem.copyAsync({ from: nativeUri, to: dest });
@@ -400,6 +410,7 @@ export default function StoryCreatorScreen() {
     const [scrollEnabled, setScrollEnabled] = useState(true);
 
     // Sharing State
+    const isSharingRef = useRef(false);
     const [uploading, setUploading] = useState(false);
     const [uploadProgress, setUploadProgress] = useState(0);
 
@@ -515,7 +526,9 @@ export default function StoryCreatorScreen() {
 
     // Upload and Share
     const handleShare = async () => {
+        if (isSharingRef.current) return;
         if (!selectedUri) return;
+        isSharingRef.current = true;
         setUploading(true);
         setUploadProgress(0);
         try {
@@ -525,6 +538,17 @@ export default function StoryCreatorScreen() {
 
             let uploadUri = selectedUri;
             const mediaType = selectedAsset?.mediaType || 'photo';
+
+            if (mediaType === 'video' && !uploadUri.startsWith('http://') && !uploadUri.startsWith('https://')) {
+                try {
+                    uploadUri = await copyStoryVideoToCache(uploadUri);
+                    uploadUri = await compressVideoSafe(uploadUri);
+                } catch (e) {
+                    console.warn('[StoryCreator] Video cache preparation error:', e);
+                }
+            }
+
+            let textBaked = false;
             if (!sharedPostMetadata && mediaType === 'photo') {
                 if (textOverlays.length > 0 && captureRef !== null) {
                     try {
@@ -535,28 +559,36 @@ export default function StoryCreatorScreen() {
                             quality: 0.92,
                             result: 'tmpfile',
                         });
-                        if (capturedUri) uploadUri = capturedUri;
+                        if (capturedUri) {
+                            uploadUri = capturedUri;
+                            textBaked = true;
+                        }
                     } catch (e) {
                         console.warn('[StoryCreator] Failed to capture preview with text overlays:', e);
                     }
                 }
 
-                try {
-                    const manipResult = await ImageManipulator.manipulateAsync(
-                        uploadUri,
-                        [{ resize: { width: 1080 } }],
-                        { compress: 0.7, format: ImageManipulator.SaveFormat.JPEG }
-                    );
-                    uploadUri = manipResult.uri;
-                } catch (e) {
-                    console.warn('Image manipulation failed, using raw URI:', e);
+                if (uploadUri && !uploadUri.startsWith('http://') && !uploadUri.startsWith('https://')) {
+                    try {
+                        const manipResult = await ImageManipulator.manipulateAsync(
+                            uploadUri,
+                            [{ resize: { width: 1080 } }],
+                            { compress: 0.7, format: ImageManipulator.SaveFormat.JPEG }
+                        );
+                        uploadUri = manipResult.uri;
+                    } catch (e) {
+                        console.warn('Image manipulation failed, using raw URI:', e);
+                    }
                 }
             }
 
             const finalPostMetadata = (() => {
                 const meta: Record<string, unknown> = {};
                 if (sharedPostMetadata) Object.assign(meta, sharedPostMetadata);
-                if (textOverlays.length > 0) meta.textOverlays = textOverlays;
+                if (textOverlays.length > 0) {
+                    meta.textOverlays = textOverlays;
+                    if (textBaked) meta.textBaked = true;
+                }
                 return Object.keys(meta).length > 0 ? meta : undefined;
             })();
 
@@ -579,6 +611,7 @@ export default function StoryCreatorScreen() {
                 setUploadProgress(100);
                 setTimeout(() => {
                     setUploading(false);
+                    isSharingRef.current = false;
                     feedEventEmitter.emit('feedUpdated');
                     const createdStoryId = storyRes?.storyId || storyRes?.story?._id || storyRes?.story?.id;
                     router.replace({
@@ -594,6 +627,7 @@ export default function StoryCreatorScreen() {
                 throw new Error('Upload failed');
             }
         } catch (err: any) {
+            isSharingRef.current = false;
             setUploading(false);
             Alert.alert('Upload Failed', err?.message || 'Something went wrong while sharing your story.');
         }

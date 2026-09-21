@@ -3,6 +3,7 @@ const router = express.Router();
 const mongoose = require('mongoose');
 const { verifyToken, optionalAuth } = require('../middleware/authMiddleware');
 const stripeService = require('../services/stripeService');
+const redis = require('../utils/redis');
 
 const SubscriptionTier = () => mongoose.model('SubscriptionTier');
 const Subscription = () => mongoose.model('Subscription');
@@ -132,25 +133,47 @@ router.get('/tiers/:creatorId', optionalAuth, async (req, res) => {
     const activeTiers = allTiers.filter(t => t.isActive !== false);
     const archivedTiers = allTiers.filter(t => t.isActive === false);
 
-    // Only keep archived tiers that still have posts OR active subscriptions,
-    // otherwise deleted tiers would accumulate on the profile forever.
+    // Archived (soft-deleted) tiers visibility:
+    // 1. Creator: can see all their archived tiers that still have posts or active subscribers.
+    // 2. Active Subscribers: can see the archived tier they are actively subscribed to until period ends.
+    // 3. Normal / unauthenticated users: can see archived tiers ONLY IF the creator set isPrivate === false (public archive).
     let keepArchived = [];
     if (archivedTiers.length > 0) {
-      const Post = mongoose.model('Post');
-      const Sub = Subscription();
+      const viewerId = req.userId;
+      const isCreator = viewerId && String(viewerId) === String(creatorId);
       const archivedIds = archivedTiers.map(t => t._id);
+      const Sub = Subscription();
 
-      const [tiersWithPosts, tiersWithSubs] = await Promise.all([
-        Post.distinct('subscriptionTierId', { subscriptionTierId: { $in: archivedIds } }),
-        Sub.distinct('tierId', { tierId: { $in: archivedIds }, status: 'active' }),
-      ]);
+      if (isCreator) {
+        const Post = mongoose.model('Post');
+        const [tiersWithPosts, tiersWithSubs] = await Promise.all([
+          Post.distinct('subscriptionTierId', { subscriptionTierId: { $in: archivedIds } }),
+          Sub.distinct('tierId', { tierId: { $in: archivedIds }, status: 'active' }),
+        ]);
 
-      const keepSet = new Set([
-        ...tiersWithPosts.map(id => String(id)),
-        ...tiersWithSubs.map(id => String(id)),
-      ]);
+        const keepSet = new Set([
+          ...tiersWithPosts.map(id => String(id)),
+          ...tiersWithSubs.map(id => String(id)),
+        ]);
 
-      keepArchived = archivedTiers.filter(t => keepSet.has(String(t._id)));
+        keepArchived = archivedTiers.filter(t => keepSet.has(String(t._id)));
+      } else {
+        // Find public archived tiers (isPrivate === false)
+        const publicArchived = archivedTiers.filter(t => t.isPrivate === false);
+        const publicSet = new Set(publicArchived.map(t => String(t._id)));
+
+        // If logged in, also check if viewer is actively subscribed to any private archived tier
+        if (viewerId) {
+          const userActiveArchivedTierIds = await Sub.distinct('tierId', {
+            subscriberId: viewerId,
+            tierId: { $in: archivedIds },
+            status: 'active',
+          });
+          userActiveArchivedTierIds.forEach(id => publicSet.add(String(id)));
+        }
+
+        keepArchived = archivedTiers.filter(t => publicSet.has(String(t._id)));
+      }
     }
 
     const finalTiers = [...activeTiers, ...keepArchived];
@@ -159,6 +182,7 @@ router.get('/tiers/:creatorId', optionalAuth, async (req, res) => {
       ...tier,
       price: (tier.priceInCents / 100).toFixed(2),
       isArchived: tier.isActive === false,
+      isPrivate: tier.isPrivate !== false,
     }));
 
     res.json({ success: true, data: response });
@@ -203,6 +227,90 @@ router.delete('/tiers/:tierId', verifyToken, async (req, res) => {
   } catch (error) {
     console.error('[Subscription] Delete tier error:', error.message);
     res.status(500).json({ success: false, error: 'Failed to delete subscription tier' });
+  }
+});
+
+/**
+ * POST /subscriptions/tiers/:tierId/restore
+ * Creator restores an archived subscription tier.
+ */
+router.post('/tiers/:tierId/restore', verifyToken, async (req, res) => {
+  try {
+    const { tierId } = req.params;
+    const Tier = SubscriptionTier();
+
+    const tier = await Tier.findById(tierId);
+
+    if (!tier) {
+      return res.status(404).json({ success: false, error: 'Tier not found' });
+    }
+
+    // Only the creator can restore their tier
+    if (String(tier.creatorId) !== String(req.userId)) {
+      return res.status(403).json({ success: false, error: 'You can only restore your own tiers' });
+    }
+
+    // Reactivate in Stripe
+    try {
+      await stripeService.reactivateStripeProduct(tier);
+    } catch (stripeError) {
+      console.warn('[Subscription] Stripe reactivation warning:', stripeError.message);
+    }
+
+    // Mark as active
+    tier.isActive = true;
+    await tier.save();
+
+    res.json({
+      success: true,
+      data: {
+        ...tier.toObject(),
+        price: (tier.priceInCents / 100).toFixed(2),
+        isArchived: false,
+      },
+      message: 'Subscription tier restored successfully',
+    });
+  } catch (error) {
+    console.error('[Subscription] Restore tier error:', error.message);
+    res.status(500).json({ success: false, error: 'Failed to restore subscription tier' });
+  }
+});
+
+/**
+ * PATCH /subscriptions/tiers/:tierId/visibility
+ * Creator toggles public/private visibility for an archived tier.
+ */
+router.patch('/tiers/:tierId/visibility', verifyToken, async (req, res) => {
+  try {
+    const { tierId } = req.params;
+    const { isPrivate } = req.body;
+    const Tier = SubscriptionTier();
+
+    const tier = await Tier.findById(tierId);
+    if (!tier) {
+      return res.status(404).json({ success: false, error: 'Tier not found' });
+    }
+
+    if (String(tier.creatorId) !== String(req.userId)) {
+      return res.status(403).json({ success: false, error: 'You can only update your own tiers' });
+    }
+
+    tier.isPrivate = !!isPrivate;
+    await tier.save();
+
+    res.json({
+      success: true,
+      data: {
+        ...tier.toObject(),
+        price: (tier.priceInCents / 100).toFixed(2),
+        isArchived: tier.isActive === false,
+        isPrivate: tier.isPrivate,
+      },
+      message: `Tier visibility updated to ${tier.isPrivate ? 'Private' : 'Public'}`,
+    });
+  } catch (error) {
+    console.error('[Subscription] Update visibility error:', error.message);
+    res.status(500).json({ success: false, error: 'Failed to update tier visibility' });
   }
 });
 
@@ -443,12 +551,17 @@ router.get('/my-subscriptions', verifyToken, async (req, res) => {
 router.get('/my-subscribers', verifyToken, async (req, res) => {
   try {
     const creatorId = req.userId;
+    const filter = {
+      creatorId,
+      status: { $in: ['active', 'trialing'] },
+    };
+
+    if (req.query.tierId) {
+      filter.tierId = req.query.tierId;
+    }
 
     const subs = await Subscription()
-      .find({
-        creatorId,
-        status: { $in: ['active', 'trialing'] },
-      })
+      .find(filter)
       .populate('subscriberId', 'displayName username avatar')
       .populate('tierId', 'title priceInCents')
       .sort({ createdAt: -1 })
@@ -494,16 +607,36 @@ router.post('/webhook', async (req, res) => {
     return res.status(400).json({ error: 'Missing stripe-signature header' });
   }
 
+  let event;
   try {
-    const event = stripeService.constructWebhookEvent(req.body, signature);
+    event = stripeService.constructWebhookEvent(req.body, signature);
+  } catch (constructError) {
+    console.error('[Stripe Webhook] Signature verification failed:', constructError.message);
+    return res.status(400).json({ error: `Webhook error: ${constructError.message}` });
+  }
 
-    // Process the event asynchronously — respond immediately to Stripe
+  const lockKey = `stripe:evt:${event.id}`;
+
+  try {
+    // 1. Idempotency Check via Redis (48h TTL)
+    const acquired = await redis.acquireLock(lockKey, 172800);
+    if (!acquired) {
+      console.log(`ℹ️ [Stripe Webhook] Duplicate event ignored (idempotent): ${event.id} [${event.type}]`);
+      return res.status(200).json({ received: true, idempotent: true, eventId: event.id });
+    }
+
+    // 2. Process the event
     await stripeService.handleWebhookEvent(event);
+
+    // 3. Mark lock as completed
+    await redis.set(lockKey, 'completed', 172800);
 
     res.json({ received: true });
   } catch (error) {
-    console.error('[Stripe Webhook] Error:', error.message);
-    res.status(400).json({ error: `Webhook error: ${error.message}` });
+    console.error('[Stripe Webhook] Error processing event:', error.message);
+    // Release the lock so that legitimate retries from Stripe can succeed
+    await redis.releaseLock(lockKey);
+    res.status(500).json({ error: `Webhook processing error: ${error.message}` });
   }
 });
 

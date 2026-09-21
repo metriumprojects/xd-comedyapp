@@ -30,6 +30,7 @@ import { AppDialogProvider } from '@/src/_components/AppDialogProvider';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import COLORS from '@/src/theme/colors';
 import { StripeProvider } from '@stripe/stripe-react-native';
+import { SafeAreaProvider, initialWindowMetrics } from 'react-native-safe-area-context';
 import { useAppStore } from '@/store/useAppStore';
 import { resolveCanonicalUserId } from '@/lib/currentUser';
 import InstagramOfflineToast from '@/src/_components/InstagramOfflineToast';
@@ -48,7 +49,7 @@ try {
 }
 
 try {
-  const backendModule = require("@/src/_services/backendWakeup");
+  const backendModule = require("../src/_services/backendWakeup");
   initializeBackend = backendModule.initializeBackend || (() => Promise.resolve());
 } catch (e) {
   console.warn('[RootLayout] Failed to load backend wakeup:', e);
@@ -238,48 +239,56 @@ export default function RootLayout() {
   }, []);
 
   return (
-    <StripeProvider publishableKey={process.env.EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY || ''}>
-    <QueryClientProvider client={queryClient}>
-      <ErrorBoundary>
-        <UserProvider>
-          <AppDialogProvider>
-            <GestureHandlerRootView style={{ flex: 1 }}>
-              <StatusBar style="dark" backgroundColor={COLORS.background} translucent={false} />
-              <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: COLORS.background } }}>
-                <Stack.Screen name="index" options={{ animation: 'none' }} />
-                <Stack.Screen name="auth/welcome" />
-                <Stack.Screen name="auth/login-options" />
-                <Stack.Screen name="auth/phone-login" />
-                <Stack.Screen name="auth/email-login" />
-                <Stack.Screen name="auth/username-login" />
-                <Stack.Screen name="auth/signup-options" />
-                <Stack.Screen name="auth/phone-signup" />
-                <Stack.Screen name="auth/email-signup" />
-                <Stack.Screen name="auth/password-signup" />
-                <Stack.Screen name="auth/username-signup" />
-                <Stack.Screen name="auth/phone-otp" />
-                <Stack.Screen name="auth/forgot-password" />
-                <Stack.Screen name="auth/login-password" />
-                <Stack.Screen name="auth/reset-otp" />
-                <Stack.Screen name="auth/reset-password" />
-                <Stack.Screen name="(tabs)" options={{ animation: 'none' }} />
-                <Stack.Screen name="create-post" options={{ presentation: 'fullScreenModal', animation: 'slide_from_bottom' }} />
-                <Stack.Screen name="podium" options={{ headerShown: false, animation: 'slide_from_bottom' }} />
-                <Stack.Screen name="edit-post" options={{ headerShown: false, animation: 'slide_from_right' }} />
-                <Stack.Screen name="search-modal" options={{ headerShown: false, animation: 'fade' }} />
-                <Stack.Screen name="inbox" options={{ headerShown: false }} />
-                <Stack.Screen name="edit-profile" options={{ headerShown: false }} />
-                <Stack.Screen name="passport" options={{ headerShown: false }} />
-                <Stack.Screen name="dm" options={{ headerShown: false }} />
-                <Stack.Screen name="notifications" options={{ headerShown: false }} />
-                <Stack.Screen name="post-detail" options={{ headerShown: false, animation: 'slide_from_right' }} />
-              </Stack>
-              <InstagramOfflineToast />
-            </GestureHandlerRootView>
-          </AppDialogProvider>
-        </UserProvider>
-      </ErrorBoundary>
-    </QueryClientProvider>
-    </StripeProvider>
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <SafeAreaProvider initialMetrics={initialWindowMetrics}>
+        <StripeProvider publishableKey={process.env.EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY || ''}>
+          <QueryClientProvider client={queryClient}>
+            <ErrorBoundary>
+              <UserProvider>
+                <AppDialogProvider>
+                  <StatusBar style="dark" backgroundColor={COLORS.background} />
+                  <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: COLORS.background } }}>
+                    <Stack.Screen name="index" options={{ animation: 'none' }} />
+                    <Stack.Screen name="auth/welcome" />
+                    <Stack.Screen name="auth/login-options" />
+                    <Stack.Screen name="auth/phone-login" />
+                    <Stack.Screen name="auth/email-login" />
+                    <Stack.Screen name="auth/username-login" />
+                    <Stack.Screen name="auth/signup-options" />
+                    <Stack.Screen name="auth/phone-signup" />
+                    <Stack.Screen name="auth/email-signup" />
+                    <Stack.Screen name="auth/password-signup" />
+                    <Stack.Screen name="auth/username-signup" />
+                    <Stack.Screen name="auth/phone-otp" />
+                    <Stack.Screen name="auth/forgot-password" />
+                    <Stack.Screen name="auth/login-password" />
+                    <Stack.Screen name="auth/reset-otp" />
+                    <Stack.Screen name="auth/reset-password" />
+                    <Stack.Screen name="(tabs)" options={{ animation: 'none' }} />
+                    <Stack.Screen name="create-post" options={{ presentation: 'fullScreenModal', animation: 'slide_from_bottom' }} />
+                    <Stack.Screen name="podium" options={{ headerShown: false, animation: 'slide_from_bottom' }} />
+                    <Stack.Screen name="edit-post" options={{ headerShown: false, animation: 'slide_from_right' }} />
+                    <Stack.Screen name="search-modal" options={{ headerShown: false, animation: 'fade' }} />
+                    <Stack.Screen name="inbox" options={{ headerShown: false, animation: 'slide_from_right' }} />
+                    <Stack.Screen name="settings" options={{ headerShown: false, animation: 'slide_from_right' }} />
+                    <Stack.Screen name="legal/privacy" options={{ headerShown: false, animation: 'slide_from_right' }} />
+                    <Stack.Screen name="legal/terms" options={{ headerShown: false, animation: 'slide_from_right' }} />
+                    <Stack.Screen name="privacy" options={{ headerShown: false, animation: 'slide_from_right' }} />
+                    <Stack.Screen name="saved-posts" options={{ headerShown: false, animation: 'slide_from_right' }} />
+                    <Stack.Screen name="edit-profile" options={{ headerShown: false }} />
+                    <Stack.Screen name="passport" options={{ headerShown: false }} />
+                    <Stack.Screen name="dm" options={{ headerShown: false }} />
+                    <Stack.Screen name="notifications" options={{ headerShown: false }} />
+                    <Stack.Screen name="post-detail" options={{ headerShown: false, animation: 'slide_from_right' }} />
+                    <Stack.Screen name="manage-subscriptions" options={{ headerShown: false, animation: 'slide_from_right' }} />
+                  </Stack>
+                  <InstagramOfflineToast />
+                </AppDialogProvider>
+              </UserProvider>
+            </ErrorBoundary>
+          </QueryClientProvider>
+        </StripeProvider>
+      </SafeAreaProvider>
+    </GestureHandlerRootView>
   );
 }

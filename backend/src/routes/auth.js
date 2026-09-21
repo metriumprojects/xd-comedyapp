@@ -55,46 +55,49 @@ router.post('/register-firebase', validate(registerFirebaseSchema), async (req, 
     const { idToken, firebaseUid: clientUid, email, displayName, avatar, username } = req.body;
 
     // SECURITY: Verify Firebase ID Token on backend
-    let firebaseUid = clientUid;
+    let firebaseUid = null;
+    let verifiedEmail = null;
+    const admin = getFirebaseAdmin();
+
     if (idToken) {
-      const admin = getFirebaseAdmin();
       if (!admin) {
-        if (!firebaseUid && process.env.NODE_ENV === 'production') {
+        if (process.env.NODE_ENV === 'production') {
           return res.status(503).json({ success: false, error: 'Authentication service unavailable' });
         }
-        logger.warn('[Auth] Firebase Admin not initialized — using clientUid');
+        logger.warn('[Auth] Firebase Admin not initialized — allowing clientUid in development');
+        firebaseUid = clientUid;
+        verifiedEmail = email;
       } else {
         try {
           const decodedToken = await admin.auth().verifyIdToken(idToken);
           firebaseUid = decodedToken.uid;
+          verifiedEmail = decodedToken.email || null;
           logger.info(`✅ Firebase token verified for UID: ${firebaseUid}`);
         } catch (err) {
-          logger.warn('⚠️ Firebase token verification warning: %s — using fallback UID', err.message);
-          if (!firebaseUid && idToken) {
-            try {
-              const decoded = jwt.decode(idToken);
-              if (decoded && (decoded.sub || decoded.user_id || decoded.uid)) {
-                firebaseUid = decoded.sub || decoded.user_id || decoded.uid;
-              }
-            } catch (e) {}
-          }
-          if (!firebaseUid) {
-            return res.status(401).json({ success: false, error: 'Invalid authentication token' });
-          }
+          logger.error('❌ Firebase token verification failed: %s', err.message);
+          return res.status(401).json({ success: false, error: 'Invalid or expired authentication token' });
         }
       }
-    } else if (!firebaseUid && process.env.NODE_ENV === 'production') {
-      return res.status(401).json({ success: false, error: 'Authentication token required' });
+    } else {
+      if (process.env.NODE_ENV === 'production') {
+        return res.status(401).json({ success: false, error: 'Authentication token required' });
+      }
+      firebaseUid = clientUid;
+      verifiedEmail = email;
+    }
+
+    if (!firebaseUid) {
+      return res.status(401).json({ success: false, error: 'Authentication failed: No valid UID' });
     }
 
     let user = await User.findOne({ firebaseUid });
 
-    // If not found by UID, check by email for account linking
-    if (!user && email) {
-      user = await User.findOne({ email: email.toLowerCase() });
+    // Account linking: ONLY link if email was cryptographically verified by Firebase
+    if (!user && verifiedEmail) {
+      user = await User.findOne({ email: verifiedEmail.toLowerCase() });
       if (user) {
         user.firebaseUid = firebaseUid; // Link the new social provider to existing account
-        logger.info(`🔗 Linked existing user ${user.email} with new Firebase UID: ${firebaseUid}`);
+        logger.info(`🔗 Linked existing user ${user.email} with verified Firebase UID: ${firebaseUid}`);
       }
     }
     
@@ -154,46 +157,49 @@ router.post('/login-firebase', validate(loginFirebaseSchema), async (req, res) =
     const { idToken, firebaseUid: clientUid, email, displayName, avatar } = req.body;
 
     // SECURITY: Verify Firebase ID Token on backend
-    let firebaseUid = clientUid;
+    let firebaseUid = null;
+    let verifiedEmail = null;
+    const admin = getFirebaseAdmin();
+
     if (idToken) {
-      const admin = getFirebaseAdmin();
       if (!admin) {
-        if (!firebaseUid && process.env.NODE_ENV === 'production') {
+        if (process.env.NODE_ENV === 'production') {
           return res.status(503).json({ success: false, error: 'Authentication service unavailable' });
         }
-        logger.warn('[Auth] Firebase Admin not initialized — using clientUid');
+        logger.warn('[Auth] Firebase Admin not initialized — allowing clientUid in development');
+        firebaseUid = clientUid;
+        verifiedEmail = email;
       } else {
         try {
           const decodedToken = await admin.auth().verifyIdToken(idToken);
           firebaseUid = decodedToken.uid;
+          verifiedEmail = decodedToken.email || null;
           logger.info(`✅ Firebase token verified for UID: ${firebaseUid}`);
         } catch (err) {
-          logger.warn('⚠️ Firebase token verification warning: %s — using fallback UID', err.message);
-          if (!firebaseUid && idToken) {
-            try {
-              const decoded = jwt.decode(idToken);
-              if (decoded && (decoded.sub || decoded.user_id || decoded.uid)) {
-                firebaseUid = decoded.sub || decoded.user_id || decoded.uid;
-              }
-            } catch (e) {}
-          }
-          if (!firebaseUid) {
-            return res.status(401).json({ success: false, error: 'Invalid authentication token' });
-          }
+          logger.error('❌ Firebase token verification failed: %s', err.message);
+          return res.status(401).json({ success: false, error: 'Invalid or expired authentication token' });
         }
       }
-    } else if (!firebaseUid && process.env.NODE_ENV === 'production') {
-      return res.status(401).json({ success: false, error: 'Authentication token required' });
+    } else {
+      if (process.env.NODE_ENV === 'production') {
+        return res.status(401).json({ success: false, error: 'Authentication token required' });
+      }
+      firebaseUid = clientUid;
+      verifiedEmail = email;
+    }
+
+    if (!firebaseUid) {
+      return res.status(401).json({ success: false, error: 'Authentication failed: No valid UID' });
     }
 
     let user = await User.findOne({ firebaseUid });
 
-    // If not found by UID, check by email for account linking
-    if (!user && email) {
-      user = await User.findOne({ email: email.toLowerCase() });
+    // Account linking: ONLY link if email was cryptographically verified by Firebase
+    if (!user && verifiedEmail) {
+      user = await User.findOne({ email: verifiedEmail.toLowerCase() });
       if (user) {
         user.firebaseUid = firebaseUid; // Link the new social provider to existing account
-        logger.info(`🔗 Linked existing user ${user.email} with new Firebase UID: ${firebaseUid}`);
+        logger.info(`🔗 Linked existing user ${user.email} with verified Firebase UID: ${firebaseUid}`);
       }
     }
     
@@ -245,28 +251,23 @@ router.post('/login-firebase', validate(loginFirebaseSchema), async (req, res) =
 router.post('/register', validate(registerSchema), async (req, res) => {
   try {
     const { email, password, displayName } = req.body;
-    let user = await User.findOne({ email: email.toLowerCase() });
+    let existingUser = await User.findOne({ email: email.toLowerCase() });
 
-    if (user) {
-      if (password) {
-        user.password = await bcrypt.hash(password, 10);
-      }
-      if (displayName && (!user.displayName || user.displayName === 'User')) {
-        user.displayName = displayName;
-      }
-      user.updatedAt = new Date();
-      await user.save();
-      logger.info(`🔗 Linked existing account for email on register: ${user.email}`);
-    } else {
-      const hashedPassword = await bcrypt.hash(password, 10);
-      user = new User({
-        email: email.toLowerCase(),
-        password: hashedPassword,
-        displayName: displayName || email.split('@')[0]
+    if (existingUser) {
+      return res.status(400).json({
+        success: false,
+        error: 'An account with this email already exists. Please log in instead.'
       });
-      await user.save();
-      logger.info(`✅ New user registered: ${user.email}`);
     }
+
+    const hashedPassword = await bcrypt.hash(password, 10);
+    const user = new User({
+      email: email.toLowerCase(),
+      password: hashedPassword,
+      displayName: displayName || email.split('@')[0]
+    });
+    await user.save();
+    logger.info(`✅ New user registered: ${user.email}`);
 
     const token = generateToken(user._id, user.email, user.firebaseUid || user.uid);
     const refreshToken = generateRefreshToken(user._id);

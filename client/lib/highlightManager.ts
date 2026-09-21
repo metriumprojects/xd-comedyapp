@@ -3,6 +3,7 @@ import { addStoryToHighlight as addStoryToHighlightApi, createHighlight as creat
 import { cacheHighlightStory, getCachedHighlightStories, getStableStoryKey, removeCachedHighlightStory, storyForStoriesViewer } from './storyViewer';
 import { feedEventEmitter } from './feedEventEmitter';
 import { getVideoThumbnailUrl } from './imageHelpers';
+import { getOrGenerateStoryThumbnail, resolveStoryThumbnailUrlSync, isVideo } from '@/src/_components/StoryThumbnail';
 
 export type HighlightSummary = {
   id: string;
@@ -31,9 +32,23 @@ export const highlightManager = {
       const storyId = String(normalizedStory?.id || normalizedStory?._id || normalizedStory?.storyId || '').trim();
       if (!storyId) return { success: false, error: 'Story id missing' };
 
-      let coverImage = normalizedStory.imageUrl || '';
-      if (normalizedStory.mediaType === 'video' || !coverImage) {
-        coverImage = getVideoThumbnailUrl(normalizedStory.videoUrl || '', normalizedStory.imageUrl || '');
+      let coverImage = resolveStoryThumbnailUrlSync(normalizedStory);
+      if (!coverImage && (normalizedStory.mediaType === 'video' || normalizedStory.videoUrl)) {
+        coverImage = await getOrGenerateStoryThumbnail(normalizedStory);
+      }
+      if (!coverImage) {
+        coverImage = normalizedStory.imageUrl || '';
+      }
+
+      // If local thumbnail file uri, upload it so it's a persistent CDN/S3 URL
+      if (coverImage && !/^https?:\/\//i.test(coverImage)) {
+        try {
+          const { uploadImage } = await import('./firebaseHelpers/core');
+          const uploadRes = await uploadImage(coverImage, `highlights/${params.userId}/${Date.now()}.jpg`);
+          if (uploadRes?.success && uploadRes.url) {
+            coverImage = uploadRes.url;
+          }
+        } catch {}
       }
 
       const created = await createHighlightApi(params.userId, params.title.trim(), coverImage, [storyId], 'Public');
@@ -91,8 +106,14 @@ export const highlightManager = {
     }
 
     // If highlight has no cover, set it to this story (best-effort).
-    const cover = normalizedStory.imageUrl || normalizedStory.videoUrl || '';
-    if (cover) {
+    let cover = resolveStoryThumbnailUrlSync(normalizedStory);
+    if (!cover && (normalizedStory.mediaType === 'video' || normalizedStory.videoUrl)) {
+      cover = await getOrGenerateStoryThumbnail(normalizedStory);
+    }
+    if (!cover) {
+      cover = normalizedStory.imageUrl || '';
+    }
+    if (cover && !isVideo(cover)) {
       try { await updateHighlightApi(highlightId, { coverImage: cover }); } catch { }
     }
 

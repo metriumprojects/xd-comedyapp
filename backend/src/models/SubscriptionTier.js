@@ -59,6 +59,11 @@ const SubscriptionTierSchema = new mongoose.Schema({
     type: Number,
     default: 0,
   },
+  // For archived tiers: whether the folder is private to the creator or visible publicly
+  isPrivate: {
+    type: Boolean,
+    default: true,
+  },
   createdAt: {
     type: Date,
     default: Date.now,

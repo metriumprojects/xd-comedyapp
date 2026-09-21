@@ -48,18 +48,29 @@ export default function UserPostsScreen() {
   const { isOnline } = useNetworkStatus();
   const { showBanner } = useOfflineBanner();
 
+  const isPostVideo = (p: any): boolean => {
+    if (!p) return false;
+    const media = Array.isArray(p?.media) ? p.media : (p?.mediaUrls || []);
+    return media.some((m: any) => {
+      const u = typeof m === 'string' ? m : (m?.url || m?.uri || '');
+      return /\.(mp4|mov|webm|m4v)(\?|$)/i.test(u) || String(u).includes('video');
+    });
+  };
+
   const onViewableItemsChanged = useRef(({ viewableItems }: any) => {
-    if (viewableItems && viewableItems.length > 0) {
-      const visibleItem = viewableItems[0]?.item;
-      if (visibleItem) {
-        const id = String(visibleItem.id || visibleItem._id || '');
-        if (id) setActivePostId(id);
+    if (Array.isArray(viewableItems) && viewableItems.length > 0) {
+      const videoItems = viewableItems.filter((v: any) => isPostVideo(v?.item));
+      const targetItem = videoItems.length > 0 ? videoItems[0]?.item : viewableItems[0]?.item;
+      const targetId = String(targetItem?._id || targetItem?.id || '');
+      if (targetId) {
+        setActivePostId(targetId);
       }
     }
   }).current;
 
   const viewabilityConfig = useRef({
-    itemVisiblePercentThreshold: 40,
+    itemVisiblePercentThreshold: 50,
+    waitForInteraction: false,
   }).current;
 
   const single = useMemo(() => {
@@ -308,7 +319,7 @@ export default function UserPostsScreen() {
     // @ts-ignore - fbemitter untyped
     const sub = feedEventEmitter.addListener('feedUpdated', () => {
       if (!isOnline) return;
-      fetchInitial().catch(() => {});
+      fetchInitial().catch(() => { });
     });
     return () => sub.remove();
   }, [fetchInitial, isOnline]);
@@ -357,6 +368,7 @@ export default function UserPostsScreen() {
       <FlatList
         ref={listRef}
         data={posts}
+        extraData={activePostId}
         keyExtractor={(item: any, index: number) => String(item?.id || item?._id || `post-${index}`)}
         initialNumToRender={3}
         maxToRenderPerBatch={4}
@@ -376,6 +388,7 @@ export default function UserPostsScreen() {
               currentUser={viewerId}
               showMenu={true}
               isActive={isItemActive}
+              isVisible={isItemActive}
             />
           );
         }}

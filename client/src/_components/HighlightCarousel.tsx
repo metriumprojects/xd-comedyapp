@@ -2,6 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import React from 'react';
 import { FlatList, Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import COLORS from '@/src/theme/colors';
+import StoryThumbnail from './StoryThumbnail';
 
 export type Highlight = {
   id: string;
@@ -40,7 +41,7 @@ const HighlightCarousel: React.FC<HighlightCarouselProps> = ({ highlights, onPre
         ListHeaderComponent={renderAddButton}
         renderItem={({ item }) => (
           <TouchableOpacity style={styles.highlightBubble} onPress={() => onPressHighlight?.(item)}>
-            <Image source={{ uri: item.coverImage }} style={styles.coverImage} />
+            <StoryThumbnail uri={item.coverImage} style={styles.coverImage} resizeMode="cover" />
             <Text style={styles.title} numberOfLines={1}>{item.title}</Text>
           </TouchableOpacity>
         )}

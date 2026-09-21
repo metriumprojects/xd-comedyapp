@@ -1,16 +1,17 @@
 import { useRouter } from 'expo-router';
 import React from 'react';
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { useSafeHeaderInsets } from '@/hooks/useSafeHeaderInsets';
 import { Ionicons } from '@expo/vector-icons';
 import { safeRouterBack } from '@/lib/safeRouterBack';
 import COLORS from '@/src/theme/colors';
 
 export default function TermsOfServiceScreen() {
   const router = useRouter();
+  const { top: safeTop, bottom: safeBottom } = useSafeHeaderInsets();
 
   return (
-    <SafeAreaView style={styles.container} edges={['top']}>
+    <View style={[styles.container, { paddingTop: safeTop, paddingBottom: safeBottom }]}>
       <View style={styles.header}>
         <TouchableOpacity onPress={() => safeRouterBack()} style={styles.backButton}>
           <Ionicons name="arrow-back" size={24} color={COLORS.black} />
@@ -114,7 +115,7 @@ export default function TermsOfServiceScreen() {
           <Text style={styles.linkText}>View Privacy Policy →</Text>
         </TouchableOpacity>
       </ScrollView>
-    </SafeAreaView>
+    </View>
   );
 }
 
@@ -184,4 +185,3 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
 });
-

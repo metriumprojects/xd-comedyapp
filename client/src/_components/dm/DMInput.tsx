@@ -17,6 +17,8 @@ type DMInputProps = {
   micPulseAnim: Animated.Value;
   replyingTo: any;
   onCancelReply: () => void;
+  editingMessage?: any;
+  onCancelEdit?: () => void;
   sending: boolean;
 };
 
@@ -33,6 +35,8 @@ const DMInput: React.FC<DMInputProps> = ({
   micPulseAnim,
   replyingTo,
   onCancelReply,
+  editingMessage,
+  onCancelEdit,
   sending,
 }) => {
   const formatDuration = (seconds: number) => {
@@ -42,39 +46,59 @@ const DMInput: React.FC<DMInputProps> = ({
   };
 
   return (
-    <ScrollView
-      keyboardShouldPersistTaps="handled"
-      scrollEnabled={false}
-      style={{ backgroundColor: COLORS.card, flexGrow: 0 }}
+    <ScrollView 
+      keyboardShouldPersistTaps="handled" 
+      scrollEnabled={false} 
+      style={{ backgroundColor: COLORS.background || '#fff', flexGrow: 0 }}
       contentContainerStyle={styles.container}
     >
-      {replyingTo && (
-        <View style={styles.replyBar}>
+      {editingMessage && (
+        <View style={styles.editBar}>
+          <View style={styles.editIconWrap}>
+            <Ionicons name="pencil" size={15} color={COLORS.primary || '#FF6B00'} />
+          </View>
           <View style={styles.replyContent}>
-            <Text style={styles.replyLabel}>Replying to {replyingTo.senderId === 'self' ? 'yourself' : 'them'}</Text>
+            <Text style={styles.editLabel}>Editing message</Text>
+            <Text style={styles.replyText} numberOfLines={1}>{editingMessage.text || ''}</Text>
+          </View>
+          <TouchableOpacity onPress={onCancelEdit} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }} style={styles.replyCloseBtn} accessibilityRole="button" accessibilityLabel="Cancel edit">
+            <Ionicons name="close" size={18} color="#737373" />
+          </TouchableOpacity>
+        </View>
+      )}
+
+      {!editingMessage && replyingTo && (
+        <View style={styles.replyBar}>
+          <View style={styles.replyIconWrap}>
+            <Ionicons name="arrow-undo" size={15} color="#737373" />
+          </View>
+          <View style={styles.replyContent}>
+            <Text style={styles.replyLabel} numberOfLines={1}>
+              Replying to <Text style={styles.replyUsername}>{replyingTo.username || (replyingTo.senderId === 'self' ? 'yourself' : 'them')}</Text>
+            </Text>
             <Text style={styles.replyText} numberOfLines={1}>{replyingTo.text}</Text>
           </View>
-          <TouchableOpacity onPress={onCancelReply}>
-            <Feather name="x" size={16} color={COLORS.textMuted} />
+          <TouchableOpacity onPress={onCancelReply} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }} style={styles.replyCloseBtn} accessibilityRole="button" accessibilityLabel="Cancel reply">
+            <Ionicons name="close" size={18} color="#737373" />
           </TouchableOpacity>
         </View>
       )}
 
       <View style={styles.inputRow}>
-        {!input.trim() && !recording && (
-          <TouchableOpacity style={styles.iconBtn} onPress={onCameraPress}>
+        {!input.trim() && !recording && !editingMessage && (
+          <TouchableOpacity style={styles.iconBtn} onPress={onCameraPress} accessibilityRole="button" accessibilityLabel="Open camera">
             <LinearGradient
-              colors={[COLORS.primary, '#FF8D00']}
+              colors={['#FF6B00', '#FF8D00']}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 0 }}
               style={styles.cameraCircle}
             >
-              <Feather name="camera" size={20} color={COLORS.textLight} />
+              <Feather name="camera" size={20} color="#fff" />
             </LinearGradient>
           </TouchableOpacity>
         )}
 
-        <View style={styles.inputContainer}>
+        <View style={[styles.inputContainer, editingMessage && styles.inputContainerEditing]}>
           {recording ? (
             <View style={styles.recordingRow}>
               <Animated.View style={[styles.recordingDot, { opacity: micPulseAnim }]} />
@@ -84,34 +108,51 @@ const DMInput: React.FC<DMInputProps> = ({
           ) : (
             <TextInput
               style={styles.textInput}
-              placeholder="Message..."
-              placeholderTextColor={COLORS.textMuted}
+              placeholder={editingMessage ? 'Edit message...' : 'Message...'}
+              placeholderTextColor="#8e8e8e"
               value={input}
               onChangeText={setInput}
               multiline
+              autoFocus={!!editingMessage}
+              accessibilityLabel={editingMessage ? 'Edit message' : 'Message'}
             />
           )}
 
-          {!input.trim() && !recording && (
+          {!input.trim() && !recording && !editingMessage && (
             <View style={styles.rightIcons}>
-              <TouchableOpacity style={styles.innerIcon} onPress={onMicPressIn}>
-                <Feather name="mic" size={20} color={COLORS.textPrimary} />
+              <TouchableOpacity style={styles.innerIcon} onPress={onMicPressIn} accessibilityRole="button" accessibilityLabel="Record voice message">
+                <Feather name="mic" size={20} color={COLORS.textPrimary || '#1f2937'} />
               </TouchableOpacity>
-              <TouchableOpacity style={styles.innerIcon} onPress={onMediaPress}>
-                <Feather name="image" size={20} color={COLORS.textPrimary} />
+              <TouchableOpacity style={styles.innerIcon} onPress={onMediaPress} accessibilityRole="button" accessibilityLabel="Attach photo or video">
+                <Feather name="image" size={20} color={COLORS.textPrimary || '#1f2937'} />
               </TouchableOpacity>
             </View>
           )}
         </View>
 
         {(input.trim() || recording) && (
-          <TouchableOpacity
-            style={styles.sendBtn}
+          <TouchableOpacity 
+            style={styles.sendBtn} 
             onPress={recording ? onMicPressOut : onSend}
+            activeOpacity={0.85}
+            accessibilityRole="button"
+            accessibilityLabel={recording ? 'Send voice message' : (editingMessage ? 'Save edit' : 'Send message')}
+            accessibilityState={{ disabled: sending, busy: sending }}
           >
-            <Text style={styles.sendBtnText}>
-              {recording ? 'Release to send' : (sending ? '...' : 'Send')}
-            </Text>
+            <LinearGradient
+              colors={['#FF6B00', '#FF8D00']}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={styles.sendCircle}
+            >
+              {sending ? (
+                <Feather name="loader" size={18} color="#fff" />
+              ) : editingMessage ? (
+                <Ionicons name="checkmark" size={22} color="#fff" />
+              ) : (
+                <Ionicons name="send" size={18} color="#fff" style={styles.sendIcon} />
+              )}
+            </LinearGradient>
           </TouchableOpacity>
         )}
       </View>
@@ -130,26 +171,60 @@ const styles = StyleSheet.create({
   replyBar: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#f8f8f8',
-    padding: 12,
-    borderRadius: 16,
-    marginBottom: 10,
-    borderLeftWidth: 4,
-    borderLeftColor: '#FF8D00',
+    backgroundColor: '#f6f6f6',
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 14,
+    marginBottom: 8,
+    borderWidth: 0.5,
+    borderColor: '#e8e8e8',
+  },
+  editBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFF4EB',
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 14,
+    marginBottom: 8,
+    borderWidth: 0.5,
+    borderColor: '#FFD4B2',
+  },
+  editIconWrap: {
+    marginRight: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  editLabel: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: COLORS.primary || '#FF6B00',
+  },
+  replyIconWrap: {
+    marginRight: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   replyContent: {
     flex: 1,
+    justifyContent: 'center',
   },
   replyLabel: {
-    fontSize: 11,
-    fontWeight: '800',
-    color: '#FF8D00',
-    marginBottom: 2,
-    textTransform: 'uppercase',
+    fontSize: 12,
+    color: '#737373',
+  },
+  replyUsername: {
+    fontWeight: '700',
+    color: '#262626',
   },
   replyText: {
     fontSize: 13,
-    color: '#666',
+    color: '#555',
+    marginTop: 1,
+  },
+  replyCloseBtn: {
+    padding: 4,
+    marginLeft: 8,
   },
   inputRow: {
     flexDirection: 'row',
@@ -174,6 +249,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     minHeight: 44,
   },
+  inputContainerEditing: {
+    borderWidth: 1,
+    borderColor: COLORS.primary || '#FF6B00',
+    backgroundColor: '#FFF9F5',
+  },
   textInput: {
     flex: 1,
     fontSize: 16,
@@ -188,13 +268,17 @@ const styles = StyleSheet.create({
     marginLeft: 14,
   },
   sendBtn: {
-    marginLeft: 12,
-    paddingHorizontal: 4,
+    marginLeft: 10,
   },
-  sendBtnText: {
-    color: '#FF8D00',
-    fontWeight: '700',
-    fontSize: 16,
+  sendCircle: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  sendIcon: {
+    marginLeft: 2,
   },
   recordingRow: {
     flex: 1,

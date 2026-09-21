@@ -44,7 +44,8 @@ export const normalizeMessage = (m: any): any => {
       'id', '_id', 'conversationId', 'senderId', 'recipientId', 'text', 
       'mediaType', 'mediaUrl', 'mediaUrls', 'audioUrl', 'audioDuration', 
       'thumbnailUrl', 'sharedPost', 'sharedStory', 'replyTo', 'reactions', 
-      'readBy', 'read', 'delivered', 'timestamp', 'createdAt', 'tempId'
+      'readBy', 'read', 'delivered', 'timestamp', 'createdAt', 'tempId',
+      'editedAt', 'isEdited'
     ];
     keys.forEach(k => {
       if (raw[k] !== undefined) {
@@ -59,6 +60,15 @@ export const normalizeMessage = (m: any): any => {
         }
       }
     });
+  }
+
+  // Preserve reactions if raw was a Map (JSON.stringify converts Map to {})
+  if (raw?.reactions instanceof Map) {
+    const mapObj: Record<string, string[]> = {};
+    raw.reactions.forEach((val: any, key: any) => {
+      if (Array.isArray(val) && val.length > 0) mapObj[String(key)] = val.map(String);
+    });
+    clean.reactions = mapObj;
   }
 
   const source = clean;
@@ -96,6 +106,7 @@ export const normalizeMessage = (m: any): any => {
     createdAt: resolvedCreatedAt,
     timestamp: resolvedTimestamp,
     mediaType: normalizedMediaType,
+    ...(source?.editedAt ? { editedAt: source.editedAt, isEdited: true } : (source?.isEdited ? { isEdited: true } : {})),
     ...(legacyStoryId && !source?.sharedStory
       ? {
           sharedStory: {
@@ -118,20 +129,73 @@ export const normalizeMessage = (m: any): any => {
 
 export const mergeMessages = (existing: any[], incoming: any[]): any[] => {
   const map = new Map<string, any>();
+  const tempIdToKeyMap = new Map<string, string>();
 
   existing.forEach((m) => {
-    map.set(String(m.id || m._id || m.messageId), m);
+    const key = String(m.id || m._id || m.messageId || '');
+    if (!key) return;
+    map.set(key, m);
+    if (m.tempId) {
+      tempIdToKeyMap.set(String(m.tempId), key);
+    }
+    if (key.startsWith('temp_') || m.tempOrigin) {
+      tempIdToKeyMap.set(key, key);
+    }
   });
 
   incoming.forEach((m) => {
     const n = normalizeMessage(m);
-    const prev = map.get(n.id) || {};
-    
-    map.set(n.id, {
-      ...prev,
-      ...n,
-      reactions: { ...(prev.reactions || {}), ...(n.reactions || {}) },
-    });
+    const nId = String(n.id || n._id || n.messageId || '');
+    if (!nId) return;
+
+    // Check if incoming matches an existing temp/optimistic message
+    let matchingTempKey: string | undefined = undefined;
+    if (n.tempId && tempIdToKeyMap.has(String(n.tempId))) {
+      matchingTempKey = tempIdToKeyMap.get(String(n.tempId));
+    } else if (tempIdToKeyMap.has(nId)) {
+      matchingTempKey = tempIdToKeyMap.get(nId);
+    } else {
+      // Fallback: match by unconfirmed sender message with same content sent within 15 seconds
+      const existingList = Array.from(map.values());
+      const fuzzyMatch = existingList.find((ex) => {
+        if (ex.sent === true || (!ex.tempOrigin && !String(ex.id).startsWith('temp_'))) return false;
+        if (String(ex.senderId) !== String(n.senderId)) return false;
+        const exText = String(ex.text || ex.caption || '').trim();
+        const nText = String(n.text || n.caption || '').trim();
+        if (exText && nText && exText !== nText) return false;
+        const timeDiff = Math.abs((ex.__ts || 0) - (n.__ts || 0));
+        return timeDiff < 15000;
+      });
+      if (fuzzyMatch) {
+        matchingTempKey = String(fuzzyMatch.id || fuzzyMatch._id || fuzzyMatch.messageId);
+      }
+    }
+
+    if (matchingTempKey && map.has(matchingTempKey)) {
+      const prev = map.get(matchingTempKey);
+      if (matchingTempKey !== nId) {
+        map.delete(matchingTempKey);
+      }
+      map.set(nId, {
+        ...prev,
+        ...n,
+        id: nId,
+        tempId: prev.tempId || n.tempId || matchingTempKey,
+        sent: true,
+        failed: false,
+        reactions: { ...(prev.reactions || {}), ...(n.reactions || {}) },
+      });
+      if (prev.tempId) tempIdToKeyMap.set(String(prev.tempId), nId);
+      tempIdToKeyMap.set(matchingTempKey, nId);
+    } else {
+      const prev = map.get(nId) || {};
+      map.set(nId, {
+        ...prev,
+        ...n,
+        tempId: prev.tempId || n.tempId,
+        reactions: { ...(prev.reactions || {}), ...(n.reactions || {}) },
+      });
+    }
   });
 
   return Array.from(map.values()).sort((a, b) => (b.__ts || 0) - (a.__ts || 0));
@@ -164,3 +228,38 @@ export const getFormattedActiveStatus = (presence: any): string => {
   if (diff < 86400000) return `${Math.floor(diff / 3600000)}h ago`;
   return 'Active';
 };
+
+export const clearConversationCaches = (convoId?: string | null, otherUserId?: string | null, currentUserId?: string | null) => {
+  const keysToClear = new Set<string>();
+  if (convoId) keysToClear.add(String(convoId));
+  if (otherUserId) keysToClear.add(String(otherUserId));
+  if (currentUserId && otherUserId) {
+    keysToClear.add([String(currentUserId), String(otherUserId)].sort().join('_'));
+    keysToClear.add(`${currentUserId}_${otherUserId}`);
+    keysToClear.add(`${otherUserId}_${currentUserId}`);
+  }
+
+  try {
+    const { useAppStore } = require('@/store/useAppStore');
+    const AsyncStorage = require('@/lib/storage').default;
+    const { feedEventEmitter } = require('@/lib/feedEventEmitter');
+
+    keysToClear.forEach((key) => {
+      try {
+        useAppStore.getState().setCachedMessages(key, []);
+      } catch {}
+      AsyncStorage.removeItem(`messages_cache_${key}`).catch(() => {});
+      AsyncStorage.removeItem(`convo_meta_${key}`).catch(() => {});
+    });
+
+    feedEventEmitter.emitFeedUpdate({
+      type: 'CHAT_CLEARED',
+      userId: otherUserId ? String(otherUserId) : undefined,
+      blockedUserId: otherUserId ? String(otherUserId) : undefined,
+      data: { conversationId: convoId, otherUserId },
+    });
+  } catch (err) {
+    console.warn('[clearConversationCaches] Error clearing caches:', err);
+  }
+};
+

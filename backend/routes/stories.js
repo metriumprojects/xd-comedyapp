@@ -293,6 +293,52 @@ router.post('/', verifyToken, validate(createStorySchema), async (req, res) => {
       }
     }
 
+    const tenSecondsAgo = new Date(Date.now() - 10000);
+    const threeSecondsAgo = new Date(Date.now() - 3500);
+    const shareId = normalizedPostMetadata?.postId || normalizedPostMetadata?.shareStoryId || normalizedPostMetadata?.id;
+
+    // 10-second backend deduplication check by mediaUrl or shareId
+    const existingRecentStory = await Story.findOne({
+      userId,
+      createdAt: { $gte: tenSecondsAgo },
+      $or: [
+        { video: mediaUrl },
+        { image: mediaUrl },
+        ...(shareId ? [
+          { 'postMetadata.postId': shareId },
+          { 'postMetadata.shareStoryId': shareId },
+          { 'postMetadata.id': shareId }
+        ] : [])
+      ]
+    });
+
+    if (existingRecentStory) {
+      console.log('[POST /stories] ⚠️ Duplicate story upload prevented within 10s window:', existingRecentStory._id);
+      return res.json({
+        success: true,
+        data: existingRecentStory,
+        story: existingRecentStory,
+        isDuplicate: true
+      });
+    }
+
+    // Rapid 3.5-second deduplication check for identical user uploads
+    const rapidStory = await Story.findOne({
+      userId,
+      createdAt: { $gte: threeSecondsAgo },
+      mediaType: mediaType
+    });
+
+    if (rapidStory) {
+      console.log('[POST /stories] ⚠️ Rapid duplicate story upload prevented within 3.5s window:', rapidStory._id);
+      return res.json({
+        success: true,
+        data: rapidStory,
+        story: rapidStory,
+        isDuplicate: true
+      });
+    }
+
     const storyData = {
       userId,
       userName: user?.displayName || user?.name || userName || 'Anonymous',

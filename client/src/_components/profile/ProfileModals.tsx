@@ -15,6 +15,7 @@ import {
 import { Feather, Ionicons } from '@expo/vector-icons';
 import { hapticLight } from '@/lib/haptics';
 import COLORS from '@/src/theme/colors';
+import { useSwipeDownToDismiss } from '@/hooks/useSwipeDownToDismiss';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -33,28 +34,46 @@ export const CollectionsModal: React.FC<CollectionsModalProps> = ({
   selectedSection,
   onSelectSection,
 }) => {
+  const {
+    headerPanHandlers,
+    sheetPanHandlers,
+    animatedStyle,
+    dismiss,
+  } = useSwipeDownToDismiss({
+    onDismiss: () => {
+      hapticLight();
+      onClose();
+    },
+    visible,
+    initialSlideIn: true,
+    initialOffset: 450,
+  });
+
   return (
     <Modal
       visible={visible}
       transparent={true}
-      animationType="slide"
-      onRequestClose={onClose}
+      animationType="none"
+      onRequestClose={() => {
+        hapticLight();
+        dismiss();
+      }}
     >
-      <TouchableOpacity
-        style={styles.menuOverlay}
-        activeOpacity={1}
-        onPress={() => {
-          hapticLight();
-          onClose();
-        }}
-      >
-        <TouchableOpacity 
-          activeOpacity={1} 
-          style={styles.menuSheet}
-          onPress={() => {}}
+      <View style={styles.menuOverlay}>
+        <TouchableOpacity
+          style={{ flex: 1, width: '100%' }}
+          activeOpacity={1}
+          onPress={() => {
+            hapticLight();
+            dismiss();
+          }}
+        />
+        <Animated.View 
+          {...sheetPanHandlers}
+          style={[styles.menuSheet, animatedStyle]}
         >
           <View style={styles.menuSheetContent}>
-            <View style={styles.handleContainer}>
+            <View {...headerPanHandlers} style={[styles.handleContainer, { paddingVertical: 12, width: '100%' }]}>
               <View style={styles.menuHandle} />
             </View>
             
@@ -106,8 +125,8 @@ export const CollectionsModal: React.FC<CollectionsModalProps> = ({
               ))}
             </ScrollView>
           </View>
-        </TouchableOpacity>
-      </TouchableOpacity>
+        </Animated.View>
+      </View>
     </Modal>
   );
 };
@@ -136,6 +155,35 @@ export const UserMenuModal: React.FC<UserMenuModalProps> = ({
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(300)).current;
 
+  const handleClose = () => {
+    Animated.parallel([
+      Animated.timing(fadeAnim, {
+        toValue: 0,
+        duration: 150,
+        useNativeDriver: true,
+      }),
+      Animated.timing(slideAnim, {
+        toValue: 300,
+        duration: 180,
+        useNativeDriver: true,
+      }),
+    ]).start(() => {
+      onClose();
+    });
+  };
+
+  const {
+    headerPanHandlers,
+    sheetPanHandlers,
+    translateY: dragTranslateY,
+    dismiss,
+  } = useSwipeDownToDismiss({
+    onDismiss: handleClose,
+    visible,
+  });
+
+  const combinedTranslateY = Animated.add(slideAnim, dragTranslateY);
+
   useEffect(() => {
     if (visible) {
       Animated.parallel([
@@ -158,23 +206,6 @@ export const UserMenuModal: React.FC<UserMenuModalProps> = ({
 
   if (!visible) return null;
 
-  const handleClose = () => {
-    Animated.parallel([
-      Animated.timing(fadeAnim, {
-        toValue: 0,
-        duration: 150,
-        useNativeDriver: true,
-      }),
-      Animated.timing(slideAnim, {
-        toValue: 300,
-        duration: 180,
-        useNativeDriver: true,
-      }),
-    ]).start(() => {
-      onClose();
-    });
-  };
-
   return (
     <Animated.View style={[styles.menuOverlayWrapper, { opacity: fadeAnim }]}>
       <TouchableOpacity 
@@ -182,9 +213,12 @@ export const UserMenuModal: React.FC<UserMenuModalProps> = ({
         activeOpacity={1} 
         onPress={handleClose}
       >
-        <Animated.View style={[styles.menuSheet, { transform: [{ translateY: slideAnim }] }]}>
+        <Animated.View 
+          {...sheetPanHandlers}
+          style={[styles.menuSheet, { transform: [{ translateY: combinedTranslateY }] }]}
+        >
           <View style={styles.menuSheetContent}>
-            <View style={styles.handleContainer}>
+            <View {...headerPanHandlers} style={[styles.handleContainer, { paddingVertical: 12, width: '100%' }]}>
               <View style={styles.menuHandle} />
             </View>
 
@@ -275,29 +309,34 @@ const styles = StyleSheet.create({
   },
   menuOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.4)',
+    backgroundColor: 'transparent',
     justifyContent: 'flex-end',
   },
   menuSheet: {
     backgroundColor: COLORS.background,
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
     overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOpacity: 0.12,
+    shadowRadius: 20,
+    shadowOffset: { width: 0, height: -6 },
+    elevation: 20,
   },
   menuSheetContent: {
-    paddingBottom: Platform.OS === 'ios' ? 40 : 20,
+    paddingBottom: Platform.OS === 'ios' ? 36 : 20,
   },
   handleContainer: {
     width: '100%',
     alignItems: 'center',
-    paddingTop: 10,
+    paddingTop: 12,
     paddingBottom: 10,
   },
   menuHandle: {
-    width: 40,
-    height: 4,
-    backgroundColor: COLORS.border,
-    borderRadius: 2,
+    width: 38,
+    height: 4.5,
+    backgroundColor: '#DADCE0',
+    borderRadius: 2.5,
   },
   menuItem: {
     flexDirection: 'row',

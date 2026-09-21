@@ -178,6 +178,20 @@ async function deactivateStripeProduct(tier) {
   }
 }
 
+/**
+ * Reactivate a Stripe Product & Price when a creator restores an archived tier.
+ */
+async function reactivateStripeProduct(tier) {
+  const stripe = getStripe();
+
+  if (tier.stripeProductId) {
+    await stripe.products.update(tier.stripeProductId, { active: true });
+  }
+  if (tier.stripePriceId) {
+    await stripe.prices.update(tier.stripePriceId, { active: true });
+  }
+}
+
 // ============= STRIPE CONNECT (Creator Payouts) =============
 
 /**
@@ -561,7 +575,9 @@ async function handleWebhookEvent(event) {
     // ---- Subscription lifecycle events ----
 
     case 'customer.subscription.created':
-    case 'customer.subscription.updated': {
+    case 'customer.subscription.updated':
+    case 'customer.subscription.resumed':
+    case 'customer.subscription.paused': {
       const stripeSubscription = event.data.object;
 
       const sub = await Subscription.findOne({
@@ -636,10 +652,21 @@ async function handleWebhookEvent(event) {
           stripeSubscriptionId: invoice.subscription,
         });
 
-        if (sub && sub.status !== 'active') {
+        if (sub) {
+          const wasActive = sub.status === 'active';
           sub.status = 'active';
           await sub.save();
           console.log(`✅ [Stripe] Payment succeeded for subscription ${invoice.subscription}`);
+
+          if (!wasActive && sub.tierId) {
+            const activeCount = await Subscription.countDocuments({
+              tierId: sub.tierId,
+              status: { $in: ['active', 'trialing'] },
+            });
+            await SubscriptionTier.findByIdAndUpdate(sub.tierId, {
+              subscriberCount: activeCount,
+            });
+          }
         }
       }
       break;
@@ -657,6 +684,16 @@ async function handleWebhookEvent(event) {
           sub.status = 'past_due';
           await sub.save();
           console.warn(`⚠️ [Stripe] Payment failed for subscription ${invoice.subscription}`);
+
+          if (sub.tierId) {
+            const activeCount = await Subscription.countDocuments({
+              tierId: sub.tierId,
+              status: { $in: ['active', 'trialing'] },
+            });
+            await SubscriptionTier.findByIdAndUpdate(sub.tierId, {
+              subscriberCount: activeCount,
+            });
+          }
         }
       }
       break;
@@ -750,6 +787,7 @@ module.exports = {
   createStripeProductAndPrice,
   updateStripeProduct,
   deactivateStripeProduct,
+  reactivateStripeProduct,
   createSubscription,
   cancelSubscription,
   handleWebhookEvent,

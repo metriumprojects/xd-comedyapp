@@ -19,6 +19,28 @@ const app = require('../src/index');
 
 describe('🚀 Industrial Security & Stability Suite', () => {
   
+  let testUser;
+  let testToken;
+
+  beforeAll(async () => {
+    const User = mongoose.model('User');
+    const { generateToken } = require('../src/middleware/authMiddleware');
+    testUser = await User.create({
+      email: `test_${Date.now()}@example.com`,
+      username: `test_${Date.now()}`,
+      role: 'user',
+      status: 'active'
+    });
+    testToken = generateToken(testUser._id.toString(), testUser.email);
+  });
+
+  afterAll(async () => {
+    if (testUser?._id) {
+      const User = mongoose.model('User');
+      await User.findByIdAndDelete(testUser._id);
+    }
+  });
+
   describe('🛡️ Authentication & Authorization', () => {
     
     test('GET /api/posts - Should fail without Authorization header', async () => {
@@ -40,29 +62,20 @@ describe('🚀 Industrial Security & Stability Suite', () => {
     });
 
     test('POST /api/admin/stats - Should fail for non-admin even if authenticated', async () => {
-      // Create a valid token for a regular user
-      const { generateToken } = require('../src/middleware/authMiddleware');
-      const validObjectId = new mongoose.Types.ObjectId().toString();
-      const token = generateToken(validObjectId, 'user@example.com');
-
       const res = await request(app)
         .get('/api/admin/stats')
-        .set('Authorization', `Bearer ${token}`);
+        .set('Authorization', `Bearer ${testToken}`);
       
-      // It should be 403 Forbidden because the mock user role is 'user'
+      // It should be 403 Forbidden because the user role is 'user'
       expect(res.statusCode).toBe(403);
     });
   });
 
   describe('🧪 Injection & Input Sanitization', () => {
     test('GET /api/users/search - Should handle regex characters safely', async () => {
-      const { generateToken } = require('../src/middleware/authMiddleware');
-      const validObjectId = new mongoose.Types.ObjectId().toString();
-      const token = generateToken(validObjectId, 'user@example.com');
-
       const res = await request(app)
         .get('/api/users/search?q=.*')
-        .set('Authorization', `Bearer ${token}`);
+        .set('Authorization', `Bearer ${testToken}`);
       
       expect(res.statusCode).toBe(200);
       expect(res.body.success).toBe(true);
@@ -70,9 +83,14 @@ describe('🚀 Industrial Security & Stability Suite', () => {
   });
 
   describe('💾 Caching System', () => {
-    test('Redis service should handle missing URL gracefully', () => {
+    test('Redis service should handle configuration gracefully', () => {
       const redis = require('../src/utils/redis');
-      expect(redis.redis).toBeUndefined(); // Since process.env.REDIS_URL is not set
+      if (process.env.REDIS_URL || process.env.REDIS_HOST) {
+        expect(redis.redis).toBeDefined();
+        expect(typeof redis.isRedisAvailable).toBe('function');
+      } else {
+        expect(redis.redis).toBeUndefined();
+      }
     });
   });
 

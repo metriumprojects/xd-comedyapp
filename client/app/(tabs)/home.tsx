@@ -41,6 +41,10 @@ import { useUIStore } from '../../store/useUIStore';
 import { useQueryClient } from '@tanstack/react-query';
 import { prefetchOwnProfile } from '@/src/features/profile/hooks/useProfileData';
 import { useTabEvent } from './_layout';
+import { Image as ExpoImage } from 'expo-image';
+import { prefetchVideo } from '@/src/media/videoCache';
+import { getOptimizedMediaUrl, isVideoUrl } from '../../lib/utils/media';
+import { getVideoThumbnailUrl } from '../../lib/imageHelpers';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get("window");
 
@@ -374,6 +378,43 @@ export default function Home() {
     }
   }, [containerHeight, activeIndex, filteredPosts.length, setActiveIndex]);
 
+  // Predictive Hybrid Prefetch: Prefetch thumbnails and videos for next 2 reels (+1 and +2)
+  // Debounced by 350ms so rapid-swiping does not generate wasted network requests.
+  useEffect(() => {
+    if (!filteredPosts || filteredPosts.length === 0) return;
+
+    const timer = setTimeout(() => {
+      const targets = [activeIndex + 1, activeIndex + 2];
+      for (const targetIdx of targets) {
+        if (targetIdx >= 0 && targetIdx < filteredPosts.length) {
+          const post = filteredPosts[targetIdx];
+          if (!post) continue;
+
+          // 1. Resolve media and URLs
+          const media = Array.isArray(post.media) ? post.media[0] : null;
+          const rawUrl = media?.url || post.mediaUrls?.[0] || post.video || post.videoUrl || post.imageUrl || '';
+
+          // 2. Prefetch thumbnail/image into memory/disk cache
+          let rawThumb = post.thumbnailUrl || post.imageUrl || '';
+          if (rawThumb && isVideoUrl(rawThumb)) rawThumb = '';
+          const thumbUrl = getVideoThumbnailUrl(rawUrl, rawThumb);
+          if (thumbUrl && typeof thumbUrl === 'string' && thumbUrl.startsWith('http')) {
+            ExpoImage.prefetch(thumbUrl).catch(() => {});
+          }
+
+          // 3. Prefetch video file to local cache (only if video post)
+          const isVideo = post.mediaType === 'video' || isVideoUrl(rawUrl) || !!(post.video || post.videoUrl);
+          if (isVideo && rawUrl && typeof rawUrl === 'string' && rawUrl.startsWith('http')) {
+            const optimizedVideoUrl = getOptimizedMediaUrl(rawUrl);
+            prefetchVideo(optimizedVideoUrl).catch(() => {});
+          }
+        }
+      }
+    }, 350);
+
+    return () => clearTimeout(timer);
+  }, [activeIndex, filteredPosts]);
+
   const keyboardOpenRef = useRef(false);
 
   useEffect(() => {
@@ -468,10 +509,9 @@ export default function Home() {
           onEndReachedThreshold={1.5}
           decelerationRate="fast"
           snapToInterval={containerHeight}
-          snapToAlignment="start"
-          windowSize={3}
+          windowSize={5}
           initialNumToRender={2}
-          maxToRenderPerBatch={1}
+          maxToRenderPerBatch={2}
           // Left off deliberately: each cell hosts the comment sheet and story viewer, and on Android
           // clipping detaches/reattaches their native subtree, which swallows the first touch. The
           // small window sizes above already keep only a couple of cells mounted.

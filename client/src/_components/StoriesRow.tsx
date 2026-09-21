@@ -13,6 +13,7 @@ import { ActivityIndicator, Alert, Dimensions, Image, Keyboard, KeyboardAvoiding
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { createStory, getAllStoriesForFeed, getUserProfile } from "../../lib/firebaseHelpers/index";
 import { feedEventEmitter } from '../../lib/feedEventEmitter';
+import { pinStoryMediaMany } from '@/src/media/storyMediaSession';
 import COLORS from '@/src/theme/colors';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
@@ -132,6 +133,29 @@ function StoriesRowComponent({ onStoryPress, onStoryViewerClose, refreshTrigger,
 
   // Use ref to prevent picker from opening during transitions
   const pickerBlockedRef = React.useRef(false);
+  const isSharingRef = React.useRef(false);
+
+  // Prefetch + pin visible story bubble thumbnails
+  const BUBBLE_SLOT_W = 46;
+  const visibleThumbRangeRef = React.useRef({ start: 0, end: 12 });
+  const pinVisibleBubbleThumbs = React.useCallback((users: StoryUser[], start: number, end: number) => {
+    try {
+      const slice = users.slice(Math.max(0, start), Math.min(users.length, end));
+      const urls = slice
+        .map((u: any) => normalizeStoryMediaUrl(u.userAvatar))
+        .filter((u) => !!u && /^https?:\/\//i.test(u));
+      const unique = [...new Set(urls)];
+      if (!unique.length) return;
+      ExpoImage.prefetch(unique).catch(() => {});
+      pinStoryMediaMany(unique, 16).catch(() => {});
+    } catch { }
+  }, []);
+
+  useEffect(() => {
+    if (!storyUsers.length) return;
+    const { start, end } = visibleThumbRangeRef.current;
+    pinVisibleBubbleThumbs(storyUsers, start, end);
+  }, [storyUsers, pinVisibleBubbleThumbs]);
 
   // Default avatar placeholder
   
@@ -943,7 +967,8 @@ function StoriesRowComponent({ onStoryPress, onStoryViewerClose, refreshTrigger,
                   style={[styles.shareButton, !selectedMedia && styles.shareButtonDisabled]}
                   disabled={!selectedMedia || uploading}
                   onPress={async () => {
-                    if (!selectedMedia || !authUser || uploading) return;
+                    if (!selectedMedia || !authUser || uploading || isSharingRef.current) return;
+                    isSharingRef.current = true;
                     setUploading(true);
                     setUploadProgress(0);
 
@@ -962,10 +987,10 @@ function StoriesRowComponent({ onStoryPress, onStoryViewerClose, refreshTrigger,
                             { compress: 0.7, format: ImageManipulator.SaveFormat.JPEG }
                           );
                           uploadUri = manipResult.uri;
-                          console.log('[StoriesRow] âœ… Image compressed successfully');
+                          console.log('[StoriesRow] ✅ Image compressed successfully');
                         } catch (err) {
                           // Fallback to original if compression fails
-                          console.warn('[StoriesRow] âš ï¸ Image compression failed, using original:', err);
+                          console.warn('[StoriesRow] ⚠️ Image compression failed, using original:', err);
                           uploadUri = selectedMedia.uri;
                         }
                       }
@@ -999,6 +1024,7 @@ function StoriesRowComponent({ onStoryPress, onStoryViewerClose, refreshTrigger,
                       await loadStories();
                       setTimeout(() => {
                         setUploading(false);
+                        isSharingRef.current = false;
                         setShowUploadModal(false);
                         setSelectedMedia(null);
                         setLocationQuery('');
@@ -1013,11 +1039,13 @@ function StoriesRowComponent({ onStoryPress, onStoryViewerClose, refreshTrigger,
                         }
                       }, 600);
                     } catch (error: any) {
-                      console.error('[StoriesRow] âŒ Story upload failed:', error);
+                      isSharingRef.current = false;
+                      console.error('[StoriesRow] ❌ Story upload failed:', error);
                       setUploadProgress(0);
                       Alert.alert('Error', error?.message || 'Failed to upload story');
                     } finally {
                       if (!didSucceed) {
+                        isSharingRef.current = false;
                         setUploading(false);
                       }
                     }

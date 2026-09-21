@@ -1,15 +1,43 @@
 import React, { useCallback } from 'react';
-import { AppState, Image, StyleSheet, Text, TouchableOpacity, View, Animated, Easing, Modal, ActivityIndicator } from 'react-native';
+import { AppState, Image, StyleSheet, Text, TouchableOpacity, View, Animated, Easing, Modal, ActivityIndicator, PanResponder } from 'react-native';
 import { Image as ExpoImage } from 'expo-image';
-import { Audio, Video, ResizeMode } from 'expo-av';
+import { Audio } from 'expo-av';
+import { useVideoPlayer, VideoView } from 'expo-video';
 import * as FileSystem from 'expo-file-system';
+import * as Haptics from 'expo-haptics';
 import { Feather, Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { DEFAULT_AVATAR_URL } from '@/lib/api';
 import { apiService } from '@/src/_services/apiService';
 import { normalizeMediaUrl, isVideoUrl } from '@/lib/utils/media';
 import { getVideoThumbnailUrl } from '@/lib/imageHelpers';
+import { resolveLocalFirst, pinMedia } from '../media/mediaMirror';
+import { useAudioSpeed } from '../media/audioSpeedStore';
 import COLORS from '@/src/theme/colors';
+
+/**
+ * Generates natural, speech-like waveform heights seeded deterministically
+ * by the message ID or audio URL.
+ */
+function generateWaveformBars(seed: string, count: number = 32): number[] {
+  let hash = 0;
+  const str = seed || 'default_voice_sample';
+  for (let i = 0; i < str.length; i++) {
+    hash = ((hash << 5) - hash) + str.charCodeAt(i);
+    hash |= 0;
+  }
+  
+  const bars: number[] = [];
+  for (let i = 0; i < count; i++) {
+    const pseudo = Math.abs(Math.sin(hash * 0.002 + i * 0.78 + (i % 4) * 1.3));
+    const envelope = Math.sin((i / Math.max(1, count - 1)) * Math.PI);
+    const minH = 5;
+    const maxH = 22;
+    const h = Math.round(minH + (maxH - minH) * (pseudo * 0.72 + envelope * 0.28));
+    bars.push(Math.max(4, Math.min(maxH, h)));
+  }
+  return bars;
+}
 
 type Props = {
   text?: string;
@@ -22,7 +50,14 @@ type Props = {
   editedAt?: any;
   isSelf: boolean;
   formatTime: (ts: any) => string;
-  replyTo?: { id: string; text: string; senderId: string } | null;
+  replyTo?: { 
+    id: string; 
+    text: string; 
+    senderId: string; 
+    mediaUrl?: string | null; 
+    imageUrl?: string | null; 
+    mediaType?: string | null; 
+  } | null;
   username?: string;
   currentUserId?: string;
   compact?: boolean;
@@ -45,6 +80,10 @@ type Props = {
   reactions?: { [emoji: string]: string[] };
   failed?: boolean;
   thumbnailUrl?: string | null;
+  onPressReactionsBadge?: (messageId: string, reactions: any) => void;
+  onRetry?: (messageId: string) => void;
+  isSearchMatch?: boolean;
+  isCurrentSearchMatch?: boolean;
 };
 
 function MessageBubbleInner({
@@ -81,10 +120,13 @@ function MessageBubbleInner({
   reactions,
   failed,
   thumbnailUrl,
+  onPressReactionsBadge,
+  onRetry,
+  isSearchMatch,
+  isCurrentSearchMatch,
 }: Props) {
   const [playing, setPlaying] = React.useState(false);
   const [playVideoModalVisible, setPlayVideoModalVisible] = React.useState(false);
-  const [videoLoaded, setVideoLoaded] = React.useState(false);
   const [isLoaded, setIsLoaded] = React.useState(false);
   const [playbackPosition, setPlaybackPosition] = React.useState(0);
   const [playbackDuration, setPlaybackDuration] = React.useState(0);
@@ -92,12 +134,6 @@ function MessageBubbleInner({
   const [storyExpired, setStoryExpired] = React.useState(false);
   const [storyLoading, setStoryLoading] = React.useState(false);
   const fadeAnim = React.useRef(new Animated.Value(0)).current;
-
-  React.useEffect(() => {
-    if (!playVideoModalVisible) {
-      setVideoLoaded(false);
-    }
-  }, [playVideoModalVisible]);
   const scaleAnim = React.useRef(new Animated.Value(0.95)).current;
 
   React.useEffect(() => {
@@ -136,6 +172,43 @@ function MessageBubbleInner({
 
   const resolvedMediaUrl = mediaUrl || imageUrl || null;
   const resolvedMediaType = inferMediaType(mediaType, resolvedMediaUrl, audioUrl, imageUrl, audioDuration, text);
+
+  const [videoPlayUrl, setVideoPlayUrl] = React.useState(resolvedMediaUrl);
+  const [imagePlayUrl, setImagePlayUrl] = React.useState(resolvedMediaUrl);
+
+  React.useEffect(() => {
+    if (resolvedMediaType === 'video' && resolvedMediaUrl) {
+      let active = true;
+      try {
+        resolveLocalFirst(resolvedMediaUrl).then((resolved: string) => {
+          if (active) setVideoPlayUrl(resolved);
+        }).catch(() => {});
+        pinMedia(resolvedMediaUrl).catch(() => {});
+      } catch {
+        setVideoPlayUrl(resolvedMediaUrl);
+      }
+      return () => { active = false; };
+    } else {
+      setVideoPlayUrl(resolvedMediaUrl);
+    }
+  }, [resolvedMediaUrl, resolvedMediaType]);
+
+  React.useEffect(() => {
+    if (resolvedMediaType === 'image' && resolvedMediaUrl) {
+      let active = true;
+      try {
+        resolveLocalFirst(resolvedMediaUrl).then((resolved: string) => {
+          if (active) setImagePlayUrl(resolved);
+        }).catch(() => {});
+        pinMedia(resolvedMediaUrl).catch(() => {});
+      } catch {
+        setImagePlayUrl(resolvedMediaUrl);
+      }
+      return () => { active = false; };
+    } else {
+      setImagePlayUrl(resolvedMediaUrl);
+    }
+  }, [resolvedMediaUrl, resolvedMediaType]);
 
   // DEBUG LOG
   if (sharedPost || sharedStory) {
@@ -359,6 +432,41 @@ function MessageBubbleInner({
     setAudioUnavailable(false);
   }, [playbackUrl]);
 
+  const { speed, speedLabel, cycleSpeed } = useAudioSpeed();
+
+  const waveformBars = React.useMemo(() => {
+    const seed = id || resolvedMediaUrl || audioUrl || 'audio_voice_bubble';
+    return generateWaveformBars(seed, 32);
+  }, [id, resolvedMediaUrl, audioUrl]);
+
+  const audioTotalDuration = React.useMemo(() => {
+    if (typeof audioDuration === 'number' && audioDuration > 0) return audioDuration;
+    if (typeof playbackDuration === 'number' && playbackDuration > 0) return playbackDuration;
+    return 0;
+  }, [audioDuration, playbackDuration]);
+
+  // Keep playback rate in sync with active speed
+  React.useEffect(() => {
+    if (sound) {
+      sound.setRateAsync(speed, true, Audio.PitchCorrectionQuality?.High).catch(() => {});
+    }
+  }, [sound, speed]);
+
+  const handleCycleSpeed = async (e?: any) => {
+    e?.stopPropagation?.();
+    try {
+      await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    } catch {}
+    const nextSpeed = cycleSpeed();
+    if (sound) {
+      try {
+        await sound.setRateAsync(nextSpeed, true, Audio.PitchCorrectionQuality?.High);
+      } catch (err) {
+        console.warn('Failed to set playback rate:', err);
+      }
+    }
+  };
+
   // Pre-load and Pre-fetch audio/images
   React.useEffect(() => {
     if (resolvedMediaType === 'audio' && playbackUrl) {
@@ -383,7 +491,7 @@ function MessageBubbleInner({
             const finalUri = playableUri.startsWith('http') ? localCacheUri : playableUri;
             const { sound: newSound } = await Audio.Sound.createAsync(
               { uri: finalUri },
-              { shouldPlay: false, isLooping: false },
+              { shouldPlay: false, isLooping: false, rate: speed, shouldCorrectPitch: true },
               (status: any) => {
                 if (status.isLoaded) {
                   setPlaybackPosition(status.positionMillis / 1000);
@@ -392,8 +500,9 @@ function MessageBubbleInner({
                   }
                   if (status.didJustFinish) {
                     setPlaying(false);
-                    newSound.stopAsync();
-                    newSound.setPositionAsync(0);
+                    newSound.stopAsync().catch(() => {});
+                    newSound.setPositionAsync(0).catch(() => {});
+                    setPlaybackPosition(0);
                   }
                 }
               }
@@ -409,7 +518,7 @@ function MessageBubbleInner({
   }, [resolvedMediaType, playbackUrl]);
 
   // Handle Playback mode switching
-  const setupAudioMode = async () => {
+  const setupAudioMode = React.useCallback(async () => {
     try {
       await Audio.setAudioModeAsync({
         allowsRecordingIOS: false,
@@ -418,37 +527,47 @@ function MessageBubbleInner({
         staysActiveInBackground: false,
       });
     } catch (e) {}
-  };
+  }, []);
 
   // Debounce play button to prevent rapid tapping from creating multiple sounds
   const isPlayingActionRef = React.useRef(false);
 
-  const handlePlayAudio = async () => {
+  const handlePlayAudio = React.useCallback(async (initialPositionSeconds?: number) => {
     if (!playbackUrl) return;
     if (appStateRef.current !== 'active') return;
-    if (isPlayingActionRef.current) return; // Prevent rapid double-taps
+    if (isPlayingActionRef.current) return;
     isPlayingActionRef.current = true;
     
     try {
       await setupAudioMode();
 
       if (sound) {
-        if (playing) {
+        if (typeof initialPositionSeconds === 'number') {
+          await sound.setPositionAsync(Math.floor(initialPositionSeconds * 1000));
+          setPlaybackPosition(initialPositionSeconds);
+          if (!playing) {
+            onPlayStart?.(id);
+            await sound.setRateAsync(speed, true, Audio.PitchCorrectionQuality?.High);
+            await sound.playAsync();
+            setPlaying(true);
+          }
+        } else if (playing) {
           await sound.pauseAsync();
           setPlaying(false);
         } else {
           try {
             onPlayStart?.(id);
+            await sound.setRateAsync(speed, true, Audio.PitchCorrectionQuality?.High);
             await sound.playAsync();
             setPlaying(true);
           } catch (internalErr: any) {
             const internalMsg = String(internalErr || '');
             if (internalMsg.includes('AudioFocusNotAcquiredException') || internalMsg.includes('audio focus')) {
-              // Retry once after a short delay
               setTimeout(async () => {
                 try {
                   if (appStateRef.current !== 'active') return;
                   await setupAudioMode();
+                  await sound.setRateAsync(speed, true, Audio.PitchCorrectionQuality?.High);
                   await sound.playAsync();
                   setPlaying(true);
                 } catch {}
@@ -472,9 +591,16 @@ function MessageBubbleInner({
       }
 
       onPlayStart?.(id);
+      const initialMs = typeof initialPositionSeconds === 'number' ? Math.floor(initialPositionSeconds * 1000) : 0;
       const { sound: newSound } = await Audio.Sound.createAsync(
         { uri: playableUri },
-        { shouldPlay: true, isLooping: false },
+        { 
+          shouldPlay: true, 
+          isLooping: false, 
+          positionMillis: initialMs,
+          rate: speed, 
+          shouldCorrectPitch: true 
+        },
         (status: any) => {
           if (status.isLoaded) {
             setPlaybackPosition(status.positionMillis / 1000);
@@ -485,6 +611,7 @@ function MessageBubbleInner({
               setPlaying(false);
               newSound.stopAsync().catch(() => {});
               newSound.setPositionAsync(0).catch(() => {});
+              setPlaybackPosition(0);
             }
           }
         }
@@ -497,21 +624,92 @@ function MessageBubbleInner({
       console.error('Audio playback exception:', e);
       setAudioUnavailable(true);
     } finally {
-      // Release debounce after a short delay
       setTimeout(() => { isPlayingActionRef.current = false; }, 300);
     }
-  };
+  }, [playbackUrl, sound, playing, onPlayStart, id, speed, resolvePlayableAudioUri, setupAudioMode]);
 
-  const lastPressRef = React.useRef(0);
+  const waveformWidthRef = React.useRef(160);
+  const seekToRatioRef = React.useRef<(ratio: number) => void>(() => {});
+
+  const handleWaveformLayout = React.useCallback((e: any) => {
+    const w = e.nativeEvent.layout.width;
+    if (w > 0) {
+      waveformWidthRef.current = w;
+    }
+  }, []);
+
+  const seekToRatio = React.useCallback(async (ratio: number) => {
+    const effectiveDuration = audioDuration || playbackDuration || 0;
+    const clampedRatio = Math.max(0, Math.min(1, ratio));
+    const targetSeconds = clampedRatio * (effectiveDuration > 0 ? effectiveDuration : 1);
+    setPlaybackPosition(targetSeconds);
+
+    if (sound) {
+      try {
+        await sound.setPositionAsync(Math.floor(targetSeconds * 1000));
+        if (!playing) {
+          onPlayStart?.(id);
+          await setupAudioMode();
+          await sound.setRateAsync(speed, true, Audio.PitchCorrectionQuality?.High);
+          await sound.playAsync();
+          setPlaying(true);
+        }
+      } catch (err) {
+        console.warn('Failed to seek sound position:', err);
+      }
+    } else if (playbackUrl) {
+      handlePlayAudio(targetSeconds);
+    }
+  }, [audioDuration, playbackDuration, sound, playing, onPlayStart, id, speed, playbackUrl, handlePlayAudio, setupAudioMode]);
+
+  seekToRatioRef.current = seekToRatio;
+
+  const waveformPanResponder = React.useMemo(() => {
+    return PanResponder.create({
+      onStartShouldSetPanResponder: () => true,
+      onStartShouldSetPanResponderCapture: () => true,
+      onMoveShouldSetPanResponder: (_, g) => Math.abs(g.dx) > 3,
+      onMoveShouldSetPanResponderCapture: (_, g) => Math.abs(g.dx) > 3,
+      onPanResponderGrant: (evt) => {
+        const x = evt.nativeEvent.locationX;
+        if (waveformWidthRef.current > 0) {
+          const ratio = Math.max(0, Math.min(1, x / waveformWidthRef.current));
+          seekToRatioRef.current(ratio);
+        }
+      },
+      onPanResponderMove: (evt) => {
+        const x = evt.nativeEvent.locationX;
+        if (waveformWidthRef.current > 0) {
+          const ratio = Math.max(0, Math.min(1, x / waveformWidthRef.current));
+          seekToRatioRef.current(ratio);
+        }
+      },
+      onPanResponderRelease: () => {},
+      onPanResponderTerminationRequest: () => false,
+    });
+  }, []);
+
+  const validReactionEntries = React.useMemo(() => {
+    if (!reactions) return [];
+    if (reactions instanceof Map) {
+      const entries: [string, string[]][] = [];
+      reactions.forEach((users: any, emoji: any) => {
+        if (Array.isArray(users) && users.length > 0) {
+          entries.push([String(emoji), users.map(String)]);
+        }
+      });
+      return entries;
+    }
+    if (typeof reactions === 'object') {
+      return Object.entries(reactions)
+        .filter(([, users]) => Array.isArray(users) && (users as any[]).length > 0)
+        .map(([emoji, users]) => [emoji, (users as any[]).map(String)] as [string, string[]]);
+    }
+    return [];
+  }, [reactions]);
 
   const handlePress = () => {
-    const now = Date.now();
-    if (now - lastPressRef.current < 300) {
-      if (onReaction) onReaction('❤️');
-      lastPressRef.current = 0;
-    } else {
-      lastPressRef.current = now;
-    }
+    // Double tap is handled exclusively by SwipeableMessageRow to avoid duplicate toggle races
   };
 
   return (
@@ -543,6 +741,8 @@ function MessageBubbleInner({
               styles.msgBubble,
               isSelf ? styles.msgBubbleRight : styles.msgBubbleLeft,
               compact && styles.msgBubbleCompact,
+              isSearchMatch && styles.msgBubbleSearchMatch,
+              isCurrentSearchMatch && styles.msgBubbleCurrentSearchMatch,
               (resolvedMediaType === 'post' || resolvedMediaType === 'story') && {
                 paddingHorizontal: 0,
                 paddingVertical: 0,
@@ -579,8 +779,8 @@ function MessageBubbleInner({
             )}
 
              {resolvedMediaType === 'image' && resolvedMediaUrl && (
-              <TouchableOpacity onPress={() => onPressImage?.(resolvedMediaUrl)}>
-                <ExpoImage source={{ uri: resolvedMediaUrl }} style={styles.msgImage} contentFit="cover" cachePolicy="memory-disk" transition={150} />
+              <TouchableOpacity onPress={() => onPressImage?.(imagePlayUrl || resolvedMediaUrl)}>
+                <ExpoImage source={{ uri: imagePlayUrl || resolvedMediaUrl }} style={styles.msgImage} contentFit="cover" cachePolicy="memory-disk" transition={150} />
               </TouchableOpacity>
             )}
             
@@ -616,30 +816,40 @@ function MessageBubbleInner({
             )}
   
             {resolvedMediaType === 'audio' && (audioUrl || resolvedMediaUrl || audioDuration) && (
-              <TouchableOpacity
+              <View
                 style={[styles.premiumAudioContainer, audioUnavailable && styles.audioUnavailableContainer]}
-                onPress={handlePlayAudio}
-                disabled={!playbackUrl}
-                activeOpacity={!playbackUrl ? 1 : 0.8}
               >
-                <View style={[styles.audioPlayCircle, isSelf && styles.audioPlayCircleSelf]}>
+                <TouchableOpacity
+                  style={[styles.audioPlayCircle, isSelf && styles.audioPlayCircleSelf]}
+                  onPress={() => handlePlayAudio()}
+                  disabled={!playbackUrl}
+                  activeOpacity={!playbackUrl ? 1 : 0.75}
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                  accessibilityRole="button"
+                  accessibilityLabel={playing ? "Pause voice message" : "Play voice message"}
+                >
                   <Ionicons
                     name={audioUnavailable ? 'alert-circle' : (playbackUrl ? (playing ? 'pause' : 'play') : 'mic')}
                     size={18}
                     color={isSelf ? COLORS.textLight : COLORS.textPrimary}
                   />
-                </View>
+                </TouchableOpacity>
 
                 <View style={styles.audioBody}>
-                  <View style={[styles.waveformContainer, { overflow: 'hidden' }]}>
-                    {(() => {
-                      const barCount = 34;
-                      const progress = playbackDuration > 0 ? playbackPosition / playbackDuration : 0;
-                      const filledCount = Math.floor(progress * barCount);
-
-                      return [...Array(barCount)].map((_, i) => {
-                        const height = 5 + Math.abs(Math.sin(i * 1.15) * 10);
-                        const isFilled = i < filledCount && playing;
+                  {/* Interactive Seekable Waveform Area */}
+                  <View
+                    style={styles.waveformTouchArea}
+                    {...waveformPanResponder.panHandlers}
+                    onLayout={handleWaveformLayout}
+                  >
+                    <View style={styles.waveformContainer}>
+                      {waveformBars.map((height, i) => {
+                        const totalTime = audioTotalDuration;
+                        const progress = totalTime > 0 ? playbackPosition / totalTime : 0;
+                        const filledCount = Math.floor(progress * waveformBars.length);
+                        const hasStarted = playing || playbackPosition > 0;
+                        const isFilled = hasStarted && i <= filledCount;
+                        const isCurrent = hasStarted && i === filledCount;
 
                         return (
                           <View
@@ -647,28 +857,44 @@ function MessageBubbleInner({
                             style={[
                               styles.waveBar,
                               { height },
+                              isCurrent && styles.waveBarCurrent,
                               {
                                 backgroundColor: isSelf
-                                  ? (isFilled ? COLORS.white : 'rgba(255,255,255,0.45)')
-                                  : (isFilled ? '#111111' : 'rgba(0,0,0,0.14)')
+                                  ? (isFilled ? COLORS.white : 'rgba(255,255,255,0.40)')
+                                  : (isFilled ? '#111111' : 'rgba(0,0,0,0.16)')
                               }
                             ]}
                           />
                         );
-                      });
-                    })()}
+                      })}
+                    </View>
                   </View>
 
+                  {/* Meta Row: Duration + 1x/1.5x/2x Speed Chip */}
                   <View style={styles.audioMetaRow}>
                     <Text style={[styles.audioTimeText, isSelf && { color: 'rgba(255,255,255,0.85)' }]}>
-                      {audioUnavailable ? 'Unavailable' : (!playbackUrl ? 'Voice message' : formatDuration(playbackPosition))}
+                      {audioUnavailable ? 'Unavailable' : (
+                        (playing || playbackPosition > 0)
+                          ? `${formatDuration(playbackPosition)} / ${formatDuration(audioTotalDuration)}`
+                          : (audioTotalDuration > 0 ? formatDuration(audioTotalDuration) : (!playbackUrl ? 'Voice message' : '0:00'))
+                      )}
                     </Text>
-                    <Text style={[styles.audioTimeText, isSelf && { color: 'rgba(255,255,255,0.85)' }]}>
-                      {audioUnavailable ? '--:--' : formatDuration(audioDuration || playbackDuration)}
-                    </Text>
+
+                    <TouchableOpacity
+                      style={[styles.speedPill, isSelf ? styles.speedPillSelf : styles.speedPillOther]}
+                      onPress={handleCycleSpeed}
+                      activeOpacity={0.7}
+                      hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+                      accessibilityRole="button"
+                      accessibilityLabel={`Playback speed ${speedLabel}, tap to change`}
+                    >
+                      <Text style={[styles.speedText, isSelf ? styles.speedTextSelf : styles.speedTextOther]}>
+                        {speedLabel}
+                      </Text>
+                    </TouchableOpacity>
                   </View>
                 </View>
-              </TouchableOpacity>
+              </View>
             )}
   
             {resolvedMediaType === 'post' && sharedPost && (
@@ -780,7 +1006,7 @@ function MessageBubbleInner({
             )}
 
             {!!displayText && !(resolvedMediaType === 'story' && (isLegacyStoryText || isStoryMetaText)) && (
-              <View>
+              <View style={(resolvedMediaType === 'image' || resolvedMediaType === 'video') ? styles.mediaCaptionWrapper : undefined}>
                 <Text style={[styles.msgText, isSelf && styles.msgTextSelf]}>
                   {displayText}
                 </Text>
@@ -796,14 +1022,25 @@ function MessageBubbleInner({
             <View style={styles.msgFooter}>
               {isSelf && (
                 <View style={styles.statusIcons}>
-                  {read ? (
+                  {failed ? (
+                    <TouchableOpacity
+                      style={styles.retryBtn}
+                      onPress={() => onRetry?.(id)}
+                      hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                      accessibilityRole="button"
+                      accessibilityLabel="Failed to send. Tap to retry"
+                    >
+                      <Ionicons name="alert-circle" size={15} color="#EF4444" />
+                      <Text style={styles.retryText}>Retry</Text>
+                    </TouchableOpacity>
+                  ) : read ? (
                     <Ionicons name="checkmark-done" size={14} color={COLORS.textLight} />
                   ) : delivered ? (
                     <Ionicons name="checkmark-done" size={14} color="rgba(255,255,255,0.6)" />
                   ) : sent ? (
                     <Ionicons name="checkmark" size={14} color="rgba(255,255,255,0.6)" />
                   ) : (
-                    <Ionicons name="checkmark" size={14} color="rgba(255,255,255,0.2)" />
+                    <Ionicons name="time-outline" size={12} color="rgba(255,255,255,0.7)" />
                   )}
                 </View>
               )}
@@ -812,12 +1049,22 @@ function MessageBubbleInner({
           </TouchableOpacity>
 
           {/* Reactions Display - outside bubble to avoid overflow clipping */}
-          {reactions && Object.keys(reactions).length > 0 && (
-            <View style={[styles.reactionsBadge, isSelf ? { right: 8, left: undefined } : { left: 8, right: undefined }]}>
-              {Object.keys(reactions).map(emoji => (
-                <Text key={emoji} style={styles.reactionEmoji}>{emoji}</Text>
+          {validReactionEntries.length > 0 && (
+            <TouchableOpacity
+              activeOpacity={0.8}
+              onPress={() => onPressReactionsBadge?.(id, reactions)}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              style={[styles.reactionsBadge, isSelf ? { right: 8, left: undefined } : { left: 8, right: undefined }]}
+            >
+              {validReactionEntries.map(([emoji, users]) => (
+                <View key={emoji} style={styles.reactionPill}>
+                  <Text style={styles.reactionEmoji}>{emoji}</Text>
+                  {users.length > 1 && (
+                    <Text style={styles.reactionCountText}>{users.length}</Text>
+                  )}
+                </View>
               ))}
-            </View>
+            </TouchableOpacity>
           )}
           
           {/* Share icon next to bubble (only for media/story/post) */}
@@ -829,45 +1076,74 @@ function MessageBubbleInner({
         </View>
 
         {resolvedMediaType === 'video' && resolvedMediaUrl && (
-          <Modal
+          <ChatVideoPlayerModal
             visible={playVideoModalVisible}
-            transparent={false}
-            animationType="fade"
-            onRequestClose={() => setPlayVideoModalVisible(false)}
-          >
-            <View style={{ flex: 1, backgroundColor: COLORS.black, justifyContent: 'center', alignItems: 'center' }}>
-              <TouchableOpacity 
-                style={{ position: 'absolute', top: 50, right: 20, zIndex: 10, padding: 10 }}
-                onPress={() => setPlayVideoModalVisible(false)}
-              >
-                <Ionicons name="close" size={30} color={COLORS.textLight} />
-              </TouchableOpacity>
-              
-              {!videoLoaded && (
-                <ActivityIndicator 
-                  size="large" 
-                  color={COLORS.primary} 
-                  style={{ position: 'absolute', zIndex: 5 }} 
-                />
-              )}
-              
-              <Video
-                source={{ uri: resolvedMediaUrl }}
-                style={{ width: '100%', height: '80%' }}
-                resizeMode={ResizeMode.CONTAIN}
-                shouldPlay={playVideoModalVisible}
-                useNativeControls
-                isLooping={false}
-                onLoad={() => setVideoLoaded(true)}
-                status={{ shouldPlay: true }}
-              />
-            </View>
-          </Modal>
+            videoUri={videoPlayUrl || resolvedMediaUrl}
+            onClose={() => setPlayVideoModalVisible(false)}
+          />
         )}
       </View>
     </Animated.View>
   );
 }
+
+const ChatVideoPlayerModal: React.FC<{
+  visible: boolean;
+  videoUri: string;
+  onClose: () => void;
+}> = ({ visible, videoUri, onClose }) => {
+  const player = useVideoPlayer(videoUri || '', (p) => {
+    p.loop = false;
+    if (visible && videoUri) p.play();
+  });
+
+  React.useEffect(() => {
+    if (!player) return;
+    if (visible && videoUri) {
+      player.play();
+    } else {
+      player.pause();
+    }
+  }, [player, visible, videoUri]);
+
+  if (!visible) return null;
+
+  return (
+    <Modal
+      visible={visible}
+      transparent={false}
+      animationType="fade"
+      onRequestClose={onClose}
+    >
+      <View style={{ flex: 1, backgroundColor: COLORS.black || '#000', justifyContent: 'center', alignItems: 'center' }}>
+        <TouchableOpacity 
+          style={{ position: 'absolute', top: 50, right: 20, zIndex: 10, padding: 10 }}
+          onPress={onClose}
+        >
+          <Ionicons name="close" size={30} color={COLORS.textLight || '#fff'} />
+        </TouchableOpacity>
+        
+        <VideoView
+          player={player}
+          style={{ width: '100%', height: '85%' }}
+          contentFit="contain"
+          nativeControls={true}
+        />
+      </View>
+    </Modal>
+  );
+};
+
+const areReactionsEqual = (r1: any, r2: any) => {
+  if (r1 === r2) return true;
+  if (!r1 && !r2) return true;
+  if (!r1 || !r2) return false;
+  try {
+    return JSON.stringify(r1) === JSON.stringify(r2);
+  } catch {
+    return false;
+  }
+};
 
 // Wrap with React.memo to prevent unnecessary re-renders when parent state changes
 const MessageBubble = React.memo(MessageBubbleInner, (prev, next) => {
@@ -882,8 +1158,12 @@ const MessageBubble = React.memo(MessageBubbleInner, (prev, next) => {
     prev.isSelf === next.isSelf &&
     prev.mediaUrl === next.mediaUrl &&
     prev.audioUrl === next.audioUrl &&
-    prev.reactions === next.reactions &&
-    prev.thumbnailUrl === next.thumbnailUrl
+    areReactionsEqual(prev.reactions, next.reactions) &&
+    prev.thumbnailUrl === next.thumbnailUrl &&
+    prev.editedAt === next.editedAt &&
+    prev.failed === next.failed &&
+    prev.isSearchMatch === next.isSearchMatch &&
+    prev.isCurrentSearchMatch === next.isCurrentSearchMatch
   );
 });
 
@@ -994,6 +1274,11 @@ const styles = StyleSheet.create({
   },
   replyName: { fontSize: 11, fontWeight: '700', marginBottom: 2 },
   replyText: { fontSize: 12, color: COLORS.textSecondary },
+  mediaCaptionWrapper: {
+    marginTop: 6,
+    paddingHorizontal: 4,
+    paddingBottom: 2,
+  },
   msgImage: {
     width: 240,
     height: 240,
@@ -1030,47 +1315,94 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     paddingVertical: 10,
-    paddingHorizontal: 10,
+    paddingHorizontal: 12,
     minWidth: 240,
   },
   audioUnavailableContainer: {
     opacity: 0.7,
   },
   audioPlayCircle: {
-    width: 34,
-    height: 34,
-    borderRadius: 17,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: COLORS.background,
     marginRight: 10,
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.12,
+    shadowRadius: 2,
   },
   audioPlayCircleSelf: {
-    backgroundColor: 'rgba(255,255,255,0.22)',
+    backgroundColor: 'rgba(255,255,255,0.24)',
+    elevation: 0,
+    shadowOpacity: 0,
   },
   audioBody: {
     flex: 1,
+    justifyContent: 'center',
+  },
+  waveformTouchArea: {
+    height: 32,
+    justifyContent: 'center',
+    paddingVertical: 2,
+    overflow: 'hidden',
   },
   waveformContainer: {
-    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'flex-start',
     height: 26,
-    gap: 2,
+    gap: 2.2,
   },
   waveBar: {
-    width: 2,
-    borderRadius: 1,
+    width: 2.5,
+    borderRadius: 1.5,
+  },
+  waveBarCurrent: {
+    borderRadius: 2,
+    transform: [{ scaleY: 1.12 }],
   },
   audioMetaRow: {
-    marginTop: 6,
+    marginTop: 4,
     flexDirection: 'row',
+    alignItems: 'center',
     justifyContent: 'space-between',
   },
   audioTimeText: {
-    fontSize: 10,
+    fontSize: 11,
+    fontWeight: '600',
     color: '#8e8e8e',
+    letterSpacing: 0.2,
+  },
+  speedPill: {
+    paddingHorizontal: 7,
+    paddingVertical: 2,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 0.5,
+  },
+  speedPillSelf: {
+    backgroundColor: 'rgba(255,255,255,0.22)',
+    borderColor: 'rgba(255,255,255,0.4)',
+  },
+  speedPillOther: {
+    backgroundColor: 'rgba(0,0,0,0.06)',
+    borderColor: 'rgba(0,0,0,0.12)',
+  },
+  speedText: {
+    fontSize: 10,
+    fontWeight: '700',
+    letterSpacing: 0.3,
+  },
+  speedTextSelf: {
+    color: COLORS.white,
+  },
+  speedTextOther: {
+    color: '#262626',
   },
   premiumPostContainer: {
     backgroundColor: COLORS.background,
@@ -1298,21 +1630,59 @@ const styles = StyleSheet.create({
     position: 'absolute',
     bottom: -14,
     flexDirection: 'row',
-    backgroundColor: COLORS.background,
+    alignItems: 'center',
+    backgroundColor: COLORS.background || '#FFFFFF',
     borderRadius: 12,
     paddingHorizontal: 6,
     paddingVertical: 2,
     borderWidth: 0.5,
-    borderColor: COLORS.border,
+    borderColor: COLORS.border || '#E5E7EB',
     elevation: 3,
-    shadowColor: COLORS.black,
-    shadowOffset: { width: 0, height: 1 },
+    shadowColor: COLORS.black || '#000000',
+    shadowOffset: { width: 0, height: 1.5 },
     shadowOpacity: 0.12,
-    shadowRadius: 2,
+    shadowRadius: 2.5,
     zIndex: 10,
+    gap: 4,
+  },
+  reactionPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
   },
   reactionEmoji: {
-    fontSize: 12,
-    marginHorizontal: 1,
+    fontSize: 13,
+  },
+  reactionCountText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: COLORS.textSecondary || '#6B7280',
+    marginLeft: 2,
+  },
+  retryBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    backgroundColor: 'rgba(255, 255, 255, 0.95)',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 10,
+  },
+  retryText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#EF4444',
+  },
+  msgBubbleSearchMatch: {
+    borderColor: 'rgba(255, 107, 0, 0.45)',
+    borderWidth: 1.5,
+  },
+  msgBubbleCurrentSearchMatch: {
+    borderColor: '#FF6B00',
+    borderWidth: 2,
+    shadowColor: '#FF6B00',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.4,
+    shadowRadius: 8,
+    elevation: 4,
   },
 });

@@ -22,8 +22,11 @@ router.get('/feed', optionalAuth, async (req, res) => {
     const skip = Math.max(0, parseInt(req.query.skip) || 0);
     const limit = Math.min(50, Math.max(1, parseInt(req.query.limit) || 20)); // cap at 50
 
-    // Redis caching
-    const cacheKey = `feed:skip_${skip}:limit_${limit}`;
+    const userId = req.userId ? String(req.userId) : null;
+
+    // Redis caching (scoped by viewer to preserve user-specific isLiked state)
+    const userScope = userId ? `u_${userId}` : 'anon';
+    const cacheKey = `feed:${userScope}:skip_${skip}:limit_${limit}`;
     const cachedFeed = await get(cacheKey);
     let finalFeed = [];
 
@@ -32,7 +35,6 @@ router.get('/feed', optionalAuth, async (req, res) => {
     } else {
       const db = mongoose.connection.db;
       const postsCollection = db.collection('posts');
-      const userId = req.userId ? String(req.userId) : null;
 
       // Use aggregation for high-performance field selection and computed values
       const pipeline = [

@@ -3,6 +3,7 @@ import * as Notifications from 'expo-notifications';
 import { Platform } from 'react-native';
 import { API_BASE_URL } from '../lib/api';
 import AsyncStorage from '@/lib/storage';
+import { apiService } from '../src/_services/apiService';
 
 // Configure notification handler
 Notifications.setNotificationHandler({
@@ -87,8 +88,6 @@ export async function savePushToken(userId: string, token: string) {
       console.log('ℹ️ Push token already synced with backend');
       return { success: true };
     }
-
-    const { apiService } = require('@/src/_services/apiService');
 
     // apiService handles base URL, auth headers, and 401 clearing automatically
     const result = await apiService.put(`/users/${userId}/push-token`, { pushToken: token });

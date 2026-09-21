@@ -14,6 +14,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { addStoryToHighlight } from '../../lib/firebaseHelpers/highlights';
 import COLORS from '@/src/theme/colors';
+import StoryThumbnail from './StoryThumbnail';
 
 interface Story {
   id?: string;
@@ -115,9 +116,11 @@ export default function AddStoriesToHighlightModal({
         onPress={() => sid && toggleStory(sid)}
         disabled={loading}
       >
-        <Image
-          source={{ uri: resolveStoryPreview(item) }}
+        <StoryThumbnail
+          story={item}
+          uri={resolveStoryPreview(item)}
           style={styles.storyImage}
+          resizeMode="cover"
         />
         {isSelected && (
           <View style={styles.checkmark}>

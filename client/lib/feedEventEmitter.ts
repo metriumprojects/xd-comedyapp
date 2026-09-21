@@ -6,18 +6,32 @@ export type FeedEventType =
   | 'POST_DELETED'
   | 'POST_CREATED'
   | 'POST_UPDATED'
+  | 'STORY_DELETED'
+  | 'STORY_CREATED'
   | 'HIGHLIGHT_DELETED'
   | 'USER_PRIVACY_CHANGED'
   | 'USER_BLOCKED'
   | 'USER_UNBLOCKED'
   | 'USER_SUBSCRIBED'
-  | 'USER_FOLLOW_CHANGED';
+  | 'USER_FOLLOW_CHANGED'
+  | 'USER_REPORTED'
+  | 'CHAT_CLEARED'
+  | 'GROUP_LEFT'
+  | 'MESSAGE_EDITED'
+  | 'DM_MESSAGE_SENT'
+  | 'DM_MESSAGE_FAILED';
 
 export interface FeedEvent {
   type: FeedEventType;
   postId?: string;
+  storyId?: string;
   highlightId?: string;
   userId?: string;
+  blockedUserId?: string;
+  conversationId?: string;
+  messageId?: string;
+  lastMessage?: string;
+  text?: string;
   data?: any;
 }
 

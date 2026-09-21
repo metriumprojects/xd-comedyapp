@@ -53,7 +53,8 @@ const MessageSchema = new mongoose.Schema({
   read: { type: Boolean, default: false },
   delivered: { type: Boolean, default: false },
   timestamp: { type: Date, default: Date.now },
-  createdAt: { type: Date, default: Date.now, index: true }
+  createdAt: { type: Date, default: Date.now, index: true },
+  editedAt: { type: Date }
 });
 
 // Performance Index for Chat: Instantly load latest messages for a specific conversation

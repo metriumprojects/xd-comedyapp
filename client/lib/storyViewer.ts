@@ -30,6 +30,14 @@ function firstHttpString(...candidates: any[]): string {
     if (!t) continue;
     const lower = t.toLowerCase();
     if (lower === 'null' || lower === 'undefined') continue;
+    if (
+      lower.startsWith('file://') ||
+      lower.startsWith('content://') ||
+      lower.startsWith('ph://') ||
+      lower.startsWith('assets-library://')
+    ) {
+      return t;
+    }
     if (t.startsWith('//')) return `https:${t}`;
     if (/^https?:\/\//i.test(t)) {
       return lower.startsWith('http://') ? `https://${t.slice(7)}` : t;
@@ -356,6 +364,9 @@ export function pickStoryMedia(flat: any): { imageUrl: string; videoUrl?: string
     if (!thumb && video) {
       const { getVideoThumbnailUrl } = require('./imageHelpers');
       thumb = getVideoThumbnailUrl(video);
+    }
+    if (thumb && VIDEO_EXT.test(String(thumb))) {
+      thumb = '';
     }
     return {
       imageUrl: thumb || '',

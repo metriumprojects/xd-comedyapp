@@ -28,6 +28,8 @@ export interface TierResponse {
   stripeProductId: string | null;
   stripePriceId: string | null;
   isActive: boolean;
+  isArchived?: boolean;
+  isPrivate?: boolean;
   subscriberCount: number;
 }
 
@@ -89,6 +91,20 @@ export const subscriptionService = {
    */
   deleteTier: async (tierId: string): Promise<{ success: boolean }> => {
     return apiService.delete(`/subscriptions/tiers/${tierId}`);
+  },
+
+  /**
+   * Creator restores an archived subscription tier.
+   */
+  restoreTier: async (tierId: string): Promise<{ success: boolean; data: TierResponse; message?: string }> => {
+    return apiService.post(`/subscriptions/tiers/${tierId}/restore`, {});
+  },
+
+  /**
+   * Creator updates visibility (public/private) of an archived tier.
+   */
+  updateTierVisibility: async (tierId: string, isPrivate: boolean): Promise<{ success: boolean; data: TierResponse; message?: string }> => {
+    return apiService.patch(`/subscriptions/tiers/${tierId}/visibility`, { isPrivate });
   },
 
   /**
@@ -174,9 +190,9 @@ export const subscriptionService = {
   },
 
   /**
-   * Get all subscribers of the current user (creator view).
+   * Get all subscribers of the current user (creator view), optionally filtered by tierId.
    */
-  getMySubscribers: async (): Promise<{
+  getMySubscribers: async (tierId?: string): Promise<{
     success: boolean;
     data: Array<{
       id: string;
@@ -196,7 +212,8 @@ export const subscriptionService = {
     }>;
     count: number;
   }> => {
-    return apiService.get('/subscriptions/my-subscribers');
+    const url = tierId ? `/subscriptions/my-subscribers?tierId=${tierId}` : '/subscriptions/my-subscribers';
+    return apiService.get(url);
   },
 };
 

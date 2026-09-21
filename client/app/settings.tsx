@@ -2,7 +2,7 @@ import { Feather } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import React, { useState, useEffect, useCallback } from 'react';
 import { ActivityIndicator, Alert, ScrollView, StyleSheet, Text, TouchableOpacity, View, Linking } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { useSafeHeaderInsets } from '@/hooks/useSafeHeaderInsets';
 import { hapticLight } from '@/lib/haptics';
 import { safeRouterBack } from '@/lib/safeRouterBack';
 import { permanentlyDeleteAccount } from '@/lib/gdprCompliance';
@@ -14,6 +14,7 @@ import COLORS from '@/src/theme/colors';
 
 export default function SettingsScreen() {
   const router = useRouter();
+  const { top: safeTop, bottom: safeBottom } = useSafeHeaderInsets();
   const [payoutHistory, setPayoutHistory] = useState<WithdrawalRecord[]>([]);
   const [payoutLoading, setPayoutLoading] = useState(true);
   const [payoutPage, setPayoutPage] = useState(1);
@@ -40,7 +41,7 @@ export default function SettingsScreen() {
   }, [loadPayoutHistory]);
 
   return (
-    <SafeAreaView style={styles.container} edges={['top']}>
+    <View style={[styles.container, { paddingTop: safeTop, paddingBottom: safeBottom }]}>
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity
@@ -245,7 +246,7 @@ export default function SettingsScreen() {
           </TouchableOpacity>
         </View>
       </ScrollView>
-    </SafeAreaView>
+    </View>
   );
 }
 

@@ -4,7 +4,6 @@ import { Ionicons } from '@expo/vector-icons';
 import { getHighlightStories } from '../../lib/firebaseHelpers/core';
 import { flattenStoryPayload, getCachedHighlightStories, pickStoryId, pickStoryMedia } from '../../lib/storyViewer';
 import CommentSection from './CommentSection';
-import { Video, ResizeMode } from 'expo-av';
 import { highlightManager } from '../../lib/highlightManager';
 import AsyncStorage from '@/lib/storage';
 import { feedEventEmitter } from '../../lib/feedEventEmitter';

@@ -5,7 +5,8 @@ import { ActivityIndicator, Alert, KeyboardAvoidingView, Modal, Platform, Pressa
 import * as ImagePicker from 'expo-image-picker';
 import { FlashList } from "@shopify/flash-list";
 import AsyncStorage from '@/lib/storage';
-import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useSafeHeaderInsets } from '@/hooks/useSafeHeaderInsets';
 import { Image } from 'react-native';
 import { Image as ExpoImage } from 'expo-image';
 // import { useAuthLoading, useUser } from '@/src/_components/UserContext';
@@ -22,6 +23,8 @@ import ConversationItem from '../src/_components/inbox/ConversationItem';
 import { subscribeToUserStatus } from '../src/_services/socketService';
 import { CreateGroupModal } from '@/src/_components/inbox/CreateGroupModal';
 import { ConversationActionModal } from '@/src/_components/inbox/ConversationActionModal';
+import { compressVideoSafe, compressImageSafe } from '../lib/mediaUtils';
+import { uploadMedia, sendMediaMessage } from '../lib/firebaseHelpers/messages';
 import { resolveCanonicalUserId } from '@/lib/currentUser';
 import COLORS from '@/src/theme/colors';
 
@@ -29,7 +32,7 @@ const INBOX_BUILD_TAG = 'inbox-group-fix-2026-03-28-2';
 
 function Inbox() {
   const router = useRouter();
-  const insets = useSafeAreaInsets();
+  const { top: safeTop, bottom: safeBottom } = useSafeHeaderInsets();
 
   const [profilesById, setProfilesById] = useState<Record<string, any>>({});
   const profilesByIdRef = useRef<Record<string, any>>({});
@@ -68,7 +71,6 @@ function Inbox() {
 
       let finalUri = asset.uri;
       try {
-        const { compressVideoSafe, compressImageSafe } = require('../lib/mediaUtils');
         if (mType === 'video') {
           if (__DEV__) console.log('[Inbox] Compressing camera video:', asset.uri);
           finalUri = await compressVideoSafe(asset.uri);
@@ -79,8 +81,6 @@ function Inbox() {
       } catch (compressErr) {
         console.warn('[Inbox] Media compression failed:', compressErr);
       }
-
-      const { uploadMedia, sendMediaMessage } = require('../lib/firebaseHelpers/messages');
 
       const uploadRes = await uploadMedia(finalUri, mType);
       if (!uploadRes?.success || !uploadRes?.url) {
@@ -890,7 +890,7 @@ function Inbox() {
     // If we have cached conversations, allow UI to render; userId will hydrate in background.
     if (!Array.isArray(conversations) || conversations.length === 0) {
       return (
-        <SafeAreaView style={[styles.container, { alignItems: 'center', justifyContent: 'center' }]}>
+        <View style={[styles.container, { paddingTop: safeTop, paddingBottom: safeBottom, alignItems: 'center', justifyContent: 'center' }]}>
           {userLoading ? (
             <ActivityIndicator size="large" color={COLORS.primary} />
           ) : (
@@ -898,7 +898,7 @@ function Inbox() {
               Please sign in to view your messages.
             </Text>
           )}
-        </SafeAreaView>
+        </View>
       );
     }
   }
@@ -916,7 +916,7 @@ function Inbox() {
     // Fall through to normal UI; FlatList will just render empty.
   }
   return (
-    <SafeAreaView style={styles.container} edges={["top", "bottom"]}>
+    <View style={[styles.container, { paddingTop: safeTop, paddingBottom: safeBottom }]}>
       <View testID="inbox-header" style={styles.headerRow}>
         <TouchableOpacity
           onPress={() => {
@@ -1064,7 +1064,10 @@ function Inbox() {
                 pathname: '/dm',
                 params: {
                   conversationId: it.conversationId || it.id || it._id,
-                  otherUserId: it.otherUserId || it.id,
+                  otherUserId: it.isGroup ? '' : (it.otherUserId || it.id),
+                  groupId: it.isGroup ? (it.conversationId || it.id || it._id) : '',
+                  groupName: it.isGroup ? (it.groupName || it.displayName || 'Group Chat') : '',
+                  avatar: it.isGroup ? (it.groupAvatar || it.avatar || '') : '',
                   user: it.displayName || 'User',
                   isGroup: it.isGroup ? '1' : '0'
                 }
@@ -1124,7 +1127,7 @@ function Inbox() {
         setConfirmDeleteVisible={setConfirmDeleteVisible}
         handleDelete={handleDelete}
       />
-    </SafeAreaView>
+    </View>
   );
 }
 

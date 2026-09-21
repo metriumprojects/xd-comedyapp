@@ -1,14 +1,14 @@
 import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, StyleSheet, Switch, Text, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { useSafeHeaderInsets } from '@/hooks/useSafeHeaderInsets';
 import { toggleUserPrivacy } from '../lib/firebaseHelpers';
 import { useUser } from '@/src/_components/UserContext';
 import AsyncStorage from '@/lib/storage';
 import COLORS from '@/src/theme/colors';
 
-
 export default function PrivacyScreen() {
   const authUser = useUser();
+  const { top: safeTop, bottom: safeBottom } = useSafeHeaderInsets();
   const [isPrivate, setIsPrivate] = useState(false);
   const [loading, setLoading] = useState(true);
   const [debugInfo, setDebugInfo] = useState('');
@@ -61,13 +61,13 @@ export default function PrivacyScreen() {
   };
 
   if (loading) return (
-    <SafeAreaView style={styles.container}>
+    <View style={[styles.container, { paddingTop: safeTop, paddingBottom: safeBottom }]}>
       <ActivityIndicator style={{ marginTop: 32 }} size="large" color={COLORS.primary} />
-    </SafeAreaView>
+    </View>
   );
 
   return (
-    <SafeAreaView style={styles.container}>
+    <View style={[styles.container, { paddingTop: safeTop, paddingBottom: safeBottom }]}>
       <Text style={styles.header}>Privacy Settings</Text>
       <View style={styles.card}>
         <View style={styles.row}>
@@ -86,7 +86,7 @@ export default function PrivacyScreen() {
           <Text style={styles.debugText}>UID: {authUser?.uid?.substring(0, 10)}...</Text>
         </View>
       )}
-    </SafeAreaView>
+    </View>
   );
 }
 

@@ -13,6 +13,7 @@ import { extractHashtags, trackHashtag } from '../lib/mentions';
 import { createPost, updatePost, createStory, searchUsers, getCategories, DEFAULT_CATEGORIES, getPassportTickets } from '../lib/firebaseHelpers/index';
 import { getPostById } from '../lib/firebaseHelpers/post';
 import { feedEventEmitter } from '@/lib/feedEventEmitter';
+import { useUploadQueue } from '../lib/useUploadQueue';
 import { hapticLight, hapticMedium, hapticSuccess } from '../lib/haptics';
 import { getCachedData, setCachedData } from '../hooks/useOffline';
 import { startTrace } from '../lib/perf';
@@ -482,8 +483,6 @@ export const useCreatePost = (params: any = {}) => {
       if (!authUserId) throw new Error('User not authenticated');
 
       const isVideo = selectedImages.some(uri => isVideoUri(uri, galleryAssets));
-      
-      const { useUploadQueue } = require('@/lib/useUploadQueue');
 
       const uploadAction = async (onProgress?: (percent: number) => void) => {
         let res;

@@ -9,6 +9,33 @@ let socket: Socket | null = null;
 let currentUserId: string | null = null;
 let reconnectAttempts = 0;
 const MAX_RECONNECT_ATTEMPTS = 15;
+const activeConversations = new Set<string>();
+
+/** Resolves when a socket instance exists (may not be connected yet). */
+let socketInstanceWaiters: Array<(s: Socket) => void> = [];
+
+function notifySocketInstance(s: Socket) {
+  const waiters = socketInstanceWaiters;
+  socketInstanceWaiters = [];
+  waiters.forEach((w) => {
+    try { w(s); } catch {}
+  });
+}
+
+function waitForSocketInstance(timeoutMs = 15000): Promise<Socket | null> {
+  if (socket) return Promise.resolve(socket);
+  return new Promise((resolve) => {
+    const timer = setTimeout(() => {
+      socketInstanceWaiters = socketInstanceWaiters.filter((w) => w !== onReady);
+      resolve(null);
+    }, timeoutMs);
+    const onReady = (s: Socket) => {
+      clearTimeout(timer);
+      resolve(s);
+    };
+    socketInstanceWaiters.push(onReady);
+  });
+}
 
 /**
  * Professional Socket.IO Service for Real-time Messaging
@@ -58,12 +85,17 @@ export async function initializeSocket(userId: string): Promise<Socket> {
   });
 
   currentUserId = canonicalUserId;
+  notifySocketInstance(socket);
 
   // Connection events
   socket.on('connect', () => {
     console.log('[Socket] ✅ Connected (ID: %s)', socket?.id);
     reconnectAttempts = 0;
     socket?.emit('join', canonicalUserId);
+    activeConversations.forEach((convId) => {
+      console.log('[Socket] 📬 Auto-subscribing to queued conversation:', convId);
+      socket?.emit('subscribeToConversation', convId);
+    });
   });
 
   socket.on('postReactionUpdated', (data: { postId: string; laughCount: number; tomatoCount: number }) => {
@@ -100,6 +132,12 @@ export async function initializeSocket(userId: string): Promise<Socket> {
     if (reason === 'io server disconnect') {
       // Server kicked us, try to reconnect manually
       socket?.connect();
+    } else if (reason === 'ping timeout' || reason === 'transport close' || reason === 'transport error') {
+      setTimeout(() => {
+        try {
+          if (socket && !socket.connected) socket.connect();
+        } catch {}
+      }, 800);
     }
   });
 
@@ -164,8 +202,11 @@ export function sendMessage(data: {
  * Subscribe to a conversation room
  */
 export function subscribeToConversation(conversationId: string) {
+  if (!conversationId) return;
+  activeConversations.add(conversationId);
+
   if (!socket || !socket.connected) {
-    console.warn('[Socket] Cannot subscribe to conversation - not connected');
+    console.log('[Socket] ⏳ Queued subscription for conversation (will subscribe on connect):', conversationId);
     return;
   }
 
@@ -177,6 +218,9 @@ export function subscribeToConversation(conversationId: string) {
  * Unsubscribe from a conversation room
  */
 export function unsubscribeFromConversation(conversationId: string) {
+  if (!conversationId) return;
+  activeConversations.delete(conversationId);
+
   if (!socket || !socket.connected) {
     return;
   }
@@ -186,34 +230,68 @@ export function unsubscribeFromConversation(conversationId: string) {
 }
 
 /**
- * Subscribe to new messages
+ * Subscribe to new messages and edits
  */
 export function subscribeToMessages(
   conversationId: string,
-  onMessage: (message: any) => void
+  onMessage: (message: any) => void,
+  onReaction?: (data: { messageId: string; reactions: Record<string, string[]> }) => void
 ): () => void {
-  if (!socket) {
-    console.warn('[Socket] Cannot subscribe - socket not initialized. Messages will still work via API polling.');
-    return () => {};
-  }
-
-  // Subscribe to conversation room
+  // Always track active conversation for reconnects
   subscribeToConversation(conversationId);
 
   const handler = (message: any) => {
     const mConvoId = String(message.conversationId || '');
     const targetId = String(conversationId || '');
     
-    if (mConvoId === targetId || targetId.includes(mConvoId) || mConvoId.includes(targetId)) {
-      console.log('[Socket] 📥 New message received:', message.text?.substring(0, 30));
+    if (!mConvoId || mConvoId === targetId || targetId.includes(mConvoId) || mConvoId.includes(targetId)) {
+      console.log('[Socket] 📥 New/edited message received:', message.text?.substring(0, 30));
       onMessage(message);
     }
   };
 
+  const reactionHandler = (data: any) => {
+    const mConvoId = String(data?.conversationId || '');
+    const targetId = String(conversationId || '');
+    if (!mConvoId || mConvoId === targetId || targetId.includes(mConvoId) || mConvoId.includes(targetId)) {
+      console.log('[Socket] 📥 Message reaction received:', data?.messageId);
+      // Route to dedicated reaction handler — never through onMessage to prevent __ts corruption
+      if (onReaction) {
+        onReaction({
+          messageId: String(data?.messageId || ''),
+          reactions: data?.reactions || {},
+        });
+      }
+    }
+  };
+
+  if (!socket) {
+    let cancelled = false;
+    let attached: Socket | null = null;
+    waitForSocketInstance(15000).then((s) => {
+      if (cancelled || !s) return;
+      attached = s;
+      s.on('newMessage', handler);
+      s.on('messageEdited', handler);
+      s.on('messageReaction', reactionHandler);
+    });
+    return () => {
+      cancelled = true;
+      attached?.off('newMessage', handler);
+      attached?.off('messageEdited', handler);
+      attached?.off('messageReaction', reactionHandler);
+      unsubscribeFromConversation(conversationId);
+    };
+  }
+
   socket.on('newMessage', handler);
+  socket.on('messageEdited', handler);
+  socket.on('messageReaction', reactionHandler);
 
   return () => {
     socket?.off('newMessage', handler);
+    socket?.off('messageEdited', handler);
+    socket?.off('messageReaction', reactionHandler);
     unsubscribeFromConversation(conversationId);
   };
 }
@@ -286,6 +364,46 @@ export function subscribeToMessageDeleted(
   return () => {
     socket?.off('message_deleted', handler);
     socket?.off('messageDeleted', handler);
+  };
+}
+
+/**
+ * Subscribe to message edited status
+ */
+export function subscribeToMessageEdited(
+  conversationId: string,
+  onEdited: (data: { messageId: string; conversationId: string; text?: string; editedAt?: string }) => void
+): () => void {
+  const handler = (data: any) => {
+    const targetCid = String(conversationId || '');
+    const dataCid = String(data?.conversationId || '');
+    if (!dataCid || dataCid === targetCid || targetCid.includes(dataCid) || dataCid.includes(targetCid)) {
+      onEdited(data);
+    }
+  };
+
+  if (!socket) {
+    let cancelled = false;
+    let attached: Socket | null = null;
+    waitForSocketInstance(15000).then((s) => {
+      if (cancelled || !s) return;
+      attached = s;
+      s.on('messageEdited', handler);
+      s.on('message_edited', handler);
+    });
+    return () => {
+      cancelled = true;
+      attached?.off('messageEdited', handler);
+      attached?.off('message_edited', handler);
+    };
+  }
+
+  socket.on('messageEdited', handler);
+  socket.on('message_edited', handler);
+
+  return () => {
+    socket?.off('messageEdited', handler);
+    socket?.off('message_edited', handler);
   };
 }
 

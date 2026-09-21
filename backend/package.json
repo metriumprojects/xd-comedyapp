@@ -12,9 +12,11 @@
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1084.0",
     "@aws-sdk/lib-storage": "^3.1084.0",
+    "@aws-sdk/s3-request-presigner": "^3.1135.0",
     "@google-cloud/storage": "^7.18.0",
     "@sentry/node": "^10.52.0",
     "@sentry/profiling-node": "^10.52.0",
+    "@socket.io/redis-adapter": "^8.3.0",
     "axios": "^1.13.2",
     "bcryptjs": "^2.4.3",
     "bullmq": "^5.76.4",

@@ -317,6 +317,9 @@ const styles = StyleSheet.create({
   titleSection: {
     marginBottom: 10,
   },
+  form: {
+    marginBottom: 20,
+  },
   formContainer: {
     marginBottom: 15,
   },
@@ -355,6 +358,12 @@ const styles = StyleSheet.create({
     color: COLORS.textPrimary,
     marginRight: 4,
   },
+  countryCodeText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: COLORS.textPrimary,
+    marginRight: 4,
+  },
   phoneInput: {
     flex: 1,
     backgroundColor: COLORS.inputBg,
@@ -369,6 +378,10 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   signUpButton: {
+    marginBottom: 15,
+    marginTop: 5,
+  },
+  nextButton: {
     marginBottom: 15,
     marginTop: 5,
   },
@@ -430,6 +443,11 @@ const styles = StyleSheet.create({
   countryItemFlag: {
     fontSize: 24,
     marginRight: 12,
+  },
+  countryItemName: {
+    flex: 1,
+    fontSize: 16,
+    color: COLORS.textPrimary,
   },
   countryItemCode: {
     fontSize: 14,

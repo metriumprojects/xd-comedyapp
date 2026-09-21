@@ -2,16 +2,19 @@ const cache = require('../utils/redis');
 
 /**
  * Cache middleware for Express routes
+ * Scopes cache key by authenticated user (req.userId) to prevent cross-user data leaks.
  * @param {number} ttl - Time to live in seconds
  */
 const cacheMiddleware = (ttl = 3600) => {
   return async (req, res, next) => {
-    // Skip caching if Redis is not available or it's not a GET request
-    if (!cache.redis || req.method !== 'GET') {
+    // Skip caching if Redis is not connected or it's not a GET request
+    if (!cache.isRedisAvailable() || req.method !== 'GET') {
       return next();
     }
 
-    const key = `cache:${req.originalUrl || req.url}`;
+    // Isolate cache by viewer if logged in to prevent data leaks across accounts
+    const userScope = req.userId ? `u:${req.userId}:` : 'anon:';
+    const key = `cache:${userScope}${req.originalUrl || req.url}`;
     
     try {
       const cachedData = await cache.get(key);

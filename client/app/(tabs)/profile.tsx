@@ -579,30 +579,39 @@ export default function Profile({ userIdProp }: any) {
       return [];
     }
 
-    return tiers.map((tier: any) => {
-      const tierId = String(tier?._id || '');
-      const tierPosts = subscriptionPosts.filter(
-        (p: any) => String(p?.subscriptionTierId || '') === tierId
-      );
-      const firstPost = tierPosts[0];
-      const isArchived = tier?.isArchived === true || tier?.isActive === false;
-      return {
-        _id: `subscription-folder-${tierId || tier?.title || Math.random()}`,
-        tierId,
-        name: tier?.title || 'Subscription',
-        postIds: tierPosts.map((p: any) => getPostId(p)),
-        coverImage:
-          firstPost?.imageUrl ||
-          firstPost?.mediaUrl ||
-          firstPost?.media?.[0]?.url ||
-          firstPost?.mediaUrls?.[0] ||
-          DEFAULT_IMAGE_URL,
-        visibility: 'public',
-        isSubscriptionFolder: true,
-        isArchived,
-      };
-    });
-  }, [creatorTiers, subscriptionPosts, creatorHasTier, subscriptionTitle]);
+    return tiers
+      .filter((tier: any) => {
+        const isArchived = tier?.isArchived === true || tier?.isActive === false;
+        if (!isArchived) return true;
+        // Archived tier: only visible to creator or an active subscriber of that tier
+        const tierId = String(tier?._id || '');
+        const isSubscriberToTier = tierId ? activeSubscribedTierIds.includes(tierId) : isSubscribed;
+        return isOwnProfile || isSubscriberToTier;
+      })
+      .map((tier: any) => {
+        const tierId = String(tier?._id || '');
+        const tierPosts = subscriptionPosts.filter(
+          (p: any) => String(p?.subscriptionTierId || '') === tierId
+        );
+        const firstPost = tierPosts[0];
+        const isArchived = tier?.isArchived === true || tier?.isActive === false;
+        return {
+          _id: `subscription-folder-${tierId || tier?.title || Math.random()}`,
+          tierId,
+          name: tier?.title || 'Subscription',
+          postIds: tierPosts.map((p: any) => getPostId(p)),
+          coverImage:
+            firstPost?.imageUrl ||
+            firstPost?.mediaUrl ||
+            firstPost?.media?.[0]?.url ||
+            firstPost?.mediaUrls?.[0] ||
+            DEFAULT_IMAGE_URL,
+          visibility: 'public',
+          isSubscriptionFolder: true,
+          isArchived,
+        };
+      });
+  }, [creatorTiers, subscriptionPosts, creatorHasTier, subscriptionTitle, isOwnProfile, activeSubscribedTierIds, isSubscribed]);
 
   const isSubscriptionSectionSelected = useMemo(() => {
     if (!selectedSection) return false;
@@ -1196,7 +1205,7 @@ export default function Profile({ userIdProp }: any) {
             // tiers can't be subscribed to anymore, so just open the folder
             // (subscribers keep access; non-subscribers see the empty/locked view).
             const targetTier = tierSections.find((t: any) => t.name === secName);
-            if (targetTier && !isOwnProfile && !targetTier.isArchived) {
+            if (targetTier && !isOwnProfile && !(targetTier as any).isArchived) {
               const tierId = targetTier.tierId ? String(targetTier.tierId) : '';
               const subscribedToThisTier = tierId
                 ? activeSubscribedTierIds.includes(tierId)

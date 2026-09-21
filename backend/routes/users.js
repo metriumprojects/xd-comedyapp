@@ -548,20 +548,24 @@ router.get('/:userId/aggregated', optionalAuth, async (req, res) => {
       candidates: [String(user._id), user.firebaseUid, user.uid].filter(Boolean)
     };
 
+    const targetObjectIds = targetResolved.candidates
+      .filter(id => mongoose.Types.ObjectId.isValid(id))
+      .map(id => new mongoose.Types.ObjectId(id));
+    const allTargetCandidates = [...targetResolved.candidates.map(String), ...targetObjectIds];
+
     // 3. Parallel fetching of stats and permissions
     const promises = [
-      // Post count
-      Post.countDocuments({ userId: { $in: targetResolved.candidates } }),
+      // Post count (both string and ObjectId)
+      Post.countDocuments({ userId: { $in: allTargetCandidates } }),
       // Passport data
       Passport.findOne({ 
         $or: [
-          { userId: { $in: targetResolved.candidates } },
-          { userId: { $in: targetResolved.candidates.filter(c => mongoose.Types.ObjectId.isValid(c)).map(c => new mongoose.Types.ObjectId(c)) } }
+          { userId: { $in: allTargetCandidates } }
         ]
       }).select('ticketCount stamps').lean(),
       // Laughs aggregation
       Post.aggregate([
-        { $match: { userId: { $in: targetResolved.candidates.map(String) } } },
+        { $match: { userId: { $in: allTargetCandidates } } },
         { $group: { _id: null, totalLaughs: { $sum: '$laughCount' } } }
       ])
     ];
@@ -606,7 +610,9 @@ router.get('/:userId/aggregated', optionalAuth, async (req, res) => {
       followRequestPending,
       isApprovedFollower,
       canViewPrivateProfile,
-      hasAccess: canViewPrivateProfile
+      hasAccess: canViewPrivateProfile,
+      isSelf: isOwnProfile,
+      isOwnProfile: isOwnProfile
     };
 
     // Strip sensitive info if private and no access
@@ -616,6 +622,8 @@ router.get('/:userId/aggregated', optionalAuth, async (req, res) => {
       publicFields.forEach(f => { filtered[f] = responseData[f]; });
       filtered.postsCount = postCount || 0;
       filtered.hasAccess = false;
+      filtered.isSelf = false;
+      filtered.isOwnProfile = false;
       return res.json({ success: true, data: filtered });
     }
 
@@ -704,6 +712,33 @@ router.get('/:userId', optionalAuth, async (req, res) => {
               hasAccess: false
             });
           }
+        }
+      }
+
+      // Security: Determine if viewer is the account owner
+      let isOwner = false;
+      if (requesterUserId) {
+        const targetResolved = await resolveUserIdentifiers(userId);
+        const requesterResolved = await resolveUserIdentifiers(requesterUserId);
+        isOwner = targetResolved.canonicalId === requesterResolved.canonicalId;
+      }
+
+      // Security: Strip internal/sensitive fields before sending profile
+      delete userObj.password;
+      delete userObj.resetCode;
+      delete userObj.resetCodeExpires;
+
+      // Sensitive fields only allowed if viewing own profile
+      if (!isOwner) {
+        delete userObj.pushToken;
+        delete userObj.pushTokenUpdatedAt;
+        delete userObj.stripeCustomerId;
+        delete userObj.stripeConnectAccountId;
+        delete userObj.blockedUsers;
+        delete userObj.lastKnownLocation;
+        if (userObj.isPrivate) {
+          delete userObj.phoneNumber;
+          delete userObj.email;
         }
       }
 
@@ -905,16 +940,22 @@ router.get('/:userId/posts', optionalAuth, async (req, res) => {
       }
     }
 
-    // Find posts by userId (could be MongoDB ObjectId or Firebase UID)
+    // Find posts by userId (match both MongoDB ObjectId and Firebase UID string)
     const resolved = await resolveUserIdentifiers(userId);
+    const resolvedObjectIds = resolved.candidates
+      .filter(id => mongoose.Types.ObjectId.isValid(id))
+      .map(id => new mongoose.Types.ObjectId(id));
+    const allUserCandidates = [...resolved.candidates.map(String), ...resolvedObjectIds];
+
     const postsQuery = {
-      userId: { $in: resolved.candidates.map(String) }
+      userId: { $in: allUserCandidates }
     };
 
     const enriched = await postService.getEnrichedPosts(postsQuery, {
       skip,
       limit,
-      viewerId: requesterUserId
+      viewerId: requesterUserId,
+      sort: { createdAt: -1, _id: -1 }
     });
     const normalized = (Array.isArray(enriched) ? enriched : []).map((p) => {
       const id = p._id ? String(p._id) : (p.id ? String(p.id) : undefined);
@@ -1463,10 +1504,19 @@ router.delete('/:userId/sections/:sectionId', verifyToken, async (req, res) => {
   }
 });
 
-// PATCH /api/users/:userId/sections-order - Update section order
-router.patch('/:userId/sections-order', async (req, res) => {
+// PATCH /api/users/:userId/sections-order - Update section order (Requires Auth + Ownership)
+router.patch('/:userId/sections-order', verifyToken, async (req, res) => {
   try {
     const { userId } = req.params;
+    const authenticatedUserId = req.userId;
+
+    const resolved = await resolveUserIdentifiers(authenticatedUserId);
+    const target = await resolveUserIdentifiers(userId);
+    const isSelf = resolved.candidates.some(c => target.candidates.map(String).includes(String(c)));
+    if (!isSelf) {
+      return res.status(403).json({ success: false, error: 'Forbidden: cannot reorder sections for another user' });
+    }
+
     const { sections } = req.body;
 
     if (!Array.isArray(sections)) {
@@ -1738,10 +1788,19 @@ router.get('/:userId/blocked', async (req, res) => {
   }
 });
 
-// PUT /api/users/:userId/block/:targetId - Block a user
-router.put('/:userId/block/:targetId', async (req, res) => {
+// PUT /api/users/:userId/block/:targetId - Block a user (Requires Auth + Ownership)
+router.put('/:userId/block/:targetId', verifyToken, async (req, res) => {
   try {
     const { userId, targetId } = req.params;
+    const authenticatedUserId = req.userId;
+
+    const { resolveUserIdentifiers } = require('../src/utils/userUtils');
+    const resolved = await resolveUserIdentifiers(authenticatedUserId);
+    const targetResolved = await resolveUserIdentifiers(userId);
+    const isSelf = resolved.candidates.some(c => targetResolved.candidates.map(String).includes(String(c)));
+    if (!isSelf) {
+      return res.status(403).json({ success: false, error: 'Forbidden: cannot block users on behalf of someone else' });
+    }
 
     const query = { $or: [{ firebaseUid: userId }, { uid: userId }] };
     if (mongoose.Types.ObjectId.isValid(userId)) {
@@ -1811,10 +1870,19 @@ router.put('/:userId/block/:targetId', async (req, res) => {
   }
 });
 
-// DELETE /api/users/:userId/block/:targetId - Unblock a user
-router.delete('/:userId/block/:targetId', async (req, res) => {
+// DELETE /api/users/:userId/block/:targetId - Unblock a user (Requires Auth + Ownership)
+router.delete('/:userId/block/:targetId', verifyToken, async (req, res) => {
   try {
     const { userId, targetId } = req.params;
+    const authenticatedUserId = req.userId;
+
+    const { resolveUserIdentifiers } = require('../src/utils/userUtils');
+    const resolved = await resolveUserIdentifiers(authenticatedUserId);
+    const targetResolved = await resolveUserIdentifiers(userId);
+    const isSelf = resolved.candidates.some(c => targetResolved.candidates.map(String).includes(String(c)));
+    if (!isSelf) {
+      return res.status(403).json({ success: false, error: 'Forbidden: cannot unblock users on behalf of someone else' });
+    }
 
     const query = { $or: [{ firebaseUid: userId }, { uid: userId }] };
     if (mongoose.Types.ObjectId.isValid(userId)) {
@@ -1839,42 +1907,7 @@ router.delete('/:userId/block/:targetId', async (req, res) => {
   }
 });
 
-// PUT /api/users/:userId/push-token - Save expo push token
-router.put('/:userId/push-token', async (req, res) => {
-  try {
-    const { userId } = req.params;
-    const { pushToken } = req.body;
 
-    if (!pushToken) {
-      return res.status(400).json({ success: false, error: 'pushToken is required' });
-    }
-
-    const User = mongoose.model('User');
-    const resolved = await resolveUserIdentifiers(userId);
-
-    const user = await User.findOneAndUpdate(
-      { 
-        $or: [
-          { _id: { $in: resolved.candidates.filter(id => mongoose.Types.ObjectId.isValid(id)) } },
-          { firebaseUid: { $in: resolved.candidates } },
-          { uid: { $in: resolved.candidates } }
-        ]
-      },
-      { pushToken, updatedAt: new Date() },
-      { new: true }
-    );
-
-    if (!user) {
-      return res.status(404).json({ success: false, error: 'User not found' });
-    }
-
-    console.log(`✅ Push token updated for user: ${userId}`);
-    res.json({ success: true, message: 'Push token updated' });
-  } catch (err) {
-    console.error('[PUT /:userId/push-token] Error:', err.message);
-    res.status(500).json({ success: false, error: err.message });
-  }
-});
 
 // Helper to lazy-load Firebase Admin SDK for user deletion
 function getFirebaseAdmin() {

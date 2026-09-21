@@ -1,5 +1,5 @@
 import { Feather, Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
-import { AVPlaybackStatus, ResizeMode, Video } from 'expo-av';
+import { useVideoPlayer, VideoView } from 'expo-video';
 import { Image as ExpoImage } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 // Firebase removed - using Backend API
@@ -47,7 +47,11 @@ import { highlightManager } from '../../lib/highlightManager';
 import { CommentSection } from './CommentSection';
 import ShareModal from './ShareModal';
 import HighlightSelectionModal from './HighlightSelectionModal';
+import StoryThumbnail, { getOrGenerateStoryThumbnail } from './StoryThumbnail';
+import { useSwipeDownToDismiss } from '@/hooks/useSwipeDownToDismiss';
 import { storyForStoriesViewer, parseStoryTextOverlays } from '../../lib/storyViewer';
+import { resolveStoryMediaSync, prefetchStoryVideo } from '@/src/media/storyMediaSession';
+import { getCachedVideoUri } from '@/src/media/videoCache';
 
 const { width, height } = Dimensions.get('window');
 
@@ -184,6 +188,144 @@ interface StoryComment {
   editedAt?: any;
 }
 
+interface StoryVideoPlayerProps {
+  videoUrl: string;
+  shouldPlay: boolean;
+  isMuted: boolean;
+  onFinished: () => void;
+  onReady?: () => void;
+  progressSv: Animated.SharedValue<number>;
+  style?: any;
+  contentFit?: 'contain' | 'cover';
+}
+
+const StoryVideoPlayer: React.FC<StoryVideoPlayerProps> = ({
+  videoUrl,
+  shouldPlay,
+  isMuted,
+  onFinished,
+  onReady,
+  progressSv,
+  style,
+  contentFit = 'contain',
+}) => {
+  const onFinishedRef = useRef(onFinished);
+  useEffect(() => { onFinishedRef.current = onFinished; }, [onFinished]);
+
+  const onReadyRef = useRef(onReady);
+  useEffect(() => { onReadyRef.current = onReady; }, [onReady]);
+
+  const player = useVideoPlayer(videoUrl || '', (p) => {
+    p.loop = false;
+    p.muted = isMuted;
+    try {
+      p.timeUpdateEventInterval = 0.05;
+    } catch {}
+    if (shouldPlay && videoUrl) {
+      p.play();
+    }
+  });
+
+  // Keep mute state and timeUpdateEventInterval in sync
+  useEffect(() => {
+    if (player) {
+      player.muted = isMuted;
+      try {
+        player.timeUpdateEventInterval = 0.05;
+      } catch {}
+    }
+  }, [player, isMuted]);
+
+  // Keep play/pause in sync with touch and overlay states
+  useEffect(() => {
+    if (!player) return;
+    if (shouldPlay) {
+      player.play();
+    } else {
+      player.pause();
+    }
+  }, [player, shouldPlay]);
+
+  // Handle status changes, continuous 60fps progress updates, and end of playback
+  useEffect(() => {
+    if (!player) return;
+
+    try {
+      player.timeUpdateEventInterval = 0.05;
+    } catch {}
+
+    if (player.status === 'readyToPlay') {
+      onReadyRef.current?.();
+      if (shouldPlay) {
+        player.play();
+      }
+    }
+
+    const statusSub = player.addListener('statusChange', (statusChange: any) => {
+      const status = (typeof statusChange === 'object' && statusChange !== null && 'status' in statusChange)
+        ? statusChange.status
+        : statusChange;
+      if (status === 'readyToPlay') {
+        onReadyRef.current?.();
+        if (shouldPlay) {
+          player.play();
+        }
+      } else if (status === 'error') {
+        console.warn('[StoryVideoPlayer] Playback error for:', videoUrl);
+        onReadyRef.current?.();
+      }
+    });
+
+    const updateProgress = (currentTime?: number) => {
+      const cur = typeof currentTime === 'number' && currentTime >= 0 ? currentTime : (player.currentTime || 0);
+      const duration = player.duration || 0;
+      if (duration > 0) {
+        const pct = Math.min(100, Math.max(0, (cur / duration) * 100));
+        progressSv.value = pct;
+        if (cur >= duration && duration > 0.5) {
+          onFinishedRef.current?.();
+        }
+      }
+    };
+
+    const timeSub = player.addListener('timeUpdate', (event: any) => {
+      onReadyRef.current?.();
+      const ct = typeof event?.currentTime === 'number' ? event.currentTime : undefined;
+      updateProgress(ct);
+    });
+
+    // Failsafe heartbeat timer (runs every 40ms to ensure 100% continuous bar animation)
+    const heartbeatTimer = setInterval(() => {
+      if (shouldPlay) {
+        updateProgress();
+      }
+    }, 40);
+
+    const endSub = player.addListener('playToEnd', () => {
+      progressSv.value = 100;
+      onFinishedRef.current?.();
+    });
+
+    return () => {
+      statusSub.remove();
+      timeSub.remove();
+      endSub.remove();
+      clearInterval(heartbeatTimer);
+    };
+  }, [player, progressSv, shouldPlay, videoUrl]);
+
+  return (
+    <View style={style} pointerEvents="none">
+      <VideoView
+        player={player}
+        style={StyleSheet.absoluteFill}
+        contentFit={contentFit}
+        nativeControls={false}
+      />
+    </View>
+  );
+};
+
 export default function StoriesViewer({ stories, onClose, initialIndex = 0, isHighlight = false, highlightId }: { stories: Story[]; onClose: () => void; initialIndex?: number; isHighlight?: boolean; highlightId?: string }): React.ReactElement {
   const DEFAULT_AVATAR_SOURCE = require('../../assets/images/splash-icon.png');
   const normalizeRemoteUrl = (value: any): string => {
@@ -192,6 +334,14 @@ export default function StoriesViewer({ stories, onClose, initialIndex = 0, isHi
     if (!trimmed) return '';
     const lower = trimmed.toLowerCase();
     if (lower === 'null' || lower === 'undefined' || lower === 'n/a' || lower === 'na') return '';
+    if (
+      lower.startsWith('file://') ||
+      lower.startsWith('content://') ||
+      lower.startsWith('ph://') ||
+      lower.startsWith('assets-library://')
+    ) {
+      return trimmed;
+    }
     let u = trimmed;
     if (lower.startsWith('http://')) u = `https://${trimmed.slice(7)}`;
     else if (lower.startsWith('//')) u = `https:${trimmed}`;
@@ -217,6 +367,15 @@ export default function StoriesViewer({ stories, onClose, initialIndex = 0, isHi
     return arr.map((s, i) => storyForStoriesViewer(s, i));
   });
 
+  // Keep local stories in sync with parent updates
+  useEffect(() => {
+    let arr = Array.isArray(stories) ? stories : [];
+    if (arr.length === 1 && Array.isArray((arr[0] as any)?.stories) && (arr[0] as any).stories.length > 0) {
+      arr = (arr[0] as any).stories;
+    }
+    setLocalStories(arr.map((s, i) => storyForStoriesViewer(s, i)));
+  }, [stories]);
+
   const {
     currentIndex,
     setCurrentIndex,
@@ -236,9 +395,8 @@ export default function StoriesViewer({ stories, onClose, initialIndex = 0, isHi
     showComments || showHighlightModal || showNewHighlightModal || showShareModal
   );
 
-  const [isMuted, setIsMuted] = useState(true);
+  const [isMuted, setIsMuted] = useState(false);
   const currentStory = localStories[currentIndex];
-  const videoRef = useRef<Video>(null);
   const [currentUser, setCurrentUser] = useState<any>(null);
   const [latestAvatar, setLatestAvatar] = useState<string | null>(null);
   const [likedComments, setLikedComments] = useState<{ [key: string]: boolean }>({});
@@ -249,6 +407,20 @@ export default function StoriesViewer({ stories, onClose, initialIndex = 0, isHi
   const [loadingHighlights, setLoadingHighlights] = useState(false);
   const [showPostPill, setShowPostPill] = useState(false);
   const pillTimerRef = useRef<NodeJS.Timeout | null>(null);
+
+  const {
+    headerPanHandlers: newHighlightHeaderPanHandlers,
+    sheetPanHandlers: newHighlightSheetPanHandlers,
+    animatedStyle: newHighlightAnimatedStyle,
+    dismiss: dismissNewHighlight,
+  } = useSwipeDownToDismiss({
+    onDismiss: () => {
+      setShowNewHighlightModal(false);
+      setIsPaused(false);
+    },
+    visible: showNewHighlightModal,
+    initialSlideIn: true,
+  });
 
   useEffect(() => {
     setShowPostPill(false);
@@ -496,10 +668,15 @@ export default function StoriesViewer({ stories, onClose, initialIndex = 0, isHi
       return;
     }
     try {
+      const thumb = await getOrGenerateStoryThumbnail(currentStory);
+      const storyToSave = {
+        ...currentStory,
+        thumbnailUrl: thumb || (currentStory as any)?.thumbnailUrl || (currentStory as any)?.thumbnail || currentStory?.imageUrl,
+      };
       const res = await highlightManager.createAndAddStory({
         userId: String(currentUser?.uid || ''),
         title: newHighlightName.trim(),
-        story: currentStory,
+        story: storyToSave,
       });
       if (res.success) {
         if (Platform.OS === 'android') {
@@ -619,12 +796,44 @@ export default function StoriesViewer({ stories, onClose, initialIndex = 0, isHi
 
   const currentStoryAvatarUrl = normalizeRemoteUrl(currentStory?.userAvatar) || DEFAULT_AVATAR_URL;
   const currentStoryImageUrl = normalizeRemoteUrl(currentStory?.imageUrl) || normalizeRemoteUrl(currentStory?.postMetadata?.imageUrl);
-  const currentStoryVideoUrl = normalizeRemoteUrl(currentStory?.videoUrl) || normalizeRemoteUrl(currentStory?.postMetadata?.videoUrl);
+  const currentStoryVideoUrl = normalizeRemoteUrl(currentStory?.videoUrl) || normalizeRemoteUrl((currentStory as any)?.video) || normalizeRemoteUrl(currentStory?.postMetadata?.videoUrl);
   const isVideoStory = currentStory?.mediaType === 'video' || !!currentStoryVideoUrl || currentStory?.postMetadata?.mediaType === 'video';
   const isOwnCurrentStory = String(currentStory?.userId || '') === String(currentUser?.uid || '');
   const isLiked = (currentStory?.likes || [])?.includes(currentUser?.uid || '') || false;
   const likesCount = currentStory?.likes?.length || 0;
   const locationName = currentStory?.locationData?.name || currentStory?.location || (typeof currentStory?.locationData === 'string' ? currentStory.locationData : '');
+
+  // Instant 0ms local or cached video resolution
+  const playableVideoUri = useMemo(() => {
+    const rawUrl = currentStoryVideoUrl || (currentStory as any)?.video || '';
+    if (!rawUrl) return '';
+    return resolveStoryMediaSync(rawUrl) || rawUrl;
+  }, [currentStoryVideoUrl, currentStory]);
+
+  // Background caching & prefetching
+  useEffect(() => {
+    if (currentStoryVideoUrl && currentStoryVideoUrl.startsWith('http')) {
+      getCachedVideoUri(currentStoryVideoUrl).catch(() => {});
+    }
+  }, [currentStoryVideoUrl]);
+
+  // Background prefetch next 2 stories' videos for instant transition
+  useEffect(() => {
+    const next1 = localStories[currentIndex + 1];
+    if (next1) {
+      const v1 = normalizeRemoteUrl(next1.videoUrl || (next1 as any)?.video || next1.postMetadata?.videoUrl);
+      if (v1 && v1.startsWith('http')) {
+        prefetchStoryVideo(v1).catch(() => {});
+      }
+    }
+    const next2 = localStories[currentIndex + 2];
+    if (next2) {
+      const v2 = normalizeRemoteUrl(next2.videoUrl || (next2 as any)?.video || next2.postMetadata?.videoUrl);
+      if (v2 && v2.startsWith('http')) {
+        prefetchStoryVideo(v2).catch(() => {});
+      }
+    }
+  }, [currentIndex, localStories]);
 
   if (!currentStory) {
     return (
@@ -813,41 +1022,16 @@ export default function StoriesViewer({ stories, onClose, initialIndex = 0, isHi
                         style={viewerStyles.postCardMediaBox}
                       >
                         {(currentStoryVideoUrl || isVideoStory) ? (
-                          <Video
-                            ref={videoRef}
-                            source={{ uri: currentStoryVideoUrl || currentStoryImageUrl }}
-                            style={viewerStyles.postCardImage}
-                            resizeMode={ResizeMode.COVER}
-                            shouldPlay={!isPaused && !showComments}
+                          <StoryVideoPlayer
+                            key={'card_vid_' + (currentStory.id || currentIndex)}
+                            videoUrl={playableVideoUri}
+                            shouldPlay={!isPaused && !showComments && !showHighlightModal && !showNewHighlightModal && !showShareModal}
                             isMuted={isMuted}
-                            isLooping={false}
-                            pointerEvents="none"
-                            usePoster={!!(currentStoryImageUrl && !currentStoryImageUrl.endsWith('.mp4') && !currentStoryImageUrl.endsWith('.mov'))}
-                            posterSource={(currentStoryImageUrl && !currentStoryImageUrl.endsWith('.mp4') && !currentStoryImageUrl.endsWith('.mov')) ? { uri: currentStoryImageUrl } : undefined}
-                            posterStyle={{ resizeMode: 'cover' }}
-                            onLoadStart={() => setImageLoading(true)}
-                            onLoad={status => {
-                              setImageLoading(false);
-                              const isStatusObject = status !== null && typeof status === 'object';
-                              if (isStatusObject && status.isLoaded && 'durationMillis' in status && typeof status.durationMillis === 'number') {
-                                setVideoDuration(status.durationMillis);
-                              }
-                            }}
-                            onError={() => setImageLoading(false)}
-                            onPlaybackStatusUpdate={(status: AVPlaybackStatus) => {
-                              if (status.isLoaded) {
-                                const isOverlayOpen = showComments || showHighlightModal || showNewHighlightModal || showShareModal;
-                                if (status.didJustFinish && !isPaused && !isOverlayOpen) {
-                                  const playedTime = status.positionMillis || 0;
-                                  if (playedTime > 500) {
-                                    goToNext();
-                                  }
-                                }
-                                setImageLoading(status.isBuffering);
-                              } else {
-                                setImageLoading(true);
-                              }
-                            }}
+                            onFinished={goToNext}
+                            onReady={() => setImageLoading(false)}
+                            progressSv={progressSv}
+                            style={viewerStyles.postCardImage}
+                            contentFit="cover"
                           />
                         ) : (
                           <ExpoImage
@@ -905,49 +1089,17 @@ export default function StoriesViewer({ stories, onClose, initialIndex = 0, isHi
               ) : (
                 /* Full Screen UI for Gallery Uploads */
                 <View style={StyleSheet.absoluteFill}>
-                  {(currentStoryVideoUrl || currentStory.mediaType === 'video') ? (
-                    <Video
-                      ref={videoRef}
-                      source={{ uri: currentStoryVideoUrl || currentStoryImageUrl }}
-                      style={viewerStyles.fullScreenMedia}
-                      resizeMode={ResizeMode.CONTAIN}
-                      shouldPlay={!isPaused && !showComments}
+                  {(currentStoryVideoUrl || currentStory.mediaType === 'video' || isVideoStory) ? (
+                    <StoryVideoPlayer
+                      key={'full_vid_' + (currentStory.id || currentIndex)}
+                      videoUrl={playableVideoUri}
+                      shouldPlay={!isPaused && !showComments && !showHighlightModal && !showNewHighlightModal && !showShareModal}
                       isMuted={isMuted}
-                      isLooping={false}
-                      usePoster={!!(currentStoryImageUrl && !currentStoryImageUrl.endsWith('.mp4') && !currentStoryImageUrl.endsWith('.mov'))}
-                      posterSource={(currentStoryImageUrl && !currentStoryImageUrl.endsWith('.mp4') && !currentStoryImageUrl.endsWith('.mov')) ? { uri: currentStoryImageUrl } : undefined}
-                      posterStyle={{ resizeMode: 'contain' }}
-                      onLoadStart={() => setImageLoading(true)}
-                      onLoad={status => {
-                        setImageLoading(false);
-                        const isStatusObject = status !== null && typeof status === 'object';
-                        if (isStatusObject && status.isLoaded && 'durationMillis' in status && typeof status.durationMillis === 'number') {
-                          setVideoDuration(status.durationMillis);
-                        }
-                      }}
-                      onError={() => setImageLoading(false)}
-                      onPlaybackStatusUpdate={(status: AVPlaybackStatus) => {
-                        if (status.isLoaded) {
-                          const isOverlayOpen = showComments || showHighlightModal || showNewHighlightModal || showShareModal;
-                          if (status.didJustFinish && !isPaused && !isOverlayOpen) {
-                            const playedTime = status.positionMillis || 0;
-                            console.log('[StoriesViewer] 🎬 Video didJustFinish. playedTime:', playedTime);
-                            if (playedTime > 500) {
-                              console.log('[StoriesViewer] 🎬 playedTime is valid (>500ms). Going to next story.');
-                              goToNext();
-                            } else {
-                              console.log('[StoriesViewer] ⚠️ Played time too short (<500ms), ignoring premature didJustFinish.');
-                            }
-                          }
-                          if (status.isBuffering) {
-                            setImageLoading(true);
-                          } else {
-                            setImageLoading(false);
-                          }
-                        } else {
-                          setImageLoading(true);
-                        }
-                      }}
+                      onFinished={goToNext}
+                      onReady={() => setImageLoading(false)}
+                      progressSv={progressSv}
+                      style={viewerStyles.fullScreenMedia}
+                      contentFit="contain"
                     />
                   ) : currentStoryImageUrl ? (
                     <ExpoImage
@@ -1013,7 +1165,7 @@ export default function StoriesViewer({ stories, onClose, initialIndex = 0, isHi
             </TouchableOpacity>
 
             <View style={viewerStyles.headerActions}>
-              {(currentStory.videoUrl || currentStory.mediaType === 'video') && (
+              {isVideoStory && (
                 <TouchableOpacity onPress={() => setIsMuted(m => !m)} style={viewerStyles.headerIcon}>
                   <Feather name={isMuted ? 'volume-x' : 'volume-2'} size={20} color={COLORS.textLight} />
                 </TouchableOpacity>
@@ -1215,46 +1367,51 @@ export default function StoriesViewer({ stories, onClose, initialIndex = 0, isHi
         {showNewHighlightModal && (
           <View style={[StyleSheet.absoluteFillObject, { zIndex: 110 }]}>
             <View style={{ flex: 1, justifyContent: 'flex-end' }}>
-              <Pressable style={{ ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.45)' }} onPress={() => { setShowNewHighlightModal(false); setIsPaused(false); }} />
-              <KeyboardAvoidingView
-                behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-                enabled={Platform.OS === 'ios'}
-                style={{ backgroundColor: COLORS.card }}
-              >
-                <SafeAreaView style={{ backgroundColor: COLORS.card, borderTopLeftRadius: 20, borderTopRightRadius: 20, maxHeight: height * 0.9, minHeight: 420, overflow: 'hidden' }}>
-                  <View style={{ width: 36, height: 4, borderRadius: 2, backgroundColor: COLORS.border, alignSelf: 'center', marginTop: 10, marginBottom: 2 }} />
+              <Pressable style={{ ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.45)' }} onPress={() => dismissNewHighlight()} />
+              <Animated.View {...newHighlightSheetPanHandlers} style={[{ width: '100%' }, newHighlightAnimatedStyle]}>
+                <KeyboardAvoidingView
+                  behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+                  enabled={Platform.OS === 'ios'}
+                  style={{ backgroundColor: COLORS.card, borderTopLeftRadius: 24, borderTopRightRadius: 24 }}
+                >
+                  <SafeAreaView style={{ backgroundColor: COLORS.card, borderTopLeftRadius: 24, borderTopRightRadius: 24, maxHeight: height * 0.9, minHeight: 420, overflow: 'hidden' }}>
+                    <View {...newHighlightHeaderPanHandlers} style={{ width: '100%', paddingTop: 4 }}>
+                      <View style={{ width: 40, height: 5, borderRadius: 2.5, backgroundColor: '#D1D5DB', alignSelf: 'center', marginTop: 12, marginBottom: 4 }} />
 
-                  <View style={{ height: 52, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: COLORS.border }}>
-                    <TouchableOpacity
-                      onPress={() => { setShowNewHighlightModal(false); setIsPaused(false); }}
-                      activeOpacity={0.7}
-                      hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-                      style={{ minWidth: 80, alignItems: 'flex-start' }}
-                    >
-                      <Text style={{ fontSize: 15, color: COLORS.textPrimary, fontWeight: '500' }}>Cancel</Text>
-                    </TouchableOpacity>
+                      <View style={{ height: 52, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: COLORS.border }}>
+                        <TouchableOpacity
+                          onPress={() => dismissNewHighlight()}
+                          activeOpacity={0.7}
+                          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                          style={{ minWidth: 80, alignItems: 'flex-start' }}
+                        >
+                          <Text style={{ fontSize: 15, color: COLORS.textPrimary, fontWeight: '500' }}>Cancel</Text>
+                        </TouchableOpacity>
 
-                    <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
-                      <Text style={{ fontSize: 16, fontWeight: '700', color: COLORS.textPrimary }}>New highlight</Text>
+                        <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
+                          <Text style={{ fontSize: 16, fontWeight: '700', color: COLORS.textPrimary }}>New highlight</Text>
+                        </View>
+
+                        <TouchableOpacity
+                          onPress={handleCreateNewHighlight}
+                          disabled={!newHighlightName.trim()}
+                          activeOpacity={0.7}
+                          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                          style={{ minWidth: 80, alignItems: 'flex-end' }}
+                        >
+                          <Text style={{ fontSize: 15, color: newHighlightName.trim() ? COLORS.info : COLORS.textMuted, fontWeight: '700' }}>Save</Text>
+                        </TouchableOpacity>
+                      </View>
                     </View>
-
-                    <TouchableOpacity
-                      onPress={handleCreateNewHighlight}
-                      disabled={!newHighlightName.trim()}
-                      activeOpacity={0.7}
-                      hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-                      style={{ minWidth: 80, alignItems: 'flex-end' }}
-                    >
-                      <Text style={{ fontSize: 15, color: newHighlightName.trim() ? COLORS.info : COLORS.textMuted, fontWeight: '700' }}>Save</Text>
-                    </TouchableOpacity>
-                  </View>
 
                   <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={{ paddingBottom: Math.max(insets.bottom, 16) }}>
                     <View style={{ width: 140, height: 140, borderRadius: 16, alignSelf: 'center', marginTop: 22, marginBottom: 16, backgroundColor: COLORS.surface, overflow: 'hidden' }}>
-                      <Image
-                        source={{ uri: String(currentStory?.imageUrl || currentStory?.videoUrl || '') }}
+                      <StoryThumbnail
+                        story={currentStory}
+                        uri={currentStoryImageUrl || currentStory?.imageUrl || currentStoryVideoUrl || currentStory?.videoUrl}
                         style={{ width: '100%', height: '100%' }}
                         resizeMode="cover"
+                        borderRadius={16}
                       />
                     </View>
 
@@ -1299,7 +1456,8 @@ export default function StoriesViewer({ stories, onClose, initialIndex = 0, isHi
                   backgroundColor: COLORS.background,
                   zIndex: -1,
                 }} />
-              </KeyboardAvoidingView>
+                </KeyboardAvoidingView>
+              </Animated.View>
             </View>
           </View>
         )}

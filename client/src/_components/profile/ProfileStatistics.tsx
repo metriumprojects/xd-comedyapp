@@ -493,6 +493,19 @@ export const ProfileStatistics: React.FC<ProfileStatisticsProps> = ({
         )}
       </View>
 
+      {/* Tier Management Row */}
+      <TouchableOpacity
+        style={styles.tierManagementCard}
+        activeOpacity={0.7}
+        onPress={() => {
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+          router.push('/manage-subscriptions' as any);
+        }}
+      >
+        <Text style={styles.tierManagementTitle}>Tier Management</Text>
+        <Feather name="chevron-right" size={20} color={COLORS.textSecondary} />
+      </TouchableOpacity>
+
       {/* Payout History (show whenever there's history data) */}
       {payoutHistory.length > 0 && (
         <View style={styles.card}>
@@ -896,5 +909,21 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: COLORS.textMuted,
     fontWeight: '600',
+  },
+  tierManagementCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: COLORS.surface,
+    borderRadius: 16,
+    paddingHorizontal: 20,
+    paddingVertical: 18,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
+  tierManagementTitle: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: COLORS.textPrimary,
   },
 });

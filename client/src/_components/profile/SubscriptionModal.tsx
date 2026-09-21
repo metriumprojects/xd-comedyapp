@@ -48,7 +48,7 @@ export const SubscriptionModal: React.FC<SubscriptionModalProps> = ({
 }) => {
   const { initPaymentSheet, presentPaymentSheet } = useStripe();
 
-  const [step, setStep] = useState<'membership' | 'form' | 'benefits'>('membership');
+  const [step, setStep] = useState<'membership' | 'form' | 'benefits' | 'confirm'>('membership');
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [price, setPrice] = useState('');

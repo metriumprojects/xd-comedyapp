@@ -10,9 +10,13 @@ interface StoryProgressBarsProps {
 }
 
 const StoryProgressBars: React.FC<StoryProgressBarsProps> = ({ storiesCount, currentIndex, progressSv }) => {
-  const progressFillStyle = useAnimatedStyle(() => ({
-    width: `${progressSv.value}%`
-  }));
+  const progressFillStyle = useAnimatedStyle(() => {
+    'worklet';
+    const clamped = Math.min(100, Math.max(0, progressSv.value));
+    return {
+      width: `${clamped}%`,
+    };
+  });
 
   return (
     <View style={styles.progressContainer}>

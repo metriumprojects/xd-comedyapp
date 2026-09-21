@@ -7,6 +7,11 @@ import * as ImageManipulator from 'expo-image-manipulator';
  */
 export async function compressVideoSafe(uri: string): Promise<string> {
     try {
+        if (!uri) return uri;
+        if (typeof uri === 'string' && (uri.startsWith('http://') || uri.startsWith('https://'))) {
+            return uri;
+        }
+
         // Skip entirely in Expo Go as it doesn't support the native module
         if (Constants.appOwnership === 'expo') {
             console.log('[mediaUtils] Skipping video compression in Expo Go.');
@@ -40,6 +45,11 @@ export async function compressVideoSafe(uri: string): Promise<string> {
  */
 export async function compressImageSafe(uri: string, width: number = 1080, quality: number = 0.7): Promise<string> {
     try {
+        if (!uri) return uri;
+        if (typeof uri === 'string' && (uri.startsWith('http://') || uri.startsWith('https://'))) {
+            return uri;
+        }
+
         const manipResult = await ImageManipulator.manipulateAsync(
             uri,
             [{ resize: { width } }],
