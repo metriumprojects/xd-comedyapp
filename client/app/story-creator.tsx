@@ -673,6 +673,7 @@ export default function StoryCreatorScreen() {
 
     // Text Editor overlays logic
     const openTextEditor = () => {
+        if (uploading) return;
         setSelectedOverlayId(null);
         setEditingText('');
         setEditingColor('#ffffff');
@@ -681,6 +682,7 @@ export default function StoryCreatorScreen() {
     };
 
     const handleCanvasPress = () => {
+        if (uploading) return;
         if (selectedOverlayId) {
             setSelectedOverlayId(null);
         } else {
@@ -689,6 +691,7 @@ export default function StoryCreatorScreen() {
     };
 
     const openTextEditorForOverlay = (overlay: TextOverlay) => {
+        if (uploading) return;
         setSelectedOverlayId(overlay.id);
         setEditingText(overlay.text);
         setEditingColor(overlay.color);
@@ -872,8 +875,8 @@ export default function StoryCreatorScreen() {
                 <>
 
                     {/* Full Screen Story Canvas (captured by captureRef) */}
-                    <TouchableWithoutFeedback onPress={handleCanvasPress}>
-                        <View ref={previewRef} collapsable={false} style={styles.fullScreenCanvas}>
+                    <TouchableWithoutFeedback onPress={handleCanvasPress} disabled={uploading}>
+                        <View ref={previewRef} collapsable={false} style={styles.fullScreenCanvas} pointerEvents={uploading ? 'none' : 'auto'}>
                             {sharedPostMetadata ? null : selectedUri ? (
                                 selectedAsset?.mediaType === 'video' ? (
                                     <AutoplayVideoPreview uri={selectedUri} rawUri={selectedAsset?.uri} style={StyleSheet.absoluteFill} />
@@ -945,9 +948,10 @@ export default function StoryCreatorScreen() {
                     </TouchableWithoutFeedback>
 
                     {/* Floating Header Overlay (Back & Aa) */}
-                    <View style={[styles.floatingHeader, { top: insets.top + 8 }]} pointerEvents="box-none">
+                    <View style={[styles.floatingHeader, { top: insets.top + 8 }]} pointerEvents={uploading ? 'none' : 'box-none'}>
                         <TouchableOpacity 
                             onPress={() => {
+                                if (uploading) return;
                                 if (sharedPostMetadata || sharePostId) {
                                     safeRouterBack();
                                 } else {
@@ -958,16 +962,18 @@ export default function StoryCreatorScreen() {
                                     setShowLocationModal(false);
                                 }
                             }} 
-                            style={styles.floatingRoundBtn}
+                            style={[styles.floatingRoundBtn, uploading && { opacity: 0.5 }]}
                             activeOpacity={0.7}
+                            disabled={uploading}
                         >
                             <Feather name="arrow-left" size={24} color="#fff" />
                         </TouchableOpacity>
 
                         <TouchableOpacity
                             onPress={openTextEditor}
-                            style={styles.floatingRoundBtn}
+                            style={[styles.floatingRoundBtn, uploading && { opacity: 0.5 }]}
                             activeOpacity={0.7}
+                            disabled={uploading}
                         >
                             <Text style={styles.aaFloatingBtnText}>Aa</Text>
                         </TouchableOpacity>
@@ -976,11 +982,13 @@ export default function StoryCreatorScreen() {
                     {/* Floating Bottom Bar (Pills & Share Button) */}
                     <View style={[styles.floatingBottomBar, { paddingBottom: Math.max(insets.bottom, 16) }]} pointerEvents="box-none">
                         {/* Options Row (Visibility & Location Pills) */}
-                        <View style={styles.floatingOptionsRow} pointerEvents="box-none">
+                        <View style={styles.floatingOptionsRow} pointerEvents={uploading ? 'none' : 'box-none'}>
                             <TouchableOpacity
-                                style={styles.floatingOptionPill}
+                                style={[styles.floatingOptionPill, uploading && { opacity: 0.6 }]}
                                 activeOpacity={0.7}
+                                disabled={uploading}
                                 onPress={() => {
+                                    if (uploading) return;
                                     hapticLight();
                                     setShowVisibilityModal(true);
                                 }}
@@ -991,9 +999,11 @@ export default function StoryCreatorScreen() {
                             </TouchableOpacity>
 
                             <TouchableOpacity
-                                style={[styles.floatingOptionPill, selectedLocation && { backgroundColor: 'rgba(255,141,0,0.35)', borderColor: '#FF8D00' }]}
+                                style={[styles.floatingOptionPill, selectedLocation && { backgroundColor: 'rgba(255,141,0,0.35)', borderColor: '#FF8D00' }, uploading && { opacity: 0.6 }]}
                                 activeOpacity={0.7}
+                                disabled={uploading}
                                 onPress={() => {
+                                    if (uploading) return;
                                     hapticLight();
                                     setShowLocationModal(true);
                                 }}
@@ -1005,7 +1015,9 @@ export default function StoryCreatorScreen() {
                                 {selectedLocation ? (
                                     <TouchableOpacity
                                         hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                                        disabled={uploading}
                                         onPress={(e) => {
+                                            if (uploading) return;
                                             e.stopPropagation();
                                             setSelectedLocation(null);
                                             setLocationQuery('');
