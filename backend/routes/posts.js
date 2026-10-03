@@ -143,6 +143,14 @@ router.get('/feed', optionalAuth, async (req, res, next) => {
     if (reportedObjectIds.length > 0) {
       baseConditions.push({ _id: { $nin: reportedObjectIds } });
     }
+
+    const category = (req.query.category || req.query.filter || '').trim();
+    if (category && category.toLowerCase() !== 'all') {
+      const escaped = category.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const flexRegex = escaped.replace(/[-_\s]+/g, '[-_\\s]+');
+      baseConditions.push({ category: { $regex: new RegExp(`^${flexRegex}$`, 'i') } });
+    }
+
     const baseQuery = baseConditions.length === 1 ? baseConditions[0] : { $and: baseConditions };
 
     // 2. Smart Reels Recommendation & Shuffling Engine
@@ -172,6 +180,7 @@ router.get('/recommended', optionalAuth, async (req, res, next) => {
     const limit = Math.min(parseInt(req.query.limit || '20'), 50);
     const viewerId = getViewerId(req);
     const excludeIdsRaw = req.query.excludeIds || '';
+    const category = (req.query.category || req.query.filter || '').trim();
     
     // Build exclude list from comma-separated IDs
     const excludeObjectIds = excludeIdsRaw
@@ -219,11 +228,49 @@ router.get('/recommended', optionalAuth, async (req, res, next) => {
       ]
     };
 
-    const finalPosts = await postService.getEnrichedPosts(matchQuery, {
+    if (category && category.toLowerCase() !== 'all') {
+      const escaped = category.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const flexRegex = escaped.replace(/[-_\s]+/g, '[-_\\s]+');
+      matchQuery.$and.push({ category: { $regex: new RegExp(`^${flexRegex}$`, 'i') } });
+    }
+
+    let finalPosts = await postService.getEnrichedPosts(matchQuery, {
       limit,
       viewerId,
       randomize: true
     });
+
+    if (finalPosts.length < limit) {
+      const fallbackQuery = {
+        $and: [
+          {
+            $or: [
+              { isPrivate: { $ne: true } },
+              { visibility: 'Everyone' }
+            ]
+          },
+          ...(excludeObjectIds.length > 0 ? [{ _id: { $nin: excludeObjectIds } }] : [])
+        ]
+      };
+      if (category && category.toLowerCase() !== 'all') {
+        const escaped = category.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        const flexRegex = escaped.replace(/[-_\s]+/g, '[-_\\s]+');
+        fallbackQuery.$and.push({ category: { $regex: new RegExp(`^${flexRegex}$`, 'i') } });
+      }
+      const existingIds = new Set(finalPosts.map(p => String(p._id || p.id)));
+      const olderPosts = await postService.getEnrichedPosts(fallbackQuery, {
+        limit: limit - finalPosts.length,
+        viewerId,
+        randomize: true
+      });
+      for (const op of olderPosts) {
+        const id = String(op._id || op.id);
+        if (!existingIds.has(id)) {
+          finalPosts.push(op);
+          existingIds.add(id);
+        }
+      }
+    }
 
     const unstacked = feedRecommendationService.applyCreatorAntiStacking(finalPosts);
 

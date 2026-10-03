@@ -179,11 +179,28 @@ async function getRecommendedFeed({
       ]
     };
 
-    const candidates = await postService.getEnrichedPosts(candidateQuery, {
+    let candidates = await postService.getEnrichedPosts(candidateQuery, {
       limit: candidateLimit,
       sort: { createdAt: -1 },
       viewerId
     });
+
+    // Fallback: If 30-day window yields fewer than limit posts (e.g. for specific categories), widen to all-time
+    if (candidates.length < limit) {
+      const allTimeCandidates = await postService.getEnrichedPosts(baseQuery, {
+        limit: candidateLimit,
+        sort: { createdAt: -1 },
+        viewerId
+      });
+      const seenIds = new Set(candidates.map(p => String(p._id || p.id)));
+      for (const p of allTimeCandidates) {
+        const id = String(p._id || p.id);
+        if (!seenIds.has(id)) {
+          candidates.push(p);
+          seenIds.add(id);
+        }
+      }
+    }
 
     // Score all candidates
     const scoredCandidates = candidates.map(post => ({
@@ -252,7 +269,7 @@ async function getRecommendedFeed({
     const finalPosts = unstacked.slice(0, limit);
 
     // 5. Build stable pagination state
-    const nextCursor = `offset_${finalPosts.length}`;
+    const nextCursor = finalPosts.length >= limit ? `offset_${finalPosts.length}` : null;
     const lastPost = finalPosts.length > 0 ? finalPosts[finalPosts.length - 1] : null;
 
     return {
@@ -287,7 +304,7 @@ async function getRecommendedFeed({
     const pagedPosts = unstacked.slice(0, limit);
 
     const nextSkip = effectiveSkip + pagedPosts.length;
-    const nextCursor = pagedPosts.length > 0 ? `offset_${nextSkip}` : null;
+    const nextCursor = pagedPosts.length >= limit ? `offset_${nextSkip}` : null;
     const lastPost = pagedPosts.length > 0 ? pagedPosts[pagedPosts.length - 1] : null;
 
     return {

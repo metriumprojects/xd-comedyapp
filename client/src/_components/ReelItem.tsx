@@ -1376,8 +1376,7 @@ export const ReelItem = React.memo<ReelItemProps>(({
 
       {/* Top Gradient Overlay for header controls readability */}
       <LinearGradient
-        colors={['rgba(0,0,0,0.65)', 'rgba(0,0,0,0.35)', 'rgba(0,0,0,0.1)', 'transparent']}
-        locations={[0, 0.4, 0.75, 1]}
+        colors={['rgba(0,0,0,0.4)', 'transparent']}
         style={styles.topGradient}
         pointerEvents="none"
       />
@@ -2188,7 +2187,7 @@ const styles = StyleSheet.create({
     top: 0,
     left: 0,
     right: 0,
-    height: 240,
+    height: 120,
     zIndex: 5
   },
   rightOverlay: {

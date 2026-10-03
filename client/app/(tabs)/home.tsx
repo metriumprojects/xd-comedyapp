@@ -11,10 +11,10 @@ import {
   Platform,
   RefreshControl,
   Keyboard,
-  Modal
+  Modal,
+  ActivityIndicator
 } from "react-native";
 import { Feather, Ionicons } from "@expo/vector-icons";
-import { LinearGradient } from "expo-linear-gradient";
 import * as Haptics from 'expo-haptics';
 import { useFocusEffect, useLocalSearchParams, useRouter, useNavigation } from "expo-router";
 import { useReelsStore } from "@/store/useReelsStore";
@@ -68,9 +68,10 @@ export default function Home() {
     setAllLoadedPosts,
     loading,
     loadingMore,
+    hasMorePosts,
     loadInitialFeed,
     loadMorePosts
-  } = useHomeFeed(currentUserId, !!isOnline);
+  } = useHomeFeed(currentUserId, !!isOnline, filter);
 
   const { categories, loadCategories } = useCategories();
 
@@ -299,8 +300,6 @@ export default function Home() {
     }, [loadCategories, currentUserId, fetchFollowedStories, fetchNotifications])
   );
 
-  useFeedEvents(setPosts, setAllLoadedPosts, !!isOnline, loadInitialFeed, flatListRef);
-
   // Prepend or reorder Podium category to always be the first chip
   const finalCategories = useMemo(() => {
     const hasPodium = categories.some((c: any) => c.name.toLowerCase() === 'podium');
@@ -311,15 +310,18 @@ export default function Home() {
     return [{ name: 'Podium', image: '' }, ...filtered];
   }, [categories]);
 
-  // Filter posts based on selected category chip, and deduplicate
+  // Filter posts based on selected category chip as safety guard, and deduplicate
   const filteredPosts = useMemo(() => {
     let result = posts;
 
-    // Filter by category chip
+    // Filter by category chip (case-insensitive & flexible spaces/hyphens)
     if (filter) {
-      result = result.filter(
-        (p: any) => p.category?.toLowerCase() === filter.toLowerCase()
-      );
+      const normFilter = filter.toLowerCase().replace(/[-_\s]+/g, ' ').trim();
+      result = result.filter((p: any) => {
+        if (!p.category) return true; // keep if backend returned it for this category
+        const normCat = String(p.category).toLowerCase().replace(/[-_\s]+/g, ' ').trim();
+        return normCat === normFilter;
+      });
     }
 
     // Deduplicate — the server can return the same post in both recent and discovery batches
@@ -365,11 +367,11 @@ export default function Home() {
     const y = event.nativeEvent.contentOffset.y;
     const targetIndex = Math.round(y / containerHeight);
     // Smooth threshold: only transition activeIndex when user has swiped past 60% of the item
-    // Prevents jittery re-renders and decoder thrashing mid-drag
-    if (targetIndex !== activeIndex && Math.abs(y - targetIndex * containerHeight) < containerHeight * 0.4) {
+    // Prevents jittery re-renders and decoder thrashing mid-drag, guards against footer index
+    if (targetIndex !== activeIndex && targetIndex >= 0 && targetIndex < filteredPosts.length && Math.abs(y - targetIndex * containerHeight) < containerHeight * 0.4) {
       setActiveIndex(targetIndex);
     }
-  }, [containerHeight, activeIndex, setActiveIndex]);
+  }, [containerHeight, activeIndex, filteredPosts.length, setActiveIndex]);
 
   const handleMomentumScrollEnd = useCallback((event: any) => {
     const y = event.nativeEvent.contentOffset.y;
@@ -491,6 +493,19 @@ export default function Home() {
     return id ? `reel-${String(id)}` : `reel-fallback-${index}`;
   }, []);
 
+  // Full-height spinning loader at the end of loaded reels (Instagram Reels style infinite feed)
+  const renderListFooter = useCallback(() => {
+    if (filteredPosts.length === 0) return null;
+    return (
+      <View style={[styles.footerLoaderContainer, { height: containerHeight }]}>
+        <View style={styles.footerLoaderBox}>
+          <ActivityIndicator size="large" color={COLORS.primary} />
+          <Text style={styles.footerLoaderText}>Loading more reels...</Text>
+        </View>
+      </View>
+    );
+  }, [filteredPosts.length, containerHeight]);
+
   return (
     <View style={styles.container} onLayout={onLayout}>
       {/* 1. Main full-screen vertical swipe Reels list */}
@@ -500,6 +515,7 @@ export default function Home() {
           data={filteredPosts}
           renderItem={renderReelItem}
           keyExtractor={keyExtractor}
+          ListFooterComponent={renderListFooter}
           pagingEnabled
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
@@ -507,7 +523,7 @@ export default function Home() {
           onMomentumScrollEnd={handleMomentumScrollEnd}
           scrollEventThrottle={16}
           onEndReached={loadMorePosts}
-          onEndReachedThreshold={1.5}
+          onEndReachedThreshold={2}
           decelerationRate="fast"
           snapToInterval={containerHeight}
           windowSize={5}
@@ -608,15 +624,8 @@ export default function Home() {
 
       {/* 2. Absolute Top Overlays (Header controls, Search, Categories) */}
       {!isFullscreenMode && (
-        <View style={styles.topOverlays} pointerEvents="box-none">
-          <LinearGradient
-            colors={['rgba(0,0,0,0.7)', 'rgba(0,0,0,0.4)', 'rgba(0,0,0,0.12)', 'transparent']}
-            locations={[0, 0.4, 0.75, 1]}
-            style={styles.topGradientScrim}
-            pointerEvents="none"
-          />
-          <View style={{ paddingTop: insets.top || 8 }} pointerEvents="box-none">
-            {/* Header navigation and controls */}
+        <View style={[styles.topOverlays, { paddingTop: insets.top || 8 }]} pointerEvents="box-none">
+          {/* Header navigation and controls */}
           <View style={styles.headerRow} pointerEvents="box-none">
             {filter || searchQuery ? (
               <TouchableOpacity
@@ -738,7 +747,6 @@ export default function Home() {
 
           {/* Uploading progress banner floating smoothly below categories */}
           <UploadProgressBanner />
-          </View>
         </View>
       )}
 
@@ -858,13 +866,6 @@ const styles = StyleSheet.create({
     right: 0,
     zIndex: 20,
   },
-  topGradientScrim: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    height: 240,
-  },
   headerRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -882,11 +883,6 @@ const styles = StyleSheet.create({
     height: 32,
     justifyContent: 'center',
     alignItems: 'center',
-    shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 1.5 },
-    shadowOpacity: 0.75,
-    shadowRadius: 3,
-    elevation: 4,
   },
   badge: {
     position: 'absolute',
@@ -915,23 +911,15 @@ const styles = StyleSheet.create({
     height: 38,
     borderRadius: 19,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.45)',
-    backgroundColor: 'rgba(255, 255, 255, 0.16)',
+    borderColor: 'rgba(255, 255, 255, 0.5)',
+    backgroundColor: 'transparent',
     marginHorizontal: 10,
     marginTop: 4,
     paddingLeft: 12,
     paddingRight: 12,
-    shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.5,
-    shadowRadius: 5,
-    elevation: 5,
   },
   searchIcon: {
     marginRight: 8,
-    textShadowColor: 'rgba(0, 0, 0, 0.75)',
-    textShadowOffset: { width: 0, height: 1 },
-    textShadowRadius: 3,
   },
   searchInput: {
     flex: 1,
@@ -939,9 +927,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     height: '100%',
     padding: 0,
-    textShadowColor: 'rgba(0, 0, 0, 0.85)',
-    textShadowOffset: { width: 0, height: 1 },
-    textShadowRadius: 3,
   },
   clearBtn: {
     paddingHorizontal: 4,
@@ -957,17 +942,13 @@ const styles = StyleSheet.create({
     color: COLORS.white,
     fontSize: 14,
     fontWeight: '400',
-    textShadowColor: 'rgba(0, 0, 0, 0.75)',
-    textShadowOffset: { width: 0, height: 1 },
-    textShadowRadius: 3,
   },
   categoriesRow: {
     marginTop: 10,
   },
   categoriesList: {
     paddingHorizontal: 16,
-    paddingBottom: 6,
-    paddingTop: 2,
+    paddingBottom: 4,
     marginHorizontal: -5,
   },
   categoryChip: {
@@ -976,35 +957,39 @@ const styles = StyleSheet.create({
     height: 36,
     borderRadius: 18,
     paddingHorizontal: 16,
-    backgroundColor: 'rgba(255, 255, 255, 0.16)',
+    backgroundColor: 'transparent',
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.45)',
+    borderColor: 'rgba(255,255,255,0.5)',
     marginRight: 8,
-    shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.5,
-    shadowRadius: 5,
-    elevation: 5,
   },
   categoryChipActive: {
     backgroundColor: COLORS.white,
     borderColor: COLORS.white,
-    shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.6,
-    shadowRadius: 6,
-    elevation: 6,
   },
   categoryChipText: {
     color: COLORS.white,
     fontSize: 13,
     fontWeight: '600',
-    textShadowColor: 'rgba(0, 0, 0, 0.85)',
-    textShadowOffset: { width: 0, height: 1 },
-    textShadowRadius: 3,
   },
   categoryChipTextActive: {
     color: COLORS.black,
-    textShadowRadius: 0,
+  },
+  footerLoaderContainer: {
+    width: '100%',
+    backgroundColor: '#000000',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  footerLoaderBox: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 24,
+  },
+  footerLoaderText: {
+    color: '#8E8E93',
+    fontSize: 14,
+    fontWeight: '500',
+    marginTop: 14,
+    letterSpacing: 0.2,
   },
 });
