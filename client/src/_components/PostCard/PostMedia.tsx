@@ -430,7 +430,71 @@ const PostMedia: React.FC<PostMediaProps> = ({
     setUserOverride('play');
   }, []);
 
-  const firstItem = media[0];
+  const firstItem = media?.[0];
+
+  // ── MULTI-ITEM CAROUSEL PROPS & HOOKS (Must be declared unconditionally to satisfy Rules of Hooks) ────
+  const storedRatio = firstItem?.aspectRatio;
+  const carouselHeight = isFullScreen
+    ? Dimensions.get('window').height
+    : mediaHeight || (storedRatio && storedRatio > 0 ? SCREEN_WIDTH / storedRatio : SCREEN_WIDTH);
+
+  const renderItem = useCallback(({ item, index }: { item: MediaItem; index: number }) => {
+    const isVideo = item.type === 'video'
+      || item.url?.toLowerCase().includes('.mp4')
+      || item.url?.toLowerCase().includes('.mov')
+      || item.url?.includes('video/upload');
+
+    const totalMediaCount = media?.length || 1;
+    const normalizedIndex = index % totalMediaCount;
+    const isCurrentSlide = normalizedIndex === localActiveIndex;
+    const shouldAutoPlay = effectiveShouldPlay && isCurrentSlide;
+
+    return isVideo ? (
+      <VideoItem
+        url={item.url}
+        containerHeight={carouselHeight}
+        shouldPlay={shouldAutoPlay}
+        isMuted={isMuted}
+        toggleMute={toggleMute}
+        videoRef={isCurrentSlide ? videoRef : undefined}
+        onPress={() => handlePress(index, true)}
+        onPlayPress={handlePlayPress}
+        thumbnailUrl={item.thumbnailUrl}
+        initialAspectRatio={item.aspectRatio}
+      />
+    ) : (
+      <ImageItem
+        url={item.url}
+        containerHeight={carouselHeight}
+        onPress={() => handlePress(index)}
+        priority={index === 0 ? "high" : "normal"}
+        thumbnailUrl={item.thumbnailUrl}
+        isFullScreen={isFullScreen}
+      />
+    );
+  }, [media, carouselHeight, effectiveShouldPlay, localActiveIndex, isMuted, toggleMute, videoRef, handlePress, handlePlayPress, isFullScreen]);
+
+  const loopedMedia = useMemo(() => {
+    if (!Array.isArray(media) || media.length <= 1) return media || [];
+    return [...media, ...media, ...media];
+  }, [media]);
+
+  useEffect(() => {
+    if (media && media.length > 1 && flatListRef.current && !isInitialScrollDone) {
+      setTimeout(() => {
+        flatListRef.current?.scrollToOffset({
+          offset: media.length * SCREEN_WIDTH,
+          animated: false,
+        });
+        setIsInitialScrollDone(true);
+      }, 50);
+    }
+  }, [media, isInitialScrollDone]);
+
+  // Guard against empty media AFTER all hooks have executed
+  if (!Array.isArray(media) || media.length === 0) {
+    return null;
+  }
 
   // ── SINGLE ITEM ─────────────────────────────────────────────────────────────
   if (media.length === 1) {
@@ -492,66 +556,6 @@ const PostMedia: React.FC<PostMediaProps> = ({
       />
     );
   }
-
-  // ── MULTI-ITEM CAROUSEL ──────────────────────────────────────────────────────
-  // FlatList needs consistent item heights. Use stored ratio of first item,
-  // fall back to square. All items use contentFit="contain" so nothing is cropped.
-  const storedRatio = firstItem?.aspectRatio;
-  const carouselHeight = isFullScreen
-    ? Dimensions.get('window').height
-    : mediaHeight || (storedRatio && storedRatio > 0 ? SCREEN_WIDTH / storedRatio : SCREEN_WIDTH);
-
-  const renderItem = useCallback(({ item, index }: { item: MediaItem; index: number }) => {
-    const isVideo = item.type === 'video'
-      || item.url?.toLowerCase().includes('.mp4')
-      || item.url?.toLowerCase().includes('.mov')
-      || item.url?.includes('video/upload');
-
-    const normalizedIndex = index % media.length;
-    const isCurrentSlide = normalizedIndex === localActiveIndex;
-    const shouldAutoPlay = effectiveShouldPlay && isCurrentSlide;
-
-    return isVideo ? (
-      <VideoItem
-        url={item.url}
-        containerHeight={carouselHeight}
-        shouldPlay={shouldAutoPlay}
-        isMuted={isMuted}
-        toggleMute={toggleMute}
-        videoRef={isCurrentSlide ? videoRef : undefined}
-        onPress={() => handlePress(index, true)}
-        onPlayPress={handlePlayPress}
-        thumbnailUrl={item.thumbnailUrl}
-        initialAspectRatio={item.aspectRatio}
-      />
-    ) : (
-      <ImageItem
-        url={item.url}
-        containerHeight={carouselHeight}
-        onPress={() => handlePress(index)}
-        priority={index === 0 ? "high" : "normal"}
-        thumbnailUrl={item.thumbnailUrl}
-        isFullScreen={isFullScreen}
-      />
-    );
-  }, [media, carouselHeight, effectiveShouldPlay, localActiveIndex, isMuted, toggleMute, videoRef, handlePress, handlePlayPress, isFullScreen]);
-
-  const loopedMedia = useMemo(() => {
-    if (media.length <= 1) return media;
-    return [...media, ...media, ...media];
-  }, [media]);
-
-  useEffect(() => {
-    if (media.length > 1 && flatListRef.current && !isInitialScrollDone) {
-      setTimeout(() => {
-        flatListRef.current?.scrollToOffset({
-          offset: media.length * SCREEN_WIDTH,
-          animated: false,
-        });
-        setIsInitialScrollDone(true);
-      }, 50);
-    }
-  }, [media.length, isInitialScrollDone]);
 
   const handleScroll = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
     const x = event.nativeEvent.contentOffset.x;

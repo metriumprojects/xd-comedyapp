@@ -97,13 +97,17 @@ export default function PostViewerModal({
     return null;
   });
 
-  // When displayPosts or visible changes, sync activePostId to the top post
+  // When modal OPENS (visible transitions from false to true), sync activePostId to the top post
+  const prevVisibleRef = useRef(false);
   useEffect(() => {
-    if (visible && Array.isArray(displayPosts) && displayPosts.length > 0) {
-      const p = displayPosts[0];
-      setActivePostId(String(p?.id || p?._id || ''));
-      flashListRef.current?.scrollToOffset({ offset: 0, animated: false });
+    if (visible && !prevVisibleRef.current) {
+      if (Array.isArray(displayPosts) && displayPosts.length > 0) {
+        const p = displayPosts[0];
+        setActivePostId(String(p?.id || p?._id || ''));
+        flashListRef.current?.scrollToOffset({ offset: 0, animated: false });
+      }
     }
+    prevVisibleRef.current = visible;
   }, [visible, displayPosts]);
 
   const onViewableItemsChanged = useRef(({ viewableItems }: any) => {
@@ -119,7 +123,7 @@ export default function PostViewerModal({
   }).current;
 
   const viewabilityConfig = useRef({
-    itemVisiblePercentThreshold: 35,
+    itemVisiblePercentThreshold: 60,
   }).current;
 
   return (
