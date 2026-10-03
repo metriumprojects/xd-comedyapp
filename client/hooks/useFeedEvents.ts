@@ -32,7 +32,7 @@ export function useFeedEvents(
 
   useEffect(() => {
     const unsub = feedEventEmitter.onFeedUpdate((event) => {
-      if (event.type === 'POST_DELETED' && event.postId) {
+      if ((event.type === 'POST_DELETED' || event.type === 'POST_REPORTED') && event.postId) {
         const targetId = String(event.postId).split('-loop')[0];
         
         const filterFn = (prev: any[]) => (Array.isArray(prev) ? prev.filter(p => {
@@ -43,7 +43,7 @@ export function useFeedEvents(
         setPosts(prev => filterFn(prev));
         setAllLoadedPosts(prev => filterFn(prev));
         
-        // Aggressively clear ALL home feed caches
+        // Aggressively clear ALL home feed caches so the post never reappears
         (async () => {
           try {
             const allKeys = await AsyncStorage.getAllKeys();
@@ -69,8 +69,6 @@ export function useFeedEvents(
               }
             }
           } catch (e) {}
-          
-          debouncedRefresh(200);
         })();
       }
 

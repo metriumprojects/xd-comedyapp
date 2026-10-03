@@ -487,6 +487,10 @@ export const useCreatePost = (params: any = {}) => {
       const isVideo = selectedImages.some(uri => isVideoUri(uri, galleryAssets));
 
       const uploadAction = async (onProgress?: (percent: number) => void) => {
+        const currentAuthId = await getAuthenticatedUserId();
+        if (!currentAuthId || String(currentAuthId) !== String(authUserId)) {
+          throw new Error('Upload aborted: user logged out or switched accounts');
+        }
         let res;
         if (params.editPostId) {
           res = await updatePost(
@@ -565,6 +569,7 @@ export const useCreatePost = (params: any = {}) => {
 
       // Add to background queue
       useUploadQueue.getState().enqueueUpload({
+        userId: authUserId,
         type: postType === 'STORY' ? 'story' : 'post',
         mediaCount: selectedImages.length,
         action: uploadAction

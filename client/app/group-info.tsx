@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useMemo } from 'react';
+import React, { useEffect, useState, useMemo, useCallback } from 'react';
 import {
   View,
   Text,
@@ -12,15 +12,18 @@ import {
   Linking,
   Modal,
   Pressable,
+  TextInput,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Image as ExpoImage } from 'expo-image';
 import { Feather, Ionicons } from '@expo/vector-icons';
+import * as ImagePicker from 'expo-image-picker';
 import { Video, ResizeMode } from 'expo-av';
 import { safeRouterBack } from '@/lib/safeRouterBack';
 import { resolveAvatarUrl, isMissingOrDefaultAvatar } from '@/lib/utils/avatar';
 import { DEFAULT_AVATAR_URL, getCdnUrl } from '@/lib/api';
+import { uploadImage } from '@/lib/firebaseHelpers';
 import { cacheUserProfile, getCachedUserProfile } from '@/hooks/useUserProfile';
 import { apiService } from '@/src/_services/apiService';
 import { fetchMessages, clearConversation, getUserProfile } from '@/lib/firebaseHelpers/index';
@@ -54,21 +57,91 @@ export default function GroupInfoScreen() {
     }).catch(() => {});
   }, [storeUserId]);
 
-  const myIds = useMemo(() => {
-    const s = new Set<string>();
-    if (currentUserId) s.add(String(currentUserId).trim().toLowerCase());
-    if (storeUserId) s.add(String(storeUserId).trim().toLowerCase());
-    if (currentUser?._id) s.add(String(currentUser._id).trim().toLowerCase());
-    if (currentUser?.id) s.add(String(currentUser.id).trim().toLowerCase());
-    if (currentUser?.userId) s.add(String(currentUser.userId).trim().toLowerCase());
-    if (currentUser?.uid) s.add(String(currentUser.uid).trim().toLowerCase());
-    if (currentUser?.username) s.add(String(currentUser.username).trim().toLowerCase());
-    if (currentUser?.userName) s.add(String(currentUser.userName).trim().toLowerCase());
-    return s;
-  }, [currentUserId, storeUserId, currentUser]);
+  useEffect(() => {
+    if (!currentUserId) {
+      AsyncStorage.getItem('userId').then(id => {
+        if (id) setCurrentUserId(id);
+      }).catch(() => {});
+    }
+  }, [currentUserId]);
 
-  const checkIsSelf = (item: any): boolean => {
+  const [myIds, setMyIds] = useState<Set<string>>(() => {
+    const s = new Set<string>();
+    if (storeUserId) s.add(String(storeUserId).trim().toLowerCase());
+    if (storeUserProfile?.id) s.add(String(storeUserProfile.id).trim().toLowerCase());
+    if (storeUserProfile?._id) s.add(String(storeUserProfile._id).trim().toLowerCase());
+    if (storeUserProfile?.uid) s.add(String(storeUserProfile.uid).trim().toLowerCase());
+    if (storeUserProfile?.userId) s.add(String(storeUserProfile.userId).trim().toLowerCase());
+    if (storeUserProfile?.username) s.add(String(storeUserProfile.username).trim().toLowerCase());
+    if (storeUserProfile?.userName) s.add(String(storeUserProfile.userName).trim().toLowerCase());
+    return s;
+  });
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const ids = new Set<string>();
+      if (storeUserId) ids.add(String(storeUserId).trim().toLowerCase());
+      if (currentUserId) ids.add(String(currentUserId).trim().toLowerCase());
+      if (currentUser?.id) ids.add(String(currentUser.id).trim().toLowerCase());
+      if (currentUser?._id) ids.add(String(currentUser._id).trim().toLowerCase());
+      if (currentUser?.uid) ids.add(String(currentUser.uid).trim().toLowerCase());
+      if (currentUser?.userId) ids.add(String(currentUser.userId).trim().toLowerCase());
+      if (currentUser?.username) ids.add(String(currentUser.username).trim().toLowerCase());
+      if (currentUser?.userName) ids.add(String(currentUser.userName).trim().toLowerCase());
+
+      try {
+        const [uid, userId, token, userStr] = await Promise.all([
+          AsyncStorage.getItem('uid'),
+          AsyncStorage.getItem('userId'),
+          AsyncStorage.getItem('token'),
+          AsyncStorage.getItem('user'),
+        ]);
+        if (uid) ids.add(String(uid).trim().toLowerCase());
+        if (userId) ids.add(String(userId).trim().toLowerCase());
+        if (token) {
+          try {
+            const parts = String(token).split('.');
+            if (parts.length >= 2) {
+              const b64 = parts[1].replace(/-/g, '+').replace(/_/g, '/');
+              const json = typeof atob === 'function' ? JSON.parse(atob(b64)) : null;
+              if (json?.userId) ids.add(String(json.userId).trim().toLowerCase());
+              if (json?.firebaseUid) ids.add(String(json.firebaseUid).trim().toLowerCase());
+              if (json?.uid) ids.add(String(json.uid).trim().toLowerCase());
+            }
+          } catch {}
+        }
+        if (userStr) {
+          try {
+            const u = JSON.parse(userStr);
+            if (u?._id) ids.add(String(u._id).trim().toLowerCase());
+            if (u?.id) ids.add(String(u.id).trim().toLowerCase());
+            if (u?.uid) ids.add(String(u.uid).trim().toLowerCase());
+            if (u?.firebaseUid) ids.add(String(u.firebaseUid).trim().toLowerCase());
+            if (u?.username) ids.add(String(u.username).trim().toLowerCase());
+            if (u?.userName) ids.add(String(u.userName).trim().toLowerCase());
+          } catch {}
+        }
+        try {
+          const canon = await resolveCanonicalUserId();
+          if (canon) ids.add(String(canon).trim().toLowerCase());
+        } catch {}
+      } catch {}
+
+      if (!cancelled && ids.size > 0) {
+        setMyIds(prev => {
+          const next = new Set(prev);
+          ids.forEach(id => next.add(id));
+          return next;
+        });
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [storeUserId, currentUserId, currentUser]);
+
+  const checkIsSelf = useCallback((item: any): boolean => {
     if (!item) return false;
+    if (item.isSelf === true) return true;
     const candidates = [
       item.uid,
       item._id,
@@ -84,12 +157,18 @@ export default function GroupInfoScreen() {
       }
     }
     return false;
-  };
+  }, [myIds]);
 
   const conversationId = String((params as any)?.conversationId || '').trim();
   const groupId = String((params as any)?.groupId || '').trim();
   const rawGroupName = String((params as any)?.groupName || (params as any)?.name || (params as any)?.title || 'Group Chat').trim();
   const rawAvatar = String((params as any)?.avatar || (params as any)?.groupAvatar || '').trim();
+
+  const [groupAvatar, setGroupAvatar] = useState(rawAvatar);
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
+  const [showEditGroupModal, setShowEditGroupModal] = useState(false);
+  const [editGroupNameInput, setEditGroupNameInput] = useState(rawGroupName);
+  const [savingGroupName, setSavingGroupName] = useState(false);
 
   const [groupMembers, setGroupMembers] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -200,6 +279,19 @@ export default function GroupInfoScreen() {
       }
     }
   };
+
+  const [adminIds, setAdminIds] = useState<Set<string>>(() => {
+    const s = new Set<string>();
+    const pAdmin = (params as any)?.adminId || (params as any)?.createdBy;
+    if (pAdmin) s.add(String(pAdmin).toLowerCase());
+    try {
+      const parsedAdmins = (params as any)?.groupAdminIds ? JSON.parse((params as any).groupAdminIds) : null;
+      if (Array.isArray(parsedAdmins)) {
+        parsedAdmins.forEach((id: any) => id && s.add(String(id).toLowerCase()));
+      }
+    } catch {}
+    return s;
+  });
 
   const [adminId, setAdminId] = useState<string | null>(() => {
     return (params as any)?.adminId || (params as any)?.createdBy || null;
@@ -617,11 +709,11 @@ export default function GroupInfoScreen() {
   }, [conversationId, groupId]);
 
   const groupAvatarUri = useMemo(() => {
-    if (rawAvatar && !isMissingOrDefaultAvatar(rawAvatar)) {
-      return resolveAvatarUrl(rawAvatar);
+    if (groupAvatar && !isMissingOrDefaultAvatar(groupAvatar)) {
+      return resolveAvatarUrl(groupAvatar);
     }
     return DEFAULT_AVATAR_URL;
-  }, [rawAvatar]);
+  }, [groupAvatar]);
 
   useEffect(() => {
     let isMounted = true;
@@ -664,7 +756,15 @@ export default function GroupInfoScreen() {
         const rawId = isValidUserToken(rawIdCandidate) ? rawIdCandidate : '';
         const rawUsername = isValidUserToken(rawUsernameCandidate) ? rawUsernameCandidate : '';
 
-        if (!rawUid && !rawId && !rawUsername) {
+        const isCandidateSelf = Boolean(
+          m?.isSelf ||
+          checkIsSelf(m) ||
+          (rawUid && myIds.has(rawUid.toLowerCase())) ||
+          (rawId && myIds.has(rawId.toLowerCase())) ||
+          (rawUsername && myIds.has(rawUsername.toLowerCase()))
+        );
+
+        if (!rawUid && !rawId && !rawUsername && !isCandidateSelf) {
           return;
         }
 
@@ -673,24 +773,22 @@ export default function GroupInfoScreen() {
         const avatar = typeof m === 'object' ? (m.photoURL || m.avatar || m.profilePicture || m.senderAvatar || m.userAvatar || obj.photoURL || obj.avatar || obj.profilePicture) : null;
 
         let matchedKey: string | null = null;
-        if (rawUid) {
-          if (uidToKeyMap.has(rawUid.toLowerCase())) matchedKey = uidToKeyMap.get(rawUid.toLowerCase())!;
-        }
-        if (!matchedKey && rawId) {
-          if (uidToKeyMap.has(rawId.toLowerCase())) matchedKey = uidToKeyMap.get(rawId.toLowerCase())!;
-        }
-        if (!matchedKey && rawUsername) {
-          if (usernameToKeyMap.has(rawUsername.toLowerCase())) matchedKey = usernameToKeyMap.get(rawUsername.toLowerCase())!;
+        if (isCandidateSelf) {
+          matchedKey = 'self';
+        } else {
+          if (rawUid && uidToKeyMap.has(rawUid.toLowerCase())) matchedKey = uidToKeyMap.get(rawUid.toLowerCase())!;
+          if (!matchedKey && rawId && uidToKeyMap.has(rawId.toLowerCase())) matchedKey = uidToKeyMap.get(rawId.toLowerCase())!;
+          if (!matchedKey && rawUsername && usernameToKeyMap.has(rawUsername.toLowerCase())) matchedKey = usernameToKeyMap.get(rawUsername.toLowerCase())!;
         }
 
-        const canonicalKey = matchedKey || (rawUsername ? `user:${rawUsername.toLowerCase()}` : (rawUid ? `uid:${rawUid.toLowerCase()}` : `id:${rawId.toLowerCase()}`));
+        const canonicalKey = matchedKey || (rawUid ? `uid:${rawUid.toLowerCase()}` : (rawId ? `id:${rawId.toLowerCase()}` : `user:${rawUsername.toLowerCase()}`));
 
         const existing = candidateMap.get(canonicalKey) || {};
 
-        const mergedUid = existing.uid || rawUid || rawId || null;
+        const mergedUid = existing.uid || rawUid || rawId || (isCandidateSelf ? (currentUserId || 'self') : null);
         const mergedUsername = existing.userName || rawUsername || null;
-        const mergedName = cleanedName || existing.displayName || null;
-        const mergedAvatar = avatar || existing.photoURL || existing.avatar || null;
+        const mergedName = (cleanedName && cleanedName !== 'User' && cleanedName !== 'Unknown') ? cleanedName : (existing.displayName || cleanedName || null);
+        const mergedAvatar = (avatar && !isMissingOrDefaultAvatar(avatar)) ? avatar : (existing.photoURL || existing.avatar || avatar || null);
 
         const updatedCandidate = {
           uid: mergedUid,
@@ -698,6 +796,7 @@ export default function GroupInfoScreen() {
           userName: mergedUsername,
           photoURL: mergedAvatar,
           avatar: mergedAvatar,
+          isSelf: isCandidateSelf || existing.isSelf || false,
         };
 
         candidateMap.set(canonicalKey, updatedCandidate);
@@ -717,71 +816,109 @@ export default function GroupInfoScreen() {
         } catch {}
       }
 
-      // 2. Fetch group chat from API if groupId exists
+      // 2. Fetch group chat / conversation details from API
       const targetGroupId = groupId || conversationId;
       if (targetGroupId) {
         try {
-          const res = await getGroupChat(targetGroupId).catch(() => null);
-          const data: any = res;
+          const res: any = await apiService.get(`/conversations/${targetGroupId}`).catch(() => null);
+          const data: any = res?.data || res;
           const apiMembers = data?.members || data?.participants || data?.userIds;
           if (Array.isArray(apiMembers)) {
             apiMembers.forEach(addCandidate);
           }
-          if (data?.createdBy) {
-            setAdminId(data.createdBy);
+          if (Array.isArray(data?.groupAdminIds) && data.groupAdminIds.length > 0) {
+            setAdminIds((prev) => {
+              const next = new Set(prev);
+              data.groupAdminIds.forEach((aid: any) => aid && next.add(String(aid).toLowerCase()));
+              return next;
+            });
+            setAdminId(String(data.groupAdminIds[0]));
+          } else if (data?.createdBy) {
+            setAdminId(String(data.createdBy));
+            setAdminIds((prev) => new Set([...prev, String(data.createdBy).toLowerCase()]));
+          }
+          if (data?.groupAvatar || data?.avatar) {
+            setGroupAvatar(data.groupAvatar || data.avatar);
+          }
+          if (data?.groupName) {
+            setGroupName(data.groupName);
+            setEditGroupNameInput(data.groupName);
           }
         } catch {}
       }
 
       // 3. Ensure current user is present in group members
-      if (currentUser || currentUserId || storeUserId) {
-        addCandidate({
-          uid: currentUserId || storeUserId || currentUser?.uid || currentUser?._id,
-          _id: currentUser?._id || currentUser?.id,
-          displayName: currentUser?.displayName || currentUser?.name || 'You',
-          userName: currentUser?.userName || currentUser?.username,
-          photoURL: currentUser?.photoURL || currentUser?.avatar,
-          avatar: currentUser?.photoURL || currentUser?.avatar,
-        });
-      }
+      const resolvedMyId = currentUserId || storeUserId || (await resolveCanonicalUserId().catch(() => null));
+      const myProfile = currentUser || storeUserProfile || (resolvedMyId ? getCachedUserProfile(resolvedMyId) : null);
+      addCandidate({
+        uid: resolvedMyId || myProfile?.uid || myProfile?._id,
+        _id: resolvedMyId || myProfile?._id || myProfile?.id,
+        displayName: myProfile?.displayName || myProfile?.name || 'You',
+        userName: myProfile?.userName || myProfile?.username,
+        photoURL: myProfile?.photoURL || myProfile?.avatar || myProfile?.profilePicture,
+        avatar: myProfile?.photoURL || myProfile?.avatar || myProfile?.profilePicture,
+        isSelf: true,
+      });
 
       // Format initial list
       const formatList = () => {
         const formattedMap = new Map<string, any>();
         Array.from(candidateMap.values()).forEach((candidate) => {
           const cleanUid = sanitizeString(candidate.uid);
-          const cleanUname = sanitizeString(candidate.userName);
+          let cleanUname = sanitizeString(candidate.userName);
 
-          if (!isValidUserToken(cleanUid) && !isValidUserToken(cleanUname)) {
+          const isSelf = Boolean(
+            candidate.isSelf ||
+            checkIsSelf(candidate) ||
+            (cleanUid && myIds.has(cleanUid.toLowerCase())) ||
+            (cleanUname && myIds.has(cleanUname.toLowerCase()))
+          );
+
+          if (!isSelf && !isValidUserToken(cleanUid) && !isValidUserToken(cleanUname)) {
             return;
+          }
+
+          if (cleanUname && !isValidUserToken(cleanUname)) {
+            cleanUname = '';
           }
 
           const cached = cleanUid ? getCachedUserProfile(cleanUid) : null;
-          const isSelf = checkIsSelf(candidate) || (cleanUid && myIds.has(cleanUid.toLowerCase())) || (cleanUname && myIds.has(cleanUname.toLowerCase()));
 
-          let resolvedName = candidate.displayName || (cached?.name !== 'User' && cached?.name !== 'Unknown' ? (cached?.name || cached?.displayName) : null) || (isSelf ? 'You' : null);
+          let resolvedName = candidate.displayName || (cached?.name !== 'User' && cached?.name !== 'Unknown' ? (cached?.name || cached?.displayName) : null);
+          if (isSelf && (!resolvedName || resolvedName === 'User' || resolvedName === 'Unknown')) {
+            resolvedName = currentUser?.displayName || currentUser?.name || storeUserProfile?.displayName || storeUserProfile?.name || 'You';
+          }
           if (resolvedName) resolvedName = sanitizeString(resolvedName);
 
-          const resolvedAvatar = candidate.photoURL || (cached?.avatar && !isMissingOrDefaultAvatar(cached.avatar) ? cached.avatar : null) || (cached?.photoURL && !isMissingOrDefaultAvatar(cached.photoURL) ? cached.photoURL : null);
-          const resolvedUsername = cleanUname || sanitizeString(cached?.username);
+          const resolvedAvatar = candidate.photoURL || (cached?.avatar && !isMissingOrDefaultAvatar(cached.avatar) ? cached.avatar : null) || (cached?.photoURL && !isMissingOrDefaultAvatar(cached.photoURL) ? cached.photoURL : null) || (isSelf ? (currentUser?.avatar || currentUser?.photoURL) : null);
+          const resolvedUsername = cleanUname || sanitizeString(cached?.username) || (isSelf ? (currentUser?.username || currentUser?.userName) : '');
 
-          if (resolvedUsername && !isValidUserToken(resolvedUsername)) {
-            return;
-          }
+          const finalUsername = (resolvedUsername && isValidUserToken(resolvedUsername)) ? resolvedUsername : undefined;
 
           const item = {
-            uid: cleanUid || resolvedUsername,
-            displayName: resolvedName || (resolvedUsername ? `@${resolvedUsername}` : 'User'),
-            userName: resolvedUsername || undefined,
+            uid: cleanUid || (isSelf ? (currentUserId || 'self') : (finalUsername || String(Math.random()))),
+            displayName: resolvedName || (isSelf ? 'You' : (finalUsername ? `@${finalUsername}` : 'User')),
+            userName: finalUsername,
             photoURL: resolvedAvatar || DEFAULT_AVATAR_URL,
             avatar: resolvedAvatar || DEFAULT_AVATAR_URL,
+            isSelf,
           };
 
-          const finalKey = resolvedUsername
-            ? `user:${resolvedUsername.toLowerCase()}`
-            : (cleanUid ? `uid:${cleanUid.toLowerCase()}` : `item:${Math.random()}`);
+          const finalKey = isSelf
+            ? 'self'
+            : (cleanUid ? `uid:${cleanUid.toLowerCase()}` : (finalUsername ? `user:${finalUsername.toLowerCase()}` : `item:${Math.random()}`));
 
-          if (!formattedMap.has(finalKey)) {
+          if (formattedMap.has(finalKey)) {
+            const existing = formattedMap.get(finalKey);
+            formattedMap.set(finalKey, {
+              ...existing,
+              ...item,
+              displayName: (existing.displayName && existing.displayName !== 'User' && existing.displayName !== 'You') ? existing.displayName : item.displayName,
+              photoURL: (existing.photoURL && existing.photoURL !== DEFAULT_AVATAR_URL) ? existing.photoURL : item.photoURL,
+              avatar: (existing.avatar && existing.avatar !== DEFAULT_AVATAR_URL) ? existing.avatar : item.avatar,
+              isSelf: existing.isSelf || isSelf,
+            });
+          } else {
             formattedMap.set(finalKey, item);
           }
         });
@@ -800,9 +937,10 @@ export default function GroupInfoScreen() {
           rawList.map(async (m: any) => {
             const uid = sanitizeString(typeof m === 'string' ? m : (m?.uid || m?._id || m?.id || m?.userId));
             if (!uid || !isValidUserToken(uid)) return;
+            const isSelf = Boolean(m?.isSelf || checkIsSelf(m));
             const cached = getCachedUserProfile(uid);
             if (cached && cached.name !== 'User' && !isMissingOrDefaultAvatar(cached.avatar)) {
-              addCandidate(cached);
+              addCandidate({ ...cached, isSelf });
               return;
             }
 
@@ -834,6 +972,7 @@ export default function GroupInfoScreen() {
                   displayName: cleanDName,
                   userName: cleanUName,
                   photoURL: p.photoURL || p.avatar || p.profilePicture,
+                  isSelf,
                 });
               }
             }
@@ -850,50 +989,168 @@ export default function GroupInfoScreen() {
     return () => {
       isMounted = false;
     };
-  }, [conversationId, groupId, currentUserId, storeUserId, currentUser]);
+  }, [conversationId, groupId, currentUserId, storeUserId, currentUser, myIds, checkIsSelf]);
+
+  // Sync member updates from /group-members screen
+  useEffect(() => {
+    const handleMembersUpdated = (data: any) => {
+      const targetId = groupId || conversationId;
+      if (
+        data?.conversationId &&
+        (data.conversationId === targetId ||
+          data.conversationId === groupId ||
+          data.conversationId === conversationId)
+      ) {
+        if (Array.isArray(data.members)) {
+          setGroupMembers(data.members);
+        }
+        if (Array.isArray(data.adminIds)) {
+          setAdminIds(new Set(data.adminIds.map((x: any) => String(x).toLowerCase())));
+          if (data.adminIds.length > 0) setAdminId(String(data.adminIds[0]));
+        }
+      }
+    };
+
+    const sub = (feedEventEmitter as any).addListener('groupMembersUpdated', handleMembersUpdated);
+    return () => {
+      if (typeof sub?.remove === 'function') sub.remove();
+      else (feedEventEmitter as any).removeListener?.('groupMembersUpdated', handleMembersUpdated);
+    };
+  }, [groupId, conversationId]);
 
   const [groupName, setGroupName] = useState(rawGroupName);
 
-  const handleEditGroupName = () => {
-    if (Platform.OS === 'ios') {
-      Alert.prompt(
-        'Change Group Name',
-        'Enter a new name for this group chat:',
-        [
-          { text: 'Cancel', style: 'cancel' },
-          {
-            text: 'Save',
-            onPress: (text) => {
-              if (text && text.trim()) {
-                const updated = text.trim();
-                setGroupName(updated);
-                const targetId = groupId || conversationId;
-                if (targetId) {
-                  apiService.put(`/conversations/${targetId}`, { name: updated, groupName: updated }).catch(() => {});
-                }
-              }
-            },
-          },
-        ],
-        'plain-text',
-        groupName
-      );
-    } else {
-      Alert.alert('Group Name', `Current group name: "${groupName}". Name updates sync automatically across all members.`);
+  // Pick group photo from gallery or camera
+  const handlePickPhoto = async (fromCamera = false) => {
+    if (!isAdmin) {
+      Alert.alert('Permission Denied', 'Only group admins can change the group photo.');
+      return;
+    }
+
+    try {
+      const permission = fromCamera
+        ? await ImagePicker.requestCameraPermissionsAsync()
+        : await ImagePicker.requestMediaLibraryPermissionsAsync();
+
+      if (!permission.granted) {
+        Alert.alert('Permission Required', `Please allow access to your ${fromCamera ? 'camera' : 'photos'} to change group picture.`);
+        return;
+      }
+
+      const result = fromCamera
+        ? await ImagePicker.launchCameraAsync({
+            mediaTypes: ['images'],
+            allowsEditing: true,
+            aspect: [1, 1],
+            quality: 0.85,
+          })
+        : await ImagePicker.launchImageLibraryAsync({
+            mediaTypes: ['images'],
+            allowsEditing: true,
+            aspect: [1, 1],
+            quality: 0.85,
+          });
+
+      if (!result.canceled && result.assets && result.assets.length > 0) {
+        const localUri = result.assets[0].uri;
+        setGroupAvatar(localUri); // Instant local preview
+        setUploadingAvatar(true);
+        setShowEditGroupModal(false);
+
+        const targetId = groupId || conversationId;
+        const uploadResult = await uploadImage(localUri, `groups/${targetId || 'avatar'}`);
+
+        if (uploadResult && uploadResult.success && uploadResult.url) {
+          const remoteUrl = uploadResult.url;
+          setGroupAvatar(remoteUrl);
+
+          if (targetId) {
+            await apiService.put(`/conversations/${targetId}`, {
+              groupAvatar: remoteUrl,
+              avatar: remoteUrl,
+            }).catch(() => {});
+
+            feedEventEmitter.emit('groupDetailsUpdated', {
+              conversationId: targetId,
+              groupAvatar: remoteUrl,
+              groupName,
+            });
+            (feedEventEmitter as any).emit('feedUpdated');
+          }
+
+          Alert.alert('Success', 'Group photo updated successfully!');
+        } else {
+          throw new Error(uploadResult?.error || 'Failed to upload photo');
+        }
+      }
+    } catch (err: any) {
+      console.warn('[group-info] Photo picker error:', err);
+      Alert.alert('Error', err?.message || 'Could not update group photo.');
+    } finally {
+      setUploadingAvatar(false);
+    }
+  };
+
+  // Save new group name
+  const handleSaveGroupName = async () => {
+    const trimmed = editGroupNameInput.trim();
+    if (!trimmed) {
+      Alert.alert('Invalid Name', 'Group name cannot be empty.');
+      return;
+    }
+    if (!isAdmin) {
+      Alert.alert('Permission Denied', 'Only group admins can change the group name.');
+      return;
+    }
+
+    setSavingGroupName(true);
+    const targetId = groupId || conversationId;
+    try {
+      if (targetId) {
+        await apiService.put(`/conversations/${targetId}`, {
+          name: trimmed,
+          groupName: trimmed,
+        });
+
+        setGroupName(trimmed);
+        setShowEditGroupModal(false);
+
+        feedEventEmitter.emit('groupDetailsUpdated', {
+          conversationId: targetId,
+          groupAvatar,
+          groupName: trimmed,
+        });
+        (feedEventEmitter as any).emit('feedUpdated');
+
+        Alert.alert('Success', 'Group name updated successfully!');
+      }
+    } catch (err: any) {
+      Alert.alert('Error', err?.response?.data?.error || err?.message || 'Failed to update group name.');
+    } finally {
+      setSavingGroupName(false);
     }
   };
 
   // Calculate if current user is admin
   const isAdmin = useMemo(() => {
     if (!currentUserId && myIds.size === 0) return false;
+    for (const myId of myIds) {
+      if (adminIds.has(myId)) return true;
+    }
     if (adminId && myIds.has(String(adminId).toLowerCase())) return true;
     if (adminId && currentUserId && String(adminId).toLowerCase() === String(currentUserId).toLowerCase()) return true;
-    if (groupMembers.length > 0) {
-      const firstMember = groupMembers[0];
-      if (checkIsSelf(firstMember)) return true;
-    }
     return false;
-  }, [currentUserId, adminId, groupMembers, myIds]);
+  }, [currentUserId, adminId, adminIds, myIds]);
+
+  const sortedMembers = useMemo(() => {
+    return [...groupMembers].sort((a, b) => {
+      const aSelf = Boolean(a.isSelf || checkIsSelf(a));
+      const bSelf = Boolean(b.isSelf || checkIsSelf(b));
+      if (aSelf && !bSelf) return -1;
+      if (!aSelf && bSelf) return 1;
+      return 0;
+    });
+  }, [groupMembers, checkIsSelf]);
 
   return (
     <SafeAreaView style={styles.container}>
@@ -907,30 +1164,50 @@ export default function GroupInfoScreen() {
           <Ionicons name="arrow-back" size={24} color="#000" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Details</Text>
-        <TouchableOpacity
-          onPress={() => setShowOptionsModal(true)}
-          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-          style={{ width: 40, alignItems: 'flex-end', justifyContent: 'center' }}
-        >
-          <Ionicons name="ellipsis-horizontal" size={24} color="#000" />
-        </TouchableOpacity>
+        {/* Spacer to keep Details centered without duplicate 3-dots menu */}
+        <View style={{ width: 40 }} />
       </View>
 
       <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingBottom: 40 }}>
         {/* Group Profile Hero Header */}
         <View style={styles.heroSection}>
-          <View style={styles.avatarWrap}>
+          <TouchableOpacity
+            style={styles.avatarWrap}
+            activeOpacity={isAdmin ? 0.7 : 1}
+            onPress={isAdmin ? () => {
+              setEditGroupNameInput(groupName);
+              setShowEditGroupModal(true);
+            } : undefined}
+          >
             <ExpoImage
               source={{ uri: groupAvatarUri }}
               style={styles.avatar}
               contentFit="cover"
               cachePolicy="memory-disk"
             />
-          </View>
-          <Text style={styles.groupName}>{groupName}</Text>
-          <TouchableOpacity onPress={handleEditGroupName} style={{ paddingVertical: 4 }}>
-            <Text style={styles.changeBtnText}>Change name & photo</Text>
+            {uploadingAvatar ? (
+              <View style={styles.avatarLoadingOverlay}>
+                <ActivityIndicator size="small" color="#FFFFFF" />
+              </View>
+            ) : isAdmin ? (
+              <View style={styles.cameraBadge}>
+                <Ionicons name="camera" size={15} color="#FFFFFF" />
+              </View>
+            ) : null}
           </TouchableOpacity>
+
+          <Text style={styles.groupName}>{groupName}</Text>
+          {isAdmin ? (
+            <TouchableOpacity
+              onPress={() => {
+                setEditGroupNameInput(groupName);
+                setShowEditGroupModal(true);
+              }}
+              style={{ paddingVertical: 4 }}
+            >
+              <Text style={styles.changeBtnText}>Change name & photo</Text>
+            </TouchableOpacity>
+          ) : null}
         </View>
 
         {/* Quick Action Circular Buttons (Mute, Add [Admin Only], Search, Options) */}
@@ -990,63 +1267,39 @@ export default function GroupInfoScreen() {
           </TouchableOpacity>
         </View>
 
-        {/* Members Section */}
-        <View style={{ paddingHorizontal: 16 }}>
-          <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Members</Text>
-            <Text style={styles.sectionCount}>{groupMembers.length}</Text>
-          </View>
-
-          {/* Member Rows */}
-          {loading ? (
-            <ActivityIndicator size="small" color={COLORS.primary || "#FF6B00"} style={{ marginVertical: 20 }} />
-          ) : (
-            groupMembers.map((item, index) => {
-              const targetUid = item.uid || item._id || item.id;
-              const isSelf = checkIsSelf(item);
-              const isItemAdmin = adminId
-                ? (String(targetUid).toLowerCase() === String(adminId).toLowerCase() ||
-                   String(item.userName || '').toLowerCase() === String(adminId).toLowerCase())
-                : index === 0;
-              return (
-                <TouchableOpacity
-                  key={targetUid || String(index)}
-                  style={styles.memberRow}
-                  onPress={() => {
-                    if (targetUid) {
-                      router.push({ pathname: '/user-profile', params: { uid: targetUid } } as any);
-                    }
-                  }}
-                >
-                  <UserAvatar
-                    uri={item.photoURL || item.avatar || item.profilePicture}
-                    name={item.displayName || item.userName || item.name}
-                    size={44}
-                    style={{ marginRight: 12 }}
-                  />
-                  <View style={{ flex: 1 }}>
-                    <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                      <Text style={styles.memberName}>
-                        {item.displayName || item.userName || item.name || 'User'}
-                        {isSelf ? <Text style={styles.selfTag}> (You)</Text> : null}
-                      </Text>
-                    </View>
-                    {item.userName ? (
-                      <Text style={styles.memberUsername}>@{item.userName}</Text>
-                    ) : null}
-                  </View>
-
-                  {isItemAdmin ? (
-                    <View style={styles.adminPill}>
-                      <Text style={styles.adminPillText}>Admin</Text>
-                    </View>
-                  ) : null}
-
-                  <Feather name="chevron-right" size={18} color="#ccc" />
-                </TouchableOpacity>
-              );
-            })
-          )}
+        {/* Members Bar Row (Navigates to dedicated /group-members screen) */}
+        <View style={{ paddingHorizontal: 16, marginTop: 8, marginBottom: 12 }}>
+          <TouchableOpacity
+            style={styles.membersBarCard}
+            activeOpacity={0.7}
+            onPress={() => {
+              router.push({
+                pathname: '/group-members',
+                params: {
+                  conversationId: conversationId || groupId || '',
+                  groupId: groupId || conversationId || '',
+                  groupName,
+                  adminId: adminId || '',
+                  groupAdminIds: JSON.stringify(Array.from(adminIds)),
+                  members: JSON.stringify(groupMembers),
+                  isAdmin: isAdmin ? '1' : '0',
+                },
+              } as any);
+            }}
+          >
+            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+              <View style={styles.membersBarIconWrap}>
+                <Ionicons name="people" size={20} color="#000" />
+              </View>
+              <Text style={styles.membersBarTitle}>Members</Text>
+            </View>
+            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+              <Text style={styles.membersBarCountText}>
+                {loading ? '...' : `${sortedMembers.length} ${sortedMembers.length === 1 ? 'member' : 'members'}`}
+              </Text>
+              <Feather name="chevron-right" size={20} color="#8E8E93" style={{ marginLeft: 6 }} />
+            </View>
+          </TouchableOpacity>
         </View>
 
         {/* Instagram 3-Tab Shared Content Section */}
@@ -1276,6 +1529,99 @@ export default function GroupInfoScreen() {
           </View>
         </Pressable>
       </Modal>
+
+      {/* Edit Group Name & Photo Modal Sheet */}
+      <Modal
+        visible={showEditGroupModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowEditGroupModal(false)}
+      >
+        <Pressable style={styles.modalBackdrop} onPress={() => setShowEditGroupModal(false)}>
+          <Pressable style={styles.modalSheet} onPress={(e) => e.stopPropagation()}>
+            <View style={styles.modalHandle} />
+            <Text style={styles.editModalTitle}>Edit Group</Text>
+
+            {/* Photo preview & actions */}
+            <View style={styles.editAvatarSection}>
+              <View style={styles.editAvatarWrap}>
+                <ExpoImage
+                  source={{ uri: groupAvatarUri }}
+                  style={styles.editAvatarImg}
+                  contentFit="cover"
+                  cachePolicy="memory-disk"
+                />
+                {uploadingAvatar && (
+                  <View style={styles.avatarLoadingOverlay}>
+                    <ActivityIndicator size="small" color="#FFFFFF" />
+                  </View>
+                )}
+              </View>
+
+              <View style={styles.photoActionButtonsRow}>
+                <TouchableOpacity
+                  style={styles.photoActionBtn}
+                  onPress={() => handlePickPhoto(false)}
+                  disabled={uploadingAvatar}
+                >
+                  <Ionicons name="images-outline" size={18} color="#000" style={{ marginRight: 6 }} />
+                  <Text style={styles.photoActionBtnText}>Choose Photo</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={styles.photoActionBtn}
+                  onPress={() => handlePickPhoto(true)}
+                  disabled={uploadingAvatar}
+                >
+                  <Ionicons name="camera-outline" size={18} color="#000" style={{ marginRight: 6 }} />
+                  <Text style={styles.photoActionBtnText}>Take Photo</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+
+            <View style={styles.editModalDivider} />
+
+            {/* Group Name Field */}
+            <Text style={styles.editFieldLabel}>Group Name</Text>
+            <View style={styles.editInputWrap}>
+              <TextInput
+                style={styles.editTextInput}
+                value={editGroupNameInput}
+                onChangeText={setEditGroupNameInput}
+                placeholder="Enter group name"
+                placeholderTextColor="#8E8E93"
+                maxLength={50}
+              />
+              {editGroupNameInput ? (
+                <TouchableOpacity onPress={() => setEditGroupNameInput('')} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                  <Ionicons name="close-circle" size={18} color="#8E8E93" />
+                </TouchableOpacity>
+              ) : null}
+            </View>
+
+            {/* Save Button */}
+            <TouchableOpacity
+              style={[styles.editSaveBtn, savingGroupName && { opacity: 0.7 }]}
+              onPress={handleSaveGroupName}
+              disabled={savingGroupName}
+            >
+              {savingGroupName ? (
+                <ActivityIndicator size="small" color="#FFFFFF" />
+              ) : (
+                <Text style={styles.editSaveBtnText}>Save Changes</Text>
+              )}
+            </TouchableOpacity>
+
+            {/* Cancel Button */}
+            <TouchableOpacity
+              style={styles.editCancelBtn}
+              onPress={() => setShowEditGroupModal(false)}
+            >
+              <Text style={styles.editCancelBtnText}>Cancel</Text>
+            </TouchableOpacity>
+          </Pressable>
+        </Pressable>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -1308,19 +1654,140 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
   },
   avatarWrap: {
-    width: 84,
-    height: 84,
-    borderRadius: 42,
+    width: 88,
+    height: 88,
+    borderRadius: 44,
     marginBottom: 14,
-    overflow: 'hidden',
     backgroundColor: '#f0f0f0',
     justifyContent: 'center',
     alignItems: 'center',
+    position: 'relative',
   },
   avatar: {
-    width: 84,
-    height: 84,
-    borderRadius: 42,
+    width: 88,
+    height: 88,
+    borderRadius: 44,
+  },
+  cameraBadge: {
+    position: 'absolute',
+    bottom: -2,
+    right: -2,
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    backgroundColor: COLORS.primary || '#FF6B00',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 2.5,
+    borderColor: '#FFFFFF',
+    elevation: 4,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 3,
+  },
+  avatarLoadingOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    borderRadius: 44,
+    backgroundColor: 'rgba(0,0,0,0.45)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  editModalTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#000000',
+    textAlign: 'center',
+    marginBottom: 16,
+  },
+  editAvatarSection: {
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  editAvatarWrap: {
+    width: 90,
+    height: 90,
+    borderRadius: 45,
+    overflow: 'hidden',
+    backgroundColor: '#F0F0F0',
+    marginBottom: 14,
+    position: 'relative',
+  },
+  editAvatarImg: {
+    width: 90,
+    height: 90,
+  },
+  photoActionButtonsRow: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  photoActionBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F2F2F7',
+    paddingHorizontal: 14,
+    paddingVertical: 9,
+    borderRadius: 18,
+  },
+  photoActionBtnText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#000000',
+  },
+  editModalDivider: {
+    height: 1,
+    backgroundColor: '#F0F0F0',
+    marginVertical: 14,
+  },
+  editFieldLabel: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#8E8E93',
+    marginBottom: 8,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  editInputWrap: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F2F2F7',
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    height: 46,
+    marginBottom: 18,
+  },
+  editTextInput: {
+    flex: 1,
+    fontSize: 16,
+    color: '#000000',
+    paddingVertical: 0,
+  },
+  editSaveBtn: {
+    backgroundColor: COLORS.primary || '#FF6B00',
+    paddingVertical: 14,
+    borderRadius: 12,
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  editSaveBtnText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#FFFFFF',
+  },
+  editCancelBtn: {
+    backgroundColor: '#F2F2F7',
+    paddingVertical: 14,
+    borderRadius: 12,
+    alignItems: 'center',
+  },
+  editCancelBtnText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#000000',
   },
   groupName: {
     fontSize: 20,
@@ -1375,6 +1842,36 @@ const styles = StyleSheet.create({
   sectionCount: {
     fontSize: 14,
     color: '#8e8e93',
+    fontWeight: '500',
+  },
+  membersBarCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#F8F9FA',
+    borderRadius: 14,
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    borderWidth: 1,
+    borderColor: '#ECECEC',
+  },
+  membersBarIconWrap: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#EAEAEA',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+  },
+  membersBarTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#000',
+  },
+  membersBarCountText: {
+    fontSize: 14,
+    color: '#8E8E93',
     fontWeight: '500',
   },
   memberRow: {

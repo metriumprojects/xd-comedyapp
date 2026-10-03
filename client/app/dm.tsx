@@ -512,7 +512,7 @@ export default function DM() {
 
   useEffect(() => {
     setActiveSearchMatchIndex(0);
-  }, [searchMatchingIds]);
+  }, [inChatSearchQuery, isSearchActive]);
 
   const currentSearchMatchId = searchMatchingIds[activeSearchMatchIndex] || null;
 
@@ -1295,6 +1295,7 @@ export default function DM() {
     };
 
     const rawCandidates = [
+      ...(currentUserId ? [{ uid: currentUserId, displayName: 'You' }] : []),
       ...(Array.isArray(conversationMeta?.participants) ? conversationMeta.participants : []),
       ...(Array.isArray(conversationMeta?.members) ? conversationMeta.members : []),
       ...(Array.isArray(conversationMeta?.userIds) ? conversationMeta.userIds : []),
@@ -1323,6 +1324,11 @@ export default function DM() {
       return !!(uid || uname);
     });
 
+    const resolvedAdminId = conversationMeta?.groupAdminIds?.[0] || conversationMeta?.createdBy || (params as any)?.adminId || '';
+    const resolvedAdminIds = Array.isArray(conversationMeta?.groupAdminIds) && conversationMeta.groupAdminIds.length > 0
+      ? conversationMeta.groupAdminIds
+      : (resolvedAdminId ? [resolvedAdminId] : []);
+
     router.push({
       pathname: '/group-info',
       params: {
@@ -1331,6 +1337,8 @@ export default function DM() {
         groupName: displayName,
         avatar: avatarUri,
         members: JSON.stringify(sanitizedMembers),
+        adminId: resolvedAdminId,
+        groupAdminIds: JSON.stringify(resolvedAdminIds),
       }
     } as any);
   };

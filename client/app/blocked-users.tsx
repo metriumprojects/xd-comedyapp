@@ -4,7 +4,8 @@ import { useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, FlatList, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import AsyncStorage from '@/lib/storage';
+import { resolveCanonicalUserId } from '@/lib/currentUser';
+import { feedEventEmitter } from '@/lib/feedEventEmitter';
 import { userService } from '../lib/userService';
 import { DEFAULT_AVATAR_URL } from '@/lib/api';
 import { useAppDialog } from '@/src/_components/AppDialogProvider';
@@ -32,7 +33,7 @@ export default function BlockedUsersScreen() {
     useEffect(() => {
         const init = async () => {
             try {
-                const uid = await AsyncStorage.getItem('userId');
+                const uid = await resolveCanonicalUserId();
                 setUserId(uid);
             } catch (e) {
                 console.error('Error getting userId:', e);
@@ -54,9 +55,9 @@ export default function BlockedUsersScreen() {
         setLoading(true);
         try {
             const data = await userService.getBlockedUsers(userId);
-            setBlockedUsers(data.map((u: any) => ({
-                id: u._id || u.uid,
-                userId: u.uid || u.firebaseUid,
+            setBlockedUsers((data || []).map((u: any) => ({
+                id: String(u._id || u.uid || ''),
+                userId: String(u._id || u.uid || u.firebaseUid || ''),
                 name: u.name || u.displayName || 'User',
                 avatar: u.avatar || u.photoURL || u.profilePicture,
                 username: u.username || u.displayName?.toLowerCase().replace(/\s+/g, ''),
@@ -85,7 +86,8 @@ export default function BlockedUsersScreen() {
                         try {
                             const success = await userService.unblockUser(userId, targetUserId);
                             if (success) {
-                                setBlockedUsers(prev => prev.filter(u => u.userId !== targetUserId));
+                                setBlockedUsers(prev => prev.filter(u => u.userId !== targetUserId && u.id !== targetUserId));
+                                feedEventEmitter.emitFeedUpdate({ type: 'USER_UNBLOCKED', userId: targetUserId });
                                 showSuccess('User unblocked');
                             } else {
                                 throw new Error('Unblock failed');
@@ -118,7 +120,7 @@ export default function BlockedUsersScreen() {
             ) : (
                 <FlatList
                     data={blockedUsers}
-                    keyExtractor={(item) => item.userId}
+                    keyExtractor={(item) => item.userId || item.id}
                     contentContainerStyle={styles.listContent}
                     ListEmptyComponent={
                         <View style={styles.emptyContainer}>
@@ -131,24 +133,38 @@ export default function BlockedUsersScreen() {
                     }
                     renderItem={({ item }) => (
                         <View style={styles.userItem}>
-                            <ExpoImage
-                                source={{ uri: item.avatar || DEFAULT_AVATAR_URL }}
-                                style={styles.avatar}
-                                contentFit="cover"
-                                transition={200}
-                            />
-                            <View style={styles.userInfo}>
-                                <Text style={styles.userName}>{item.name || 'User'}</Text>
-                                {item.username && (
-                                    <Text style={styles.userHandle}>@{item.username}</Text>
-                                )}
-                            </View>
+                            <TouchableOpacity
+                                style={styles.userInfoWrapper}
+                                activeOpacity={0.7}
+                                onPress={() => {
+                                    const target = item.userId || item.id;
+                                    if (target) {
+                                        router.push({
+                                            pathname: '/user-profile',
+                                            params: { uid: target, id: target }
+                                        });
+                                    }
+                                }}
+                            >
+                                <ExpoImage
+                                    source={{ uri: item.avatar || DEFAULT_AVATAR_URL }}
+                                    style={styles.avatar}
+                                    contentFit="cover"
+                                    transition={200}
+                                />
+                                <View style={styles.userInfo}>
+                                    <Text style={styles.userName}>{item.name || 'User'}</Text>
+                                    {item.username && (
+                                        <Text style={styles.userHandle}>@{item.username}</Text>
+                                    )}
+                                </View>
+                            </TouchableOpacity>
                             <TouchableOpacity
                                 style={styles.unblockBtn}
-                                onPress={() => handleUnblock(item.userId)}
-                                disabled={unblocking === item.userId}
+                                onPress={() => handleUnblock(item.userId || item.id)}
+                                disabled={unblocking === (item.userId || item.id)}
                             >
-                                {unblocking === item.userId ? (
+                                {unblocking === (item.userId || item.id) ? (
                                     <ActivityIndicator size="small" color={COLORS.info} />
                                 ) : (
                                     <Text style={styles.unblockText}>Unblock</Text>
@@ -218,6 +234,11 @@ const styles = StyleSheet.create({
         paddingVertical: 12,
         borderBottomWidth: 1,
         borderBottomColor: COLORS.border,
+    },
+    userInfoWrapper: {
+        flex: 1,
+        flexDirection: 'row',
+        alignItems: 'center',
     },
     avatar: {
         width: 50,

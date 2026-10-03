@@ -177,7 +177,12 @@ const isAdmin = async (req, res, next) => {
 
     // Look up the actual user record to check role
     const User = mongoose.model('User');
-    const user = await User.findById(req.userId).select('role').lean();
+    const isOid = mongoose.Types.ObjectId.isValid(req.userId);
+    const user = await User.findOne(
+      isOid
+        ? { $or: [{ _id: req.userId }, { firebaseUid: String(req.userId) }, { uid: String(req.userId) }] }
+        : { $or: [{ firebaseUid: String(req.userId) }, { uid: String(req.userId) }] }
+    ).select('role').lean();
 
     if (!user || user.role !== 'admin') {
       return res.status(403).json({ success: false, error: 'Forbidden: Admin access required' });
@@ -213,7 +218,12 @@ const requireOwnership = (paramName = 'uid') => {
 
       // Check if authenticated user's MongoDB _id, firebaseUid, or uid matches
       const User = mongoose.model('User');
-      const authenticatedUser = await User.findById(authenticatedUserId)
+      const isAuthOid = mongoose.Types.ObjectId.isValid(authenticatedUserId);
+      const authenticatedUser = await User.findOne(
+        isAuthOid
+          ? { $or: [{ _id: authenticatedUserId }, { firebaseUid: authenticatedUserId }, { uid: authenticatedUserId }] }
+          : { $or: [{ firebaseUid: authenticatedUserId }, { uid: authenticatedUserId }] }
+      )
         .select('firebaseUid uid role')
         .lean();
 

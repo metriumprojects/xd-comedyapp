@@ -161,11 +161,12 @@ export function useDM(conversationIdParam: string | null, otherUserId: string | 
 
   const setConversationMeta = useCallback((meta: any) => {
     setConversationMetaRaw((prev: any) => {
-      const merged = prev ? { ...prev, ...meta } : meta;
-      const keys = getAllCacheKeys();
-      keys.forEach(k => cacheConvoMeta(k, merged));
-      return merged;
+      return prev ? { ...prev, ...meta } : meta;
     });
+    const keys = getAllCacheKeys();
+    setTimeout(() => {
+      keys.forEach(k => cacheConvoMeta(k, meta));
+    }, 0);
   }, [getAllCacheKeys]);
 
   const LIMIT = 40;
@@ -322,13 +323,15 @@ export function useDM(conversationIdParam: string | null, otherUserId: string | 
             const normalized = list.map((m: any) => normalizeMessage(m));
             setMessages(prev => mergeMessages(prev, normalized));
           } else if (usedSuccessfulEmpty && !primaryFailed) {
-            setMessagesRaw((prev: any[]) => {
-              if (Array.isArray(prev) && prev.length > 0) return prev;
-              const keys = getAllCacheKeys();
+            const keys = getAllCacheKeys();
+            setTimeout(() => {
               keys.forEach(k => {
                 setCachedMessages(k, []);
                 AsyncStorage.removeItem(`messages_cache_${k}`).catch(() => {});
               });
+            }, 0);
+            setMessagesRaw((prev: any[]) => {
+              if (Array.isArray(prev) && prev.length > 0) return prev;
               return [];
             });
           }

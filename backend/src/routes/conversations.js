@@ -477,7 +477,8 @@ router.get('/:id', verifyToken, async (req, res) => {
     const id = req.params.id;
     const userIdFromToken = req.userId;
     const firebaseUidFromToken = req.user?.firebaseUid;
-    const idsToMatch = [String(userIdFromToken)];
+    const actorVariants = await resolveUserIdVariants(userIdFromToken);
+    const idsToMatch = [String(userIdFromToken), ...actorVariants.map(String)];
     if (firebaseUidFromToken) idsToMatch.push(String(firebaseUidFromToken));
 
     const conversation = await findConversationByAnyId(id);
@@ -491,12 +492,23 @@ router.get('/:id', verifyToken, async (req, res) => {
       return res.status(403).json({ success: false, error: 'Forbidden' });
     }
 
+    const User = mongoose.model('User');
+    const participantUsers = await User.find({
+      $or: [
+        { _id: { $in: participants.filter(p => mongoose.Types.ObjectId.isValid(p)).map(p => new mongoose.Types.ObjectId(p)) } },
+        { firebaseUid: { $in: participants } },
+        { uid: { $in: participants } }
+      ]
+    }).select('_id firebaseUid uid displayName name username userName avatar profilePicture photoURL').lean().catch(() => []);
+
     const convo = conversation.toObject ? conversation.toObject() : conversation;
     return res.json({
       success: true,
       data: {
         ...convo,
+        members: participantUsers,
         memberCount: participants.length,
+        createdBy: convo.groupAdminIds?.[0] || convo.createdBy || null,
       }
     });
   } catch (err) {
@@ -524,6 +536,11 @@ router.post('/group', verifyToken, validate(createConversationSchema), async (re
       return res.status(400).json({ success: false, error: 'At least 2 participants required' });
     }
 
+    const creatorVariants = await resolveUserIdVariants(creatorId);
+    const creatorIds = [creatorId, ...creatorVariants.map(String)];
+    const matchedCreator = normalized.find(id => creatorIds.includes(String(id))) || creatorId;
+    const adminIds = Array.from(new Set([matchedCreator, creatorId].filter(Boolean)));
+
     const baseId = new mongoose.Types.ObjectId();
     const conversationId = `grp_${String(baseId)}`;
     const conversation = new Conversation({
@@ -534,14 +551,21 @@ router.post('/group', verifyToken, validate(createConversationSchema), async (re
       groupName,
       groupAvatar: typeof avatar === 'string' ? avatar.trim() : '',
       groupDescription: typeof description === 'string' ? description.trim() : '',
-      groupAdminIds: [creatorId],
+      groupAdminIds: adminIds,
       messages: [],
       lastMessage: '',
       lastMessageAt: new Date(),
     });
 
     await conversation.save();
-    return res.json({ success: true, data: conversation, conversationId });
+    return res.json({
+      success: true,
+      data: {
+        ...conversation.toObject(),
+        createdBy: creatorId,
+      },
+      conversationId,
+    });
   } catch (err) {
     logger.error('[POST] /conversations/group - Error:', err.message);
     return res.status(500).json({ success: false, error: 'Operation failed' });
@@ -580,11 +604,19 @@ router.patch('/:id/group-members', verifyToken, async (req, res) => {
     addIds.forEach((x) => next.add(String(x)));
 
     const protectedAdmins = gate.adminIdSet || new Set();
+    const currentAdmins = new Set((conversation.groupAdminIds || []).map(String));
     for (const rid of removeIds) {
       const rVariants = await resolveUserIdVariants(String(rid));
       const ids = new Set([String(rid), ...rVariants.map(String)]);
       const removingAdmin = [...ids].some((vid) => protectedAdmins.has(vid));
-      if (removingAdmin) continue; // Demote from admin first before removing
+      if (removingAdmin) {
+        if (currentAdmins.size <= 1) {
+          return res.status(400).json({ success: false, error: 'Cannot remove the last group admin' });
+        }
+        for (const vid of ids) {
+          currentAdmins.delete(vid);
+        }
+      }
       ids.forEach((vid) => next.delete(vid));
     }
 
@@ -593,10 +625,27 @@ router.patch('/:id/group-members', verifyToken, async (req, res) => {
     }
 
     conversation.participants = Array.from(next);
+    conversation.groupAdminIds = Array.from(currentAdmins);
     conversation.updatedAt = new Date();
     await conversation.save();
 
-    return res.json({ success: true, data: conversation });
+    const User = mongoose.model('User');
+    const participantUsers = await User.find({
+      $or: [
+        { _id: { $in: Array.from(next).filter(p => mongoose.Types.ObjectId.isValid(p)).map(p => new mongoose.Types.ObjectId(p)) } },
+        { firebaseUid: { $in: Array.from(next) } },
+        { uid: { $in: Array.from(next) } }
+      ]
+    }).select('_id firebaseUid uid displayName name username userName avatar profilePicture photoURL').lean().catch(() => []);
+
+    return res.json({
+      success: true,
+      data: {
+        ...conversation.toObject(),
+        members: participantUsers,
+        memberCount: next.size,
+      }
+    });
   } catch (err) {
     logger.error('[PATCH] /conversations/:id/group-members - Error:', err.message);
     return res.status(500).json({ success: false, error: 'Operation failed' });
@@ -663,7 +712,23 @@ router.patch('/:id/group-admins', verifyToken, async (req, res) => {
     conversation.updatedAt = new Date();
     await conversation.save();
 
-    return res.json({ success: true, data: conversation });
+    const User = mongoose.model('User');
+    const participantUsers = await User.find({
+      $or: [
+        { _id: { $in: Array.from(participants).filter(p => mongoose.Types.ObjectId.isValid(p)).map(p => new mongoose.Types.ObjectId(p)) } },
+        { firebaseUid: { $in: Array.from(participants) } },
+        { uid: { $in: Array.from(participants) } }
+      ]
+    }).select('_id firebaseUid uid displayName name username userName avatar profilePicture photoURL').lean().catch(() => []);
+
+    return res.json({
+      success: true,
+      data: {
+        ...conversation.toObject(),
+        members: participantUsers,
+        memberCount: participants.size,
+      }
+    });
   } catch (err) {
     logger.error('[PATCH] /conversations/:id/group-admins - Error:', err.message);
     return res.status(500).json({ success: false, error: 'Operation failed' });

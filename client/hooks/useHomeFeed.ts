@@ -158,15 +158,21 @@ export function useHomeFeed(
         allowedFollowers: p.allowedFollowers || [],
       }));
 
-      // Redundant safety filter for blocked users
+      // Redundant safety filter for blocked users and reported posts
       const blockedSet = new Set<string>();
+      let isPostReportedFn = (id: string) => false;
       try {
-        const { fetchBlockedUserIds } = await import('../services/moderation');
+        const { fetchBlockedUserIds, isPostReported, initModerationStore } = await import('../services/moderation');
+        await initModerationStore();
+        isPostReportedFn = isPostReported;
         const ids = await fetchBlockedUserIds(currentUserId || '');
         ids.forEach((id) => blockedSet.add(String(id)));
       } catch {}
 
       const filteredPosts = normalizedPosts.filter((p) => {
+        const pid = String(p.id || p._id || '').split('-loop')[0];
+        if (isPostReportedFn(pid)) return false;
+
         const authorId =
           p.userId && typeof p.userId === 'object'
             ? String(p.userId._id || p.userId.id || '')

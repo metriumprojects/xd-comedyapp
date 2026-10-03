@@ -147,7 +147,12 @@ export default function SaveToCollectionModal({
             setTempSelectedGroups([]);
             setIsGloballySaved(initialGloballySaved);
             loadCollections();
-            sheetTranslateY.setValue(0);
+            sheetTranslateY.setValue(SCREEN_H);
+            Animated.timing(sheetTranslateY, {
+                toValue: 0,
+                duration: 250,
+                useNativeDriver: true,
+            }).start();
         }
     }, [visible, initialScreen, initialGloballySaved, loadCollections, sheetTranslateY]);
 
@@ -245,8 +250,12 @@ export default function SaveToCollectionModal({
                         styles.sheet,
                         {
                             transform: [
-                                { translateY: sheetTranslateY },
-                                { translateY: (screen === 'invite' || screen === 'visibility') ? 0 : keyboardOffsetAnim },
+                                {
+                                    translateY: Animated.add(
+                                        sheetTranslateY,
+                                        (screen === 'invite' || screen === 'visibility') ? 0 : keyboardOffsetAnim
+                                    ),
+                                },
                             ],
                             paddingBottom: screen === 'new' ? (insets.bottom || 8) : (insets.bottom || 20),
                             minHeight: screen === 'new' ? undefined : SCREEN_H * 0.75,
@@ -300,7 +309,7 @@ export default function SaveToCollectionModal({
                                       handleModalClose(true);
                                   }
                               }}
-                              onGoBack={() => setScreen('list')} saving={saving} nameInputRef={nameInputRef} Header={Header}
+                              onGoBack={initialScreen === 'new' ? () => handleModalClose() : () => setScreen('list')} saving={saving} nameInputRef={nameInputRef} Header={Header}
                           />
                       )}
                       {screen === 'visibility' && (

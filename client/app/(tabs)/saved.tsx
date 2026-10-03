@@ -15,6 +15,7 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Animated,
+  BackHandler,
   Dimensions,
   FlatList,
   Image,
@@ -199,12 +200,10 @@ export default function SavedScreen() {
 
   // Modals
   const [collDropdownOpen, setCollDropdownOpen] = useState(false);
+  const collSheetAnim = useRef(new Animated.Value(0)).current;
   const [createModalVisible, setCreateModalVisible] = useState(false);
   const [createModalInitialScreen, setCreateModalInitialScreen] = useState<'list' | 'new'>('list');
   const [deleteTarget, setDeleteTarget] = useState<Collection | null>(null);
-  const pendingModalRef = useRef<'create' | 'edit' | 'delete' | null>(null);
-  const pendingEditTargetRef = useRef<Collection | null>(null);
-  const pendingDeleteTargetRef = useRef<Collection | null>(null);
 
   // Edit sheet state
   const [editTarget, setEditTarget] = useState<Collection | null>(null);
@@ -584,42 +583,31 @@ export default function SavedScreen() {
 
   const openEdit = (col: Collection) => {
     hapticLight();
-    pendingEditTargetRef.current = col;
-    pendingModalRef.current = 'edit';
     setCollDropdownOpen(false);
+    applyEditState(col);
   };
   const openDelete = (col: Collection) => {
     hapticLight();
-    pendingDeleteTargetRef.current = col;
-    pendingModalRef.current = 'delete';
     setCollDropdownOpen(false);
+    setDeleteTarget(col);
   };
 
   useEffect(() => {
-    // Robust modal queuing: trigger the next modal ONLY after the dropdown has fully closed
-    if (collDropdownOpen) return;
-    if (!pendingModalRef.current) return;
-
-    const modalToOpen = pendingModalRef.current;
-    pendingModalRef.current = null; // Clear it immediately
-
-    if (__DEV__) console.log('[Saved] Triggering pending modal:', modalToOpen);
-
-    const timer = setTimeout(() => {
-      if (modalToOpen === 'create') {
-        setCreateModalInitialScreen('new');
-        setCreateModalVisible(true);
-      } else if (modalToOpen === 'edit' && pendingEditTargetRef.current) {
-        applyEditState(pendingEditTargetRef.current);
-        pendingEditTargetRef.current = null;
-      } else if (modalToOpen === 'delete' && pendingDeleteTargetRef.current) {
-        setDeleteTarget(pendingDeleteTargetRef.current);
-        pendingDeleteTargetRef.current = null;
-      }
-    }, 400); // 400ms is safer for Android transitions
-
-    return () => clearTimeout(timer);
-  }, [collDropdownOpen, applyEditState]);
+    if (collDropdownOpen) {
+      Animated.timing(collSheetAnim, {
+        toValue: 1,
+        duration: 220,
+        useNativeDriver: true,
+      }).start();
+      const backHandler = BackHandler.addEventListener('hardwareBackPress', () => {
+        setCollDropdownOpen(false);
+        return true;
+      });
+      return () => backHandler.remove();
+    } else {
+      collSheetAnim.setValue(0);
+    }
+  }, [collDropdownOpen, collSheetAnim]);
 
   useEffect(() => {
     const subRefresh = feedEventEmitter.addListener('feedUpdated', () => {
@@ -982,52 +970,61 @@ export default function SavedScreen() {
   };
 
   // Collections bottom-sheet
-  const renderCollDropdown = () => (
-    <Modal
-      visible={collDropdownOpen}
-      transparent
-      animationType="slide"
-      onRequestClose={() => setCollDropdownOpen(false)}
-      statusBarTranslucent
-      presentationStyle="overFullScreen"
-    >
-      <TouchableWithoutFeedback onPress={() => setCollDropdownOpen(false)}>
-        <View style={styles.sheetBackdrop} />
-      </TouchableWithoutFeedback>
+  const renderCollDropdown = () => {
+    if (!collDropdownOpen) return null;
+    return (
+      <View style={[StyleSheet.absoluteFillObject, { zIndex: 999 }]}>
+        <TouchableWithoutFeedback onPress={() => setCollDropdownOpen(false)}>
+          <Animated.View style={[styles.sheetBackdrop, { opacity: collSheetAnim, top: -insets.top }]} />
+        </TouchableWithoutFeedback>
 
-      <View style={[styles.sheet, { paddingBottom: insets.bottom + 8 }]}>
-        <View style={styles.dragHandle} />
+        <Animated.View
+          style={[
+            styles.sheet,
+            {
+              paddingBottom: insets.bottom + 8,
+              transform: [{
+                translateY: collSheetAnim.interpolate({
+                  inputRange: [0, 1],
+                  outputRange: [300, 0],
+                }),
+              }],
+            },
+          ]}
+        >
+          <View style={styles.dragHandle} />
 
-        {/* "All" row */}
-        <TouchableOpacity style={styles.allRow} onPress={() => selectCollection(null)} activeOpacity={0.75}>
-          {allSavedPosts[0]?.imageUrl ? (
-            <Image source={{ uri: allSavedPosts[0].imageUrl }} style={styles.allThumb} />
-          ) : (
-            <View style={[styles.allThumb, { backgroundColor: COLORS.inputBg, justifyContent: 'center', alignItems: 'center' }]}>
-              <Feather name="image" size={16} color={COLORS.border} />
-            </View>
-          )}
-          <Text style={[styles.allLabel, !activeCollection && { color: COLORS.primary, fontWeight: '700' }]}>All</Text>
-          {!activeCollection && <Feather name="check" size={16} color={COLORS.primary} style={{ marginLeft: 'auto' }} />}
-        </TouchableOpacity>
+          {/* "All" row */}
+          <TouchableOpacity style={styles.allRow} onPress={() => selectCollection(null)} activeOpacity={0.75}>
+            {allSavedPosts[0]?.imageUrl ? (
+              <Image source={{ uri: allSavedPosts[0].imageUrl }} style={styles.allThumb} />
+            ) : (
+              <View style={[styles.allThumb, { backgroundColor: COLORS.inputBg, justifyContent: 'center', alignItems: 'center' }]}>
+                <Feather name="image" size={16} color={COLORS.border} />
+              </View>
+            )}
+            <Text style={[styles.allLabel, !activeCollection && { color: COLORS.primary, fontWeight: '700' }]}>All</Text>
+            {!activeCollection && <Feather name="check" size={16} color={COLORS.primary} style={{ marginLeft: 'auto' }} />}
+          </TouchableOpacity>
 
-        {/* Collections header */}
-        <View style={styles.collSectionHeader}>
-          <Text style={styles.collSectionTitle}>Collections</Text>
-          {isProfileOwner && (
-            <TouchableOpacity
-              style={styles.newCollBtn}
-              onPress={() => {
-                hapticLight();
-                pendingModalRef.current = 'create';
-                setCollDropdownOpen(false);
-              }}
-            >
-              <Feather name="plus" size={14} color={COLORS.primary} />
-              <Text style={styles.newCollText}>New</Text>
-            </TouchableOpacity>
-          )}
-        </View>
+          {/* Collections header */}
+          <View style={styles.collSectionHeader}>
+            <Text style={styles.collSectionTitle}>Collections</Text>
+            {isProfileOwner && (
+              <TouchableOpacity
+                style={styles.newCollBtn}
+                onPress={() => {
+                  hapticLight();
+                  setCollDropdownOpen(false);
+                  setCreateModalInitialScreen('new');
+                  setCreateModalVisible(true);
+                }}
+              >
+                <Feather name="plus" size={14} color={COLORS.primary} />
+                <Text style={styles.newCollText}>New</Text>
+              </TouchableOpacity>
+            )}
+          </View>
 
         {/* Collections list */}
         <ScrollView style={{ maxHeight: SCREEN_H * 0.48 }} showsVerticalScrollIndicator={false}>
@@ -1097,9 +1094,10 @@ export default function SavedScreen() {
             })
           )}
         </ScrollView>
-      </View>
-    </Modal>
+      </Animated.View>
+    </View>
   );
+};
 
   // Edit collection bottom sheet
   const renderEditSheet = () => {
@@ -1581,6 +1579,11 @@ const styles = StyleSheet.create({
     borderTopRightRadius: 22,
     maxHeight: SCREEN_H * 0.86,
     overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 12,
+    elevation: 20,
   },
   dragHandle: {
     width: 36, height: 4,

@@ -2,6 +2,9 @@ import AsyncStorage from '@/lib/storage';
 import * as MediaLibrary from 'expo-media-library';
 import { apiService } from '@/src/_services/apiService';
 import { useAppStore } from '@/store/useAppStore';
+import { useUploadQueue } from '../useUploadQueue';
+import { queryClient } from '../queryClient';
+import { getAuthenticatedUserId } from '../currentUser';
 import { API_BASE_URL } from '../api';
 import { CHUNKED_UPLOAD_THRESHOLD, chunkedS3Upload } from '../../src/services/chunkedS3Upload';
 import { getCachedUserProfile } from '../../hooks/useUserProfile';
@@ -324,6 +327,18 @@ export async function signOutUser(): Promise<{ success: boolean; error?: string 
       console.warn('[signOutUser] Zustand logout warning:', e);
     }
 
+    try {
+      useUploadQueue.getState().clearAll();
+    } catch (e) {
+      console.warn('[signOutUser] Upload queue clear warning:', e);
+    }
+
+    try {
+      queryClient.clear();
+    } catch (e) {
+      console.warn('[signOutUser] QueryClient clear warning:', e);
+    }
+
     // Sign out from Firebase
     try {
       if (auth) {
@@ -352,6 +367,12 @@ export async function signOutUser(): Promise<{ success: boolean; error?: string 
     // Still clear local storage even if backend call fails
     try {
       useAppStore.getState().logout();
+    } catch (e) { }
+    try {
+      useUploadQueue.getState().clearAll();
+    } catch (e) { }
+    try {
+      queryClient.clear();
     } catch (e) { }
     await AsyncStorage.removeItem('token');
     await AsyncStorage.removeItem('userId');
@@ -1137,6 +1158,11 @@ export async function createPost(
 
     let autoThumbnailUrl = '';
     let detectedAspectRatio = aspectRatio;
+    const initialAuthId = await getAuthenticatedUserId();
+    if (!initialAuthId || String(initialAuthId) !== String(userId)) {
+      throw new Error('Upload aborted: user logged out or switched accounts');
+    }
+
     const mediaUrls = [];
     const validMediaUris = mediaUris || [];
     const totalMedia = validMediaUris.length || 1;
@@ -1156,6 +1182,11 @@ export async function createPost(
         ? assetMatch.mediaType === 'video'
         : (lower.endsWith('.mp4') || lower.endsWith('.mov') || lower.endsWith('.m4v') || lower.endsWith('.avi') || lower.includes('video'));
       const itemType: 'image' | 'video' = isItemVideo ? 'video' : 'image';
+
+      const currentAuthId = await getAuthenticatedUserId();
+      if (!currentAuthId || String(currentAuthId) !== String(userId)) {
+        throw new Error('Upload aborted: user logged out or switched accounts');
+      }
 
       const currentIndex = mediaIndex;
       const upload = await uploadMedia(uri, itemType, undefined, (percent) => {
@@ -1220,6 +1251,11 @@ export async function createPost(
     if (typeof onProgress === 'function') {
       onProgress(92);
     }
+    const finalAuthId = await getAuthenticatedUserId();
+    if (!finalAuthId || String(finalAuthId) !== String(userId)) {
+      throw new Error('Upload aborted: user logged out or switched accounts');
+    }
+
     console.log('[createPost] Posting to /posts with payload:', payload);
     const res = await apiService.post('/posts', payload);
     if (typeof onProgress === 'function') {
@@ -1704,6 +1740,11 @@ export async function updatePost(
       return uniqueLocationKeys(normalized);
     };
 
+    const initialAuthId = await getAuthenticatedUserId();
+    if (!initialAuthId || String(initialAuthId) !== String(userId)) {
+      throw new Error('Upload aborted: user logged out or switched accounts');
+    }
+
     const mediaUrls = [];
     const validMediaUris = mediaUris || [];
     const totalMedia = validMediaUris.length || 1;
@@ -1715,6 +1756,11 @@ export async function updatePost(
         mediaIndex++;
         continue;
       }
+      const currentAuthId = await getAuthenticatedUserId();
+      if (!currentAuthId || String(currentAuthId) !== String(userId)) {
+        throw new Error('Upload aborted: user logged out or switched accounts');
+      }
+
       const currentIndex = mediaIndex;
       const upload = await uploadMedia(uri, mediaType, undefined, (percent) => {
         if (typeof onProgress === 'function') {
@@ -1758,6 +1804,11 @@ export async function updatePost(
     if (typeof onProgress === 'function') {
       onProgress(92);
     }
+    const finalAuthId = await getAuthenticatedUserId();
+    if (!finalAuthId || String(finalAuthId) !== String(userId)) {
+      throw new Error('Upload aborted: user logged out or switched accounts');
+    }
+
     const res = await apiService.patch(`/posts/${postId}`, payload);
     if (typeof onProgress === 'function') {
       onProgress(100);

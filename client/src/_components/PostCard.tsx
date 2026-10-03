@@ -15,6 +15,7 @@ import ShareModal from "./ShareModal";
 import { useUser } from "./UserContext";
 import { likePost, unlikePost, sendPostMessage } from "../../lib/firebaseHelpers";
 import { apiService } from '@/src/_services/apiService';
+import { resolveCanonicalUserId } from '../../lib/currentUser';
 import { BACKEND_URL } from "../../lib/api";
 import COLORS from '@/src/theme/colors';
 import { isVideoUrl } from '../../lib/utils/media';
@@ -417,13 +418,19 @@ const PostCard: React.FC<PostCardProps> = ({
   }, [isCardActive, rawPostId, isOwner]);
 
   const submitPostReport = async (reason: string) => {
+    const cleanId = String(post._id || post.id || '').split('-loop')[0];
+    try {
+      const { addReportedPostId } = await import('../../services/moderation');
+      await addReportedPostId(cleanId);
+    } catch {}
     try {
       await apiService.reportContent({
-        targetId: post._id || post.id,
+        targetId: cleanId,
         targetType: 'post',
         reason: reason
       });
-      feedEventEmitter.emitFeedUpdate({ type: 'POST_DELETED', postId: post._id || post.id });
+      feedEventEmitter.emitFeedUpdate({ type: 'POST_REPORTED', postId: cleanId });
+      feedEventEmitter.emitFeedUpdate({ type: 'POST_DELETED', postId: cleanId });
       Alert.alert("Report Submitted", "This post has been reported and hidden from your feed.");
     } catch (err) {
       Alert.alert("Error", "Failed to submit report. Please try again.");
@@ -703,12 +710,12 @@ const PostCard: React.FC<PostCardProps> = ({
                           style: "destructive", 
                           onPress: async () => {
                             try {
-                              const myId = currentUser?._id || currentUser?.id || currentUser?.uid || (typeof currentUser === 'string' ? currentUser : '') || user?._id || user?.id || user?.uid;
-                              const targetId = post?.userId?._id || post?.userId;
+                              const myId = currentUser?._id || currentUser?.id || currentUser?.uid || (typeof currentUser === 'string' ? currentUser : '') || user?._id || user?.id || user?.uid || (await resolveCanonicalUserId());
+                              const targetId = post?.userId?._id || post?.userId?.id || post?.userId?.uid || post?.userId?.firebaseUid || post?.userId;
                               if (myId && targetId) {
                                 await apiService.blockUser(String(myId), String(targetId));
                                 Alert.alert("Blocked", "You will no longer see posts from this user.");
-                                feedEventEmitter.emitFeedUpdate({ type: 'USER_BLOCKED', userId: targetId });
+                                feedEventEmitter.emitFeedUpdate({ type: 'USER_BLOCKED', userId: String(targetId) });
                               }
                             } catch (err) {
                               Alert.alert("Error", "Failed to block user.");

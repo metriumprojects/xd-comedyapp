@@ -1,10 +1,12 @@
 import { create } from 'zustand';
+import AsyncStorage from '@/lib/storage';
 
 export type UploadType = 'post' | 'story' | 'reel';
 export type UploadStatus = 'pending' | 'uploading' | 'success' | 'error';
 
 export interface UploadTask {
   id: string;
+  userId?: string;
   type: UploadType;
   status: UploadStatus;
   progress: number;
@@ -21,6 +23,8 @@ interface UploadQueueState {
   removeTask: (id: string) => void;
   retryTask: (id: string) => void;
   clearCompleted: () => void;
+  clearAll: () => void;
+  clearForUser: (userId: string) => void;
 }
 
 const generateId = () => Math.random().toString(36).substring(2, 15) + Date.now().toString(36);
@@ -61,6 +65,16 @@ export const useUploadQueue = create<UploadQueueState>((set, get) => ({
       tasks: state.tasks.filter((t) => t.status !== 'success'),
     }));
   },
+
+  clearAll: () => {
+    set({ tasks: [], isProcessing: false });
+  },
+
+  clearForUser: (userId: string) => {
+    set((state) => ({
+      tasks: state.tasks.filter((t) => t.userId !== userId),
+    }));
+  },
 }));
 
 let activeProcessingPromise: Promise<void> | null = null;
@@ -75,6 +89,14 @@ const processNextUpload = async () => {
         const task = state.tasks.find((t) => t.status === 'pending');
 
         if (!task) {
+          useUploadQueue.setState({ isProcessing: false });
+          break;
+        }
+
+        // Account separation guard: ensure task belongs to currently authenticated user
+        const currentUserId = await AsyncStorage.getItem('userId');
+        if (task.userId && currentUserId && task.userId !== currentUserId) {
+          // Task belongs to another account - pause processing until account matches or queue is cleared
           useUploadQueue.setState({ isProcessing: false });
           break;
         }
@@ -95,6 +117,12 @@ const processNextUpload = async () => {
           // Execute the async upload action with progress callback
           await task.action(onProgress);
 
+          // If task was removed or cleared during execution (e.g. user logged out), discard
+          const postState = useUploadQueue.getState();
+          if (!postState.tasks.find((t) => t.id === task.id)) {
+            continue;
+          }
+
           useUploadQueue.setState((s) => ({
             tasks: s.tasks.map((t) => (t.id === task.id ? { ...t, status: 'success', progress: 100 } : t)),
           }));
@@ -106,6 +134,12 @@ const processNextUpload = async () => {
             }
           }, 3000);
         } catch (error: any) {
+          // If task was removed or cleared during execution, discard
+          const postState = useUploadQueue.getState();
+          if (!postState.tasks.find((t) => t.id === task.id)) {
+            continue;
+          }
+
           const retries = (task.retries || 0) + 1;
           const errMsg = error?.message || 'Upload failed';
           const isNetworkErr = /network|timeout|connection|abort|econnreset/i.test(errMsg);

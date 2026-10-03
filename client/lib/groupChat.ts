@@ -142,8 +142,12 @@ export async function sendGroupMessage(
  * Get group chat by ID
  */
 export async function getGroupChat(groupId: string): Promise<GroupChat | null> {
-  const res = await apiService.get(`/group-chats/${groupId}`);
-  return res ? ({ ...res, id: res.id || res._id }) : null;
+  let res: any = await apiService.get(`/conversations/${groupId}`).catch(() => null);
+  if (!res?.data && !res?._id && !res?.id) {
+    res = await apiService.get(`/group-chats/${groupId}`).catch(() => null);
+  }
+  const data = res?.data || res;
+  return data ? ({ ...data, id: data.id || data._id || data.conversationId }) : null;
 }
 
 /**

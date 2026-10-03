@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useUploadQueue } from '@/lib/useUploadQueue';
 
 interface AppState {
   userId: string | null;
@@ -27,7 +28,12 @@ export const useAppStore = create<AppState>()(
       setUserProfile: (profile) => set({ userProfile: profile }),
       setOnlineStatus: (status) => set({ isOnline: status }),
       
-      logout: () => set({ userId: null, userProfile: null, messageCache: {}, convoMap: {} }),
+      logout: () => {
+        try {
+          useUploadQueue.getState().clearAll();
+        } catch (e) {}
+        set({ userId: null, userProfile: null, messageCache: {}, convoMap: {} });
+      },
       messageCache: {},
       convoMap: {},
       setCachedMessages: (convoId, messages) => 

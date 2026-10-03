@@ -1,26 +1,33 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { useUploadQueue } from '@/lib/useUploadQueue';
+import { useAppStore } from '@/store/useAppStore';
 import COLORS from '@/src/theme/colors';
 import { Feather, Ionicons } from '@expo/vector-icons';
 
 export default function UploadProgressBanner() {
   const { tasks, removeTask, retryTask } = useUploadQueue();
+  const currentUserId = useAppStore((state) => state.userId);
 
-  if (tasks.length === 0) return null;
+  const userTasks = useMemo(() => {
+    if (!currentUserId) return [];
+    return tasks.filter((t) => !t.userId || t.userId === currentUserId);
+  }, [tasks, currentUserId]);
+
+  if (userTasks.length === 0) return null;
 
   // Active task priority: currently uploading -> first pending -> latest error/success
   const activeTask =
-    tasks.find((t) => t.status === 'uploading') ||
-    tasks.find((t) => t.status === 'pending') ||
-    tasks[0];
+    userTasks.find((t) => t.status === 'uploading') ||
+    userTasks.find((t) => t.status === 'pending') ||
+    userTasks[0];
 
   if (!activeTask) return null;
 
   const isSuccess = activeTask.status === 'success';
   const isError = activeTask.status === 'error';
   const isUploading = activeTask.status === 'uploading' || activeTask.status === 'pending';
-  const extraCount = tasks.length - 1;
+  const extraCount = userTasks.length - 1;
 
   const getTitle = () => {
     if (isSuccess) return `${activeTask.type === 'story' ? 'Story' : 'Post'} uploaded!`;

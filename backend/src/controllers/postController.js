@@ -35,8 +35,42 @@ exports.createPost = async (req, res) => {
 exports.getAllPosts = async (req, res) => {
   try {
     const userId = req.userId ? String(req.userId) : null;
-    
+    let reportedIds = [];
+    let blockedUsers = [];
+
+    if (userId) {
+      const { resolveUserIdentifiers } = require('../utils/userUtils');
+      const { candidates } = await resolveUserIdentifiers(userId);
+      const Report = require('../models/Report');
+      const User = require('../models/User');
+
+      const [reported, userDoc] = await Promise.all([
+        Report.find({ reporterId: { $in: candidates }, targetType: 'post' }).select('targetId').lean(),
+        User.findOne({
+          $or: [
+            ...(mongoose.Types.ObjectId.isValid(userId) ? [{ _id: new mongoose.Types.ObjectId(userId) }] : []),
+            { firebaseUid: userId },
+            { uid: userId }
+          ]
+        }).select('blockedUsers').lean()
+      ]);
+
+      reportedIds = (reported || []).map(r => String(r.targetId));
+      blockedUsers = (userDoc?.blockedUsers || []).map(b => String(b));
+    }
+
+    const matchFilter = {};
+    if (reportedIds.length > 0) {
+      const validIds = reportedIds.filter(id => mongoose.Types.ObjectId.isValid(id)).map(id => new mongoose.Types.ObjectId(id));
+      matchFilter._id = { $nin: validIds };
+    }
+    if (blockedUsers.length > 0) {
+      const validUserIds = blockedUsers.filter(id => mongoose.Types.ObjectId.isValid(id)).map(id => new mongoose.Types.ObjectId(id));
+      matchFilter.userId = { $nin: [...blockedUsers, ...validUserIds] };
+    }
+
     const pipeline = [
+      ...(Object.keys(matchFilter).length > 0 ? [{ $match: matchFilter }] : []),
       { $sort: { createdAt: -1 } },
       { $limit: 50 },
       {

@@ -655,6 +655,16 @@ router.get('/locations/meta', async (req, res) => {
 router.post('/', verifyToken, validate(createPostSchema), async (req, res) => {
   try {
     const Post = mongoose.model('Post');
+
+    // Security: prevent cross-account upload leaks if body.userId belongs to a different user
+    if (req.body.userId) {
+      const { resolveUserIdentifiers } = require('../src/utils/userUtils');
+      const { candidates } = await resolveUserIdentifiers(req.userId);
+      if (!candidates.includes(String(req.body.userId))) {
+        return res.status(403).json({ success: false, error: 'User mismatch with authentication token' });
+      }
+    }
+
     // Whitelist fields to prevent mass assignment vulnerability
     const allowed = [
       'content', 'caption', 'imageUrl', 'mediaUrls', 'mediaType', 'thumbnailUrl',

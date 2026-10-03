@@ -55,6 +55,7 @@ router.put('/:uid/push-token', verifyToken, requireOwnership('uid'), userControl
 
 // Moderation routes — must be authenticated; block/unblock are own-user actions
 router.post('/:uid/block/:targetUid', verifyToken, requireOwnership('uid'), userController.blockUser);
+router.put('/:uid/block/:targetUid', verifyToken, requireOwnership('uid'), userController.blockUser);
 router.delete('/:uid/block/:targetUid', verifyToken, requireOwnership('uid'), userController.unblockUser);
 router.get('/:uid/blocked', verifyToken, requireOwnership('uid'), userController.getBlockedUsers);
 

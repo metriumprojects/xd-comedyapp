@@ -4,6 +4,7 @@ import { EventEmitter } from 'fbemitter';
 // Event types
 export type FeedEventType =
   | 'POST_DELETED'
+  | 'POST_REPORTED'
   | 'POST_CREATED'
   | 'POST_UPDATED'
   | 'STORY_DELETED'

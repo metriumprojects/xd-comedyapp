@@ -6,6 +6,7 @@ const Highlight = require('../models/Highlight');
 const Section = require('../models/Section');
 const Story = require('../models/Story');
 const Report = require('../models/Report');
+const { resolveUserIdentifiers } = require('../utils/userUtils');
 
 // Create or update user (for social login or registration)
 exports.createOrUpdateUser = async (req, res) => {
@@ -280,15 +281,21 @@ exports.blockUser = async (req, res) => {
     if (uid === targetUid) return res.status(400).json({ success: false, error: "Cannot block yourself" });
 
     // Defense-in-depth ownership verification
-    const authedUser = await User.findById(req.userId).select('role uid firebaseUid').lean();
-    if (!authedUser) return res.status(401).json({ success: false, error: 'Unauthorized' });
-    if (authedUser.role !== 'admin' && authedUser.uid !== uid && authedUser.firebaseUid !== uid && String(authedUser._id) !== uid) {
+    const callerId = req.userId || req.user?.userId;
+    const { candidates: callerCandidates } = await resolveUserIdentifiers(callerId);
+    const { candidates: routeCandidates, canonicalId: routeCanonicalId } = await resolveUserIdentifiers(uid);
+
+    const isSelf = callerCandidates.some(c => routeCandidates.includes(c));
+    const isAdmin = req.user?.role === 'admin';
+    if (!isSelf && !isAdmin) {
       return res.status(403).json({ success: false, error: 'Forbidden: You can only perform this action for your own account' });
     }
 
+    const { candidates: targetCandidates } = await resolveUserIdentifiers(targetUid);
+
     const user = await User.findOneAndUpdate(
-      { $or: [{ firebaseUid: uid }, { uid }] },
-      { $addToSet: { blockedUsers: targetUid } },
+      { $or: [{ _id: routeCanonicalId }, { firebaseUid: uid }, { uid }] },
+      { $addToSet: { blockedUsers: { $each: targetCandidates } } },
       { new: true }
     );
 
@@ -305,15 +312,21 @@ exports.unblockUser = async (req, res) => {
     const { uid, targetUid } = req.params;
 
     // Defense-in-depth ownership verification
-    const authedUser = await User.findById(req.userId).select('role uid firebaseUid').lean();
-    if (!authedUser) return res.status(401).json({ success: false, error: 'Unauthorized' });
-    if (authedUser.role !== 'admin' && authedUser.uid !== uid && authedUser.firebaseUid !== uid && String(authedUser._id) !== uid) {
+    const callerId = req.userId || req.user?.userId;
+    const { candidates: callerCandidates } = await resolveUserIdentifiers(callerId);
+    const { candidates: routeCandidates, canonicalId: routeCanonicalId } = await resolveUserIdentifiers(uid);
+
+    const isSelf = callerCandidates.some(c => routeCandidates.includes(c));
+    const isAdmin = req.user?.role === 'admin';
+    if (!isSelf && !isAdmin) {
       return res.status(403).json({ success: false, error: 'Forbidden: You can only perform this action for your own account' });
     }
 
+    const { candidates: targetCandidates } = await resolveUserIdentifiers(targetUid);
+
     const user = await User.findOneAndUpdate(
-      { $or: [{ firebaseUid: uid }, { uid }] },
-      { $pull: { blockedUsers: targetUid } },
+      { $or: [{ _id: routeCanonicalId }, { firebaseUid: uid }, { uid }] },
+      { $pull: { blockedUsers: { $in: targetCandidates } } },
       { new: true }
     );
 
@@ -330,23 +343,50 @@ exports.getBlockedUsers = async (req, res) => {
     const { uid } = req.params;
 
     // Defense-in-depth ownership verification
-    const authedUser = await User.findById(req.userId).select('role uid firebaseUid').lean();
-    if (!authedUser) return res.status(401).json({ success: false, error: 'Unauthorized' });
-    if (authedUser.role !== 'admin' && authedUser.uid !== uid && authedUser.firebaseUid !== uid && String(authedUser._id) !== uid) {
+    const callerId = req.userId || req.user?.userId;
+    const { candidates: callerCandidates } = await resolveUserIdentifiers(callerId);
+    const { candidates: routeCandidates, canonicalId: routeCanonicalId } = await resolveUserIdentifiers(uid);
+
+    const isSelf = callerCandidates.some(c => routeCandidates.includes(c));
+    const isAdmin = req.user?.role === 'admin';
+    if (!isSelf && !isAdmin) {
       return res.status(403).json({ success: false, error: 'Forbidden: You can only perform this action for your own account' });
     }
 
-    const user = await User.findOne({ $or: [{ firebaseUid: uid }, { uid }] });
+    const user = await User.findOne({
+      $or: [{ _id: routeCanonicalId }, { firebaseUid: uid }, { uid }]
+    });
     if (!user) return res.status(404).json({ success: false, error: 'User not found' });
+
+    const rawBlockedList = user.blockedUsers || [];
+    if (rawBlockedList.length === 0) {
+      return res.json({ success: true, data: [] });
+    }
+
+    const validObjectIds = rawBlockedList
+      .filter(id => mongoose.Types.ObjectId.isValid(id))
+      .map(id => new mongoose.Types.ObjectId(id));
 
     const blockedUsersData = await User.find({
       $or: [
-        { uid: { $in: user.blockedUsers } },
-        { firebaseUid: { $in: user.blockedUsers } }
+        ...(validObjectIds.length > 0 ? [{ _id: { $in: validObjectIds } }] : []),
+        { uid: { $in: rawBlockedList } },
+        { firebaseUid: { $in: rawBlockedList } }
       ]
-    }, 'uid firebaseUid displayName name avatar photoURL username');
+    }, 'uid firebaseUid displayName name avatar photoURL profilePicture username');
 
-    res.json({ success: true, data: blockedUsersData });
+    // Deduplicate by _id
+    const seen = new Set();
+    const uniqueBlockedUsers = [];
+    for (const u of blockedUsersData) {
+      const idStr = String(u._id);
+      if (!seen.has(idStr)) {
+        seen.add(idStr);
+        uniqueBlockedUsers.push(u);
+      }
+    }
+
+    res.json({ success: true, data: uniqueBlockedUsers });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
   }

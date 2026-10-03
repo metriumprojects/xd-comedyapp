@@ -17,12 +17,13 @@ router.post('/report', verifyToken, async (req, res, next) => {
       return res.status(400).json({ success: false, error: 'Missing required fields' });
     }
 
+    const cleanTargetId = String(targetId).split('-loop')[0].trim();
     const Report = mongoose.model('Report');
     const AdminLog = mongoose.model('AdminLog');
 
     const report = new Report({
-      reporterId,
-      targetId,
+      reporterId: String(reporterId),
+      targetId: cleanTargetId,
       targetType,
       reason,
       details,

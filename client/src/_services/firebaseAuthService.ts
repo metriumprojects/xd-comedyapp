@@ -1,6 +1,8 @@
 import AsyncStorage from '@/lib/storage';
 import { apiService } from './apiService';
 import { useAppStore } from '@/store/useAppStore';
+import { useUploadQueue } from '@/lib/useUploadQueue';
+import { queryClient } from '@/lib/queryClient';
 
 /**
  * Register with email and password
@@ -102,6 +104,18 @@ export async function logoutUser() {
       console.warn('[Auth] Zustand logout warning:', e);
     }
 
+    try {
+      useUploadQueue.getState().clearAll();
+    } catch (e) {
+      console.warn('[Auth] Upload queue clear warning:', e);
+    }
+
+    try {
+      queryClient.clear();
+    } catch (e) {
+      console.warn('[Auth] QueryClient clear warning:', e);
+    }
+
     // Notify backend
     await apiService.post('/auth/logout', {});
     
@@ -115,6 +129,12 @@ export async function logoutUser() {
     // Still clear local storage even if backend call fails
     try {
       useAppStore.getState().logout();
+    } catch (e) {}
+    try {
+      useUploadQueue.getState().clearAll();
+    } catch (e) {}
+    try {
+      queryClient.clear();
     } catch (e) {}
     await AsyncStorage.multiRemove(['token', 'userId', 'uid', 'firebaseUid', 'userEmail']);
     return { success: true };

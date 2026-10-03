@@ -10,14 +10,17 @@ import {
   TextInput,
   TouchableOpacity,
   View,
+  Alert,
 } from 'react-native';
 import { safeRouterBack } from '@/lib/safeRouterBack';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Feather, Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
+import * as ImagePicker from 'expo-image-picker';
 import AsyncStorage from '@/lib/storage';
 import { apiService } from '@/src/_services/apiService';
 import { createGroupConversation } from '@/lib/firebaseHelpers/conversation';
+import { uploadImage } from '@/lib/firebaseHelpers';
 import { DEFAULT_AVATAR_URL } from '@/lib/api';
 import COLORS from '@/src/theme/colors';
 
@@ -38,6 +41,7 @@ export default function NewGroupScreen() {
   const [loading, setLoading] = useState<boolean>(true);
   const [creating, setCreating] = useState<boolean>(false);
   const [groupName, setGroupName] = useState<string>('');
+  const [groupAvatar, setGroupAvatar] = useState<string>('');
   const [search, setSearch] = useState<string>('');
   const [allUsers, setAllUsers] = useState<UserItem[]>([]);
   const [selectedUsers, setSelectedUsers] = useState<UserItem[]>([]);
@@ -161,12 +165,49 @@ export default function NewGroupScreen() {
     });
   }, []);
 
+  const handlePickAvatar = async () => {
+    try {
+      const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (!permission.granted) {
+        Alert.alert('Permission required', 'Please allow access to your photos to choose a group picture.');
+        return;
+      }
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ['images'],
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.85,
+      });
+      if (!result.canceled && result.assets && result.assets.length > 0) {
+        setGroupAvatar(result.assets[0].uri);
+      }
+    } catch (err) {
+      console.warn('Error picking group avatar:', err);
+    }
+  };
+
   const handleCreate = useCallback(async () => {
     if (!currentUserId || creating || selectedUsers.length < 2) return;
     setCreating(true);
     try {
+      let finalAvatarUrl = '';
+      if (groupAvatar) {
+        try {
+          const upRes = await uploadImage(groupAvatar, 'groups/new');
+          if (upRes?.success && upRes?.url) {
+            finalAvatarUrl = upRes.url;
+          }
+        } catch (e) {
+          console.warn('Failed to upload group avatar:', e);
+        }
+      }
+
       const memberIds = selectedUsers.map((u) => u.id);
-      const result = await createGroupConversation(groupName.trim() || 'New group', memberIds);
+      const result = await createGroupConversation(
+        groupName.trim() || 'New group',
+        memberIds,
+        finalAvatarUrl ? { avatar: finalAvatarUrl } : undefined
+      );
       if (!result?.success || !result.conversationId) {
         setCreating(false);
         return;
@@ -196,12 +237,13 @@ export default function NewGroupScreen() {
           isGroup: '1',
           groupName: groupName.trim() || 'New group',
           user: groupName.trim() || 'New group',
+          groupAvatar: finalAvatarUrl || '',
         },
       } as any);
     } catch {
       setCreating(false);
     }
-  }, [creating, currentUserId, groupName, params?.shareData, params?.shareType, router, selectedUsers]);
+  }, [creating, currentUserId, groupAvatar, groupName, params?.shareData, params?.shareType, router, selectedUsers]);
 
   const renderUser = ({ item }: { item: UserItem }) => {
     const checked = selectedSet.has(item.id);
@@ -235,14 +277,29 @@ export default function NewGroupScreen() {
         </View>
 
         <View style={styles.content}>
-          <TextInput
-            value={groupName}
-            onChangeText={setGroupName}
-            placeholder="Name group (optional)"
-            placeholderTextColor="#7b7b7b"
-            style={styles.groupNameInput}
-            maxLength={60}
-          />
+          <View style={styles.groupInfoInputRow}>
+            <TouchableOpacity style={styles.groupAvatarBtn} onPress={handlePickAvatar} activeOpacity={0.8}>
+              {groupAvatar ? (
+                <Image source={{ uri: groupAvatar }} style={styles.groupAvatarImg} />
+              ) : (
+                <View style={styles.groupAvatarPlaceholder}>
+                  <Ionicons name="camera" size={24} color="#8E8E93" />
+                </View>
+              )}
+              <View style={styles.cameraIconBadge}>
+                <Ionicons name="camera" size={12} color="#FFF" />
+              </View>
+            </TouchableOpacity>
+
+            <TextInput
+              value={groupName}
+              onChangeText={setGroupName}
+              placeholder="Name group (optional)"
+              placeholderTextColor="#7b7b7b"
+              style={styles.groupNameInput}
+              maxLength={60}
+            />
+          </View>
 
           <View style={styles.searchWrap}>
             <Feather name="search" size={34} color="#a3a3a3" style={{ marginRight: 8 }} />
@@ -330,14 +387,56 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingTop: 8,
   },
+  groupInfoInputRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 14,
+    borderBottomWidth: 1,
+    borderBottomColor: '#c8c8c8',
+    paddingBottom: 6,
+  },
+  groupAvatarBtn: {
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    marginRight: 14,
+    position: 'relative',
+    backgroundColor: '#F2F2F7',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  groupAvatarImg: {
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+  },
+  groupAvatarPlaceholder: {
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    backgroundColor: '#F2F2F7',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  cameraIconBadge: {
+    position: 'absolute',
+    bottom: -2,
+    right: -2,
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: COLORS.primary || '#FF6B00',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1.5,
+    borderColor: '#FFFFFF',
+  },
   groupNameInput: {
+    flex: 1,
     fontSize: 17,
     fontWeight: '400',
     color: COLORS.textPrimary,
-    borderBottomWidth: 1,
-    borderBottomColor: '#c8c8c8',
-    paddingVertical: 10,
-    marginBottom: 12,
+    paddingVertical: 8,
   },
   searchWrap: {
     flexDirection: 'row',

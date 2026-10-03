@@ -655,8 +655,8 @@ export default function Home() {
               >
                 <Feather name="bell" size={22} color={COLORS.white} />
                 {unreadCount > 0 && (
-                  <View style={styles.badge}>
-                    <Text style={styles.badgeText}>
+                  <View style={styles.badge} pointerEvents="none">
+                    <Text style={styles.badgeText} allowFontScaling={false}>
                       {unreadCount > 99 ? '99+' : unreadCount}
                     </Text>
                   </View>
@@ -670,8 +670,8 @@ export default function Home() {
               >
                 <Feather name="message-square" size={20} color={COLORS.white} />
                 {unreadMsg > 0 && (
-                  <View style={[styles.badge, { backgroundColor: COLORS.primary }]}>
-                    <Text style={styles.badgeText}>
+                  <View style={[styles.badge, { backgroundColor: COLORS.primary }]} pointerEvents="none">
+                    <Text style={styles.badgeText} allowFontScaling={false}>
                       {unreadMsg > 99 ? '99+' : unreadMsg}
                     </Text>
                   </View>

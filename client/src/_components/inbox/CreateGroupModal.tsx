@@ -166,6 +166,14 @@ export const CreateGroupModal: React.FC<CreateGroupModalProps> = ({
       resetCreateGroup();
       onGroupCreated();
 
+      const groupData = result?.data || {};
+      const allMembers = [
+        ...(Array.isArray(groupData?.members) ? groupData.members : []),
+        ...(Array.isArray(groupData?.participants) ? groupData.participants : []),
+        ...selectedGroupMembers,
+        userId ? { uid: userId } : null,
+      ].filter(Boolean);
+
       router.push({
         pathname: '/dm',
         params: {
@@ -173,6 +181,9 @@ export const CreateGroupModal: React.FC<CreateGroupModalProps> = ({
           isGroup: '1',
           groupName: trimmedName,
           user: trimmedName,
+          members: JSON.stringify(allMembers),
+          adminId: userId || String(groupData?.groupAdminIds?.[0] || ''),
+          groupAdminIds: JSON.stringify(groupData?.groupAdminIds || (userId ? [userId] : [])),
         },
       });
     } catch (error: any) {

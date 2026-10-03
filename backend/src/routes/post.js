@@ -59,12 +59,33 @@ router.get('/feed', optionalAuth, async (req, res) => {
       await set(cacheKey, finalFeed || [], 120);
     }
 
-    // Filter out posts reported by the current user
-    if (req.userId) {
+    // Filter out posts reported by the current user and posts from blocked users
+    const viewerId = req.userId ? String(req.userId) : (req.query.requesterUserId ? String(req.query.requesterUserId) : null);
+    if (viewerId) {
+      const { resolveUserIdentifiers } = require('../utils/userUtils');
+      const { candidates } = await resolveUserIdentifiers(viewerId);
       const Report = require('../models/Report');
-      const reportedPosts = await Report.find({ reporterId: String(req.userId), targetType: 'post' }).select('targetId').lean();
-      const reportedIds = reportedPosts.map(r => String(r.targetId));
-      finalFeed = finalFeed.filter(post => !reportedIds.includes(String(post._id || post.id)));
+      const User = require('../models/User');
+
+      const [reportedPosts, userDoc] = await Promise.all([
+        Report.find({ reporterId: { $in: candidates }, targetType: 'post' }).select('targetId').lean(),
+        User.findOne({
+          $or: [
+            ...(mongoose.Types.ObjectId.isValid(viewerId) ? [{ _id: new mongoose.Types.ObjectId(viewerId) }] : []),
+            { firebaseUid: viewerId },
+            { uid: viewerId }
+          ]
+        }).select('blockedUsers').lean()
+      ]);
+
+      const reportedIds = new Set((reportedPosts || []).map(r => String(r.targetId)));
+      const blockedUsers = new Set((userDoc?.blockedUsers || []).map(b => String(b)));
+
+      finalFeed = finalFeed.filter(post => {
+        const pid = String(post._id || post.id || '');
+        const authorId = String(post.userId?._id || post.userId?.id || post.userId || '');
+        return !reportedIds.has(pid) && !blockedUsers.has(authorId);
+      });
     }
 
     res.json({ success: true, data: finalFeed || [], source: cachedFeed ? 'cache' : 'db' });
@@ -82,14 +103,60 @@ router.get('/recommended', optionalAuth, async (req, res) => {
     const excludeIdsStr = req.query.excludeIds || '';
     const excludeIds = excludeIdsStr ? excludeIdsStr.split(',').filter(Boolean) : [];
 
+    const viewerId = req.userId || req.query.requesterUserId || null;
+    let excludedPostIds = [...excludeIds];
+    let blockedAuthorIds = [];
+
+    if (viewerId) {
+      const { resolveUserIdentifiers } = require('../utils/userUtils');
+      const { candidates } = await resolveUserIdentifiers(viewerId);
+      const Report = require('../models/Report');
+      const User = require('../models/User');
+
+      const [reportedPosts, userDoc] = await Promise.all([
+        Report.find({ reporterId: { $in: candidates }, targetType: 'post' }).select('targetId').lean(),
+        User.findOne({
+          $or: [
+            ...(mongoose.Types.ObjectId.isValid(viewerId) ? [{ _id: new mongoose.Types.ObjectId(viewerId) }] : []),
+            { firebaseUid: String(viewerId) },
+            { uid: String(viewerId) }
+          ]
+        }).select('blockedUsers').lean()
+      ]);
+
+      if (reportedPosts && reportedPosts.length > 0) {
+        reportedPosts.forEach(r => {
+          if (r.targetId) excludedPostIds.push(String(r.targetId));
+        });
+      }
+
+      if (userDoc?.blockedUsers && userDoc.blockedUsers.length > 0) {
+        blockedAuthorIds = userDoc.blockedUsers.map(b => String(b));
+      }
+    }
+
     const filter = {};
-    if (excludeIds.length > 0) {
-      const objectIds = excludeIds
+    if (excludedPostIds.length > 0) {
+      const objectIds = excludedPostIds
         .filter(id => mongoose.Types.ObjectId.isValid(id))
         .map(id => new mongoose.Types.ObjectId(id));
       if (objectIds.length > 0) {
         filter._id = { $nin: objectIds };
       }
+    }
+
+    if (blockedAuthorIds.length > 0) {
+      const blockedObjectIds = blockedAuthorIds
+        .filter(id => mongoose.Types.ObjectId.isValid(id))
+        .map(id => new mongoose.Types.ObjectId(id));
+      filter.userId = {
+        $nin: [...blockedAuthorIds, ...blockedObjectIds]
+      };
+    }
+
+    const category = req.query.category;
+    if (category && category !== 'All' && category !== 'all') {
+      filter.category = category;
     }
 
     // Use aggregation with $sample for random recommendations

@@ -1870,20 +1870,25 @@ export const ReelItem = React.memo<ReelItemProps>(({
                   style={styles.menuItem}
                   onPress={() => {
                     setShowMenu(false);
+                    const cleanId = String(post._id || post.id || '').split('-loop')[0];
+                    const onSelectReason = async (reason: string) => {
+                      try {
+                        const { addReportedPostId } = await import('../../services/moderation');
+                        await addReportedPostId(cleanId);
+                      } catch {}
+                      apiService.reportContent({ targetId: cleanId, targetType: 'post', reason });
+                      feedEventEmitter.emitFeedUpdate({ type: 'POST_REPORTED', postId: cleanId });
+                      feedEventEmitter.emitFeedUpdate({ type: 'POST_DELETED', postId: cleanId });
+                      Alert.alert("Reported", "This reel has been hidden from your feed.");
+                    };
+
                     Alert.alert(
                       "Report Reel",
                       "Why are you reporting this reel?",
                       [
-                        { text: "Spam", onPress: () => {
-                            apiService.reportContent({ targetId: post._id, targetType: 'post', reason: 'spam' });
-                            feedEventEmitter.emitFeedUpdate({ type: 'POST_DELETED', postId: post._id });
-                            Alert.alert("Reported", "This reel has been hidden from your feed.");
-                        }},
-                        { text: "Inappropriate", onPress: () => {
-                            apiService.reportContent({ targetId: post._id, targetType: 'post', reason: 'inappropriate' });
-                            feedEventEmitter.emitFeedUpdate({ type: 'POST_DELETED', postId: post._id });
-                            Alert.alert("Reported", "This reel has been hidden from your feed.");
-                        }},
+                        { text: "Spam", onPress: () => onSelectReason('spam') },
+                        { text: "Inappropriate", onPress: () => onSelectReason('inappropriate') },
+                        { text: "Harassment", onPress: () => onSelectReason('harassment') },
                         { text: "Cancel", style: "cancel" }
                       ]
                     );
@@ -1895,10 +1900,10 @@ export const ReelItem = React.memo<ReelItemProps>(({
 
                 <TouchableOpacity
                   style={styles.menuItem}
-                  onPress={() => {
+                  onPress={async () => {
                     setShowMenu(false);
                     const targetAuthorId = post?.userId?._id || post?.userId?.id || post?.userId?.uid || post?.userId?.firebaseUid || post?.userId;
-                    const myUserId = currentUser?._id || currentUser?.id || currentUser?.uid || currentUser?.firebaseUid;
+                    const myUserId = currentUser?._id || currentUser?.id || currentUser?.uid || currentUser?.firebaseUid || (await resolveCanonicalUserId());
                     if (!targetAuthorId || !myUserId) return;
 
                     Alert.alert(

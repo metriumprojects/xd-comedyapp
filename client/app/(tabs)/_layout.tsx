@@ -709,16 +709,17 @@ function TopMenu({ setMenuVisible, setGroupsDrawerVisible }: { setMenuVisible: (
     const display = count > 99 ? '99+' : String(count);
     const len = display.length;
     const height = isSmallDevice ? 16 : 18;
-    const minWidth = len >= 3 ? (isSmallDevice ? 24 : 26) : (len === 2 ? (isSmallDevice ? 20 : 22) : (isSmallDevice ? 16 : 18));
-    const paddingHorizontal = len >= 3 ? 5 : (len === 2 ? 4 : 2);
-    const fontSize = isSmallDevice ? 9 : 10;
+    const minWidth = len >= 3 ? (isSmallDevice ? 28 : 30) : (len === 2 ? (isSmallDevice ? 22 : 24) : height);
+    const paddingHorizontal = len >= 3 ? 5 : (len === 2 ? 4 : 0);
+    const fontSize = len >= 3 ? (isSmallDevice ? 8.5 : 9.5) : (isSmallDevice ? 9 : 10);
 
     return (
       <View
+        pointerEvents="none"
         style={{
           position: 'absolute',
           top: top - 2,
-          right: len >= 3 ? right - 4 : right,
+          right: len >= 3 ? right - 5 : (len === 2 ? right - 2 : right),
           backgroundColor: bgColor,
           height,
           minWidth,
@@ -739,8 +740,9 @@ function TopMenu({ setMenuVisible, setGroupsDrawerVisible }: { setMenuVisible: (
             textAlign: 'center',
             textAlignVertical: 'center',
             includeFontPadding: false,
+            letterSpacing: -0.2,
           }}
-          numberOfLines={1}
+          allowFontScaling={false}
         >
           {display}
         </Text>

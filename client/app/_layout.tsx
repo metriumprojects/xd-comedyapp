@@ -27,7 +27,8 @@ import { UserProvider } from "../src/_components/UserContext";
 import { Audio } from 'expo-av';
 import { disconnectSocket, getSocket, initializeSocket } from '@/src/_services/socketService';
 import { AppDialogProvider } from '@/src/_components/AppDialogProvider';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { QueryClientProvider } from '@tanstack/react-query';
+import { queryClient } from '@/lib/queryClient';
 import COLORS from '@/src/theme/colors';
 import { StripeProvider } from '@stripe/stripe-react-native';
 import { SafeAreaProvider, initialWindowMetrics } from 'react-native-safe-area-context';
@@ -90,19 +91,6 @@ if (!__DEV__) {
 }
 
 initSentry();
-
-const queryClient = new QueryClient({
-  defaultOptions: {
-    queries: {
-      retry: 2,
-      staleTime: 1000 * 60 * 5, // 5 minutes
-      gcTime: 1000 * 60 * 15, // 15 minutes
-      refetchOnMount: false,
-      refetchOnWindowFocus: false,
-      refetchOnReconnect: true,
-    },
-  },
-});
 
 export default function RootLayout() {
   const [fontsLoaded, setFontsLoaded] = useState(false);
@@ -281,6 +269,7 @@ export default function RootLayout() {
                     <Stack.Screen name="notifications" options={{ headerShown: false }} />
                     <Stack.Screen name="post-detail" options={{ headerShown: false, animation: 'slide_from_right' }} />
                     <Stack.Screen name="manage-subscriptions" options={{ headerShown: false, animation: 'slide_from_right' }} />
+                    <Stack.Screen name="group-members" options={{ headerShown: false, animation: 'slide_from_right' }} />
                   </Stack>
                   <InstagramOfflineToast />
                 </AppDialogProvider>

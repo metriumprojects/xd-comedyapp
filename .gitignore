@@ -132,3 +132,6 @@ debug_*.js
 verify_*.js
 resolved_ips.txt
 users_log.txt
+graphify-out/
+.graphifyignore
+.gitattributes

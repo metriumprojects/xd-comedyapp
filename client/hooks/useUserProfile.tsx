@@ -87,12 +87,14 @@ export function cacheUserProfile(userObj: any) {
   }
 
   if (isChanged && (uid || username)) {
-    feedEventEmitter.emit('USER_PROFILE_UPDATED', {
-      uid: profile.uid,
-      username: profile.username,
-      avatar: profile.avatar,
-      displayName: profile.name,
-    });
+    setTimeout(() => {
+      feedEventEmitter.emit('USER_PROFILE_UPDATED', {
+        uid: profile.uid,
+        username: profile.username,
+        avatar: profile.avatar,
+        displayName: profile.name,
+      });
+    }, 0);
   }
 }
 
