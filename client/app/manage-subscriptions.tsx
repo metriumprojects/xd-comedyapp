@@ -11,8 +11,10 @@ import {
   ActivityIndicator,
   RefreshControl,
   Dimensions,
+  KeyboardAvoidingView,
+  Platform,
+  Keyboard,
 } from 'react-native';
-import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useSafeHeaderInsets } from '@/hooks/useSafeHeaderInsets';
 import { useRouter } from 'expo-router';
 import { Ionicons, Feather } from '@expo/vector-icons';
@@ -53,6 +55,35 @@ export default function TierManagementScreen() {
   const [newBenefitInput, setNewBenefitInput] = useState('');
   const [savingTier, setSavingTier] = useState(false);
   const [togglingVisibilityId, setTogglingVisibilityId] = useState<string | null>(null);
+  const [keyboardHeight, setKeyboardHeight] = useState(0);
+
+  useEffect(() => {
+    const showSub = Keyboard.addListener(
+      Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow',
+      (e) => setKeyboardHeight(e.endCoordinates.height)
+    );
+    const hideSub = Keyboard.addListener(
+      Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide',
+      () => setKeyboardHeight(0)
+    );
+    return () => {
+      showSub.remove();
+      hideSub.remove();
+    };
+  }, []);
+
+  const maxModalHeight = useMemo(() => {
+    const screenH = Dimensions.get('window').height;
+    const topInset = Math.max(safeTop, 20);
+    return Platform.OS === 'ios' && keyboardHeight > 0
+      ? screenH - keyboardHeight - topInset - 16
+      : screenH * 0.88;
+  }, [keyboardHeight, safeTop]);
+
+  const handleCloseTierModal = useCallback(() => {
+    Keyboard.dismiss();
+    setShowTierModal(false);
+  }, []);
 
   useEffect(() => {
     resolveCanonicalUserId().then((id) => {
@@ -255,7 +286,7 @@ export default function TierManagementScreen() {
       const res = await subscriptionService.createTier(payload);
       if (res.success) {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
-        setShowTierModal(false);
+        handleCloseTierModal();
         refreshData();
         Alert.alert(
           editingTier ? 'Tier Updated' : 'Tier Created',
@@ -733,24 +764,38 @@ export default function TierManagementScreen() {
         visible={showTierModal}
         animationType="slide"
         transparent={true}
-        onRequestClose={() => setShowTierModal(false)}
+        onRequestClose={handleCloseTierModal}
       >
-        <View style={styles.modalOverlay}>
-          <SafeAreaView style={styles.modalSafeArea} edges={['bottom']}>
-            <View style={styles.modalContainer}>
+        <KeyboardAvoidingView
+          style={{ flex: 1 }}
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        >
+          <View style={styles.modalOverlay}>
+            <TouchableOpacity
+              style={StyleSheet.absoluteFillObject}
+              activeOpacity={1}
+              onPress={handleCloseTierModal}
+            />
+            <View style={[styles.modalContainer, { maxHeight: maxModalHeight }]}>
               <View style={styles.modalHeader}>
                 <Text style={styles.modalTitle}>
                   {editingTier ? 'Edit Subscription Tier' : 'New Subscription Tier'}
                 </Text>
                 <TouchableOpacity
                   style={styles.modalCloseBtn}
-                  onPress={() => setShowTierModal(false)}
+                  onPress={handleCloseTierModal}
                 >
                   <Ionicons name="close" size={24} color={COLORS.textPrimary} />
                 </TouchableOpacity>
               </View>
 
-              <ScrollView style={styles.modalScroll} showsVerticalScrollIndicator={false}>
+              <ScrollView
+                style={styles.modalScroll}
+                contentContainerStyle={styles.modalScrollContent}
+                showsVerticalScrollIndicator={false}
+                keyboardShouldPersistTaps="handled"
+                keyboardDismissMode="on-drag"
+              >
                 <Text style={styles.fieldLabel}>Tier Name</Text>
                 <TextInput
                   style={styles.textInput}
@@ -866,7 +911,7 @@ export default function TierManagementScreen() {
                 </View>
               </ScrollView>
 
-              <View style={styles.modalFooter}>
+              <View style={[styles.modalFooter, { paddingBottom: keyboardHeight > 0 ? 12 : Math.max(insets.bottom, 16) }]}>
                 <TouchableOpacity
                   style={[styles.saveTierButton, savingTier && { opacity: 0.7 }]}
                   disabled={savingTier}
@@ -882,8 +927,8 @@ export default function TierManagementScreen() {
                 </TouchableOpacity>
               </View>
             </View>
-          </SafeAreaView>
-        </View>
+          </View>
+        </KeyboardAvoidingView>
       </Modal>
     </View>
   );
@@ -1261,16 +1306,13 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0,0,0,0.6)',
     justifyContent: 'flex-end',
   },
-  modalSafeArea: {
-    flex: 1,
-    justifyContent: 'flex-end',
-  },
   modalContainer: {
     backgroundColor: COLORS.background,
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
-    maxHeight: '90%',
     paddingTop: 16,
+    overflow: 'hidden',
+    flexShrink: 1,
   },
   modalHeader: {
     flexDirection: 'row',
@@ -1280,6 +1322,7 @@ const styles = StyleSheet.create({
     paddingBottom: 14,
     borderBottomWidth: 1,
     borderBottomColor: COLORS.border,
+    flexShrink: 0,
   },
   modalTitle: {
     fontSize: 17,
@@ -1295,6 +1338,10 @@ const styles = StyleSheet.create({
   modalScroll: {
     paddingHorizontal: 20,
     paddingTop: 16,
+    flexShrink: 1,
+  },
+  modalScrollContent: {
+    paddingBottom: 20,
   },
   fieldLabel: {
     fontSize: 13,
@@ -1435,10 +1482,10 @@ const styles = StyleSheet.create({
   modalFooter: {
     paddingHorizontal: 20,
     paddingTop: 10,
-    paddingBottom: 20,
     borderTopWidth: 1,
     borderTopColor: COLORS.border,
     backgroundColor: COLORS.background,
+    flexShrink: 0,
   },
   saveTierButton: {
     backgroundColor: '#0095F6',
