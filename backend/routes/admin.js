@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const mongoose = require('mongoose');
-const { verifyToken } = require('../src/middleware/authMiddleware');
+const { verifyToken, invalidateUserStatusCache } = require('../src/middleware/authMiddleware');
 const multer = require('multer');
 const logger = require('../src/utils/logger');
 
@@ -198,6 +198,9 @@ router.post('/users/:id/ban', verifyToken, async (req, res, next) => {
 
     targetUser.status = 'suspended'; // Sync with frontend status name
     await targetUser.save();
+    invalidateUserStatusCache(targetUser._id);
+    invalidateUserStatusCache(targetUser.firebaseUid);
+    invalidateUserStatusCache(targetUser.uid);
 
     const log = new AdminLog({
       adminId: req.userId,
@@ -239,6 +242,9 @@ router.post('/users/:id/unban', verifyToken, async (req, res, next) => {
 
     targetUser.status = 'active';
     await targetUser.save();
+    invalidateUserStatusCache(targetUser._id);
+    invalidateUserStatusCache(targetUser.firebaseUid);
+    invalidateUserStatusCache(targetUser.uid);
 
     const log = new AdminLog({
       adminId: req.userId,
@@ -281,6 +287,9 @@ router.post('/users/:id/role', verifyToken, async (req, res, next) => {
     const oldRole = targetUser.role;
     targetUser.role = role;
     await targetUser.save();
+    invalidateUserStatusCache(targetUser._id);
+    invalidateUserStatusCache(targetUser.firebaseUid);
+    invalidateUserStatusCache(targetUser.uid);
 
     const log = new AdminLog({
       adminId: req.userId,

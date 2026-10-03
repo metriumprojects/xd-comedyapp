@@ -1,5 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Image as ExpoImage } from 'expo-image';
+import * as Haptics from 'expo-haptics';
 import React, { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Alert, Animated, Keyboard, KeyboardAvoidingView, Modal, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import {
@@ -135,8 +136,17 @@ export default function EditSectionsModal({
   const [searching, setSearching] = useState(false);
   const [tempSelectedGroups, setTempSelectedGroups] = useState<string[]>([]);
 
+  // Synchronous local state for immediate reordering and smooth UI updates
+  const [localSections, setLocalSections] = useState<Section[]>(() => sections || []);
+
+  useEffect(() => {
+    if (visible && sections && sections.length > 0) {
+      setLocalSections(sections);
+    }
+  }, [visible]);
+
   const isOwner = userId === currentUserId;
-  const selectedSection = sections.find(s => s.name === selectedSectionForEdit);
+  const selectedSection = localSections.find(s => s.name === selectedSectionForEdit);
   const isCollaborator = selectedSection?.collaborators?.includes(currentUserId);
   const canManagePosts = isOwner || isCollaborator;
 
@@ -144,7 +154,7 @@ export default function EditSectionsModal({
     const arr = Array.isArray(data) ? data : [];
     return arr
       .map((s: any) => ({
-        _id: typeof s?._id === 'string' ? s._id : undefined,
+        _id: s?._id ? String(s._id) : (s?.id ? String(s.id) : undefined),
         name: String(s?.name || ''),
         postIds: (Array.isArray(s?.postIds) ? s.postIds : []).filter((id: any): id is string => typeof id === 'string'),
         coverImage: typeof s?.coverImage === 'string' ? s.coverImage : undefined,
@@ -163,7 +173,7 @@ export default function EditSectionsModal({
 
     const validation = validateSectionName(
       newSectionName,
-      sections.map((s) => s.name)
+      localSections.map((s) => s.name)
     );
     if (!validation.ok) {
       showValidationError(validation.error);
@@ -195,7 +205,9 @@ export default function EditSectionsModal({
           : Array.isArray(res.data.data)
             ? res.data.data
             : [];
-        onSectionsUpdate(normalizeSections(sectionsData));
+        const normalized = normalizeSections(sectionsData);
+        setLocalSections(normalized);
+        onSectionsUpdate(normalized);
       }
 
       setNewSectionName('');
@@ -217,15 +229,25 @@ export default function EditSectionsModal({
         text: 'Delete',
         style: 'destructive',
         onPress: async () => {
+          setLocalSections(prev => prev.filter(s => s.name !== sectionName));
           const res = await deleteUserSection(userId, sectionName);
           if (!res.success) {
             Alert.alert('Error', res.error || 'Failed to delete section');
+            const refreshed = await getUserSectionsSorted(userId);
+            if (refreshed.success && refreshed.data) {
+              const sectionsData = Array.isArray(refreshed.data) ? refreshed.data : (Array.isArray(refreshed.data.data) ? refreshed.data.data : []);
+              const normalized = normalizeSections(sectionsData);
+              setLocalSections(normalized);
+              onSectionsUpdate(normalized);
+            }
             return;
           }
           const refreshed = await getUserSectionsSorted(userId);
           if (refreshed.success && refreshed.data) {
             const sectionsData = Array.isArray(refreshed.data) ? refreshed.data : (Array.isArray(refreshed.data.data) ? refreshed.data.data : []);
-            onSectionsUpdate(normalizeSections(sectionsData));
+            const normalized = normalizeSections(sectionsData);
+            setLocalSections(normalized);
+            onSectionsUpdate(normalized);
           }
           if (selectedSectionForEdit === sectionName) {
             setSelectedSectionForEdit(null);
@@ -245,7 +267,7 @@ export default function EditSectionsModal({
       setSectionMode('select');
       
       // Reset temp states for this section
-      const section = sections.find(s => s.name === sectionName);
+      const section = localSections.find(s => s.name === sectionName);
       if (section) {
           setTempSelectedGroups(section.allowedGroups || []);
       }
@@ -319,7 +341,7 @@ export default function EditSectionsModal({
 
   const handlePostSelection = async (post: Post) => {
     if (!userId || !selectedSectionForEdit) return;
-    const section = sections.find(s => s.name === selectedSectionForEdit);
+    const section = localSections.find(s => s.name === selectedSectionForEdit);
     if (!section) return;
 
     const postId = post._id || post.id;
@@ -332,11 +354,12 @@ export default function EditSectionsModal({
       
       // Cover is just a thumbnail, don't add post to section automatically
       // Update local state immediately for instant feedback
-      const updatedSections = sections.map(s => 
+      const updatedSections = localSections.map(s => 
         s.name === selectedSectionForEdit 
           ? { ...s, coverImage: uri }
           : s
       );
+      setLocalSections(updatedSections);
       onSectionsUpdate(updatedSections);
       
       // Then save to Firebase - use section._id if available, otherwise name
@@ -360,7 +383,9 @@ export default function EditSectionsModal({
         const sectionsData = Array.isArray(res.data) ? res.data : (Array.isArray(res.data.data) ? res.data.data : []);
         console.log('ðŸ“‹ Extracted sections data:', sectionsData.length, 'sections');
         if (sectionsData.length > 0) {
-          onSectionsUpdate(normalizeSections(sectionsData));
+          const normalized = normalizeSections(sectionsData);
+          setLocalSections(normalized);
+          onSectionsUpdate(normalized);
         } else {
           console.warn('âš ï¸ Sections data is empty, keeping current state');
         }
@@ -375,11 +400,12 @@ export default function EditSectionsModal({
       console.log('ðŸ“ Updating postIds:', newPostIds);
       
       // Update local state immediately for instant feedback
-      const updatedSections = sections.map(s => 
+      const updatedSections = localSections.map(s => 
         s.name === selectedSectionForEdit 
           ? { ...s, postIds: newPostIds }
           : s
       );
+      setLocalSections(updatedSections);
       onSectionsUpdate(updatedSections);
       
       // Then save to Firebase - use section._id if available, otherwise name
@@ -403,7 +429,9 @@ export default function EditSectionsModal({
         const sectionsData = Array.isArray(res.data) ? res.data : (Array.isArray(res.data.data) ? res.data.data : []);
         console.log('ðŸ“‹ Extracted sections data:', sectionsData.length, 'sections');
         if (sectionsData.length > 0) {
-          onSectionsUpdate(normalizeSections(sectionsData));
+          const normalized = normalizeSections(sectionsData);
+          setLocalSections(normalized);
+          onSectionsUpdate(normalized);
         } else {
           console.warn('âš ï¸ Sections data is empty, keeping current state');
         }
@@ -419,19 +447,15 @@ export default function EditSectionsModal({
     setSectionMode('select');
     setShowCreateInput(false);
     setCollaboratorInput('');
+    onSectionsUpdate(localSections);
     onClose();
-  };
-
-  const handleClearAll = () => {
-    setSelectedSectionForEdit(null);
-    setSectionMode('select');
   };
 
   const renameSection = async (oldName: string, newName: string): Promise<boolean> => {
     if (!userId || !isOwner) return false;
     const validation = validateSectionName(
       newName,
-      sections.map((s) => s.name),
+      localSections.map((s) => s.name),
       { ignoreName: oldName }
     );
     if (!validation.ok) {
@@ -440,10 +464,19 @@ export default function EditSectionsModal({
     }
     if (validation.name === oldName) return true;
 
-    const section = sections.find(s => s.name === oldName);
+    const section = localSections.find(s => s.name === oldName);
     if (!section) return false;
+
+    // Disallow renaming subscription folders
+    const isSub = (section as any).isSubscriptionFolder || !!(section as any).tierId || String(section._id || '').startsWith('subscription-folder-');
+    if (isSub) {
+      Alert.alert('Cannot rename', 'Subscription tier sections cannot be renamed from here.');
+      return false;
+    }
+
     const sectionIdentifier = section._id || section.name;
-    await updateUserSection(userId, sectionIdentifier, {
+
+    const resUpdate = await updateUserSection(userId, sectionIdentifier, {
       name: validation.name,
       postIds: section.postIds || [],
       coverImage: section.coverImage,
@@ -452,34 +485,47 @@ export default function EditSectionsModal({
       allowedUsers: section.allowedUsers,
       allowedGroups: section.allowedGroups
     }, currentUserId);
-    await deleteUserSection(userId, oldName);
-    const res = await getUserSectionsSorted(userId);
-    if (res.success && res.data) {
-      const sectionsData = Array.isArray(res.data) ? res.data : (Array.isArray(res.data.data) ? res.data.data : []);
-      onSectionsUpdate(normalizeSections(sectionsData));
+
+    if (!resUpdate.success) {
+      Alert.alert('Error', resUpdate.error || 'Failed to rename section');
+      return false;
     }
+
+    // Successfully saved on backend! Update local state and selected name in the same render
+    const updatedSections = localSections.map(s =>
+      s.name === oldName ? { ...s, name: validation.name } : s
+    );
+    setLocalSections(updatedSections);
+    if (selectedSectionForEdit === oldName) {
+      setSelectedSectionForEdit(validation.name);
+    }
+    onSectionsUpdate(updatedSections);
     return true;
   };
 
   const handleReorderSections = async (data: Section[]) => {
-    onSectionsUpdate(data);
-    // Save order to Firebase
+    // Immediately update local state synchronously to prevent ghost snapping
+    setLocalSections(data);
+    // Save order to Firebase / backend in background without triggering heavy refetchAll during drag
     if (userId && isOwner) {
-      await updateUserSectionsOrder(userId, data);
+      updateUserSectionsOrder(userId, data).catch((err) => {
+        console.error('Failed to update sections order:', err);
+      });
     }
   };
 
   const handleToggleVisibility = async (sectionName: string, v?: 'public' | 'private' | 'specific') => {
     if (!userId || !isOwner) return;
-    const section = sections.find(s => s.name === sectionName);
+    const section = localSections.find(s => s.name === sectionName);
     if (!section) return;
 
     const newVisibility = v || (section.visibility === 'private' ? 'public' : 'private');
 
     // If specific, we might need to handle allowedUsers later
-    const updatedSections = sections.map(s =>
+    const updatedSections = localSections.map(s =>
       s.name === sectionName ? { ...s, visibility: newVisibility } : s
     );
+    setLocalSections(updatedSections);
     onSectionsUpdate(updatedSections);
 
     const sectionIdentifier = section._id || section.name;
@@ -496,12 +542,13 @@ export default function EditSectionsModal({
 
   const updateSectionAllowedUsers = async (sectionName: string, allowedUsers: string[]) => {
     if (!userId || !isOwner) return;
-    const section = sections.find(s => s.name === sectionName);
+    const section = localSections.find(s => s.name === sectionName);
     if (!section) return;
 
-    const updatedSections = sections.map(s =>
+    const updatedSections = localSections.map(s =>
       s.name === sectionName ? { ...s, allowedUsers } : s
     );
+    setLocalSections(updatedSections);
     onSectionsUpdate(updatedSections);
 
     const sectionIdentifier = section._id || section.name;
@@ -517,7 +564,7 @@ export default function EditSectionsModal({
   };
 
   const toggleGroupSelection = (group: any) => {
-    const section = sections.find(s => s.name === selectedSectionForEdit);
+    const section = localSections.find(s => s.name === selectedSectionForEdit);
     if (!section) return;
 
     setTempSelectedGroups(prev => {
@@ -558,7 +605,7 @@ export default function EditSectionsModal({
 
   const handleAddCollaboratorById = async (targetId: string) => {
     if (!userId || !isOwner || !selectedSectionForEdit || !targetId) return;
-    const section = sections.find(s => s.name === selectedSectionForEdit);
+    const section = localSections.find(s => s.name === selectedSectionForEdit);
     if (!section) return;
 
     // Check if already a collaborator (could be ID or object)
@@ -566,9 +613,10 @@ export default function EditSectionsModal({
     if (exists) return;
 
     const newCollaborators = [...(section.collaborators || []), targetId];
-    const updatedSections = sections.map(s =>
+    const updatedSections = localSections.map(s =>
       s.name === selectedSectionForEdit ? { ...s, collaborators: newCollaborators } : s
     );
+    setLocalSections(updatedSections);
     onSectionsUpdate(updatedSections);
 
     const sectionIdentifier = section._id || section.name;
@@ -591,13 +639,14 @@ export default function EditSectionsModal({
 
   const handleRemoveCollaborator = async (collabId: string) => {
     if (!userId || !isOwner || !selectedSectionForEdit) return;
-    const section = sections.find(s => s.name === selectedSectionForEdit);
+    const section = localSections.find(s => s.name === selectedSectionForEdit);
     if (!section) return;
 
     const newCollaborators = (section.collaborators || []).filter((c: any) => !isSameUser(c, collabId));
-    const updatedSections = sections.map(s =>
+    const updatedSections = localSections.map(s =>
       s.name === selectedSectionForEdit ? { ...s, collaborators: newCollaborators } : s
     );
+    setLocalSections(updatedSections);
     onSectionsUpdate(updatedSections);
 
     const sectionIdentifier = section._id || section.name;
@@ -612,11 +661,13 @@ export default function EditSectionsModal({
     }, currentUserId);
   };
 
-  const renderSectionItem = ({ item, drag }: RenderItemParams<Section>) => (
+  const renderSectionItem = ({ item, drag, isActive }: RenderItemParams<Section>) => (
     <SectionRow
       item={item}
       isSelected={selectedSectionForEdit === item.name}
+      isActive={isActive}
       onPress={() => handleSelectSection(item.name)}
+      onCloseCard={() => setSelectedSectionForEdit(null)}
       onDelete={() => handleDeleteSection(item.name)}
       onRename={renameSection}
       onToggleVisibility={() => handleToggleVisibility(item.name)}
@@ -640,7 +691,7 @@ export default function EditSectionsModal({
           <View style={[styles.container, { paddingTop: Platform.OS === 'ios' ? Math.max(insets.top, 44) : Math.max(insets.top, 12) }]}>
             {/* Header */}
             <View style={styles.header}>
-              <TouchableOpacity onPress={onClose} style={styles.closeBtn}>
+              <TouchableOpacity onPress={handleSave} style={styles.closeBtn}>
                 <Ionicons name="close" size={24} color={COLORS.black} />
               </TouchableOpacity>
               <Text style={styles.title}>Edit sections</Text>
@@ -730,12 +781,27 @@ export default function EditSectionsModal({
 
           {/* Draggable Sections list */}
           <NestableDraggableFlatList
-            data={sections}
-            onDragEnd={({ data }) => handleReorderSections(data)}
-            keyExtractor={(item, index) => String(item._id || `${item.name}_${index}`)}
+            data={localSections}
+            onDragBegin={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
+            }}
+            onPlaceholderIndexChange={() => {
+              Haptics.selectionAsync().catch(() => {});
+            }}
+            onDragEnd={({ data }) => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+              handleReorderSections(data);
+            }}
+            keyExtractor={(item) => String(item._id || item.name)}
             renderItem={renderSectionItem}
-            dragItemOverflow={true}
-            activationDistance={15}
+            extraData={selectedSectionForEdit}
+            animationConfig={{
+              damping: 25,
+              mass: 0.2,
+              stiffness: 150,
+            }}
+            autoscrollSpeed={100}
+            autoscrollThreshold={40}
           />
 
           {/* Section management instructions */}
@@ -854,7 +920,7 @@ export default function EditSectionsModal({
                 <View style={styles.grid}>
                   {posts.map((p) => {
                     const postId = p._id || p.id;
-                    const section = sections.find(s => s.name === selectedSectionForEdit);
+                    const section = localSections.find(s => s.name === selectedSectionForEdit);
                     if (!postId) return null;
                     const safeSectionPostIds = (Array.isArray(section?.postIds) ? section?.postIds : []).filter((id): id is string => typeof id === 'string');
                     const isSelected = sectionMode === 'select' && safeSectionPostIds.includes(postId);
@@ -895,10 +961,7 @@ export default function EditSectionsModal({
 
           {/* Bottom actions */}
           {canManagePosts && (
-            <View style={styles.bottomActions}>
-              <TouchableOpacity onPress={handleClearAll}>
-                <Text style={styles.clearText}>Clear all</Text>
-              </TouchableOpacity>
+            <View style={[styles.bottomActions, { justifyContent: 'flex-end' }]}>
               <TouchableOpacity style={styles.saveBtn} onPress={handleSave}>
                 <Text style={styles.saveBtnText}>Save</Text>
               </TouchableOpacity>
@@ -915,7 +978,9 @@ export default function EditSectionsModal({
 type SectionRowProps = {
   item: Section;
   isSelected: boolean;
+  isActive?: boolean;
   onPress: () => void;
+  onCloseCard: () => void;
   onDelete: () => void;
   onRename: (oldName: string, newName: string) => Promise<boolean>;
   onToggleVisibility: () => void;
@@ -923,88 +988,184 @@ type SectionRowProps = {
   isOwner: boolean;
 };
 
-const SectionRow = ({ item, isOwner, isSelected, onPress, onDelete, onRename, onToggleVisibility, drag }: SectionRowProps) => {
-  const [editing, setEditing] = useState(false);
+const SectionRow = ({ item, isOwner, isSelected, isActive, onPress, onCloseCard, onDelete, onRename, onToggleVisibility, drag }: SectionRowProps) => {
   const [sectionName, setSectionName] = useState(item.name);
+  const [renaming, setRenaming] = useState(false);
+  const inputRef = useRef<TextInput>(null);
 
+  const isSubscription = !!(item as any).isSubscriptionFolder || !!(item as any).tierId || String(item._id || '').startsWith('subscription-folder-');
+
+  // Reset sectionName whenever item.name updates or when selection changes (reverting unconfirmed changes)
   useEffect(() => {
     setSectionName(item.name);
-  }, [item.name]);
+  }, [item.name, isSelected]);
+
+  const hasChanges = isOwner && !isSubscription && sectionName.trim() !== item.name && sectionName.trim().length > 0;
 
   const handleNameUpdate = async () => {
     const trimmed = sectionName.trim();
-    if (!trimmed || !isOwner) {
+    if (!trimmed || trimmed === item.name) {
       setSectionName(item.name);
-      setEditing(false);
       return;
     }
-    const ok = await onRename(item.name, trimmed);
-    if (!ok) {
+    if (!isOwner || isSubscription) {
       setSectionName(item.name);
+      return;
     }
-    setEditing(false);
+    setRenaming(true);
+    Keyboard.dismiss();
+    try {
+      const ok = await onRename(item.name, trimmed);
+      if (!ok) {
+        setSectionName(item.name);
+      }
+    } catch {
+      setSectionName(item.name);
+    } finally {
+      setRenaming(false);
+    }
+  };
+
+  const handleClose = () => {
+    if (renaming) return;
+    Keyboard.dismiss();
+    setSectionName(item.name); // Revert unconfirmed changes
+    onCloseCard();
   };
 
   const isPrivate = item.visibility === 'private';
 
   return (
-    <ScaleDecorator>
-      <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 12 }}>
+    <ScaleDecorator activeScale={1.03}>
+      <View style={[
+        { flexDirection: 'row', alignItems: 'center', marginBottom: 12 },
+        isActive && styles.activeRowWrapper
+      ]}>
         <TouchableOpacity
-          onLongPress={isOwner ? drag : undefined}
+          onPressIn={isOwner ? drag : undefined}
           style={[styles.dragHandle, isSelected && { marginRight: 0 }]}
           disabled={!isOwner}
+          hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
         >
-          <Ionicons name="menu" size={24} color={isOwner ? COLORS.textMuted : COLORS.border} />
+          <Ionicons name="menu" size={24} color={isOwner ? (isActive ? COLORS.primary : COLORS.textMuted) : COLORS.border} />
         </TouchableOpacity>
         {isSelected ? (
-          <View style={styles.selectedSectionCard}>
-            <TouchableOpacity
-              activeOpacity={1}
-              onLongPress={() => setEditing(true)}
-              style={styles.selectedSectionInputWrap}
-            >
-              <TextInput
-                style={styles.selectedSectionInput}
-                value={sectionName}
-                editable={editing && isOwner}
-                onChangeText={(text) => setSectionName(text.slice(0, SECTION_NAME_MAX))}
-                maxLength={SECTION_NAME_MAX}
-                onBlur={handleNameUpdate}
-                onSubmitEditing={handleNameUpdate}
-                selectTextOnFocus={editing && isOwner}
-              />
-            </TouchableOpacity>
+          <View style={[styles.selectedSectionCard, isActive && styles.cardDragging]}>
+            {/* Header row with Input/Title and Close ('X') icon */}
+            <View style={styles.selectedSectionHeaderRow}>
+              {isSubscription ? (
+                <View style={styles.selectedSectionTitleRow}>
+                  <Text style={styles.selectedSectionTitleText} numberOfLines={1}>
+                    {item.name}
+                  </Text>
+                  {isPrivate && (
+                    <Ionicons name="lock-closed" size={14} color={COLORS.textLight} style={{ marginLeft: 6 }} />
+                  )}
+                  <View style={styles.subscriptionBadge}>
+                    <Ionicons name="star" size={11} color="#FFD700" style={{ marginRight: 3 }} />
+                    <Text style={styles.subscriptionBadgeText}>Tier</Text>
+                  </View>
+                </View>
+              ) : (
+                <View style={styles.selectedSectionInputContainer}>
+                  <TextInput
+                    ref={inputRef}
+                    style={styles.selectedSectionActiveInput}
+                    value={sectionName}
+                    onChangeText={(text) => setSectionName(text.slice(0, SECTION_NAME_MAX))}
+                    editable={!renaming && isOwner}
+                    maxLength={SECTION_NAME_MAX}
+                    placeholder="Section name"
+                    placeholderTextColor="rgba(255, 255, 255, 0.6)"
+                    returnKeyType="done"
+                    onSubmitEditing={() => Keyboard.dismiss()}
+                  />
+                  {renaming ? (
+                    <View style={styles.inputActionSlot}>
+                      <ActivityIndicator size="small" color={COLORS.textLight} />
+                    </View>
+                  ) : hasChanges ? (
+                    <TouchableOpacity
+                      onPress={handleNameUpdate}
+                      style={styles.inputActionSlot}
+                      hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                      accessibilityLabel="Save section name"
+                    >
+                      <Ionicons name="checkmark-circle" size={24} color={COLORS.textLight} />
+                    </TouchableOpacity>
+                  ) : null}
+                </View>
+              )}
+
+              {/* Cross icon directly on the open section card to collapse it */}
+              <TouchableOpacity
+                onPress={handleClose}
+                style={[styles.closeCardBtn, renaming && { opacity: 0.5 }]}
+                disabled={renaming}
+                hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+                accessibilityLabel="Close section"
+              >
+                <Ionicons name="close" size={20} color={COLORS.textLight} />
+              </TouchableOpacity>
+            </View>
+
             <View style={styles.selectedSectionActions}>
               <View style={styles.selectedSectionActionRow}>
                 <Ionicons name="albums-outline" size={18} color={COLORS.textLight} style={{ marginRight: 8 }} />
                 <Text style={styles.selectedSectionActionText}>{item.postIds?.length || 0} Posts</Text>
               </View>
-              
-              <TouchableOpacity style={styles.selectedSectionActionRow} onPress={onToggleVisibility} disabled={!isOwner}>
-                <Ionicons name={isPrivate ? "lock-closed-outline" : "globe-outline"} size={18} color={COLORS.textLight} style={{ marginRight: 8 }} />
-                <Text style={styles.selectedSectionActionText}>{isPrivate ? "Private" : "Public"} Collection</Text>
-              </TouchableOpacity>
 
-              {isOwner && (
-                <TouchableOpacity key="delete-action" style={styles.selectedSectionActionRow} onPress={onDelete}>
+              {!isSubscription && (
+                <TouchableOpacity
+                  style={[styles.selectedSectionActionRow, renaming && { opacity: 0.5 }]}
+                  onPress={onToggleVisibility}
+                  disabled={!isOwner || renaming}
+                >
+                  <Ionicons name={isPrivate ? "lock-closed-outline" : "globe-outline"} size={18} color={COLORS.textLight} style={{ marginRight: 8 }} />
+                  <Text style={styles.selectedSectionActionText}>{isPrivate ? "Private" : "Public"} Collection</Text>
+                </TouchableOpacity>
+              )}
+
+              {!isSubscription && isOwner && (
+                <TouchableOpacity
+                  key="delete-action"
+                  style={[styles.selectedSectionActionRow, renaming && { opacity: 0.5 }]}
+                  onPress={onDelete}
+                  disabled={renaming}
+                >
                   <Ionicons name="trash-outline" size={18} color={COLORS.textLight} style={{ marginRight: 8 }} />
                   <Text style={styles.selectedSectionActionText}>Delete this section</Text>
                 </TouchableOpacity>
+              )}
+
+              {isSubscription && (
+                <View style={styles.selectedSectionActionRow}>
+                  <Ionicons name="information-circle-outline" size={18} color={COLORS.textLight} style={{ marginRight: 8 }} />
+                  <Text style={[styles.selectedSectionActionText, { fontSize: 13, opacity: 0.95 }]}>
+                    Subscription Tier · Manage in Tiers
+                  </Text>
+                </View>
               )}
             </View>
           </View>
         ) : (
           <TouchableOpacity
-            style={styles.sectionRowSimple}
+            style={[styles.sectionRowSimple, isActive && styles.rowActive]}
             onPress={onPress}
             onLongPress={isOwner ? drag : undefined}
+            delayLongPress={220}
           >
             <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
               <View>
                 <View style={{ flexDirection: 'row', alignItems: 'center' }}>
                   <Text style={styles.sectionRowTitle}>{item.name}</Text>
                   {isPrivate && <Ionicons name="lock-closed" size={12} color={COLORS.textSecondary} style={{ marginLeft: 4 }} />}
+                  {isSubscription && (
+                    <View style={[styles.subscriptionBadge, { backgroundColor: '#fff3cd' }]}>
+                      <Ionicons name="star" size={10} color="#b7791f" style={{ marginRight: 2 }} />
+                      <Text style={[styles.subscriptionBadgeText, { color: '#b7791f' }]}>Tier</Text>
+                    </View>
+                  )}
                 </View>
                 <Text style={styles.sectionRowCount}>{item.postIds?.length || 0} Posts</Text>
               </View>
@@ -1037,20 +1198,79 @@ const styles = StyleSheet.create({
       shadowOffset: { width: 0, height: 2 },
       elevation: 4,
     },
+    selectedSectionHeaderRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      marginBottom: 10,
+    },
+    selectedSectionTitleRow: {
+      flex: 1,
+      flexDirection: 'row',
+      alignItems: 'center',
+      paddingVertical: 4,
+      paddingHorizontal: 2,
+      marginRight: 8,
+    },
+    selectedSectionTitleText: {
+      fontSize: 16,
+      fontWeight: '700',
+      color: COLORS.textLight,
+      flexShrink: 1,
+    },
+    selectedSectionInputContainer: {
+      flex: 1,
+      flexDirection: 'row',
+      alignItems: 'center',
+      backgroundColor: 'rgba(0, 0, 0, 0.16)',
+      borderRadius: 10,
+      paddingHorizontal: 10,
+      paddingVertical: Platform.OS === 'ios' ? 8 : 4,
+      marginRight: 8,
+      minHeight: 40,
+    },
+    selectedSectionActiveInput: {
+      flex: 1,
+      fontSize: 16,
+      fontWeight: '700',
+      color: COLORS.textLight,
+      padding: 0,
+      margin: 0,
+    },
+    inputActionSlot: {
+      paddingLeft: 6,
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+    closeCardBtn: {
+      width: 28,
+      height: 28,
+      borderRadius: 14,
+      backgroundColor: 'rgba(0, 0, 0, 0.2)',
+      alignItems: 'center',
+      justifyContent: 'center',
+      marginLeft: 6,
+    },
+    subscriptionBadge: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      backgroundColor: 'rgba(0, 0, 0, 0.25)',
+      paddingHorizontal: 6,
+      paddingVertical: 2,
+      borderRadius: 8,
+      marginLeft: 8,
+    },
+    subscriptionBadgeText: {
+      fontSize: 10,
+      fontWeight: '700',
+      color: '#FFD700',
+    },
     selectedSectionInputWrap: {
       backgroundColor: COLORS.card,
       borderRadius: 8,
       marginBottom: 10,
       paddingHorizontal: 8,
       paddingVertical: 4,
-    },
-    selectedSectionInput: {
-      fontSize: 16,
-      fontWeight: '600',
-      color: COLORS.textPrimary,
-      paddingVertical: 6,
-      paddingHorizontal: 2,
-      backgroundColor: 'transparent',
     },
     selectedSectionActions: {
       marginTop: 2,
@@ -1072,6 +1292,32 @@ const styles = StyleSheet.create({
       paddingVertical: 8,
       paddingHorizontal: 8,
       justifyContent: 'center',
+    },
+    activeRowWrapper: {
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 6 },
+      shadowOpacity: 0.18,
+      shadowRadius: 10,
+      elevation: 6,
+      zIndex: 999,
+    },
+    rowActive: {
+      backgroundColor: '#f8fafc',
+      borderColor: COLORS.primary,
+      borderWidth: 1.5,
+      borderRadius: 10,
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 4 },
+      shadowOpacity: 0.15,
+      shadowRadius: 6,
+      elevation: 4,
+    },
+    cardDragging: {
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 8 },
+      shadowOpacity: 0.25,
+      shadowRadius: 12,
+      elevation: 8,
     },
   container: { flex: 1, backgroundColor: COLORS.background },
   header: {

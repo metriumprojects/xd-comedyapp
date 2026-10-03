@@ -56,9 +56,17 @@ function sniffMime(buf) {
       buf.toString('ascii', 8, 12) === 'WEBP') {
     return 'image/webp';
   }
-  // ISO base media file format (MP4, QuickTime, HEIC)
+  // ISO base media file format (MP4, QuickTime, HEIC, M4A voice notes)
   if (buf.length >= 12 && buf.toString('ascii', 4, 8) === 'ftyp') {
     const brand = buf.toString('ascii', 8, 12);
+    // Voice M4A / AAC-in-MP4 brands (Expo mic recordings)
+    if (brand.startsWith('M4A') ||
+        brand.startsWith('M4B') ||
+        brand.startsWith('M4P') ||
+        brand === 'mp4a' ||
+        brand.startsWith('mp4a')) {
+      return 'audio/mp4';
+    }
     if (['heic', 'heix', 'hevc', 'mif1', 'msf1'].some((b) => brand.startsWith(b.trim()) || brand.includes(b.trim()))) {
       return 'image/heic';
     }
@@ -95,10 +103,20 @@ function assertAllowedUpload(file, buffer) {
   }
   const clientMime = normalizeClientMime(file.mimetype, file.originalname);
   const sniffed = buffer ? sniffMime(buffer) : null;
+  const ext = path.extname(String(file.originalname || '')).toLowerCase();
+
+  // M4A/AAC voice notes share ISO BMFF (ftyp) with MP4 video — sniff often returns video/mp4.
+  // Trust declared audio + audio extension.
+  let effectiveSniffed = sniffed;
+  if ((clientMime?.startsWith('audio/')) &&
+      (sniffed?.startsWith('video/')) &&
+      (ext === '.m4a' || ext === '.aac' || ext === '.mp3' || ext === '.wav' || clientMime === 'audio/mp4')) {
+    effectiveSniffed = clientMime;
+  }
+
   // Trust sniffed magic bytes first; fallback to normalized client MIME or extension
-  let resolved = sniffed || clientMime;
+  let resolved = effectiveSniffed || clientMime;
   if (!resolved) {
-    const ext = path.extname(String(file.originalname || '')).toLowerCase();
     resolved = EXT_MIME[ext] || null;
   }
   if (!resolved || !ALLOWED_MIME.has(resolved)) {

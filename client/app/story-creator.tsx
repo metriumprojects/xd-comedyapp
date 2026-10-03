@@ -13,6 +13,7 @@ import {
     Image,
     Keyboard,
     KeyboardAvoidingView,
+    LayoutAnimation,
     Modal,
     PanResponder,
     Platform,
@@ -82,7 +83,7 @@ const TEXT_COLORS = [
 const { width: SCREEN_W, height: SCREEN_H } = Dimensions.get('window');
 const COLS = 3;
 const TILE_SIZE = SCREEN_W / COLS;
-const PREVIEW_H = SCREEN_W * 1.1;
+const CANVAS_H = SCREEN_H;
 
 // ─────────────────────────────────────────────
 // DraggableText — defined at MODULE level so it
@@ -107,12 +108,12 @@ const DraggableText = ({
     onDragStart?: () => void;
     onDragEnd?: () => void;
 }) => {
-    const baseRef = useRef({ x: overlay.x * SCREEN_W, y: overlay.y * PREVIEW_H });
+    const baseRef = useRef({ x: overlay.x * SCREEN_W, y: overlay.y * CANVAS_H });
     const pan = useRef(new Animated.ValueXY({ x: baseRef.current.x, y: baseRef.current.y })).current;
 
     useEffect(() => {
         const nx = overlay.x * SCREEN_W;
-        const ny = overlay.y * PREVIEW_H;
+        const ny = overlay.y * CANVAS_H;
         if (Math.abs(baseRef.current.x - nx) > 1 || Math.abs(baseRef.current.y - ny) > 1) {
             baseRef.current = { x: nx, y: ny };
             pan.setValue({ x: nx, y: ny });
@@ -137,12 +138,12 @@ const DraggableText = ({
                 const rawX = typeof cur?.x === 'number' ? cur.x : baseRef.current.x;
                 const rawY = typeof cur?.y === 'number' ? cur.y : baseRef.current.y;
 
-                const clampedX = Math.max(0, Math.min(SCREEN_W, rawX));
-                const clampedY = Math.max(0, Math.min(PREVIEW_H - 10, rawY));
+                const clampedX = Math.max(10, Math.min(SCREEN_W - 60, rawX));
+                const clampedY = Math.max(60, Math.min(CANVAS_H - 140, rawY));
 
                 baseRef.current = { x: clampedX, y: clampedY };
                 pan.setValue({ x: clampedX, y: clampedY });
-                onUpdatePosition(overlay.id, clampedX / SCREEN_W, clampedY / PREVIEW_H);
+                onUpdatePosition(overlay.id, clampedX / SCREEN_W, clampedY / CANVAS_H);
                 onDragEnd?.();
             },
             onPanResponderTerminate: () => {
@@ -399,6 +400,7 @@ export default function StoryCreatorScreen() {
     const [locationSuggestions, setLocationSuggestions] = useState<any[]>([]);
     const [loadingLocations, setLoadingLocations] = useState(false);
     const [selectedLocation, setSelectedLocation] = useState<any>(null);
+    const [showLocationModal, setShowLocationModal] = useState(false);
 
     // Text Overlays
     const [textOverlays, setTextOverlays] = useState<TextOverlay[]>([]);
@@ -408,6 +410,42 @@ export default function StoryCreatorScreen() {
     const [editingFontStyle, setEditingFontStyle] = useState<FontStyleKey>('classic');
     const [selectedOverlayId, setSelectedOverlayId] = useState<string | null>(null);
     const [scrollEnabled, setScrollEnabled] = useState(true);
+    const [editorKeyboardHeight, setEditorKeyboardHeight] = useState(0);
+    const textInputRef = useRef<TextInput>(null);
+
+    useEffect(() => {
+        if (!showTextEditor) {
+            setEditorKeyboardHeight(0);
+            return;
+        }
+        const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
+        const hideEvent = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
+
+        const onShow = (e: any) => {
+            LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+            setEditorKeyboardHeight(e.endCoordinates?.height || 0);
+        };
+        const onHide = () => {
+            LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+            setEditorKeyboardHeight(0);
+        };
+
+        const showSub = Keyboard.addListener(showEvent, onShow);
+        const hideSub = Keyboard.addListener(hideEvent, onHide);
+
+        return () => {
+            showSub.remove();
+            hideSub.remove();
+        };
+    }, [showTextEditor]);
+
+    const handlePreviewPress = () => {
+        if (editorKeyboardHeight > 0) {
+            Keyboard.dismiss();
+        } else {
+            textInputRef.current?.focus();
+        }
+    };
 
     // Sharing State
     const isSharingRef = useRef(false);
@@ -642,6 +680,14 @@ export default function StoryCreatorScreen() {
         setShowTextEditor(true);
     };
 
+    const handleCanvasPress = () => {
+        if (selectedOverlayId) {
+            setSelectedOverlayId(null);
+        } else {
+            openTextEditor();
+        }
+    };
+
     const openTextEditorForOverlay = (overlay: TextOverlay) => {
         setSelectedOverlayId(overlay.id);
         setEditingText(overlay.text);
@@ -763,8 +809,20 @@ export default function StoryCreatorScreen() {
     const editingFs = FONT_STYLES[editingFontStyle];
 
     return (
-        <View style={[styles.screen, { backgroundColor: COLORS.background, paddingTop: insets.top || (Platform.OS === 'ios' ? 47 : 0) }]}>
-            <StatusBar barStyle="dark-content" backgroundColor={COLORS.background} />
+        <View
+            style={[
+                styles.screen,
+                {
+                    backgroundColor: step === 'picker' ? COLORS.background : '#000000',
+                    paddingTop: step === 'picker' ? (insets.top || (Platform.OS === 'ios' ? 47 : 0)) : 0,
+                },
+            ]}
+        >
+            <StatusBar
+                barStyle={step === 'picker' ? 'dark-content' : 'light-content'}
+                backgroundColor={step === 'picker' ? COLORS.background : 'transparent'}
+                translucent={step === 'editor'}
+            />
 
             {step === 'picker' ? (
                 <>
@@ -811,12 +869,83 @@ export default function StoryCreatorScreen() {
                     )}
                 </>
             ) : (
-                <KeyboardAvoidingView 
-                    behavior={Platform.OS === 'ios' ? 'padding' : undefined} 
-                    style={{ flex: 1, backgroundColor: COLORS.background }}
-                >
-                    {/* Header for Editor */}
-                    <View style={[styles.header, { backgroundColor: COLORS.background, borderBottomColor: COLORS.border }]}>
+                <>
+
+                    {/* Full Screen Story Canvas (captured by captureRef) */}
+                    <TouchableWithoutFeedback onPress={handleCanvasPress}>
+                        <View ref={previewRef} collapsable={false} style={styles.fullScreenCanvas}>
+                            {sharedPostMetadata ? null : selectedUri ? (
+                                selectedAsset?.mediaType === 'video' ? (
+                                    <AutoplayVideoPreview uri={selectedUri} rawUri={selectedAsset?.uri} style={StyleSheet.absoluteFill} />
+                                ) : (
+                                    <Image source={{ uri: selectedUri }} style={StyleSheet.absoluteFill} resizeMode="contain" />
+                                )
+                            ) : null}
+
+                            {sharedPostMetadata && (
+                                <View style={styles.sharedPostCard}>
+                                    <View style={styles.sharedPostCardHeader}>
+                                        <Image 
+                                            source={{ uri: sharedPostMetadata.userAvatar || 'https://www.gravatar.com/avatar/00000000000000000000000000000000?d=mp&f=y' }} 
+                                            style={styles.sharedPostCardAvatar} 
+                                            resizeMode="cover"
+                                        />
+                                        <Text style={styles.sharedPostCardUsername}>
+                                            {sharedPostMetadata.userName}
+                                        </Text>
+                                    </View>
+                                    {sharedPostMetadata.mediaType === 'video' ? (
+                                        <View style={{ position: 'relative', width: '100%', aspectRatio: 1, marginBottom: 8, overflow: 'hidden', borderRadius: 8, backgroundColor: '#000' }}>
+                                            {sharedPostMetadata.videoUrl ? (
+                                                <AutoplayVideoPreview uri={sharedPostMetadata.videoUrl} style={StyleSheet.absoluteFill} />
+                                            ) : (
+                                                <Image
+                                                    source={{ uri: sharedPostMetadata.imageUrl }}
+                                                    style={StyleSheet.absoluteFill}
+                                                    resizeMode="cover"
+                                                />
+                                            )}
+                                            <View style={{ position: 'absolute', bottom: 8, right: 8, backgroundColor: 'rgba(0,0,0,0.6)', borderRadius: 12, width: 24, height: 24, alignItems: 'center', justifyContent: 'center' }}>
+                                                <Feather name="video" size={13} color="#fff" />
+                                            </View>
+                                        </View>
+                                    ) : (
+                                        <Image 
+                                            source={{ uri: sharedPostMetadata.imageUrl }} 
+                                            style={styles.sharedPostCardImage} 
+                                            resizeMode="cover"
+                                        />
+                                    )}
+                                    {sharedPostMetadata.caption ? (
+                                        <Text style={styles.sharedPostCardCaption} numberOfLines={2}>
+                                            <Text style={{ fontWeight: '700' }}>{sharedPostMetadata.userName} </Text>
+                                            {sharedPostMetadata.caption}
+                                        </Text>
+                                    ) : null}
+                                </View>
+                            )}
+
+                            {/* Text overlays preview */}
+                            {textOverlays.map((o) => (
+                                <DraggableText
+                                    key={o.id}
+                                    overlay={o}
+                                    isSelected={selectedOverlayId === o.id}
+                                    onSelect={setSelectedOverlayId}
+                                    onDelete={deleteOverlay}
+                                    onEdit={openTextEditorForOverlay}
+                                    onUpdatePosition={(id, x, y) => {
+                                        setTextOverlays(prev => prev.map(item => item.id === id ? { ...item, x, y } : item));
+                                    }}
+                                    onDragStart={() => setScrollEnabled(false)}
+                                    onDragEnd={() => setScrollEnabled(true)}
+                                />
+                            ))}
+                        </View>
+                    </TouchableWithoutFeedback>
+
+                    {/* Floating Header Overlay (Back & Aa) */}
+                    <View style={[styles.floatingHeader, { top: insets.top + 8 }]} pointerEvents="box-none">
                         <TouchableOpacity 
                             onPress={() => {
                                 if (sharedPostMetadata || sharePostId) {
@@ -826,200 +955,103 @@ export default function StoryCreatorScreen() {
                                     setTextOverlays([]);
                                     setLocationQuery('');
                                     setSelectedLocation(null);
+                                    setShowLocationModal(false);
                                 }
                             }} 
-                            style={styles.headerBtn}
+                            style={styles.floatingRoundBtn}
+                            activeOpacity={0.7}
                         >
-                            <Feather name="arrow-left" size={26} color={COLORS.textPrimary} />
+                            <Feather name="arrow-left" size={24} color="#fff" />
                         </TouchableOpacity>
-                        <Text style={[styles.headerTitle, { color: COLORS.textPrimary }]}>New Story</Text>
+
                         <TouchableOpacity
                             onPress={openTextEditor}
-                            style={[styles.aaHeaderBtn, { backgroundColor: COLORS.inputBg }]}
-                            activeOpacity={0.8}
+                            style={styles.floatingRoundBtn}
+                            activeOpacity={0.7}
                         >
-                            <Text style={[styles.aaHeaderBtnText, { color: COLORS.textPrimary }]}>Aa</Text>
+                            <Text style={styles.aaFloatingBtnText}>Aa</Text>
                         </TouchableOpacity>
                     </View>
 
-                    <ScrollView 
-                        scrollEnabled={scrollEnabled}
-                        style={{ flex: 1, backgroundColor: COLORS.background }}
-                        contentContainerStyle={{ paddingBottom: 40, backgroundColor: COLORS.background }}
-                        keyboardShouldPersistTaps="handled"
-                    >
-                        {/* Preview */}
-                        <TouchableWithoutFeedback onPress={openTextEditor}>
-                            <View ref={previewRef} collapsable={false} style={[styles.preview, sharedPostMetadata && { backgroundColor: '#000000' }]}>
-                                {sharedPostMetadata ? null : selectedUri ? (
-                                    selectedAsset?.mediaType === 'video' ? (
-                                        <AutoplayVideoPreview uri={selectedUri} rawUri={selectedAsset?.uri} style={styles.previewImg} />
-                                    ) : (
-                                        <Image source={{ uri: selectedUri }} style={styles.previewImg} resizeMode="contain" />
-                                    )
-                                ) : null}
-
-                                {sharedPostMetadata && (
-                                    <View style={styles.sharedPostCard}>
-                                        <View style={styles.sharedPostCardHeader}>
-                                            <Image 
-                                                source={{ uri: sharedPostMetadata.userAvatar || 'https://www.gravatar.com/avatar/00000000000000000000000000000000?d=mp&f=y' }} 
-                                                style={styles.sharedPostCardAvatar} 
-                                                resizeMode="cover"
-                                            />
-                                            <Text style={styles.sharedPostCardUsername}>
-                                                {sharedPostMetadata.userName}
-                                            </Text>
-                                        </View>
-                                        {sharedPostMetadata.mediaType === 'video' ? (
-                                            <View style={{ position: 'relative', width: '100%', aspectRatio: 1, marginBottom: 8, overflow: 'hidden', borderRadius: 8, backgroundColor: '#000' }}>
-                                                {sharedPostMetadata.videoUrl ? (
-                                                    <AutoplayVideoPreview uri={sharedPostMetadata.videoUrl} style={StyleSheet.absoluteFill} />
-                                                ) : (
-                                                    <Image
-                                                        source={{ uri: sharedPostMetadata.imageUrl }}
-                                                        style={StyleSheet.absoluteFill}
-                                                        resizeMode="cover"
-                                                    />
-                                                )}
-                                                <View style={{ position: 'absolute', bottom: 8, right: 8, backgroundColor: 'rgba(0,0,0,0.6)', borderRadius: 12, width: 24, height: 24, alignItems: 'center', justifyContent: 'center' }}>
-                                                    <Feather name="video" size={13} color="#fff" />
-                                                </View>
-                                            </View>
-                                        ) : (
-                                            <Image 
-                                                source={{ uri: sharedPostMetadata.imageUrl }} 
-                                                style={styles.sharedPostCardImage} 
-                                                resizeMode="cover"
-                                            />
-                                        )}
-                                        {sharedPostMetadata.caption ? (
-                                            <Text style={styles.sharedPostCardCaption} numberOfLines={2}>
-                                                <Text style={{ fontWeight: '700' }}>{sharedPostMetadata.userName} </Text>
-                                                {sharedPostMetadata.caption}
-                                            </Text>
-                                        ) : null}
-                                    </View>
-                                )}
-
-                                {/* Text overlays preview */}
-                                {textOverlays.map((o) => (
-                                    <DraggableText
-                                        key={o.id}
-                                        overlay={o}
-                                        isSelected={selectedOverlayId === o.id}
-                                        onSelect={setSelectedOverlayId}
-                                        onDelete={deleteOverlay}
-                                        onEdit={openTextEditorForOverlay}
-                                        onUpdatePosition={(id, x, y) => {
-                                            setTextOverlays(prev => prev.map(item => item.id === id ? { ...item, x, y } : item));
-                                        }}
-                                        onDragStart={() => setScrollEnabled(false)}
-                                        onDragEnd={() => setScrollEnabled(true)}
-                                    />
-                                ))}
-                            </View>
-                        </TouchableWithoutFeedback>
-
-                        {/* Details/Tagging Sections */}
-                        <View style={styles.detailsContainer}>
-                            {/* SHARE TO */}
-                            <Text style={[styles.sectionTitle, { color: COLORS.textSecondary }]}>SHARE TO</Text>
-                            <TouchableOpacity 
-                                style={[styles.optionRow, { backgroundColor: COLORS.surface, borderColor: COLORS.border }]}
+                    {/* Floating Bottom Bar (Pills & Share Button) */}
+                    <View style={[styles.floatingBottomBar, { paddingBottom: Math.max(insets.bottom, 16) }]} pointerEvents="box-none">
+                        {/* Options Row (Visibility & Location Pills) */}
+                        <View style={styles.floatingOptionsRow} pointerEvents="box-none">
+                            <TouchableOpacity
+                                style={styles.floatingOptionPill}
+                                activeOpacity={0.7}
                                 onPress={() => {
                                     hapticLight();
                                     setShowVisibilityModal(true);
                                 }}
                             >
-                                <View style={styles.visibilityIconCircle}>
-                                    <Feather name="users" size={20} color="#fff" />
-                                </View>
-                                <View style={{ flex: 1, marginLeft: 14 }}>
-                                    <Text style={[styles.optionLabel, { color: COLORS.textPrimary }]}>Visibility</Text>
-                                    <Text style={[styles.optionSubtitle, { color: COLORS.textSecondary }]}>{visibility}</Text>
-                                </View>
-                                <Feather name="chevron-right" size={20} color={COLORS.textMuted} />
+                                <Feather name="users" size={15} color="#fff" style={{ marginRight: 6 }} />
+                                <Text style={styles.floatingPillText}>{visibility}</Text>
+                                <Feather name="chevron-down" size={14} color="rgba(255,255,255,0.7)" style={{ marginLeft: 4 }} />
                             </TouchableOpacity>
 
-                            {/* LOCATION */}
-                            <Text style={[styles.sectionTitle, { color: COLORS.textSecondary }]}>LOCATION</Text>
-                            <View style={{ position: 'relative', zIndex: 100 }}>
-                                <View style={[styles.locationInputContainer, { backgroundColor: COLORS.surface, borderColor: COLORS.border }]}>
-                                    <Feather name="map-pin" size={18} color="#FF8D00" style={{ marginRight: 10 }} />
-                                    <TextInput
-                                        style={[styles.locationInput, { color: COLORS.textPrimary }]}
-                                        placeholder="Add location..."
-                                        placeholderTextColor={COLORS.textMuted}
-                                        value={locationQuery}
-                                        onChangeText={setLocationQuery}
-                                    />
-                                    {locationQuery.length > 0 && (
-                                        <TouchableOpacity onPress={() => { setLocationQuery(''); setSelectedLocation(null); }}>
-                                            <Feather name="x-circle" size={16} color={COLORS.textMuted} />
-                                        </TouchableOpacity>
-                                    )}
-                                </View>
-
-                                {locationSuggestions.length > 0 && (
-                                    <View style={[styles.locationDropdown, { backgroundColor: COLORS.card, borderColor: COLORS.border }]}>
-                                        <ScrollView keyboardShouldPersistTaps="handled" style={{ maxHeight: 200 }}>
-                                            {locationSuggestions.map((item) => (
-                                                <TouchableOpacity
-                                                    key={item.placeId}
-                                                    style={[styles.locationItem, { borderBottomColor: COLORS.border }]}
-                                                    onPress={() => {
-                                                        Keyboard.dismiss();
-                                                        setSelectedLocation({
-                                                            name: item.name,
-                                                            address: item.address,
-                                                            placeId: item.placeId
-                                                        });
-                                                        setLocationQuery(item.name);
-                                                        setLocationSuggestions([]);
-                                                    }}
-                                                >
-                                                    <Feather name="map-pin" size={16} color="#FF8D00" style={{ marginRight: 8 }} />
-                                                    <View style={{ flex: 1 }}>
-                                                        <Text style={[styles.locationName, { color: COLORS.textPrimary }]}>{item.name}</Text>
-                                                        <Text style={[styles.locationAddress, { color: COLORS.textSecondary }]} numberOfLines={1}>{item.address}</Text>
-                                                    </View>
-                                                </TouchableOpacity>
-                                            ))}
-                                        </ScrollView>
-                                    </View>
+                            <TouchableOpacity
+                                style={[styles.floatingOptionPill, selectedLocation && { backgroundColor: 'rgba(255,141,0,0.35)', borderColor: '#FF8D00' }]}
+                                activeOpacity={0.7}
+                                onPress={() => {
+                                    hapticLight();
+                                    setShowLocationModal(true);
+                                }}
+                            >
+                                <Feather name="map-pin" size={15} color={selectedLocation ? '#FF8D00' : '#fff'} style={{ marginRight: 6 }} />
+                                <Text style={styles.floatingPillText} numberOfLines={1}>
+                                    {selectedLocation?.name || 'Location'}
+                                </Text>
+                                {selectedLocation ? (
+                                    <TouchableOpacity
+                                        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                                        onPress={(e) => {
+                                            e.stopPropagation();
+                                            setSelectedLocation(null);
+                                            setLocationQuery('');
+                                            setLocationSuggestions([]);
+                                        }}
+                                        style={{ marginLeft: 4 }}
+                                    >
+                                        <Feather name="x" size={14} color="#fff" />
+                                    </TouchableOpacity>
+                                ) : (
+                                    <Feather name="chevron-down" size={14} color="rgba(255,255,255,0.7)" style={{ marginLeft: 4 }} />
                                 )}
-                                {loadingLocations && (
-                                    <ActivityIndicator size="small" color="#FF8D00" style={styles.locationLoader} />
-                                )}
-                            </View>
+                            </TouchableOpacity>
                         </View>
-                    </ScrollView>
 
-                    {/* Progress Bar when uploading */}
-                    {uploading && (
-                        <View style={[styles.uploadingArea, { backgroundColor: COLORS.background, borderTopColor: COLORS.border }]}>
-                            <ActivityIndicator size="small" color="#FF8D00" style={{ marginBottom: 8 }} />
-                            <Text style={[styles.uploadingText, { color: COLORS.textSecondary }]}>Uploading {uploadProgress}%</Text>
-                            <View style={styles.uploadingBarBg}>
-                                <View style={[styles.uploadingBar, { width: `${uploadProgress}%` }]} />
-                            </View>
-                        </View>
-                    )}
-
-                    {/* Share Button bottom box */}
-                    <View style={[styles.bottomBar, { backgroundColor: COLORS.background, borderTopWidth: 0, paddingBottom: Math.max(insets.bottom, 16) }]}>
+                        {/* Share to Story Button with integrated loading state */}
                         <TouchableOpacity
-                            style={[styles.shareSubmitBtn, uploading && styles.shareSubmitBtnDisabled]}
+                            style={[styles.floatingShareBtn, uploading && styles.floatingShareBtnUploading]}
                             onPress={handleShare}
                             disabled={uploading}
-                            activeOpacity={0.8}
+                            activeOpacity={0.85}
                         >
-                            <Feather name="send" size={18} color="#fff" style={{ marginRight: 8 }} />
-                            <Text style={styles.shareSubmitBtnText}>{uploading ? 'Sharing...' : 'Share to Story'}</Text>
+                            {uploading && uploadProgress > 0 && (
+                                <View
+                                    style={[
+                                        styles.floatingShareBtnProgressFill,
+                                        { width: `${Math.min(uploadProgress, 100)}%` },
+                                    ]}
+                                />
+                            )}
+
+                            {uploading ? (
+                                <ActivityIndicator size="small" color="#ffffff" style={{ marginRight: 10 }} />
+                            ) : (
+                                <Feather name="send" size={18} color="#fff" style={{ marginRight: 8 }} />
+                            )}
+                            <Text style={styles.floatingShareBtnText}>
+                                {uploading
+                                    ? uploadProgress > 0
+                                        ? `Sharing story... ${uploadProgress}%`
+                                        : 'Sharing story...'
+                                    : 'Share to Story'}
+                            </Text>
                         </TouchableOpacity>
                     </View>
-                </KeyboardAvoidingView>
+                </>
             )}
 
             {/* Visibility Modal */}
@@ -1083,118 +1115,238 @@ export default function StoryCreatorScreen() {
                 </TouchableWithoutFeedback>
             </Modal>
 
+            {/* Location Picker Bottom Sheet Modal */}
+            <Modal
+                visible={showLocationModal}
+                transparent
+                animationType="slide"
+                onRequestClose={() => setShowLocationModal(false)}
+            >
+                <KeyboardAvoidingView
+                    behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+                    style={{ flex: 1 }}
+                >
+                    <TouchableWithoutFeedback onPress={() => setShowLocationModal(false)}>
+                        <View style={styles.modalOverlay}>
+                            <TouchableWithoutFeedback>
+                                <View style={[styles.visibilitySheet, { backgroundColor: COLORS.background, maxHeight: '82%', minHeight: 380 }]}>
+                                    <View style={styles.sheetHandle} />
+                                    <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
+                                        <Text style={[styles.sheetTitle, { color: COLORS.textPrimary, marginBottom: 0 }]}>Select Location</Text>
+                                        <TouchableOpacity
+                                            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                                            onPress={() => setShowLocationModal(false)}
+                                        >
+                                            <Feather name="x" size={22} color={COLORS.textMuted} />
+                                        </TouchableOpacity>
+                                    </View>
+
+                                    {/* Search Input Bar */}
+                                    <View style={[styles.locationInputContainer, { backgroundColor: COLORS.surface, borderColor: COLORS.border, marginBottom: 10 }]}>
+                                        <Feather name="search" size={18} color="#FF8D00" style={{ marginRight: 10 }} />
+                                        <TextInput
+                                            style={[styles.locationInput, { color: COLORS.textPrimary }]}
+                                            placeholder="Search city, venue or address..."
+                                            placeholderTextColor={COLORS.textMuted}
+                                            value={locationQuery}
+                                            onChangeText={setLocationQuery}
+                                            autoFocus={true}
+                                        />
+                                        {loadingLocations ? (
+                                            <ActivityIndicator size="small" color="#FF8D00" />
+                                        ) : locationQuery.length > 0 ? (
+                                            <TouchableOpacity onPress={() => { setLocationQuery(''); setLocationSuggestions([]); }}>
+                                                <Feather name="x-circle" size={16} color={COLORS.textMuted} />
+                                            </TouchableOpacity>
+                                        ) : null}
+                                    </View>
+
+                                    {/* Suggestions List */}
+                                    <FlatList
+                                        data={locationSuggestions}
+                                        keyExtractor={(item) => item.placeId || item.name}
+                                        keyboardShouldPersistTaps="handled"
+                                        style={{ flex: 1 }}
+                                        ListEmptyComponent={() => (
+                                            locationQuery.length >= 2 && !loadingLocations ? (
+                                                <View style={{ paddingVertical: 32, alignItems: 'center' }}>
+                                                    <Feather name="map-pin" size={28} color={COLORS.textMuted} style={{ marginBottom: 8, opacity: 0.5 }} />
+                                                    <Text style={{ color: COLORS.textSecondary, fontSize: 14 }}>No locations found for "{locationQuery}"</Text>
+                                                </View>
+                                            ) : (
+                                                <View style={{ paddingVertical: 32, alignItems: 'center' }}>
+                                                    <Feather name="map" size={28} color={COLORS.textMuted} style={{ marginBottom: 8, opacity: 0.5 }} />
+                                                    <Text style={{ color: COLORS.textSecondary, fontSize: 14 }}>Type at least 2 characters to search</Text>
+                                                </View>
+                                            )
+                                        )}
+                                        renderItem={({ item }) => (
+                                            <TouchableOpacity
+                                                style={[styles.locationItem, { borderBottomColor: COLORS.border }]}
+                                                onPress={() => {
+                                                    Keyboard.dismiss();
+                                                    setSelectedLocation({
+                                                        name: item.name,
+                                                        address: item.address,
+                                                        placeId: item.placeId
+                                                    });
+                                                    setLocationQuery(item.name);
+                                                    setLocationSuggestions([]);
+                                                    setShowLocationModal(false);
+                                                }}
+                                            >
+                                                <View style={{ width: 34, height: 34, borderRadius: 17, backgroundColor: 'rgba(255,141,0,0.12)', alignItems: 'center', justifyContent: 'center', marginRight: 12 }}>
+                                                    <Feather name="map-pin" size={16} color="#FF8D00" />
+                                                </View>
+                                                <View style={{ flex: 1 }}>
+                                                    <Text style={[styles.locationName, { color: COLORS.textPrimary }]}>{item.name}</Text>
+                                                    <Text style={[styles.locationAddress, { color: COLORS.textSecondary }]} numberOfLines={1}>{item.address}</Text>
+                                                </View>
+                                                <Feather name="chevron-right" size={16} color={COLORS.textMuted} />
+                                            </TouchableOpacity>
+                                        )}
+                                    />
+                                </View>
+                            </TouchableWithoutFeedback>
+                        </View>
+                    </TouchableWithoutFeedback>
+                </KeyboardAvoidingView>
+            </Modal>
+
             {/* Draggable Text Overlay Editor Modal */}
             <Modal
                 visible={showTextEditor}
                 animationType="fade"
                 transparent
                 statusBarTranslucent
-                onRequestClose={() => setShowTextEditor(false)}
+                onRequestClose={() => {
+                    Keyboard.dismiss();
+                    setShowTextEditor(false);
+                }}
             >
-                <KeyboardAvoidingView
-                    style={{ flex: 1 }}
-                    behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-                    keyboardVerticalOffset={0}
+                <View
+                    style={{
+                        flex: 1,
+                        backgroundColor: '#000',
+                        paddingBottom: Platform.OS === 'ios'
+                            ? (editorKeyboardHeight > 0 ? editorKeyboardHeight : insets.bottom + 8)
+                            : 8,
+                    }}
                 >
-                    <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
-                        <View style={{ flex: 1, backgroundColor: '#000' }}>
-                            {/* Render selected media as background inside the modal */}
-                            {selectedUri && (
-                                <View style={StyleSheet.absoluteFillObject}>
-                                    {selectedAsset?.mediaType === 'video' ? (
-                                        <AutoplayVideoPreview uri={selectedUri} rawUri={selectedAsset?.uri} style={{ width: '100%', height: '100%' }} />
-                                    ) : (
-                                        <Image source={{ uri: selectedUri }} style={{ width: '100%', height: '100%' }} resizeMode="cover" />
-                                    )}
-                                </View>
+                    {/* Render selected media as background inside the modal */}
+                    {selectedUri && (
+                        <View style={StyleSheet.absoluteFillObject} pointerEvents="none">
+                            {selectedAsset?.mediaType === 'video' ? (
+                                <AutoplayVideoPreview uri={selectedUri} rawUri={selectedAsset?.uri} style={{ width: '100%', height: '100%' }} />
+                            ) : (
+                                <Image source={{ uri: selectedUri }} style={{ width: '100%', height: '100%' }} resizeMode="cover" />
                             )}
-                            {/* Dark overlay on top of the media */}
-                            <View style={[StyleSheet.absoluteFillObject, { backgroundColor: 'rgba(0,0,0,0.55)' }]} />
-                            {/* Header */}
-                            <View style={[styles.textEditorHeader, { paddingTop: insets.top + 8 }]}>
+                        </View>
+                    )}
+                    {/* Dark overlay on top of the media */}
+                    <View style={[StyleSheet.absoluteFillObject, { backgroundColor: 'rgba(0,0,0,0.55)' }]} pointerEvents="none" />
+
+                    {/* Header */}
+                    <View style={[styles.textEditorHeader, { paddingTop: insets.top + 8 }]}>
+                        <TouchableOpacity
+                            onPress={() => {
+                                Keyboard.dismiss();
+                                setShowTextEditor(false);
+                            }}
+                            style={styles.editorHeaderSideBtn}
+                            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                        >
+                            <Feather name="x" size={24} color="#fff" />
+                        </TouchableOpacity>
+
+                        <Text style={styles.editorHeaderTitle}>Edit text</Text>
+
+                        <View style={styles.editorHeaderRight}>
+                            {selectedOverlayId != null && (
                                 <TouchableOpacity
-                                    onPress={() => setShowTextEditor(false)}
-                                    style={styles.editorHeaderSideBtn}
+                                    onPress={() => {
+                                        Keyboard.dismiss();
+                                        deleteOverlay(selectedOverlayId);
+                                        setShowTextEditor(false);
+                                    }}
+                                    style={styles.editorDeleteBtn}
                                     hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                                 >
-                                    <Feather name="x" size={24} color="#fff" />
+                                    <Feather name="trash-2" size={20} color="#ff5555" />
                                 </TouchableOpacity>
+                            )}
+                            <TouchableOpacity
+                                onPress={() => {
+                                    Keyboard.dismiss();
+                                    commitText();
+                                }}
+                                style={styles.doneBtn}
+                            >
+                                <Text style={styles.doneBtnText}>Done</Text>
+                            </TouchableOpacity>
+                        </View>
+                    </View>
 
-                                <Text style={styles.editorHeaderTitle}>Edit text</Text>
+                    {/* Text Input area (tap background to dismiss or focus) */}
+                    <TouchableWithoutFeedback onPress={handlePreviewPress}>
+                        <View style={styles.textEditorPreview}>
+                            <TextInput
+                                ref={textInputRef}
+                                style={[
+                                    styles.textInput,
+                                    {
+                                        color: editingColor,
+                                        fontFamily: editingFs.fontFamily,
+                                        letterSpacing: editingFs.letterSpacing,
+                                        textTransform: editingFs.textTransform as any,
+                                    },
+                                ]}
+                                value={editingText}
+                                onChangeText={setEditingText}
+                                placeholder="Type something..."
+                                placeholderTextColor="rgba(255,255,255,0.4)"
+                                multiline
+                                autoFocus
+                                selectionColor="#FF8D00"
+                                returnKeyType="done"
+                                blurOnSubmit={false}
+                            />
+                        </View>
+                    </TouchableWithoutFeedback>
 
-                                <View style={styles.editorHeaderRight}>
-                                    {selectedOverlayId != null && (
-                                        <TouchableOpacity
-                                            onPress={() => {
-                                                deleteOverlay(selectedOverlayId);
-                                                setShowTextEditor(false);
-                                            }}
-                                            style={styles.editorDeleteBtn}
-                                            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                    {/* Bottom Controls Bar (Font style pills + Color picker dots) */}
+                    <View style={styles.editorControlsBar}>
+                        {/* Font style row */}
+                        <View style={styles.fontStyleRow}>
+                            {(Object.keys(FONT_STYLES) as FontStyleKey[]).map((key) => {
+                                const active = editingFontStyle === key;
+                                const fs = FONT_STYLES[key];
+                                return (
+                                    <TouchableOpacity
+                                        key={key}
+                                        onPress={() => setEditingFontStyle(key)}
+                                        style={[styles.fontStyleBtn, active && styles.fontStyleBtnActive]}
+                                    >
+                                        <Text
+                                            style={[
+                                                styles.fontStyleLabel,
+                                                active && styles.fontStyleLabelActive,
+                                                {
+                                                    fontFamily: fs.fontFamily,
+                                                    letterSpacing: fs.letterSpacing,
+                                                    textTransform: fs.textTransform as any,
+                                                },
+                                            ]}
                                         >
-                                            <Feather name="trash-2" size={20} color="#ff5555" />
-                                        </TouchableOpacity>
-                                    )}
-                                    <TouchableOpacity onPress={commitText} style={styles.doneBtn}>
-                                        <Text style={styles.doneBtnText}>Done</Text>
+                                            {fs.label}
+                                        </Text>
                                     </TouchableOpacity>
-                                </View>
-                            </View>
+                                );
+                            })}
+                        </View>
 
-                            {/* Text Input area */}
-                            <View style={styles.textEditorPreview}>
-                                <TextInput
-                                    style={[
-                                        styles.textInput,
-                                        {
-                                            color: editingColor,
-                                            fontFamily: editingFs.fontFamily,
-                                            letterSpacing: editingFs.letterSpacing,
-                                            textTransform: editingFs.textTransform as any,
-                                        },
-                                    ]}
-                                    value={editingText}
-                                    onChangeText={setEditingText}
-                                    placeholder="Type something..."
-                                    placeholderTextColor="rgba(255,255,255,0.4)"
-                                    multiline
-                                    autoFocus
-                                    selectionColor="#FF8D00"
-                                    returnKeyType="done"
-                                    blurOnSubmit={false}
-                                />
-                            </View>
-
-                            {/* Font style row */}
-                            <View style={styles.fontStyleRow}>
-                                {(Object.keys(FONT_STYLES) as FontStyleKey[]).map((key) => {
-                                    const active = editingFontStyle === key;
-                                    const fs = FONT_STYLES[key];
-                                    return (
-                                        <TouchableOpacity
-                                            key={key}
-                                            onPress={() => setEditingFontStyle(key)}
-                                            style={[styles.fontStyleBtn, active && styles.fontStyleBtnActive]}
-                                        >
-                                            <Text
-                                                style={[
-                                                    styles.fontStyleLabel,
-                                                    active && styles.fontStyleLabelActive,
-                                                    {
-                                                        fontFamily: fs.fontFamily,
-                                                        letterSpacing: fs.letterSpacing,
-                                                        textTransform: fs.textTransform as any,
-                                                    },
-                                                ]}
-                                            >
-                                                {fs.label}
-                                            </Text>
-                                        </TouchableOpacity>
-                                    );
-                                })}
-                            </View>
-
-                            {/* Color Picker */}
+                        {/* Color Picker */}
+                        <View style={styles.colorRowContainer}>
                             <ScrollView
                                 horizontal
                                 showsHorizontalScrollIndicator={false}
@@ -1217,8 +1369,8 @@ export default function StoryCreatorScreen() {
                                 })}
                             </ScrollView>
                         </View>
-                    </TouchableWithoutFeedback>
-                </KeyboardAvoidingView>
+                    </View>
+                </View>
             </Modal>
         </View>
     );
@@ -1382,15 +1534,107 @@ const styles = StyleSheet.create({
         fontSize: 16,
     },
 
-    // Preview
+    // Preview Canvas & Floating Controls
+    fullScreenCanvas: {
+        width: SCREEN_W,
+        height: CANVAS_H,
+        backgroundColor: '#000000',
+        overflow: 'hidden',
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
     preview: {
         width: SCREEN_W,
-        height: PREVIEW_H,
-        backgroundColor: '#f0f2f5',
+        height: CANVAS_H,
+        backgroundColor: '#000000',
         overflow: 'hidden',
         alignSelf: 'center',
     },
     previewImg: { width: '100%', height: '100%' },
+    floatingHeader: {
+        position: 'absolute',
+        left: 16,
+        right: 16,
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        zIndex: 50,
+    },
+    floatingRoundBtn: {
+        width: 44,
+        height: 44,
+        borderRadius: 22,
+        backgroundColor: 'rgba(0,0,0,0.5)',
+        borderWidth: 1,
+        borderColor: 'rgba(255,255,255,0.2)',
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    aaFloatingBtnText: {
+        color: '#ffffff',
+        fontSize: 18,
+        fontWeight: 'bold',
+    },
+    floatingBottomBar: {
+        position: 'absolute',
+        left: 16,
+        right: 16,
+        bottom: 0,
+        zIndex: 50,
+    },
+    floatingOptionsRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 10,
+        marginBottom: 12,
+    },
+    floatingOptionPill: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: 'rgba(0,0,0,0.55)',
+        borderWidth: 1,
+        borderColor: 'rgba(255,255,255,0.25)',
+        paddingHorizontal: 14,
+        paddingVertical: 9,
+        borderRadius: 20,
+        maxWidth: (SCREEN_W - 42) / 2,
+    },
+    floatingPillText: {
+        color: '#ffffff',
+        fontSize: 13,
+        fontWeight: '600',
+    },
+    floatingShareBtn: {
+        height: 50,
+        borderRadius: 25,
+        backgroundColor: '#FF8D00',
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        shadowColor: '#FF8D00',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.35,
+        shadowRadius: 8,
+        elevation: 6,
+        overflow: 'hidden',
+    },
+    floatingShareBtnUploading: {
+        backgroundColor: '#E67E00',
+        shadowOpacity: 0.2,
+    },
+    floatingShareBtnProgressFill: {
+        position: 'absolute',
+        bottom: 0,
+        left: 0,
+        height: 3,
+        backgroundColor: '#ffffff',
+        borderBottomLeftRadius: 25,
+    },
+    floatingShareBtnText: {
+        color: '#ffffff',
+        fontWeight: 'bold',
+        fontSize: 16,
+    },
 
     // Text overlay on preview
     textOverlay: {
@@ -1592,11 +1836,15 @@ const styles = StyleSheet.create({
         zIndex: 10,
     },
 
+    editorControlsBar: {
+        width: '100%',
+        paddingTop: 8,
+    },
     // Font style selector
     fontStyleRow: {
         flexDirection: 'row',
         justifyContent: 'center',
-        paddingVertical: 16,
+        paddingVertical: 8,
         gap: 12,
     },
     fontStyleBtn: {
@@ -1618,15 +1866,16 @@ const styles = StyleSheet.create({
     fontStyleLabelActive: {
         color: '#000',
     },
-
+    colorRowContainer: {
+        height: 52,
+        justifyContent: 'center',
+    },
     // Color picker
     colorRow: {
         flexDirection: 'row',
         alignItems: 'center',
         paddingHorizontal: 16,
-        paddingVertical: 10,
         gap: 12,
-        paddingBottom: 24,
     },
     colorDot: {
         width: 32,
@@ -1671,13 +1920,11 @@ const styles = StyleSheet.create({
         borderRadius: 3,
     },
     sharedPostCard: {
-        position: 'absolute',
-        width: '80%',
+        width: SCREEN_W * 0.85,
         backgroundColor: '#ffffff',
         borderRadius: 12,
         padding: 12,
         alignSelf: 'center',
-        top: '15%',
         shadowColor: '#000',
         shadowOffset: { width: 0, height: 4 },
         shadowOpacity: 0.3,

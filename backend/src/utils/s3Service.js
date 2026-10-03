@@ -240,14 +240,22 @@ async function compressVideoVariants(videoBufferOrPath, context) {
  * @param {Buffer|string} fileBufferOrPath - Media file buffer or file path
  * @param {string} folder - Upload folder path prefix
  * @param {string} context - Context (e.g. 'avatar', 'post', 'story')
- * @param {string} mediaType - Type of media: 'image', 'video', or 'auto'
+ * @param {string} mediaType - Type of media: 'image', 'video', 'audio', or 'auto'
  * @param {string} originalName - Original file name for ext identification
+ * @param {object} options - Optional upload settings (skipOptimize, skipVideoCompress)
  */
-async function uploadMedia(fileBufferOrPath, folder, context, mediaType = 'auto', originalName = 'file') {
-  const extension = path.extname(originalName) || (mediaType === 'video' ? '.mp4' : '.jpg');
+async function uploadMedia(fileBufferOrPath, folder, context, mediaType = 'auto', originalName = 'file', options = {}) {
+  const extension = path.extname(originalName) || (mediaType === 'video' ? '.mp4' : mediaType === 'audio' ? '.m4a' : '.jpg');
   const randomSuffix = Math.random().toString(36).substring(7);
   // Generate file prefix
   const baseKey = `${folder}/${Date.now()}-${randomSuffix}`;
+  const skipOptimize = options.skipOptimize === true;
+  const skipVideoCompress = options.skipVideoCompress === true;
+  // Client already resized/optimized for posts/stories — don't re-encode on the request path
+  const clientAlreadyOptimized =
+    skipOptimize ||
+    context === 'post' ||
+    context === 'story';
 
   let finalBufferOrPath = fileBufferOrPath;
   let finalMediaType = mediaType;
@@ -256,17 +264,46 @@ async function uploadMedia(fileBufferOrPath, folder, context, mediaType = 'auto'
   let thumbnailUrl = null;
   let url360p = null;
 
+  // ─── AUDIO: passthrough — no image/video processing needed ───────────────────
+  const isAudioFile = mediaType === 'audio'
+    || /\.(m4a|mp3|aac|wav|ogg|flac|opus)(\?|$)/i.test(String(originalName || ''));
+
+  if (isAudioFile) {
+    finalMediaType = 'audio';
+    const audioExt = path.extname(originalName || 'audio.m4a') || '.m4a';
+    const audioKey = `${baseKey}${audioExt}`;
+    const audioContentType = originalName?.endsWith('.mp3') ? 'audio/mpeg'
+      : originalName?.endsWith('.wav') ? 'audio/wav'
+      : originalName?.endsWith('.ogg') ? 'audio/ogg'
+      : 'audio/mp4'; // default m4a
+    const secureUrl = await uploadBufferToS3(fileBufferOrPath, audioKey, audioContentType);
+    return {
+      url: secureUrl,
+      secure_url: secureUrl,
+      mediaType: 'audio',
+      resource_type: 'audio',
+      thumbnailUrl: null
+    };
+  }
+  // ─────────────────────────────────────────────────────────────────────────────
+
   // 1. Handle Image Optimization & Dimension Parsing
   if (mediaType === 'image' || mediaType === 'auto') {
     try {
       const metadata = await sharp(fileBufferOrPath).metadata();
       if (metadata.format) {
         finalMediaType = 'image';
-        finalBufferOrPath = await optimizeImage(fileBufferOrPath, context);
-        // Extract size parameters from optimized buffer
-        const optimizedMeta = await sharp(finalBufferOrPath).metadata();
-        width = optimizedMeta.width || null;
-        height = optimizedMeta.height || null;
+        if (clientAlreadyOptimized && context !== 'avatar') {
+          // Trust client JPEG/WebP — only read dimensions
+          finalBufferOrPath = fileBufferOrPath;
+          width = metadata.width || null;
+          height = metadata.height || null;
+        } else {
+          finalBufferOrPath = await optimizeImage(fileBufferOrPath, context);
+          const optimizedMeta = await sharp(finalBufferOrPath).metadata();
+          width = optimizedMeta.width || null;
+          height = optimizedMeta.height || null;
+        }
       }
     } catch (err) {
       if (mediaType === 'image') {
@@ -292,31 +329,37 @@ async function uploadMedia(fileBufferOrPath, folder, context, mediaType = 'auto'
       logger.warn(`Could not generate thumbnail for video: ${err.message}`);
     }
 
-    try {
-      logger.info('🎬 Compressing video (720p & 360p) before uploading to S3...');
-      const { buffer720p, buffer360p } = await compressVideoVariants(fileBufferOrPath, context);
-      finalBufferOrPath = buffer720p;
+    if (!skipVideoCompress && !clientAlreadyOptimized) {
+      try {
+        logger.info('🎬 Compressing video (720p & 360p) before uploading to S3...');
+        const { buffer720p, buffer360p } = await compressVideoVariants(fileBufferOrPath, context);
+        finalBufferOrPath = buffer720p;
 
-      // Upload low-bandwidth 360p variant if created
-      if (buffer360p) {
-        const previewKey = `${baseKey}_360p.mp4`;
-        url360p = await uploadBufferToS3(buffer360p, previewKey, 'video/mp4');
-        if (typeof buffer360p === 'string' && buffer360p !== fileBufferOrPath) {
-          try { await fs.unlink(buffer360p); } catch (_) {}
+        // Upload low-bandwidth 360p variant if created
+        if (buffer360p) {
+          const previewKey = `${baseKey}_360p.mp4`;
+          url360p = await uploadBufferToS3(buffer360p, previewKey, 'video/mp4');
+          if (typeof buffer360p === 'string' && buffer360p !== fileBufferOrPath) {
+            try { await fs.unlink(buffer360p); } catch (_) {}
+          }
         }
+        logger.info('✅ Video multi-resolution compression complete');
+      } catch (err) {
+        logger.warn(`Video compression failed, using original file: ${err.message}`);
       }
-      logger.info('✅ Video multi-resolution compression complete');
-    } catch (err) {
-      logger.warn(`Video compression failed, using original file: ${err.message}`);
+    } else {
+      logger.info('⚡ Skipping server video re-encode (client already compressed)');
+      finalBufferOrPath = fileBufferOrPath;
     }
   }
 
   // 3. Upload Main File
+  const imagePassthrough = finalMediaType === 'image' && clientAlreadyOptimized && context !== 'avatar';
   const contentType = finalMediaType === 'image' 
-    ? 'image/webp' 
+    ? (imagePassthrough ? (extension === '.jpg' || extension === '.jpeg' ? 'image/jpeg' : 'image/webp') : 'image/webp') 
     : (finalMediaType === 'video' ? 'video/mp4' : 'application/octet-stream');
   
-  const mainKey = `${baseKey}${finalMediaType === 'image' ? '.webp' : extension}`;
+  const mainKey = `${baseKey}${finalMediaType === 'image' ? (imagePassthrough ? extension : '.webp') : extension}`;
   const s3Url = await uploadBufferToS3(finalBufferOrPath, mainKey, contentType);
 
   // Clean up compressed temp file if created
@@ -343,5 +386,6 @@ async function uploadMedia(fileBufferOrPath, folder, context, mediaType = 'auto'
 
 module.exports = {
   uploadBufferToS3,
-  uploadMedia
+  uploadMedia,
+  generateVideoThumbnail
 };

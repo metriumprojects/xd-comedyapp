@@ -403,7 +403,17 @@ export default function TierManagementScreen() {
                 </View>
               ) : (
                 tierSubscribers.map((item) => {
-                  const subUser = item.subscriber;
+                  const subUser = item.subscriber || (typeof item.subscriberId === 'object' ? item.subscriberId : null);
+                  const targetUserId =
+                    subUser?.id ||
+                    subUser?._id ||
+                    (typeof item?.subscriber === 'string' ? item.subscriber : null) ||
+                    item?.subscriberId?._id ||
+                    item?.subscriberId?.id ||
+                    (typeof item?.subscriberId === 'string' ? item.subscriberId : null) ||
+                    item?.userId;
+                  const targetUserName = subUser?.displayName || subUser?.username || 'Subscriber';
+                  const targetUserAvatar = subUser?.avatar || '';
                   const joinDate = item.createdAt
                     ? new Date(item.createdAt).toLocaleDateString('en-US', {
                         month: 'short',
@@ -413,17 +423,27 @@ export default function TierManagementScreen() {
                     : '';
 
                   return (
-                    <View key={item.id} style={styles.subscriberRow}>
-                      <ExpoImage
-                        source={{ uri: subUser?.avatar || DEFAULT_AVATAR }}
-                        style={styles.subscriberAvatar}
-                        contentFit="cover"
-                      />
-                      <View style={{ flex: 1, marginLeft: 12 }}>
-                        <Text style={styles.subscriberName}>{subUser?.displayName || 'Subscriber'}</Text>
-                        <Text style={styles.subscriberHandle}>@{subUser?.username || 'user'}</Text>
-                        {joinDate ? <Text style={styles.subscriberJoined}>Joined {joinDate}</Text> : null}
-                      </View>
+                    <View key={item.id || item._id || String(targetUserId)} style={styles.subscriberRow}>
+                      <TouchableOpacity
+                        style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}
+                        activeOpacity={targetUserId ? 0.7 : 1}
+                        onPress={() => {
+                          if (targetUserId) {
+                            router.push(`/user-profile/${targetUserId}` as any);
+                          }
+                        }}
+                      >
+                        <ExpoImage
+                          source={{ uri: targetUserAvatar || DEFAULT_AVATAR }}
+                          style={styles.subscriberAvatar}
+                          contentFit="cover"
+                        />
+                        <View style={{ flex: 1, marginLeft: 12 }}>
+                          <Text style={styles.subscriberName}>{targetUserName}</Text>
+                          <Text style={styles.subscriberHandle}>@{subUser?.username || 'user'}</Text>
+                          {joinDate ? <Text style={styles.subscriberJoined}>Joined {joinDate}</Text> : null}
+                        </View>
+                      </TouchableOpacity>
 
                       <View style={styles.subscriberActions}>
                         <View style={styles.activeStatusPill}>
@@ -431,9 +451,19 @@ export default function TierManagementScreen() {
                         </View>
                         <TouchableOpacity
                           style={styles.subscriberMsgBtn}
+                          accessibilityLabel={`Message ${targetUserName}`}
                           onPress={() => {
-                            if (subUser?.id) {
-                              router.push({ pathname: '/dm', params: { targetUserId: subUser.id } } as any);
+                            if (targetUserId) {
+                              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+                              router.push({
+                                pathname: '/dm',
+                                params: {
+                                  otherUserId: String(targetUserId),
+                                  targetUserId: String(targetUserId),
+                                  user: targetUserName,
+                                  avatar: targetUserAvatar,
+                                },
+                              } as any);
                             }
                           }}
                         >

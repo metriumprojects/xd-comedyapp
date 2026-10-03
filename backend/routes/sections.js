@@ -318,17 +318,31 @@ router.delete('/:userId/sections/:sectionId', verifyToken, async (req, res) => {
 router.patch('/:userId/sections-order', verifyToken, async (req, res) => {
   try {
     const { sections } = req.body;
+    const { userId } = req.params;
 
     if (!sections || !Array.isArray(sections)) {
       return res.status(400).json({ success: false, error: 'sections array required' });
     }
 
-    const updatePromises = sections.map((section, index) =>
-      Section.updateOne(
-        { _id: section._id || section.id },
+    const resolvedUser = await resolveUserIdentifiers(userId);
+    const userIdCandidates = [...new Set((resolvedUser?.candidates || []).map(String))];
+
+    const updatePromises = sections.map((section, index) => {
+      const id = section._id || section.id;
+      if (id && mongoose.Types.ObjectId.isValid(id)) {
+        return Section.updateOne(
+          { _id: id },
+          { order: index, updatedAt: new Date() }
+        );
+      }
+      return Section.updateOne(
+        {
+          userId: { $in: userIdCandidates.length > 0 ? userIdCandidates : [userId] },
+          name: section.name
+        },
         { order: index, updatedAt: new Date() }
-      )
-    );
+      );
+    });
 
     await Promise.all(updatePromises);
 

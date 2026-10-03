@@ -137,9 +137,27 @@ router.post('/upload', verifyToken, diskUpload.single('file'), handleMulterError
     await validateUploadedFile(req.file);
     
     const userId = req.userId || 'anonymous';
-    const folder = req.body.path || `media/${userId}`;
+    const rawContext = String(req.body.context || 'media').toLowerCase();
+    const context = ['avatar', 'post', 'story', 'media'].includes(rawContext) ? rawContext : 'media';
+    const skipOptimize =
+      req.body.skipOptimize === '1' ||
+      req.body.skipOptimize === 'true' ||
+      req.body.skipOptimize === true;
+    const skipVideoCompress =
+      req.body.skipVideoCompress === '1' ||
+      req.body.skipVideoCompress === 'true' ||
+      req.body.skipVideoCompress === true ||
+      context === 'post' ||
+      context === 'story';
 
-    const result = await s3Service.uploadMedia(req.file.path, folder, 'media', req.body.mediaType || 'auto', req.file.originalname || 'file');
+    const result = await s3Service.uploadMedia(
+      req.file.path,
+      folder,
+      context,
+      req.body.mediaType || 'auto',
+      req.file.originalname || 'file',
+      { skipOptimize: skipOptimize || context === 'post' || context === 'story', skipVideoCompress }
+    );
 
     res.json({ 
       success: true, 

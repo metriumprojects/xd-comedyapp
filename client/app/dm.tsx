@@ -286,21 +286,21 @@ export default function DM() {
     if (isGroupParam || String(p?.isGroup || '').toLowerCase() === '1' || String(p?.isGroup || '').toLowerCase() === 'true') {
       return null;
     }
-    const raw = p?.otherUserId ?? p?.peerId ?? p?.recipientId ?? p?.userId ?? p?.uid;
+    const raw = p?.otherUserId ?? p?.peerId ?? p?.recipientId ?? p?.userId ?? p?.uid ?? p?.targetUserId ?? p?.targetId;
     if (Array.isArray(raw)) return (raw[0] as string) || null;
     return typeof raw === 'string' && raw.trim() ? raw.trim() : null;
   })();
 
   const seedPeerDisplayName = useMemo(() => {
     const p = params as any;
-    const raw = p?.user ?? p?.displayName ?? p?.name ?? p?.username ?? p?.userName ?? p?.otherUserName ?? p?.title;
+    const raw = p?.user ?? p?.displayName ?? p?.name ?? p?.username ?? p?.userName ?? p?.otherUserName ?? p?.title ?? p?.targetUserName;
     const s = Array.isArray(raw) ? String(raw[0] ?? '') : typeof raw === 'string' ? raw : '';
     return s.trim();
   }, [params]);
 
   const seedPeerAvatar = useMemo(() => {
     const p = params as any;
-    const raw = p?.avatar ?? p?.userAvatar ?? p?.photoURL ?? p?.avatarUrl ?? p?.profilePicture ?? p?.photoUrl;
+    const raw = p?.avatar ?? p?.userAvatar ?? p?.photoURL ?? p?.avatarUrl ?? p?.profilePicture ?? p?.photoUrl ?? p?.targetUserAvatar;
     const s = Array.isArray(raw) ? String(raw[0] ?? '') : typeof raw === 'string' ? raw : '';
     return s.trim();
   }, [params]);

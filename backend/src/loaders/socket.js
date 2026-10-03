@@ -19,9 +19,11 @@ const initSockets = (server, secret) => {
     } 
   });
 
-  // Attach Redis Adapter for Multi-Instance / Cluster Scaling if Redis is configured
+  // Attach Redis Adapter for Multi-Instance / Cluster Scaling if Redis is configured AND explicitly requested via SOCKET_REDIS_ADAPTER.
+  // Single instance / standalone dynos run in memory mode to prevent burning Redis pub/sub quota.
   const redisConfig = getRedisConnectionConfig();
-  if (redisConfig) {
+  const useSocketRedis = !!redisConfig && /^(1|true|yes)$/i.test(String(process.env.SOCKET_REDIS_ADAPTER || '').trim());
+  if (useSocketRedis) {
     try {
       const redisOptions = {
         maxRetriesPerRequest: null,
@@ -56,6 +58,8 @@ const initSockets = (server, secret) => {
     } catch (adapterErr) {
       logger.warn('⚠️ Could not initialize Socket.IO Redis Adapter: %s', adapterErr.message);
     }
+  } else if (redisConfig) {
+    logger.info('ℹ️ Redis configured, but SOCKET_REDIS_ADAPTER is unset/false — Socket.IO running in standalone in-memory mode.');
   } else {
     logger.info('ℹ️ Redis not configured - Socket.IO running in standalone in-memory mode.');
   }

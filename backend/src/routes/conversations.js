@@ -94,6 +94,49 @@ const findThreadConversations = async (conversation) => {
   });
 };
 
+const assertGroupAdmin = async (conversation, actorId, firebaseUidFromToken) => {
+  const actorVariants = await resolveUserIdVariants(actorId);
+  const actorIds = new Set([String(actorId), ...actorVariants.map(String)].filter(Boolean));
+  if (firebaseUidFromToken) actorIds.add(String(firebaseUidFromToken));
+
+  const participants = Array.isArray(conversation.participants)
+    ? conversation.participants.map(String)
+    : [];
+  const isParticipant = [...actorIds].some((uid) => participants.includes(String(uid)));
+  if (!isParticipant) {
+    return { ok: false, status: 403, error: 'Forbidden', actorIds, healed: false };
+  }
+
+  let rawAdminIds = Array.isArray(conversation.groupAdminIds)
+    ? conversation.groupAdminIds.map(String).filter(Boolean)
+    : [];
+
+  let healed = false;
+  if (rawAdminIds.length === 0) {
+    // Legacy groups: first participant becomes the only admin
+    const seed = participants[0] ? String(participants[0]) : String(actorId);
+    conversation.groupAdminIds = [seed];
+    rawAdminIds = [seed];
+    healed = true;
+  }
+
+  const adminIdSet = new Set();
+  for (const aid of rawAdminIds) {
+    adminIdSet.add(String(aid));
+    try {
+      const av = await resolveUserIdVariants(String(aid));
+      av.forEach((x) => adminIdSet.add(String(x)));
+    } catch { /* ignore */ }
+  }
+
+  const isAdmin = [...actorIds].some((uid) => adminIdSet.has(String(uid)));
+  if (!isAdmin) {
+    return { ok: false, status: 403, error: 'Only group admins can do this', actorIds, healed: false };
+  }
+
+  return { ok: true, actorIds, adminIdSet, healed };
+};
+
 /** Same smart resolution as GET /:id/messages — pair keys (A_B) often aren't stored as conversationId. */
 const resolveConversationsForId = async (conversationId) => {
   const id = String(conversationId || '').trim();
@@ -218,7 +261,13 @@ router.get('/', verifyToken, async (req, res) => {
       const isArchived = archivedBy.some((id) => idsToMatch.includes(String(id)));
 
       const participants = Array.isArray(convObj?.participants) ? convObj.participants.map(String) : [];
-      const isGroup = !!convObj?.isGroup;
+      const conversationIdStr = String(convObj.conversationId || convObj._id || '');
+      const isGroup = !!(
+        convObj?.isGroup ||
+        String(convObj?.type || '').toLowerCase() === 'group' ||
+        conversationIdStr.startsWith('grp_') ||
+        conversationIdStr.startsWith('group_')
+      );
 
       let lastCleared = 0;
       const clearedMap = convObj?.clearedBy || {};
@@ -239,7 +288,6 @@ router.get('/', verifyToken, async (req, res) => {
         }
       }
 
-      const conversationIdStr = String(convObj.conversationId || convObj._id);
       const candidates = unreadMap[conversationIdStr] || [];
 
       const visibleMsgs = candidates.filter(m => {
@@ -284,12 +332,18 @@ router.get('/', verifyToken, async (req, res) => {
       if (isGroup) {
         return {
           ...convObj,
+          conversationId: conversationIdStr,
+          isGroup: true,
           isArchived,
           unreadCount,
+          otherUserId: null,
+          otherUser: null,
+          groupName: convObj?.groupName || convObj?.group?.name || 'Group Chat',
+          groupAvatar: convObj?.groupAvatar || convObj?.group?.avatar || null,
           group: {
             id: String(convObj?._id || convObj?.conversationId || ''),
-            name: convObj?.groupName || 'Group Chat',
-            avatar: convObj?.groupAvatar || null,
+            name: convObj?.groupName || convObj?.group?.name || 'Group Chat',
+            avatar: convObj?.groupAvatar || convObj?.group?.avatar || null,
             memberCount: participants.length,
           }
         };
@@ -509,19 +563,30 @@ router.patch('/:id/group-members', verifyToken, async (req, res) => {
       return res.status(400).json({ success: false, error: 'Not a group conversation' });
     }
 
-    const adminIds = Array.isArray(conversation.groupAdminIds) ? conversation.groupAdminIds.map(String) : [];
-    if (!adminIds.includes(actorId)) {
-      return res.status(403).json({ success: false, error: 'Only group admins can manage members' });
+    const gate = await assertGroupAdmin(conversation, actorId, req.user?.firebaseUid);
+    if (!gate.ok) {
+      return res.status(gate.status).json({ success: false, error: gate.error });
+    }
+    if (gate.healed) {
+      try {
+        await conversation.save();
+      } catch { /* ignore */ }
     }
 
     const addIds = await normalizeParticipantIds(addMemberIds);
-    const removeIds = Array.isArray(removeMemberIds) ? removeMemberIds.map((x) => String(x)) : [];
+    const removeIds = await normalizeParticipantIds(removeMemberIds);
 
     const next = new Set((conversation.participants || []).map(String));
     addIds.forEach((x) => next.add(String(x)));
-    removeIds.forEach((x) => {
-      if (!adminIds.includes(String(x))) next.delete(String(x));
-    });
+
+    const protectedAdmins = gate.adminIdSet || new Set();
+    for (const rid of removeIds) {
+      const rVariants = await resolveUserIdVariants(String(rid));
+      const ids = new Set([String(rid), ...rVariants.map(String)]);
+      const removingAdmin = [...ids].some((vid) => protectedAdmins.has(vid));
+      if (removingAdmin) continue; // Demote from admin first before removing
+      ids.forEach((vid) => next.delete(vid));
+    }
 
     if (next.size < 2) {
       return res.status(400).json({ success: false, error: 'Group must keep at least 2 participants' });
@@ -537,6 +602,123 @@ router.patch('/:id/group-members', verifyToken, async (req, res) => {
     return res.status(500).json({ success: false, error: 'Operation failed' });
   }
 });
+
+// PATCH /:id/group-admins — make / dismiss admin (admin only; target must be a member)
+router.patch('/:id/group-admins', verifyToken, async (req, res) => {
+  try {
+    const id = req.params.id;
+    const actorId = String(req.userId || '');
+    const { addAdminIds = [], removeAdminIds = [] } = req.body || {};
+
+    const conversation = await findConversationByAnyId(id);
+    if (!conversation) {
+      return res.status(404).json({ success: false, error: 'Conversation not found' });
+    }
+    if (!conversation.isGroup) {
+      return res.status(400).json({ success: false, error: 'Not a group conversation' });
+    }
+
+    const gate = await assertGroupAdmin(conversation, actorId, req.user?.firebaseUid);
+    if (!gate.ok) {
+      return res.status(gate.status).json({ success: false, error: gate.error });
+    }
+    if (gate.healed) {
+      try {
+        await conversation.save();
+      } catch { /* ignore */ }
+    }
+
+    const participants = new Set((conversation.participants || []).map(String));
+    const adminSet = new Set(
+      (Array.isArray(conversation.groupAdminIds) ? conversation.groupAdminIds : []).map(String).filter(Boolean)
+    );
+
+    const addIds = await normalizeParticipantIds(addAdminIds);
+    for (const aid of addIds) {
+      const variants = await resolveUserIdVariants(String(aid));
+      const ids = [String(aid), ...variants.map(String)];
+      const inGroup = ids.some((vid) => participants.has(String(vid)));
+      if (!inGroup) continue;
+      const canonical = ids.find((vid) => participants.has(String(vid))) || String(aid);
+      adminSet.add(String(canonical));
+    }
+
+    const removeIds = await normalizeParticipantIds(removeAdminIds);
+    for (const rid of removeIds) {
+      const variants = await resolveUserIdVariants(String(rid));
+      const ids = new Set([String(rid), ...variants.map(String)]);
+      for (const a of [...adminSet]) {
+        if (ids.has(String(a))) adminSet.delete(String(a));
+      }
+    }
+
+    if (adminSet.size === 0 && participants.size > 0) {
+      return res.status(400).json({
+        success: false,
+        error: 'Group must keep at least one admin',
+      });
+    }
+
+    conversation.groupAdminIds = Array.from(adminSet);
+    conversation.updatedAt = new Date();
+    await conversation.save();
+
+    return res.json({ success: true, data: conversation });
+  } catch (err) {
+    logger.error('[PATCH] /conversations/:id/group-admins - Error:', err.message);
+    return res.status(500).json({ success: false, error: 'Operation failed' });
+  }
+});
+
+// PUT/PATCH /:id — update group name or avatar (admin only if group)
+const updateConversationDetailsHandler = async (req, res) => {
+  try {
+    const id = req.params.id;
+    const actorId = String(req.userId || '');
+    const firebaseUidFromToken = req.user?.firebaseUid;
+    const conversation = await findConversationByAnyId(id);
+    if (!conversation) {
+      return res.status(404).json({ success: false, error: 'Conversation not found' });
+    }
+
+    if (conversation.isGroup) {
+      const gate = await assertGroupAdmin(conversation, actorId, firebaseUidFromToken);
+      if (!gate.ok) {
+        return res.status(gate.status).json({ success: false, error: gate.error });
+      }
+    } else {
+      const variants = await resolveUserIdVariants(actorId);
+      const actorIds = new Set([String(actorId), ...variants.map(String)]);
+      if (firebaseUidFromToken) actorIds.add(String(firebaseUidFromToken));
+      const participants = Array.isArray(conversation.participants)
+        ? conversation.participants.map(String)
+        : [];
+      const isParticipant = [...actorIds].some((uid) => participants.includes(String(uid)));
+      if (!isParticipant) {
+        return res.status(403).json({ success: false, error: 'Forbidden' });
+      }
+    }
+
+    const nextName = req.body?.name ?? req.body?.groupName;
+    const nextAvatar = req.body?.avatar ?? req.body?.groupAvatar;
+    if (typeof nextName === 'string' && nextName.trim()) {
+      conversation.groupName = nextName.trim();
+    }
+    if (typeof nextAvatar === 'string' && nextAvatar.trim()) {
+      conversation.groupAvatar = nextAvatar.trim();
+    }
+    conversation.updatedAt = new Date();
+    await conversation.save();
+
+    return res.json({ success: true, data: conversation });
+  } catch (err) {
+    logger.error('[UPDATE] /conversations/:id - Error:', err.message);
+    return res.status(500).json({ success: false, error: 'Operation failed' });
+  }
+};
+
+router.put('/:id', verifyToken, updateConversationDetailsHandler);
+router.patch('/:id', verifyToken, updateConversationDetailsHandler);
 
 // Archive conversation for authenticated user (soft archive)
 router.post('/:id/archive', verifyToken, async (req, res) => {
@@ -1254,39 +1436,95 @@ router.post('/:id/messages', verifyToken, validate(sendMessageSchema), async (re
       await convo.save();
     }
 
-    // Best-effort: create notification for recipient
-    try {
-      if (!isGroupConversation && normalizedRecipientId && normalizedRecipientId !== normalizedSenderId) {
+    // Best-effort: create notification for recipient(s)
+    setImmediate(async () => {
+      try {
         const User = mongoose.model('User');
-        const senderUser = await User.findOne({
-          $or: [
-            { _id: mongoose.Types.ObjectId.isValid(normalizedSenderId) ? new mongoose.Types.ObjectId(normalizedSenderId) : null },
-            { firebaseUid: normalizedSenderId },
-            { uid: normalizedSenderId }
-          ]
-        }).select('displayName name avatar').lean();
-
-        const senderName = senderUser?.displayName || senderUser?.name || 'Someone';
-        const convId = String(convo.conversationId || conversationId);
-
-        // Trigger real-time push notification
         const { notificationQueue } = require('../../services/queue');
-        notificationQueue.add('message', {
-          userId: normalizedRecipientId,
-          senderId: normalizedSenderId,
-          title: senderName,
-          body: text || 'Sent you a message',
-          data: {
-            type: 'message',
-            conversationId: convId,
+        const convId = String(convo.conversationId || conversationId);
+        const preview =
+          typeof text === 'string' && text.trim()
+            ? text.trim().slice(0, 120)
+            : previewText && previewText !== text
+              ? String(previewText).slice(0, 120)
+              : 'Sent a message';
+
+        let senderName = 'Someone';
+        let senderAvatar = '';
+        try {
+          const senderUser = await User.findOne({
+            $or: [
+              { _id: mongoose.Types.ObjectId.isValid(normalizedSenderId) ? new mongoose.Types.ObjectId(normalizedSenderId) : null },
+              { firebaseUid: normalizedSenderId },
+              { uid: normalizedSenderId }
+            ]
+          }).select('displayName name avatar photoURL profilePicture').lean();
+          senderName = senderUser?.displayName || senderUser?.name || 'Someone';
+          senderAvatar = senderUser?.avatar || senderUser?.photoURL || senderUser?.profilePicture || '';
+        } catch (_) {}
+
+        const mutedSet = new Set(
+          (Array.isArray(convo.mutedBy) ? convo.mutedBy : []).map((id) => String(id))
+        );
+        const isMuted = (uid) => mutedSet.has(String(uid));
+
+        if (!isGroupConversation && normalizedRecipientId && normalizedRecipientId !== normalizedSenderId) {
+          if (isMuted(normalizedRecipientId)) return;
+          notificationQueue.add('message', {
+            userId: normalizedRecipientId,
             senderId: normalizedSenderId,
-            screen: 'dm'
-          }
-        }).catch(() => { });
+            title: senderName,
+            body: preview,
+            data: {
+              type: 'message',
+              conversationId: convId,
+              senderId: normalizedSenderId,
+              senderName,
+              senderAvatar,
+              screen: 'dm'
+            }
+          }).catch(() => {});
+          return;
+        }
+
+        // Group: push every other member (skip muted)
+        if (isGroupConversation) {
+          const members = Array.isArray(convo.participants)
+            ? convo.participants.map(String).filter((id) => id && id !== normalizedSenderId)
+            : [];
+          if (members.length === 0) return;
+
+          const groupTitle = (convo.groupName && String(convo.groupName).trim()) || 'Group';
+          const body = `${senderName}: ${preview}`.slice(0, 140);
+
+          await Promise.all(
+            members.map(async (memberId) => {
+              if (isMuted(memberId)) return;
+              try {
+                await notificationQueue.add('message', {
+                  userId: memberId,
+                  senderId: normalizedSenderId,
+                  title: groupTitle,
+                  body,
+                  data: {
+                    type: 'group_message',
+                    conversationId: convId,
+                    senderId: normalizedSenderId,
+                    senderName,
+                    senderAvatar,
+                    isGroup: true,
+                    groupName: groupTitle,
+                    screen: 'dm'
+                  }
+                });
+              } catch (_) {}
+            })
+          );
+        }
+      } catch (e) {
+        logger.warn('[POST] /:id/messages - Notification skipped:', e.message);
       }
-    } catch (e) {
-      logger.warn('[POST] /:id/messages - Notification skipped:', e.message);
-    }
+    });
 
     logger.info('[POST] /:id/messages - Message saved successfully!');
     logger.info('[POST] Conversation state after save:', {
@@ -1746,8 +1984,8 @@ router.post('/:conversationId/messages/:messageId/reactions', verifyToken, async
       }
     }
 
-    // Find message in Message collection
-    const message = await Message.findOne({ $or: [{ id: messageId }, { _id: mongoose.Types.ObjectId.isValid(messageId) ? messageId : null }] });
+    // Find message in Message collection (handles id, tempId, and Mongo _id)
+    const message = await findMessageByAnyId(messageId);
     if (!message) {
       logger.info('[POST] Message not found:', messageId);
       return res.status(404).json({ success: false, error: 'Message not found' });
@@ -1810,8 +2048,15 @@ router.post('/:conversationId/messages/:messageId/reactions', verifyToken, async
 
         const room = String(conversation.conversationId || conversationId);
         io.to(room).emit('messageReaction', payload);
-        if (message.recipientId) io.to(`user_${message.recipientId}`).emit('messageReaction', payload);
-        if (message.senderId) io.to(`user_${message.senderId}`).emit('messageReaction', payload);
+        if (conversation.isGroup) {
+          const members = Array.isArray(conversation.participants) ? conversation.participants.map(String) : [];
+          for (const memberId of members) {
+            io.to(`user_${memberId}`).emit('messageReaction', payload);
+          }
+        } else {
+          if (message.recipientId) io.to(`user_${message.recipientId}`).emit('messageReaction', payload);
+          if (message.senderId) io.to(`user_${message.senderId}`).emit('messageReaction', payload);
+        }
       }
     } catch (socketErr) {
       logger.warn('[POST /reactions] socket emit failed:', socketErr?.message || socketErr);
@@ -2076,6 +2321,100 @@ router.post('/:conversationId/messages/media', verifyToken, validate(sendMessage
       logger.warn('[Socket] ⚠️ Warning emitting media message:', socketError.message);
       // Don't fail the request if socket emit fails
     }
+
+    // Trigger push notifications for media message (non-blocking)
+    setImmediate(async () => {
+      try {
+        const User = mongoose.model('User');
+        const { notificationQueue } = require('../../services/queue');
+        const isGroupConversation = !!conversation?.isGroup;
+        const convId = String(conversation.conversationId || conversationId);
+        const preview =
+          mediaType === 'audio'
+            ? '🎤 Sent a voice note'
+            : mediaType === 'video'
+              ? '🎥 Sent a video'
+              : mediaType === 'story'
+                ? '📖 Shared a story'
+                : text && text.trim()
+                  ? text.trim().slice(0, 120)
+                  : '📷 Sent a photo';
+
+        let senderName = 'Someone';
+        let senderAvatar = '';
+        try {
+          const senderUser = await User.findOne({
+            $or: [
+              { _id: mongoose.Types.ObjectId.isValid(normalizedSenderId) ? new mongoose.Types.ObjectId(normalizedSenderId) : null },
+              { firebaseUid: normalizedSenderId },
+              { uid: normalizedSenderId }
+            ]
+          }).select('displayName name avatar photoURL profilePicture').lean();
+          senderName = senderUser?.displayName || senderUser?.name || 'Someone';
+          senderAvatar = senderUser?.avatar || senderUser?.photoURL || senderUser?.profilePicture || '';
+        } catch (_) {}
+
+        const mutedSet = new Set(
+          (Array.isArray(conversation.mutedBy) ? conversation.mutedBy : []).map((id) => String(id))
+        );
+        const isMuted = (uid) => mutedSet.has(String(uid));
+
+        if (!isGroupConversation && normalizedRecipientId && normalizedRecipientId !== normalizedSenderId) {
+          if (isMuted(normalizedRecipientId)) return;
+          notificationQueue.add('message', {
+            userId: normalizedRecipientId,
+            senderId: normalizedSenderId,
+            title: senderName,
+            body: preview,
+            data: {
+              type: 'message',
+              conversationId: convId,
+              senderId: normalizedSenderId,
+              senderName,
+              senderAvatar,
+              screen: 'dm'
+            }
+          }).catch(() => {});
+          return;
+        }
+
+        if (isGroupConversation) {
+          const members = Array.isArray(conversation.participants)
+            ? conversation.participants.map(String).filter((id) => id && id !== normalizedSenderId)
+            : [];
+          if (members.length === 0) return;
+
+          const groupTitle = (conversation.groupName && String(conversation.groupName).trim()) || 'Group';
+          const body = `${senderName}: ${preview}`.slice(0, 140);
+
+          await Promise.all(
+            members.map(async (memberId) => {
+              if (isMuted(memberId)) return;
+              try {
+                await notificationQueue.add('message', {
+                  userId: memberId,
+                  senderId: normalizedSenderId,
+                  title: groupTitle,
+                  body,
+                  data: {
+                    type: 'group_message',
+                    conversationId: convId,
+                    senderId: normalizedSenderId,
+                    senderName,
+                    senderAvatar,
+                    isGroup: true,
+                    groupName: groupTitle,
+                    screen: 'dm'
+                  }
+                });
+              } catch (_) {}
+            })
+          );
+        }
+      } catch (e) {
+        logger.warn('[POST] /messages/media - Notification skipped:', e.message);
+      }
+    });
 
     res.status(201).json({ success: true, data: message });
   } catch (err) {

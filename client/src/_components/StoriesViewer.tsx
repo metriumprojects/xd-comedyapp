@@ -61,9 +61,6 @@ const FONT_STYLES: Record<string, { fontFamily?: string; letterSpacing?: number;
   strong: { fontFamily: undefined, letterSpacing: 2, textTransform: 'uppercase' },
 };
 
-const STORY_MEDIA_H = width * 1.1;
-const STORY_MEDIA_TOP = (height - STORY_MEDIA_H) / 2;
-
 function StoryTextOverlays({ postMetadata, mediaLoaded }: { postMetadata?: any; mediaLoaded: boolean }) {
   const parsedOverlays = parseStoryTextOverlays(postMetadata);
   // Don't render overlays until the background media is ready — mirrors Instagram behaviour
@@ -96,13 +93,7 @@ function StoryTextOverlays({ postMetadata, mediaLoaded }: { postMetadata?: any; 
       pointerEvents="none"
     >
       <View
-        style={{
-          position: 'absolute',
-          width,
-          height: STORY_MEDIA_H,
-          top: STORY_MEDIA_TOP,
-          left: 0,
-        }}
+        style={StyleSheet.absoluteFillObject}
       >
         {parsedOverlays.map((o: any) => {
           const fs = FONT_STYLES[o.fontStyle] || FONT_STYLES.classic;
@@ -112,7 +103,7 @@ function StoryTextOverlays({ postMetadata, mediaLoaded }: { postMetadata?: any; 
               style={{
                 position: 'absolute',
                 left: o.x * width,
-                top: o.y * STORY_MEDIA_H,
+                top: o.y * height,
                 maxWidth: width - 60,
                 zIndex: 100,
                 elevation: 100,
@@ -1220,44 +1211,62 @@ export default function StoriesViewer({ stories, onClose, initialIndex = 0, isHi
                   Alert.alert('Delete Story', 'Are you sure?', [
                     { text: 'Cancel', style: 'cancel' },
                     {
-                      text: 'Delete', style: 'destructive', onPress: async () => {
-                        if (isHighlight && highlightId) {
-                          const mediaHint = String((currentStory as any)?.videoUrl || (currentStory as any)?.imageUrl || (currentStory as any)?.mediaUrl || '');
-                          const res = await highlightManager.removeStoryFromHighlight({
-                            highlightId,
-                            storyId: currentStory.id,
-                            mediaUrlHint: mediaHint || undefined,
-                            autoDeleteHighlightIfEmpty: true,
-                            userId: currentUser?.uid || '',
-                          });
-                          if (!res.error) {
-                            const updated = localStories.filter((_, idx) => idx !== currentIndex);
-                            setLocalStories(updated);
-                            try {
-                              const { feedEventEmitter } = require('../../lib/feedEventEmitter');
-                              feedEventEmitter.emit('feedUpdated');
-                            } catch (err) {
-                              console.warn('[StoriesViewer] Failed to emit feedUpdated on highlight remove:', err);
-                            }
-                            if (updated.length === 0) onClose();
-                            else if (currentIndex >= updated.length) setCurrentIndex(updated.length - 1);
-                          } else {
-                            Alert.alert('Error', res.error);
+                      text: 'Delete',
+                      style: 'destructive',
+                      onPress: async () => {
+                        const idx = currentIndex;
+                        const target = localStories[idx];
+                        const targetStoryId = String(target?._id || target?.id || '').split('-loop')[0].trim();
+                        try {
+                          if (!targetStoryId || targetStoryId === 'undefined' || targetStoryId === 'null' || targetStoryId.startsWith('story-')) {
+                            console.warn('[StoriesViewer] Cannot delete story: invalid story ID', targetStoryId);
+                            Alert.alert('Delete failed', 'Could not find this story. Pull to refresh and try again.');
+                            return;
                           }
-                        } else {
-                          const res = await deleteStory(currentStory.id);
-                          if (res.success) {
-                            const updated = localStories.filter((_, idx) => idx !== currentIndex);
-                            setLocalStories(updated);
+
+                          let ok = false;
+                          if (isHighlight && highlightId) {
+                            const mediaHint = String((target as any)?.videoUrl || (target as any)?.imageUrl || (target as any)?.mediaUrl || '');
+                            const res = await highlightManager.removeStoryFromHighlight({
+                              highlightId,
+                              storyId: targetStoryId,
+                              mediaUrlHint: mediaHint || undefined,
+                              autoDeleteHighlightIfEmpty: true,
+                              userId: currentUser?.uid || '',
+                            });
+                            ok = !res?.error;
+                          } else {
+                            const res = await deleteStory(targetStoryId);
+                            ok = !!(res as any)?.success;
+                          }
+
+                          if (!ok) {
+                            Alert.alert('Delete failed', 'Story could not be deleted. Please try again.');
+                            return;
+                          }
+
+                          setLocalStories((prev) => {
+                            const updated = prev.filter((s, i) => {
+                              if (i === idx) return false;
+                              const sid = String(s?._id || s?.id || '').split('-loop')[0].trim();
+                              return sid !== targetStoryId;
+                            });
                             try {
                               const { feedEventEmitter } = require('../../lib/feedEventEmitter');
                               feedEventEmitter.emit('feedUpdated');
                             } catch (err) {
                               console.warn('[StoriesViewer] Failed to emit feedUpdated on story delete:', err);
                             }
-                            if (updated.length === 0) onClose();
-                            else if (currentIndex >= updated.length) setCurrentIndex(updated.length - 1);
-                          }
+                            if (updated.length === 0) {
+                              setTimeout(() => onClose(), 0);
+                            } else if (idx >= updated.length) {
+                              setCurrentIndex(updated.length - 1);
+                            }
+                            return updated;
+                          });
+                        } catch (e) {
+                          console.warn('[StoriesViewer] Delete error:', e);
+                          Alert.alert('Delete failed', 'Something went wrong. Please try again.');
                         }
                       }
                     }

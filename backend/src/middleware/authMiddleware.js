@@ -21,6 +21,38 @@ const getJwtSecretOrNull = () => {
   return String(secret).trim();
 };
 
+// ============= IN-PROCESS USER STATUS CACHE (~30s) =============
+// Avoid redundant User queries on every authenticated request; status/role rarely change.
+const USER_STATUS_CACHE_TTL_MS = 30_000;
+const userStatusCache = new Map();
+
+function getCachedUserStatus(cacheKey) {
+  const hit = userStatusCache.get(cacheKey);
+  if (hit && hit.expiresAt > Date.now()) return hit;
+  if (hit) userStatusCache.delete(cacheKey);
+  return null;
+}
+
+function setCachedUserStatus(cacheKey, status, role) {
+  userStatusCache.set(cacheKey, {
+    status,
+    role,
+    expiresAt: Date.now() + USER_STATUS_CACHE_TTL_MS,
+  });
+  if (userStatusCache.size > 5000) {
+    const now = Date.now();
+    for (const [k, v] of userStatusCache) {
+      if (v.expiresAt <= now) userStatusCache.delete(k);
+    }
+  }
+}
+
+/** Clear cached status (e.g. after admin suspend/ban). */
+function invalidateUserStatusCache(userId) {
+  if (userId == null) return;
+  userStatusCache.delete(String(userId));
+}
+
 // ============= TOKEN VERIFICATION =============
 
 const verifyToken = async (req, res, next) => {
@@ -39,15 +71,27 @@ const verifyToken = async (req, res, next) => {
     req.user = decoded;
     req.userId = decoded.userId;
 
-    // SECURITY: Verify user status in database in real-time to prevent access control bypass
-    const User = mongoose.model('User');
-    const user = await User.findById(decoded.userId).select('status role').lean();
-    
+    // Fast path: In-process user status cache (~30s) prevents database saturation on high request rates
+    const cacheKey = String(decoded.userId);
+    let user = getCachedUserStatus(cacheKey);
+
     if (!user) {
-      return res.status(401).json({
-        success: false,
-        error: 'User account not found'
-      });
+      const User = mongoose.model('User');
+      const userQuery = mongoose.Types.ObjectId.isValid(decoded.userId)
+        ? { _id: new mongoose.Types.ObjectId(decoded.userId) }
+        : { $or: [{ firebaseUid: String(decoded.userId) }, { uid: String(decoded.userId) }] };
+
+      const found = await User.findOne(userQuery).select('status role').lean();
+      
+      if (!found) {
+        return res.status(401).json({
+          success: false,
+          error: 'User account not found'
+        });
+      }
+
+      setCachedUserStatus(cacheKey, found.status, found.role);
+      user = { status: found.status, role: found.role };
     }
 
     if (user.status === 'suspended' || user.status === 'banned') {
@@ -208,5 +252,6 @@ module.exports = {
   isAdmin,
   requireOwnership,
   getJwtSecret,
-  getJwtSecretOrNull
+  getJwtSecretOrNull,
+  invalidateUserStatusCache
 };

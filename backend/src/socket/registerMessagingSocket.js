@@ -333,42 +333,90 @@ function registerMessagingSocket({ io, mongoose, toObjectId, sendExpoPushToUser 
         logger.warn('⚠️ Message collection write failed: %s', e.message);
       }
 
-      io.to(actualConversationId).emit('newMessage', { ...message, conversationId: actualConversationId });
+      const emitPayload = { ...message, conversationId: actualConversationId };
+      io.to(actualConversationId).emit('newMessage', emitPayload);
 
-      const recipVariants = await resolveUserIdVariants(recipientId);
-      for (const rv of recipVariants) {
-        if (String(rv) !== String(senderId)) {
-          io.to(`user_${rv}`).emit('newMessage', { ...message, conversationId: actualConversationId });
+      const isGroup = !!convo.isGroup;
+      const mutedSet = new Set((Array.isArray(convo.mutedBy) ? convo.mutedBy : []).map(String));
+
+      if (isGroup) {
+        const members = Array.isArray(convo.participants) ? convo.participants.map(String) : [];
+        const recipients = members.filter((m) => String(m) !== String(senderId));
+
+        for (const memberId of recipients) {
+          const mVariants = await resolveUserIdVariants(memberId);
+          for (const mv of mVariants) {
+            io.to(`user_${mv}`).emit('newMessage', emitPayload);
+          }
         }
-      }
-      
-      socket.emit('messageSent', { ...message, conversationId: actualConversationId });
 
-      const recipientSocketId = connectedUsers.get(recipientId);
-      if (recipientSocketId) {
-        message.delivered = true;
-        await convo.save();
-        socket.emit('messageDelivered', { messageId: message.id, conversationId: actualConversationId });
-      } else {
+        socket.emit('messageSent', emitPayload);
+
+        // Group Push Notifications (skip sender & muted)
         try {
           const User = mongoose.model('User');
           const senderUser = mongoose.Types.ObjectId.isValid(String(senderId))
             ? await User.findOne({ _id: toObjectId(senderId) })
             : null;
           const senderName = senderUser?.displayName || senderUser?.name || 'Someone';
-          const preview = typeof text === 'string' ? text.trim().slice(0, 120) : 'Sent you a message';
-          sendExpoPushToUser(recipientId, {
-            title: `💌 ${senderName}`,
-            body: preview || 'Sent you a message',
-            data: {
-              type: 'message',
-              senderId: String(senderId),
-              recipientId: String(recipientId),
-              conversationId: String(actualConversationId),
-            },
-          }).catch(() => {});
+          const groupTitle = (convo.groupName && String(convo.groupName).trim()) || 'Group Chat';
+          const preview = typeof text === 'string' ? text.trim().slice(0, 120) : 'Sent a message';
+
+          for (const memberId of recipients) {
+            if (mutedSet.has(String(memberId))) continue;
+            sendExpoPushToUser(memberId, {
+              title: groupTitle,
+              body: `${senderName}: ${preview}`.slice(0, 140),
+              data: {
+                type: 'group_message',
+                senderId: String(senderId),
+                conversationId: String(actualConversationId),
+                isGroup: true,
+                groupName: groupTitle,
+              },
+            }).catch(() => {});
+          }
         } catch (e) {
-          logger.warn('⚠️ Message push skipped: %s', e.message);
+          logger.warn('⚠️ Group message push skipped: %s', e.message);
+        }
+      } else {
+        const recipVariants = await resolveUserIdVariants(recipientId);
+        for (const rv of recipVariants) {
+          if (String(rv) !== String(senderId)) {
+            io.to(`user_${rv}`).emit('newMessage', emitPayload);
+          }
+        }
+        
+        socket.emit('messageSent', emitPayload);
+
+        const recipientSocketId = connectedUsers.get(recipientId);
+        if (recipientSocketId) {
+          message.delivered = true;
+          await convo.save();
+          socket.emit('messageDelivered', { messageId: message.id, conversationId: actualConversationId });
+        } else {
+          if (!mutedSet.has(String(recipientId))) {
+            try {
+              const User = mongoose.model('User');
+              const senderUser = mongoose.Types.ObjectId.isValid(String(senderId))
+                ? await User.findOne({ _id: toObjectId(senderId) })
+                : null;
+              const senderName = senderUser?.displayName || senderUser?.name || 'Someone';
+              const preview = typeof text === 'string' ? text.trim().slice(0, 120) : 'Sent you a message';
+              sendExpoPushToUser(recipientId, {
+                title: `💌 ${senderName}`,
+                body: preview || 'Sent you a message',
+                data: {
+                  type: 'message',
+                  senderId: String(senderId),
+                  recipientId: String(recipientId),
+                  conversationId: String(actualConversationId),
+                },
+              }).catch(() => {});
+            } catch (e) {
+              logger.warn('⚠️ Message push skipped: %s', e.message);
+            }
+          }
         }
       }
     }));
@@ -529,44 +577,95 @@ function registerMessagingSocket({ io, mongoose, toObjectId, sendExpoPushToUser 
       const emitPayload = { ...message, conversationId: actualConversationId };
       io.to(actualConversationId).emit('newMessage', emitPayload);
       
-      const recipVariantsMedia = await resolveUserIdVariants(recipientId);
-      for (const rv of recipVariantsMedia) {
-        if (String(rv) !== String(senderId)) {
-          io.to(`user_${rv}`).emit('newMessage', emitPayload);
+      const isGroup = !!convo.isGroup;
+      const mutedSet = new Set((Array.isArray(convo.mutedBy) ? convo.mutedBy : []).map(String));
+
+      if (isGroup) {
+        const members = Array.isArray(convo.participants) ? convo.participants.map(String) : [];
+        const recipients = members.filter((m) => String(m) !== String(senderId));
+
+        for (const memberId of recipients) {
+          const mVariants = await resolveUserIdVariants(memberId);
+          for (const mv of mVariants) {
+            io.to(`user_${mv}`).emit('newMessage', emitPayload);
+          }
         }
-      }
 
-      socket.emit('newMediaMessage', emitPayload); 
+        socket.emit('newMediaMessage', emitPayload);
 
-      try {
-        const recipientSocketId = connectedUsers.get(recipientId);
-        if (!recipientSocketId) {
+        // Group Media Push Notifications (skip sender & muted)
+        try {
           const User = mongoose.model('User');
           const senderUser = mongoose.Types.ObjectId.isValid(String(senderId))
             ? await User.findOne({ _id: toObjectId(senderId) })
             : null;
           const senderName = senderUser?.displayName || senderUser?.name || 'Someone';
+          const groupTitle = (convo.groupName && String(convo.groupName).trim()) || 'Group Chat';
           const kind = String(mediaType || '').toLowerCase();
-          const body =
+          const mediaPreview =
             kind === 'audio'
-              ? 'Sent you a voice message'
+              ? 'Sent a voice message'
               : kind === 'video'
-                ? 'Sent you a video'
-                : 'Sent you a photo';
+                ? 'Sent a video'
+                : 'Sent a photo';
 
-          sendExpoPushToUser(recipientId, {
-            title: `💌 ${senderName}`,
-            body,
-            data: {
-              type: 'message',
-              senderId: String(senderId),
-              recipientId: String(recipientId),
-              conversationId: String(actualConversationId),
-            },
-          }).catch(() => {});
+          for (const memberId of recipients) {
+            if (mutedSet.has(String(memberId))) continue;
+            sendExpoPushToUser(memberId, {
+              title: groupTitle,
+              body: `${senderName}: ${mediaPreview}`,
+              data: {
+                type: 'group_message',
+                senderId: String(senderId),
+                conversationId: String(actualConversationId),
+                isGroup: true,
+                groupName: groupTitle,
+              },
+            }).catch(() => {});
+          }
+        } catch (e) {
+          logger.warn('⚠️ Group media push skipped: %s', e.message);
         }
-      } catch (e) {
-        logger.warn('⚠️ Media push skipped: %s', e.message);
+      } else {
+        const recipVariantsMedia = await resolveUserIdVariants(recipientId);
+        for (const rv of recipVariantsMedia) {
+          if (String(rv) !== String(senderId)) {
+            io.to(`user_${rv}`).emit('newMessage', emitPayload);
+          }
+        }
+
+        socket.emit('newMediaMessage', emitPayload); 
+
+        try {
+          const recipientSocketId = connectedUsers.get(recipientId);
+          if (!recipientSocketId && !mutedSet.has(String(recipientId))) {
+            const User = mongoose.model('User');
+            const senderUser = mongoose.Types.ObjectId.isValid(String(senderId))
+              ? await User.findOne({ _id: toObjectId(senderId) })
+              : null;
+            const senderName = senderUser?.displayName || senderUser?.name || 'Someone';
+            const kind = String(mediaType || '').toLowerCase();
+            const body =
+              kind === 'audio'
+                ? 'Sent you a voice message'
+                : kind === 'video'
+                  ? 'Sent you a video'
+                  : 'Sent you a photo';
+
+            sendExpoPushToUser(recipientId, {
+              title: `💌 ${senderName}`,
+              body,
+              data: {
+                type: 'message',
+                senderId: String(senderId),
+                recipientId: String(recipientId),
+                conversationId: String(actualConversationId),
+              },
+            }).catch(() => {});
+          }
+        } catch (e) {
+          logger.warn('⚠️ Media push skipped: %s', e.message);
+        }
       }
     }));
 
