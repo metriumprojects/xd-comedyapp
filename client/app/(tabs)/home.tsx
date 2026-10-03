@@ -14,6 +14,7 @@ import {
   Modal
 } from "react-native";
 import { Feather, Ionicons } from "@expo/vector-icons";
+import { LinearGradient } from "expo-linear-gradient";
 import * as Haptics from 'expo-haptics';
 import { useFocusEffect, useLocalSearchParams, useRouter, useNavigation } from "expo-router";
 import { useReelsStore } from "@/store/useReelsStore";
@@ -607,8 +608,15 @@ export default function Home() {
 
       {/* 2. Absolute Top Overlays (Header controls, Search, Categories) */}
       {!isFullscreenMode && (
-        <View style={[styles.topOverlays, { paddingTop: insets.top || 8 }]} pointerEvents="box-none">
-          {/* Header navigation and controls */}
+        <View style={styles.topOverlays} pointerEvents="box-none">
+          <LinearGradient
+            colors={['rgba(0,0,0,0.7)', 'rgba(0,0,0,0.4)', 'rgba(0,0,0,0.12)', 'transparent']}
+            locations={[0, 0.4, 0.75, 1]}
+            style={styles.topGradientScrim}
+            pointerEvents="none"
+          />
+          <View style={{ paddingTop: insets.top || 8 }} pointerEvents="box-none">
+            {/* Header navigation and controls */}
           <View style={styles.headerRow} pointerEvents="box-none">
             {filter || searchQuery ? (
               <TouchableOpacity
@@ -730,6 +738,7 @@ export default function Home() {
 
           {/* Uploading progress banner floating smoothly below categories */}
           <UploadProgressBanner />
+          </View>
         </View>
       )}
 
@@ -849,6 +858,13 @@ const styles = StyleSheet.create({
     right: 0,
     zIndex: 20,
   },
+  topGradientScrim: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    height: 240,
+  },
   headerRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -866,6 +882,11 @@ const styles = StyleSheet.create({
     height: 32,
     justifyContent: 'center',
     alignItems: 'center',
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 1.5 },
+    shadowOpacity: 0.75,
+    shadowRadius: 3,
+    elevation: 4,
   },
   badge: {
     position: 'absolute',
@@ -894,20 +915,23 @@ const styles = StyleSheet.create({
     height: 38,
     borderRadius: 19,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.65)',
-    backgroundColor: 'transparent',
+    borderColor: 'rgba(255, 255, 255, 0.45)',
+    backgroundColor: 'rgba(255, 255, 255, 0.16)',
     marginHorizontal: 10,
     marginTop: 4,
     paddingLeft: 12,
     paddingRight: 12,
     shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.45,
-    shadowRadius: 3,
-    elevation: 3,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.5,
+    shadowRadius: 5,
+    elevation: 5,
   },
   searchIcon: {
     marginRight: 8,
+    textShadowColor: 'rgba(0, 0, 0, 0.75)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 3,
   },
   searchInput: {
     flex: 1,
@@ -915,6 +939,9 @@ const styles = StyleSheet.create({
     fontSize: 14,
     height: '100%',
     padding: 0,
+    textShadowColor: 'rgba(0, 0, 0, 0.85)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 3,
   },
   clearBtn: {
     paddingHorizontal: 4,
@@ -930,13 +957,17 @@ const styles = StyleSheet.create({
     color: COLORS.white,
     fontSize: 14,
     fontWeight: '400',
+    textShadowColor: 'rgba(0, 0, 0, 0.75)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 3,
   },
   categoriesRow: {
     marginTop: 10,
   },
   categoriesList: {
     paddingHorizontal: 16,
-    paddingBottom: 4,
+    paddingBottom: 6,
+    paddingTop: 2,
     marginHorizontal: -5,
   },
   categoryChip: {
@@ -945,31 +976,35 @@ const styles = StyleSheet.create({
     height: 36,
     borderRadius: 18,
     paddingHorizontal: 16,
-    backgroundColor: 'transparent',
+    backgroundColor: 'rgba(255, 255, 255, 0.16)',
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.65)',
+    borderColor: 'rgba(255, 255, 255, 0.45)',
     marginRight: 8,
     shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.4,
-    shadowRadius: 3,
-    elevation: 3,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.5,
+    shadowRadius: 5,
+    elevation: 5,
   },
   categoryChipActive: {
     backgroundColor: COLORS.white,
     borderColor: COLORS.white,
     shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.4,
-    shadowRadius: 3,
-    elevation: 3,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.6,
+    shadowRadius: 6,
+    elevation: 6,
   },
   categoryChipText: {
     color: COLORS.white,
     fontSize: 13,
     fontWeight: '600',
+    textShadowColor: 'rgba(0, 0, 0, 0.85)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 3,
   },
   categoryChipTextActive: {
     color: COLORS.black,
+    textShadowRadius: 0,
   },
 });
