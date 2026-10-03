@@ -9,58 +9,92 @@ export default function UploadProgressBanner() {
 
   if (tasks.length === 0) return null;
 
+  // Active task priority: currently uploading -> first pending -> latest error/success
+  const activeTask =
+    tasks.find((t) => t.status === 'uploading') ||
+    tasks.find((t) => t.status === 'pending') ||
+    tasks[0];
+
+  if (!activeTask) return null;
+
+  const isSuccess = activeTask.status === 'success';
+  const isError = activeTask.status === 'error';
+  const isUploading = activeTask.status === 'uploading' || activeTask.status === 'pending';
+  const extraCount = tasks.length - 1;
+
+  const getTitle = () => {
+    if (isSuccess) return `${activeTask.type === 'story' ? 'Story' : 'Post'} uploaded!`;
+    if (isError) return `Upload failed`;
+    if (activeTask.mediaCount && activeTask.mediaCount > 1) {
+      return `Uploading ${activeTask.mediaCount} photos...`;
+    }
+    return `Uploading ${activeTask.type}...`;
+  };
+
   return (
-    <View style={styles.container}>
-      {tasks.map((task) => {
-        const isSuccess = task.status === 'success';
-        const isError = task.status === 'error';
-        const isUploading = task.status === 'uploading' || task.status === 'pending';
+    <View style={styles.container} pointerEvents="box-none">
+      <View style={styles.bannerPill}>
+        {/* Left Status Icon */}
+        <View style={styles.iconContainer}>
+          {isUploading && <ActivityIndicator size="small" color={COLORS.primary} />}
+          {isSuccess && <Ionicons name="checkmark-circle" size={18} color={COLORS.success} />}
+          {isError && <Ionicons name="alert-circle" size={18} color={COLORS.danger} />}
+        </View>
 
-        return (
-          <View key={task.id} style={styles.bannerRow}>
-            {/* Left Icon */}
-            <View style={styles.iconContainer}>
-              {isUploading && <ActivityIndicator size="small" color={COLORS.primary} />}
-              {isSuccess && <Ionicons name="checkmark-circle" size={22} color={COLORS.success} />}
-              {isError && <Ionicons name="alert-circle" size={22} color={COLORS.danger} />}
-            </View>
-
-            {/* Middle Text */}
-            <View style={styles.textContainer}>
-              <View style={styles.headerRow}>
-                <Text style={styles.title}>
-                  {isUploading && `Uploading ${task.type}...`}
-                  {isSuccess && `${task.type} uploaded successfully!`}
-                  {isError && `Failed to upload ${task.type}`}
-                </Text>
-                {isUploading && (
-                  <Text style={styles.percentageText}>{Math.round(task.progress)}%</Text>
-                )}
+        {/* Content & Progress */}
+        <View style={styles.textContainer}>
+          <View style={styles.headerRow}>
+            <Text style={styles.title} numberOfLines={1}>
+              {getTitle()}
+            </Text>
+            {extraCount > 0 && isUploading && (
+              <View style={styles.queueBadge}>
+                <Text style={styles.queueBadgeText}>+{extraCount}</Text>
               </View>
-              {isUploading && (
-                <View style={styles.progressBarBg}>
-                  <View style={[styles.progressBarFill, { width: `${Math.max(3, Math.min(100, task.progress))}%` }]} />
-                </View>
-              )}
-              {isError && <Text style={styles.errorText} numberOfLines={1}>{task.error}</Text>}
-            </View>
-
-            {/* Right Action */}
-            <View style={styles.actionContainer}>
-              {isError && (
-                <TouchableOpacity onPress={() => retryTask(task.id)} style={styles.actionBtn}>
-                  <Ionicons name="refresh" size={18} color={COLORS.primary} />
-                </TouchableOpacity>
-              )}
-              {(isError || isSuccess) && (
-                <TouchableOpacity onPress={() => removeTask(task.id)} style={styles.actionBtn}>
-                  <Feather name="x" size={18} color="rgba(255, 255, 255, 0.7)" />
-                </TouchableOpacity>
-              )}
-            </View>
+            )}
+            {isUploading && (
+              <Text style={styles.percentageText}>{Math.round(activeTask.progress)}%</Text>
+            )}
           </View>
-        );
-      })}
+          {isUploading && (
+            <View style={styles.progressBarBg}>
+              <View
+                style={[
+                  styles.progressBarFill,
+                  { width: `${Math.max(3, Math.min(100, activeTask.progress))}%` },
+                ]}
+              />
+            </View>
+          )}
+          {isError && (
+            <Text style={styles.errorText} numberOfLines={1}>
+              {activeTask.error || 'Tap retry or cancel'}
+            </Text>
+          )}
+        </View>
+
+        {/* Right Actions */}
+        <View style={styles.actionContainer}>
+          {isError && (
+            <TouchableOpacity
+              onPress={() => retryTask(activeTask.id)}
+              style={styles.actionBtn}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            >
+              <Ionicons name="refresh" size={16} color={COLORS.primary} />
+            </TouchableOpacity>
+          )}
+          {(isError || isSuccess) && (
+            <TouchableOpacity
+              onPress={() => removeTask(activeTask.id)}
+              style={styles.actionBtn}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            >
+              <Feather name="x" size={16} color="rgba(255, 255, 255, 0.7)" />
+            </TouchableOpacity>
+          )}
+        </View>
+      </View>
     </View>
   );
 }
@@ -68,29 +102,27 @@ export default function UploadProgressBanner() {
 const styles = StyleSheet.create({
   container: {
     paddingHorizontal: 16,
-    paddingTop: 6,
-    paddingBottom: 2,
+    paddingVertical: 4,
   },
-  bannerRow: {
+  bannerPill: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 6,
     backgroundColor: 'rgba(24, 24, 28, 0.95)',
     paddingHorizontal: 12,
-    paddingVertical: 10,
-    borderRadius: 12,
+    paddingVertical: 7,
+    borderRadius: 20,
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.15)',
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.35,
-    shadowRadius: 6,
-    elevation: 6,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    elevation: 4,
   },
   iconContainer: {
-    marginRight: 10,
-    width: 24,
-    height: 24,
+    marginRight: 8,
+    width: 20,
+    height: 20,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -100,44 +132,56 @@ const styles = StyleSheet.create({
   },
   headerRow: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 4,
   },
   title: {
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: '600',
     color: '#FFFFFF',
+    flexShrink: 1,
   },
-  percentageText: {
-    fontSize: 12,
+  queueBadge: {
+    backgroundColor: 'rgba(255, 255, 255, 0.15)',
+    paddingHorizontal: 5,
+    paddingVertical: 1,
+    borderRadius: 8,
+    marginLeft: 6,
+  },
+  queueBadgeText: {
+    fontSize: 10,
     fontWeight: '700',
     color: COLORS.primary,
-    marginLeft: 8,
+  },
+  percentageText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: COLORS.primary,
+    marginLeft: 'auto',
+    paddingLeft: 6,
   },
   progressBarBg: {
-    height: 4,
-    backgroundColor: 'rgba(255, 255, 255, 0.18)',
-    borderRadius: 2,
+    height: 3,
+    backgroundColor: 'rgba(255, 255, 255, 0.15)',
+    borderRadius: 1.5,
     overflow: 'hidden',
-    marginTop: 4,
+    marginTop: 3,
   },
   progressBarFill: {
     height: '100%',
     backgroundColor: COLORS.primary,
   },
   errorText: {
-    fontSize: 12,
+    fontSize: 11,
     color: COLORS.danger,
     marginTop: 2,
   },
   actionContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: 6,
+    marginLeft: 8,
   },
   actionBtn: {
-    padding: 4,
+    padding: 2,
   },
 });
-

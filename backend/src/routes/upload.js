@@ -139,6 +139,7 @@ router.post('/upload', verifyToken, diskUpload.single('file'), handleMulterError
     const userId = req.userId || 'anonymous';
     const rawContext = String(req.body.context || 'media').toLowerCase();
     const context = ['avatar', 'post', 'story', 'media'].includes(rawContext) ? rawContext : 'media';
+    const folder = req.body.path || req.body.folder || `${context}s/${userId}`;
     const skipOptimize =
       req.body.skipOptimize === '1' ||
       req.body.skipOptimize === 'true' ||

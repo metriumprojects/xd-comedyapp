@@ -8,6 +8,7 @@ export interface UploadTask {
   type: UploadType;
   status: UploadStatus;
   progress: number;
+  mediaCount?: number;
   error?: string;
   retries?: number;
   action: (onProgress?: (percent: number) => void) => Promise<any>;

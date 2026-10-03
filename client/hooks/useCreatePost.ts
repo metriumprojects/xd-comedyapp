@@ -122,6 +122,7 @@ export const useCreatePost = (params: any = {}) => {
   const [subscriptionTierId, setSubscriptionTierId] = useState<string | null>(null);
   const [userGroups, setUserGroups] = useState<any[]>([]);
   const [selectedImages, setSelectedImages] = useState<string[]>([]);
+  const isSharingRef = useRef(false);
   const [location, rawSetLocation] = useState<LocationType | null>(null);
 
   const setLocation = useCallback(async (loc: LocationType | null) => {
@@ -470,12 +471,13 @@ export const useCreatePost = (params: any = {}) => {
   };
 
   const handleShare = async () => {
-    if (loading) return; // Prevent double-tap submission
+    if (isSharingRef.current || loading) return; // Prevent double-tap submission
     if (!selectedImages || selectedImages.length === 0) {
       Alert.alert('No media', 'Please select at least one image or video.');
       return;
     }
 
+    isSharingRef.current = true;
     try {
       setLoading(true);
       hapticMedium();
@@ -564,6 +566,7 @@ export const useCreatePost = (params: any = {}) => {
       // Add to background queue
       useUploadQueue.getState().enqueueUpload({
         type: postType === 'STORY' ? 'story' : 'post',
+        mediaCount: selectedImages.length,
         action: uploadAction
       });
 
@@ -571,6 +574,7 @@ export const useCreatePost = (params: any = {}) => {
       router.replace({ pathname: '/(tabs)/home', params: { refreshFeed: String(Date.now()) } });
       
     } catch (e: any) {
+      isSharingRef.current = false;
       setLoading(false);
       console.error('[handleShare] ❌ Error:', e);
       Alert.alert('Error', e.message || 'Something went wrong');
