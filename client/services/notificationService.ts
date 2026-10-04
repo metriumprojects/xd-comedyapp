@@ -5,28 +5,50 @@ import { API_BASE_URL } from '../lib/api';
 import AsyncStorage from '@/lib/storage';
 import { apiService } from '../src/_services/apiService';
 
-// Configure notification handler
+// Configure notification handler with per-chat mute support
 Notifications.setNotificationHandler({
-  handleNotification: async () => ({
-    shouldShowAlert: true,
-    shouldPlaySound: true,
-    shouldSetBadge: true,
-    shouldShowBanner: true,
-    shouldShowList: true,
-  }),
+  handleNotification: async (notification) => {
+    try {
+      const data = notification?.request?.content?.data;
+      const conversationId = String(data?.conversationId || data?.groupId || data?.chatId || '').trim();
+      if (conversationId) {
+        const isMuted = await AsyncStorage.getItem(`mute_chat_${conversationId}`);
+        if (isMuted === 'true') {
+          return {
+            shouldShowAlert: false,
+            shouldPlaySound: false,
+            shouldSetBadge: true,
+            shouldShowBanner: false,
+            shouldShowList: false,
+          };
+        }
+      }
+    } catch {}
+
+    return {
+      shouldShowAlert: true,
+      shouldPlaySound: true,
+      shouldSetBadge: true,
+      shouldShowBanner: true,
+      shouldShowList: true,
+    };
+  },
 });
 
 /**
- * Request notification permissions
+ * Request notification permissions and setup high-priority channels
  */
 export async function requestNotificationPermissions() {
   try {
     if (Platform.OS === 'android') {
       await Notifications.setNotificationChannelAsync('default', {
-        name: 'default',
+        name: 'Default Notifications',
         importance: Notifications.AndroidImportance.MAX,
         vibrationPattern: [0, 250, 250, 250],
         lightColor: '#FF231F7C',
+        sound: 'default',
+        showBadge: true,
+        lockscreenVisibility: Notifications.AndroidNotificationVisibility.PUBLIC,
       });
     }
 
@@ -39,70 +61,117 @@ export async function requestNotificationPermissions() {
     }
 
     if (finalStatus !== 'granted') {
-      console.log('Notification permission denied');
+      console.log('[notificationService] Notification permission denied');
       return { success: false, error: 'Permission denied' };
     }
 
     return { success: true };
-  } catch (error) {
-    console.error('Error requesting notification permissions:', error);
+  } catch (error: any) {
+    console.error('[notificationService] Error requesting notification permissions:', error?.message || error);
     return { success: false, error };
   }
 }
 
 /**
- * Get push notification token
+ * Get push notification token (Expo token with native FCM/APNS device token fallback)
  */
 export async function getPushNotificationToken() {
   try {
     if (Platform.OS === 'web') {
-      console.log('Push notifications not available on web');
+      console.log('[notificationService] Push notifications not available on web');
       return { success: false, error: 'Not available on web' };
     }
 
-    const appOwnership = (Constants as any)?.appOwnership;
-    if (appOwnership === 'expo') {
-      console.log('Push notifications not available in Expo Go');
-      return { success: false, error: 'Not available in Expo Go' };
+    let projectId = (Constants as any)?.expoConfig?.extra?.eas?.projectId;
+    if (!projectId && (Constants as any)?.easConfig?.projectId) {
+      projectId = (Constants as any)?.easConfig?.projectId;
     }
 
-    const projectId = (Constants as any)?.expoConfig?.extra?.eas?.projectId;
-    const token = projectId
-      ? await Notifications.getExpoPushTokenAsync({ projectId })
-      : await Notifications.getExpoPushTokenAsync();
+    try {
+      const expoTokenObj = projectId
+        ? await Notifications.getExpoPushTokenAsync({ projectId })
+        : await Notifications.getExpoPushTokenAsync();
 
-    return { success: true, token: token.data };
-  } catch (error) {
-    console.error('Error getting push token:', error);
-    return { success: false, error };
+      if (expoTokenObj?.data) {
+        console.log('[notificationService] Obtained Expo Push Token:', expoTokenObj.data.substring(0, 20) + '...');
+        return { success: true, token: expoTokenObj.data };
+      }
+    } catch (expoErr: any) {
+      console.warn('[notificationService] Expo push token fetch warning:', expoErr?.message || expoErr);
+    }
+
+    // Fallback to native FCM/APNS device push token if Expo push token generation fails
+    try {
+      const deviceTokenObj = await Notifications.getDevicePushTokenAsync();
+      if (deviceTokenObj?.data) {
+        const rawToken = typeof deviceTokenObj.data === 'string' ? deviceTokenObj.data : JSON.stringify(deviceTokenObj.data);
+        console.log('[notificationService] Obtained Native Device Push Token:', rawToken.substring(0, 20) + '...');
+        return { success: true, token: rawToken };
+      }
+    } catch (deviceErr: any) {
+      console.warn('[notificationService] Native device token fetch warning:', deviceErr?.message || deviceErr);
+    }
+
+    return { success: false, error: 'Failed to retrieve push token' };
+  } catch (error: any) {
+    console.error('[notificationService] Error getting push token:', error?.message || error);
+    return { success: false, error: error?.message || error };
   }
 }
+
+// In-flight deduplication map to prevent parallel duplicate calls
+const inFlightTokenMap = new Map<string, Promise<{ success: boolean; cached?: boolean; error?: any }>>();
 
 /**
  * Save push token to user profile
  */
 export async function savePushToken(userId: string, token: string) {
-  try {
-    const cachedToken = await AsyncStorage.getItem(`last_saved_push_token_${userId}`);
-    if (cachedToken === token) {
-      console.log('ℹ️ Push token already synced with backend');
-      return { success: true };
-    }
-
-    // apiService handles base URL, auth headers, and 401 clearing automatically
-    const result = await apiService.put(`/users/${userId}/push-token`, { pushToken: token });
-
-    if (result.success) {
-      console.log('✅ Push token saved to backend');
-      await AsyncStorage.setItem(`last_saved_push_token_${userId}`, token);
-      return { success: true };
-    } else {
-      throw new Error(result.error || 'Failed to save push token');
-    }
-  } catch (error) {
-    console.error('Error saving push token:', error);
-    return { success: false, error };
+  if (!userId || !token) {
+    return { success: false, error: 'Missing userId or token' };
   }
+
+  const cacheKey = `last_saved_push_token_${userId}`;
+
+  // 1. Check local cache to avoid redundant network calls on app boot
+  try {
+    const cachedToken = await AsyncStorage.getItem(cacheKey);
+    if (cachedToken === token) {
+      return { success: true, cached: true };
+    }
+  } catch (err) {
+    // Ignore cache read failures and proceed
+  }
+
+  // 2. In-flight request deduplication
+  const inFlightKey = `${userId}:${token}`;
+  if (inFlightTokenMap.has(inFlightKey)) {
+    return inFlightTokenMap.get(inFlightKey)!;
+  }
+
+  const promise = (async () => {
+    try {
+      // apiService handles base URL, auth headers, and 401 clearing automatically
+      const result = await apiService.put(`/users/${userId}/push-token`, { pushToken: token });
+
+      if (result?.success) {
+        console.log('✅ Push token saved to backend');
+        try {
+          await AsyncStorage.setItem(cacheKey, token);
+        } catch { }
+        return { success: true };
+      } else {
+        throw new Error(result?.error || 'Failed to save push token');
+      }
+    } catch (error: any) {
+      console.warn('⚠️ Could not save push token to backend:', error?.message || error);
+      return { success: false, error };
+    } finally {
+      inFlightTokenMap.delete(inFlightKey);
+    }
+  })();
+
+  inFlightTokenMap.set(inFlightKey, promise);
+  return promise;
 }
 
 /**

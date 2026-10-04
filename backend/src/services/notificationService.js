@@ -38,6 +38,10 @@ async function sendExpoPushToUser(recipientId, message) {
         to: pushToken,
         sound: 'default',
         priority: 'high',
+        channelId: 'default',
+        ttl: 0,
+        _displayInForeground: true,
+        badge: 1,
         ...message,
       };
 
@@ -49,6 +53,12 @@ async function sendExpoPushToUser(recipientId, message) {
           // eslint-disable-next-line no-await-in-loop
           const tickets = await expo.sendPushNotificationsAsync(chunk);
           console.log('[push] Expo tickets received:', tickets);
+          for (const ticket of tickets) {
+            if (ticket.status === 'error' && ticket.details?.error === 'DeviceNotRegistered') {
+              console.warn(`[push] Unsetting invalid token for ${rid}`);
+              await User.updateOne({ _id: user._id }, { $unset: { pushToken: "" } });
+            }
+          }
         } catch (e) {
           console.warn('[push] Expo send error:', e?.message || e);
         }
@@ -59,26 +69,33 @@ async function sendExpoPushToUser(recipientId, message) {
       console.log(`[push] Sending via FCM to ${rid} (${pushToken.substring(0, 10)}...): ${message.title}`);
       
       try {
+        const stringData = {};
+        if (message.data && typeof message.data === 'object') {
+          for (const [k, v] of Object.entries(message.data)) {
+            if (v == null) continue;
+            stringData[k] = typeof v === 'string' ? v : (typeof v === 'object' ? JSON.stringify(v) : String(v));
+          }
+        }
+
         const fcmMessage = {
           token: pushToken,
           notification: {
             title: message.title,
             body: message.body,
           },
-          data: message.data ? Object.keys(message.data).reduce((acc, key) => {
-            acc[key] = String(message.data[key]);
-            return acc;
-          }, {}) : {},
+          data: stringData,
           android: {
             priority: 'high',
             notification: {
               sound: 'default',
+              channelId: 'default',
             },
           },
           apns: {
             payload: {
               aps: {
                 sound: 'default',
+                badge: 1,
               },
             },
           },

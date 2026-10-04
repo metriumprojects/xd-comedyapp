@@ -36,7 +36,7 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.hussain2125.comedyapp",
-      "buildNumber": "75",
+      "buildNumber": "76",
       "googleServicesFile": "./GoogleService-Info.plist",
       "config": {
         "googleMapsApiKey": "AIzaSyCQ1Fe55xOwt9fFfAiGIDVoEt01i2hL-zs"
@@ -75,6 +75,13 @@
       "@sentry/react-native/expo",
       "expo-router",
       "expo-apple-authentication",
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/images/icon.png",
+          "color": "#ffffff"
+        }
+      ],
       [
         "@react-native-google-signin/google-signin",
         {

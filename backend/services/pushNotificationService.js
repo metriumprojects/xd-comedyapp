@@ -24,21 +24,53 @@ function validateDataSize(data) {
  * Send push notification to a single device
  */
 async function sendPushNotification(pushToken, title, body, data = {}) {
-  if (!Expo.isExpoPushToken(pushToken)) {
-    logger.error(`❌ Invalid Expo push token: ${pushToken}`);
-    return { success: false, error: 'Invalid Expo push token' };
+  if (!pushToken || typeof pushToken !== 'string') {
+    return { success: false, error: 'No push token provided' };
   }
 
-  validateDataSize(data);
+  // Expo / FCM / APNs require string values in `data`
+  const stringData = {};
+  if (data && typeof data === 'object') {
+    for (const [k, v] of Object.entries(data)) {
+      if (v == null) continue;
+      stringData[k] = typeof v === 'string' ? v : (typeof v === 'object' ? JSON.stringify(v) : String(v));
+    }
+  }
+
+  if (!Expo.isExpoPushToken(pushToken)) {
+    // Attempt fallback via Firebase Cloud Messaging if it's a native FCM / APNs device token
+    try {
+      const admin = require('firebase-admin');
+      if (admin.apps && admin.apps.length > 0) {
+        const fcmMessage = {
+          token: pushToken,
+          notification: { title, body },
+          data: stringData,
+          android: { priority: 'high', notification: { sound: 'default', channelId: 'default' } },
+          apns: { payload: { aps: { sound: 'default', badge: 1 } } }
+        };
+        const res = await admin.messaging().send(fcmMessage);
+        logger.info('✅ Native FCM Push notification sent: %s', res);
+        return { success: true, messageId: res };
+      }
+    } catch (fcmErr) {
+      logger.warn('⚠️ Native FCM Push fallback error for %s: %s', pushToken, fcmErr.message);
+    }
+    return { success: false, error: 'Invalid push token format' };
+  }
+
+  validateDataSize(stringData);
 
   const message = {
     to: pushToken,
     sound: 'default',
     title: title,
     body: body,
-    data: data,
+    data: stringData,
     priority: 'high',
     channelId: 'default',
+    ttl: 0,
+    _displayInForeground: true,
     badge: 1,
   };
 
@@ -74,15 +106,25 @@ async function sendBulkPushNotifications(notifications) {
       logger.warn(`⚠️ Skipping invalid token: ${notif.pushToken}`);
       continue;
     }
+
+    const stringData = {};
+    if (notif.data && typeof notif.data === 'object') {
+      for (const [k, v] of Object.entries(notif.data)) {
+        if (v == null) continue;
+        stringData[k] = typeof v === 'string' ? v : (typeof v === 'object' ? JSON.stringify(v) : String(v));
+      }
+    }
     
     messages.push({
       to: notif.pushToken,
       sound: 'default',
       title: notif.title,
       body: notif.body,
-      data: notif.data || {},
+      data: stringData,
       priority: 'high',
       channelId: 'default',
+      ttl: 0,
+      _displayInForeground: true,
       badge: 1,
     });
   }
@@ -145,8 +187,35 @@ async function sendEventNotification({ type, recipientToken, senderName, data = 
       body = data.message || 'Sent you a message';
       break;
     case 'story':
+    case 'newStory':
+    case 'new_story':
+    case 'new-story':
       title = '📸 Story Update';
       body = `${senderName} posted a new story`;
+      break;
+    case 'story_share':
+    case 'story-share':
+    case 'storyShare':
+      title = '📸 Story Shared';
+      body = `${senderName} shared your story to their story`;
+      break;
+    case 'post_story_share':
+    case 'postStoryShare':
+    case 'post-story-share':
+      title = '📸 Post Shared to Story';
+      body = `${senderName} shared your post to their story`;
+      break;
+    case 'story_like':
+    case 'storyLike':
+    case 'story-like':
+      title = '❤️ Story Like';
+      body = `${senderName} liked your story`;
+      break;
+    case 'story_comment':
+    case 'storyComment':
+    case 'story-comment':
+      title = '💬 Story Comment';
+      body = (data?.comment || data?.text) ? `${senderName} commented: ${(data.comment || data.text).substring(0, 50)}` : `${senderName} commented on your story`;
       break;
     case 'live':
       title = '🔴 Live Now';
