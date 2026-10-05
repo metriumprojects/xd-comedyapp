@@ -18,7 +18,7 @@ import {
   Dimensions,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { createHighlight, uploadImage, getUserStories } from '../../lib/firebaseHelpers/index';
+import { createHighlight, uploadImage, getUserStories, getUserStoryArchive } from '../../lib/firebaseHelpers/index';
 import { getKeyboardOffset } from '../../utils/responsive';
 import { getVideoThumbnailUrl } from '../../lib/imageHelpers';
 import COLORS from '@/src/theme/colors';
@@ -68,12 +68,30 @@ export default function CreateHighlightModal({
     return resolveStoryThumbnailUrlSync(story);
   };
 
+  const formatStoryDate = (dateVal: any, isActive?: boolean) => {
+    if (isActive) return 'Active';
+    if (!dateVal) return '';
+    const d = new Date(dateVal);
+    if (isNaN(d.getTime())) return '';
+    const now = new Date();
+    const diffHours = (now.getTime() - d.getTime()) / (1000 * 60 * 60);
+    if (diffHours < 24) return 'Active';
+    if (diffHours < 48) return 'Yesterday';
+    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    return `${months[d.getMonth()]} ${d.getDate()}`;
+  };
+
   useEffect(() => {
     if (visible && userId) {
       const fetchStories = async () => {
         setLoadingStories(true);
         try {
-          const res = await getUserStories(userId);
+          // Fetch full story archive (both active and expired stories)
+          let res = await getUserStoryArchive(userId);
+          if (!res?.success || !res?.stories || res.stories.length === 0) {
+            // Fallback to active stories if archive call fails
+            res = await getUserStories(userId);
+          }
           if (res.success && res.stories) {
             setStories(res.stories);
             // If storyToInclude is specified, select it automatically
@@ -93,7 +111,7 @@ export default function CreateHighlightModal({
             }
           }
         } catch (error) {
-          console.error('[CreateHighlightModal] Error fetching user stories:', error);
+          console.error('[CreateHighlightModal] Error fetching user stories archive:', error);
         } finally {
           setLoadingStories(false);
         }
@@ -245,14 +263,29 @@ export default function CreateHighlightModal({
     }
 
     const itemWidth = (SCREEN_WIDTH - 40 - 16) / 3; // 40 horizontal padding, 16 gap
+    const selectedCount = selectedStoryIds.size;
+
     return (
-      <View style={{ marginTop: 24, paddingTop: 20 }}>
-        <Text style={{ fontSize: 15, fontWeight: '700', color: COLORS.textPrimary, marginBottom: 12 }}>Select Stories</Text>
+      <View style={{ marginTop: 24, paddingTop: 16 }}>
+        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+          <Text style={{ fontSize: 15, fontWeight: '700', color: COLORS.textPrimary }}>
+            Stories Archive ({stories.length})
+          </Text>
+          {selectedCount > 0 && (
+            <Text style={{ fontSize: 13, fontWeight: '600', color: COLORS.primary }}>
+              {selectedCount} selected
+            </Text>
+          )}
+        </View>
+
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
           {stories.map((story) => {
             const storyId = String(story.id || story._id);
             const mediaUrl = resolveStoryThumbnail(story);
-            const isSelected = selectedStoryIds.has(storyId);
+            const selectedOrder = Array.from(selectedStoryIds).indexOf(storyId);
+            const isSelected = selectedOrder !== -1;
+            const isStillActive = story.isActive || (story.expiresAt && new Date(story.expiresAt) > new Date());
+
             return (
               <TouchableOpacity
                 key={storyId}
@@ -260,40 +293,59 @@ export default function CreateHighlightModal({
                 onPress={() => toggleStory(storyId, story)}
                 style={{
                   width: itemWidth,
-                  height: itemWidth * 1.3,
-                  borderRadius: 8,
+                  height: itemWidth * 1.35,
+                  borderRadius: 10,
                   overflow: 'hidden',
                   backgroundColor: COLORS.surface,
-                  borderWidth: isSelected ? 3 : 0,
-                  borderColor: COLORS.info,
+                  borderWidth: isSelected ? 2.5 : 0.5,
+                  borderColor: isSelected ? COLORS.primary : 'rgba(255,255,255,0.1)',
                   position: 'relative',
                   marginBottom: 8,
                 }}
               >
                 <StoryThumbnail story={story} uri={mediaUrl} style={{ width: '100%', height: '100%' }} resizeMode="cover" />
 
-                {/* Checkbox overlay */}
+                {/* Numbered selection badge or unselected circle */}
                 <View style={{
                   position: 'absolute',
                   top: 6,
                   right: 6,
-                  backgroundColor: isSelected ? COLORS.info : 'rgba(0,0,0,0.3)',
-                  borderRadius: 10,
-                  width: 20,
-                  height: 20,
+                  backgroundColor: isSelected ? COLORS.primary : 'rgba(0, 0, 0, 0.45)',
+                  borderRadius: 11,
+                  width: 22,
+                  height: 22,
                   justifyContent: 'center',
                   alignItems: 'center',
                   borderWidth: isSelected ? 0 : 1.5,
-                  borderColor: COLORS.textLight
+                  borderColor: '#ffffff',
                 }}>
-                  {isSelected && <Ionicons name="checkmark" size={12} color={COLORS.textLight} />}
+                  {isSelected && (
+                    <Text style={{ color: '#ffffff', fontSize: 11, fontWeight: '700' }}>
+                      {selectedOrder + 1}
+                    </Text>
+                  )}
                 </View>
 
-                {story.mediaType === 'video' && (
-                  <View style={{ position: 'absolute', bottom: 6, left: 6 }}>
-                    <Ionicons name="play" size={14} color={COLORS.textLight} />
-                  </View>
-                )}
+                {/* Date or Active badge at bottom-left */}
+                <View style={{
+                  position: 'absolute',
+                  bottom: 6,
+                  left: 6,
+                  backgroundColor: isStillActive ? 'rgba(16, 185, 129, 0.9)' : 'rgba(0, 0, 0, 0.65)',
+                  paddingHorizontal: 6,
+                  paddingVertical: 2,
+                  borderRadius: 4,
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  gap: 3,
+                }}>
+                  {story.mediaType === 'video' && (
+                    <Ionicons name="play" size={10} color="#ffffff" />
+                  )}
+                  <Text style={{ color: '#ffffff', fontSize: 10, fontWeight: '600' }}>
+                    {formatStoryDate(story.createdAt, isStillActive)}
+                  </Text>
+                </View>
               </TouchableOpacity>
             );
           })}

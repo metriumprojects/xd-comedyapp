@@ -22,6 +22,13 @@ export function useHomeFeed(
   const pageRef = useRef<number>(0);
   const loadingMoreRef = useRef<boolean>(false);
   const categoryRef = useRef<string>(normalizedCategory);
+  const retryTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (retryTimeoutRef.current) clearTimeout(retryTimeoutRef.current);
+    };
+  }, []);
 
   const avatarHydrateReqIdRef = useRef(0);
   const avatarHydrateTaskRef = useRef<any>(null);
@@ -76,7 +83,7 @@ export function useHomeFeed(
     if (pageNum === 0 && !options?.silent) setLoading(true);
 
     try {
-      const limit = 20;
+      const limit = 25;
 
       // Build params — pass category filter to backend
       const params: any = {
@@ -118,7 +125,7 @@ export function useHomeFeed(
       cursorDateRef.current = nextCursorDate;
       pageRef.current = pageNum;
 
-      // If main feed returned nothing, try recommended endpoint (includes category if specified)
+      // If main feed returned nothing, try recommended endpoint for unseen posts
       if (pageNum > 0 && postsData.length === 0) {
         const excludeIds = (allLoadedPostsRef.current || [])
           .map((p: any) => String(p?.id || p?._id || ''))
@@ -133,27 +140,36 @@ export function useHomeFeed(
           });
           if (recRes?.success && Array.isArray(recRes.data) && recRes.data.length > 0) {
             postsData = recRes.data;
-          } else {
-            // Instagram Reels Infinite Loop: If all recent posts have been seen,
-            // fetch discovery/randomized reels without excludeIds so feed never ends!
-            const infiniteRes = await apiService.getRecommendedPosts({
-              limit,
-              category: activeCategory || undefined,
-              requesterUserId: currentUserId || undefined,
-            });
-            if (infiniteRes?.success && Array.isArray(infiniteRes.data)) {
-              postsData = infiniteRes.data;
-            }
           }
         } catch {}
       }
 
-      // Continuous infinite feed for Reels (like Instagram)
-      setHasMorePosts(true);
+      // Instagram Reels continuous discovery: If all posts in DB have been seen,
+      // sample reels excluding only the last 8 so feed never terminates
+      if (pageNum > 0 && postsData.length === 0) {
+        const recentExclude = (allLoadedPostsRef.current || [])
+          .map((p: any) => String(p?.id || p?._id || ''))
+          .filter(Boolean)
+          .slice(-8);
+        try {
+          const loopRes = await apiService.getRecommendedPosts({
+            limit,
+            category: activeCategory || undefined,
+            excludeIds: recentExclude.join(','),
+            requesterUserId: currentUserId || undefined,
+          });
+          if (loopRes?.success && Array.isArray(loopRes.data) && loopRes.data.length > 0) {
+            postsData = loopRes.data;
+          }
+        } catch {}
+      }
 
-      const normalizedPosts = postsData.map((p) => ({
+      setHasMorePosts(postsData.length > 0);
+
+      const normalizedPosts = postsData.map((p, idx) => ({
         ...p,
         id: p.id || p._id,
+        feedInstanceId: `${String(p.id || p._id || 'reel')}-p${pageNum}-${idx}-${Date.now().toString(36)}`,
         isPrivate: p.isPrivate ?? false,
         allowedFollowers: p.allowedFollowers || [],
       }));
@@ -278,13 +294,15 @@ export function useHomeFeed(
         });
         setPosts((prev) => {
           const cur = Array.isArray(prev) ? prev : [];
-          const seen = new Set(cur.map((p: any) => String(p?.id || p?._id || '')));
+          // Prevent immediate back-to-back duplicates from the last 3 items
+          const recentSeen = new Set(cur.slice(-3).map((p: any) => String(p?.id || p?._id || '')));
           const toAdd = normalizedPosts.filter((p) => {
             const id = String(p?.id || p?._id || '');
-            if (!id || seen.has(id)) return false;
-            seen.add(id);
-            return true;
+            return id && !recentSeen.has(id);
           });
+          if (toAdd.length === 0) {
+            return cur;
+          }
           return [...cur, ...toAdd];
         });
       }
@@ -340,9 +358,19 @@ export function useHomeFeed(
 
     try {
       const nextPage = pageRef.current + 1;
-      await loadInitialFeed(nextPage);
+      const res = await loadInitialFeed(nextPage);
+      if (res && res.length > 0) {
+        if (retryTimeoutRef.current) clearTimeout(retryTimeoutRef.current);
+      }
     } catch (err) {
       console.error('[HomeFeed] loadMore error:', err);
+      // Silent auto-retry once after 2.5s on network glitch
+      if (retryTimeoutRef.current) clearTimeout(retryTimeoutRef.current);
+      retryTimeoutRef.current = setTimeout(() => {
+        if (!loadingMoreRef.current) {
+          loadMorePosts();
+        }
+      }, 2500);
     } finally {
       loadingMoreRef.current = false;
       setLoadingMore(false);

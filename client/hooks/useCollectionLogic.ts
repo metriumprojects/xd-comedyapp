@@ -17,6 +17,7 @@ export function useCollectionLogic(postId: string, currentUid: string | null) {
   const [collections, setCollections] = useState<Collection[]>([]);
   const [loadingCollections, setLoadingCollections] = useState(false);
   const [isUpdating, setIsUpdating] = useState(false);
+  const [updatingColId, setUpdatingColId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
   const loadCollections = useCallback(async () => {
@@ -38,12 +39,13 @@ export function useCollectionLogic(postId: string, currentUid: string | null) {
   }, [currentUid]);
 
   const togglePostInCollection = async (collectionId: string, showToast: (msg: string) => void) => {
-    if (!currentUid || isUpdating) return;
+    if (!currentUid || isUpdating || updatingColId) return;
     const col = collections.find(c => c._id === collectionId);
     if (!col) return;
     
     const isCurrentlySaved = col.postIds?.includes(postId);
     setIsUpdating(true);
+    setUpdatingColId(collectionId);
     try {
       const body = {
         ...(isCurrentlySaved ? { removePostId: postId } : { addPostId: postId }),
@@ -73,6 +75,7 @@ export function useCollectionLogic(postId: string, currentUid: string | null) {
       Alert.alert('Error', e?.response?.data?.error || e?.message || 'Failed to update collection');
     } finally {
       setIsUpdating(false);
+      setUpdatingColId(null);
     }
     return null;
   };
@@ -110,6 +113,7 @@ export function useCollectionLogic(postId: string, currentUid: string | null) {
     collections,
     loadingCollections,
     isUpdating,
+    updatingColId,
     saving,
     loadCollections,
     togglePostInCollection,

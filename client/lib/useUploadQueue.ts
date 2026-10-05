@@ -127,6 +127,19 @@ const processNextUpload = async () => {
             tasks: s.tasks.map((t) => (t.id === task.id ? { ...t, status: 'success', progress: 100 } : t)),
           }));
 
+          // Trigger local notification so user sees completion banner if app was backgrounded
+          try {
+            const Notifications = require('expo-notifications');
+            Notifications.scheduleNotificationAsync({
+              content: {
+                title: 'Upload Complete! 🎉',
+                body: 'Your post was successfully uploaded and is now live.',
+                sound: 'default',
+              },
+              trigger: null,
+            }).catch(() => {});
+          } catch {}
+
           setTimeout(() => {
             const currentState = useUploadQueue.getState();
             if (currentState.tasks.find((t) => t.id === task.id)?.status === 'success') {
@@ -156,6 +169,19 @@ const processNextUpload = async () => {
             useUploadQueue.setState((s) => ({
               tasks: s.tasks.map((t) => (t.id === task.id ? { ...t, status: 'error', error: errMsg, retries } : t)),
             }));
+
+            // Alert user via local notification if final attempt fails
+            try {
+              const Notifications = require('expo-notifications');
+              Notifications.scheduleNotificationAsync({
+                content: {
+                  title: 'Upload Failed ⚠️',
+                  body: errMsg || 'Could not upload your post. Tap to retry.',
+                  sound: 'default',
+                },
+                trigger: null,
+              }).catch(() => {});
+            } catch {}
           }
         }
       }

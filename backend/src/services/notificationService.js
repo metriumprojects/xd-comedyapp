@@ -2,6 +2,7 @@ const mongoose = require('mongoose');
 const admin = require('firebase-admin');
 const { Expo } = require('expo-server-sdk');
 const expo = new Expo();
+const { resolveUserIdentifiers } = require('../utils/userUtils');
 
 async function sendExpoPushToUser(recipientId, message) {
   try {
@@ -9,14 +10,18 @@ async function sendExpoPushToUser(recipientId, message) {
     const User = mongoose.model('User');
 
     const rid = String(recipientId);
-    const query = {
+    const resolved = await resolveUserIdentifiers(rid).catch(() => ({ candidates: [rid], canonicalId: rid }));
+    const validObjectIds = (resolved.candidates || [rid])
+      .filter(c => mongoose.Types.ObjectId.isValid(c))
+      .map(c => new mongoose.Types.ObjectId(c));
+
+    const user = await User.findOne({
       $or: [
-        { _id: mongoose.Types.ObjectId.isValid(rid) ? new mongoose.Types.ObjectId(rid) : null },
-        { firebaseUid: rid },
-        { uid: rid },
+        { _id: { $in: validObjectIds } },
+        { firebaseUid: { $in: resolved.candidates || [rid] } },
+        { uid: { $in: resolved.candidates || [rid] } },
       ],
-    };
-    const user = await User.findOne(query);
+    });
     const pushToken = user?.pushToken;
     
     if (process.env.NODE_ENV !== 'production' || __DEV__) {
@@ -31,6 +36,19 @@ async function sendExpoPushToUser(recipientId, message) {
       console.warn(`[push] No pushToken for user ${rid}`);
       return { success: false, error: 'no pushToken' };
     }
+
+    // Determine badge count dynamically based on unread notifications
+    let dynamicBadge = 1;
+    try {
+      const Notification = mongoose.model('Notification');
+      const unreadCount = await Notification.countDocuments({
+        recipientId: { $in: resolved.candidates || [rid] },
+        read: false,
+      });
+      dynamicBadge = typeof message.badge === 'number' ? message.badge : Math.max(1, unreadCount);
+    } catch {
+      dynamicBadge = typeof message.badge === 'number' ? message.badge : 1;
+    }
     
     // Check if it's an Expo token
     if (Expo.isExpoPushToken(pushToken)) {
@@ -41,7 +59,7 @@ async function sendExpoPushToUser(recipientId, message) {
         channelId: 'default',
         ttl: 0,
         _displayInForeground: true,
-        badge: 1,
+        badge: dynamicBadge,
         ...message,
       };
 
@@ -95,7 +113,7 @@ async function sendExpoPushToUser(recipientId, message) {
             payload: {
               aps: {
                 sound: 'default',
-                badge: 1,
+                badge: dynamicBadge,
               },
             },
           },

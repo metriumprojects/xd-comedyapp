@@ -132,6 +132,10 @@ export default function NotificationsModal({ visible, onClose }: NotificationsMo
     // Animate open and pause background video reels
     useEffect(() => {
         if (visible) {
+            try {
+                const Notifications = require('expo-notifications');
+                Notifications.setBadgeCountAsync(0).catch(() => {});
+            } catch {}
             translateY.setValue(SCREEN_HEIGHT);
             backdropOpacity.setValue(0);
             Animated.parallel([

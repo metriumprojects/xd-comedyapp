@@ -19,6 +19,7 @@ import * as Haptics from 'expo-haptics';
 import { useFocusEffect, useLocalSearchParams, useRouter, useNavigation } from "expo-router";
 import { useReelsStore } from "@/store/useReelsStore";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { LinearGradient } from 'expo-linear-gradient';
 import AsyncStorage from '@/lib/storage';
 import { useIsFocused } from '@react-navigation/native';
 
@@ -318,7 +319,7 @@ export default function Home() {
     if (filter) {
       const normFilter = filter.toLowerCase().replace(/[-_\s]+/g, ' ').trim();
       result = result.filter((p: any) => {
-        if (!p.category) return true; // keep if backend returned it for this category
+        if (!p.category) return false;
         const normCat = String(p.category).toLowerCase().replace(/[-_\s]+/g, ' ').trim();
         return normCat === normFilter;
       });
@@ -371,7 +372,11 @@ export default function Home() {
     if (targetIndex !== activeIndex && targetIndex >= 0 && targetIndex < filteredPosts.length && Math.abs(y - targetIndex * containerHeight) < containerHeight * 0.4) {
       setActiveIndex(targetIndex);
     }
-  }, [containerHeight, activeIndex, filteredPosts.length, setActiveIndex]);
+    // Seamless prefetch: trigger next batch early when 8 reels remain
+    if (targetIndex >= filteredPosts.length - 8) {
+      loadMorePosts();
+    }
+  }, [containerHeight, activeIndex, filteredPosts.length, setActiveIndex, loadMorePosts]);
 
   const handleMomentumScrollEnd = useCallback((event: any) => {
     const y = event.nativeEvent.contentOffset.y;
@@ -379,15 +384,18 @@ export default function Home() {
     if (targetIndex !== activeIndex && targetIndex >= 0 && targetIndex < filteredPosts.length) {
       setActiveIndex(targetIndex);
     }
-  }, [containerHeight, activeIndex, filteredPosts.length, setActiveIndex]);
+    if (targetIndex >= filteredPosts.length - 8) {
+      loadMorePosts();
+    }
+  }, [containerHeight, activeIndex, filteredPosts.length, setActiveIndex, loadMorePosts]);
 
-  // Predictive Hybrid Prefetch: Prefetch thumbnails and videos for next 2 reels (+1 and +2)
+  // Predictive Hybrid Prefetch: Prefetch thumbnails and videos for next 3 reels (+1, +2, +3)
   // Debounced by 350ms so rapid-swiping does not generate wasted network requests.
   useEffect(() => {
     if (!filteredPosts || filteredPosts.length === 0) return;
 
     const timer = setTimeout(() => {
-      const targets = [activeIndex + 1, activeIndex + 2];
+      const targets = [activeIndex + 1, activeIndex + 2, activeIndex + 3];
       for (const targetIdx of targets) {
         if (targetIdx >= 0 && targetIdx < filteredPosts.length) {
           const post = filteredPosts[targetIdx];
@@ -489,22 +497,9 @@ export default function Home() {
   }, [currentUserData, currentUserId, isMuted, containerHeight, isFullscreenMode, isScreenFocused, followedStories, isHomeStoriesViewerVisible, toggleMute, toggleFullscreen]);
 
   const keyExtractor = useCallback((item: any, index: number) => {
-    const id = item?.id || item?._id;
+    const id = item?.feedInstanceId || item?.id || item?._id;
     return id ? `reel-${String(id)}` : `reel-fallback-${index}`;
   }, []);
-
-  // Full-height spinning loader at the end of loaded reels (Instagram Reels style infinite feed)
-  const renderListFooter = useCallback(() => {
-    if (filteredPosts.length === 0) return null;
-    return (
-      <View style={[styles.footerLoaderContainer, { height: containerHeight }]}>
-        <View style={styles.footerLoaderBox}>
-          <ActivityIndicator size="large" color={COLORS.primary} />
-          <Text style={styles.footerLoaderText}>Loading more reels...</Text>
-        </View>
-      </View>
-    );
-  }, [filteredPosts.length, containerHeight]);
 
   return (
     <View style={styles.container} onLayout={onLayout}>
@@ -515,7 +510,6 @@ export default function Home() {
           data={filteredPosts}
           renderItem={renderReelItem}
           keyExtractor={keyExtractor}
-          ListFooterComponent={renderListFooter}
           pagingEnabled
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
@@ -523,12 +517,12 @@ export default function Home() {
           onMomentumScrollEnd={handleMomentumScrollEnd}
           scrollEventThrottle={16}
           onEndReached={loadMorePosts}
-          onEndReachedThreshold={2}
+          onEndReachedThreshold={4}
           decelerationRate="fast"
           snapToInterval={containerHeight}
-          windowSize={5}
-          initialNumToRender={2}
-          maxToRenderPerBatch={2}
+          windowSize={7}
+          initialNumToRender={3}
+          maxToRenderPerBatch={3}
           // Left off deliberately: each cell hosts the comment sheet and story viewer, and on Android
           // clipping detaches/reattaches their native subtree, which swallows the first touch. The
           // small window sizes above already keep only a couple of cells mounted.
@@ -624,8 +618,21 @@ export default function Home() {
 
       {/* 2. Absolute Top Overlays (Header controls, Search, Categories) */}
       {!isFullscreenMode && (
-        <View style={[styles.topOverlays, { paddingTop: insets.top || 8 }]} pointerEvents="box-none">
-          {/* Header navigation and controls */}
+        <View style={styles.topOverlays} pointerEvents="box-none">
+          <LinearGradient
+            colors={[
+              'rgba(0, 0, 0, 0.75)',
+              'rgba(0, 0, 0, 0.45)',
+              'rgba(0, 0, 0, 0.18)',
+              'rgba(0, 0, 0, 0.03)',
+              'transparent'
+            ]}
+            locations={[0, 0.35, 0.65, 0.88, 1]}
+            style={[StyleSheet.absoluteFill, { bottom: -30 }]}
+            pointerEvents="none"
+          />
+          <View style={{ paddingTop: insets.top || 8 }} pointerEvents="box-none">
+            {/* Header navigation and controls */}
           <View style={styles.headerRow} pointerEvents="box-none">
             {filter || searchQuery ? (
               <TouchableOpacity
@@ -733,7 +740,14 @@ export default function Home() {
                         name="stats-chart"
                         size={14}
                         color={isActive ? '#000000' : '#ffffff'}
-                        style={{ marginRight: 4 }}
+                        style={[
+                          { marginRight: 4 },
+                          !isActive && {
+                            textShadowColor: 'rgba(0, 0, 0, 0.45)',
+                            textShadowOffset: { width: 0, height: 1 },
+                            textShadowRadius: 2,
+                          }
+                        ]}
                       />
                     )}
                     <Text style={[styles.categoryChipText, isActive && styles.categoryChipTextActive]}>
@@ -747,6 +761,7 @@ export default function Home() {
 
           {/* Uploading progress banner floating smoothly below categories */}
           <UploadProgressBanner />
+          </View>
         </View>
       )}
 
@@ -911,7 +926,7 @@ const styles = StyleSheet.create({
     height: 38,
     borderRadius: 19,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.5)',
+    borderColor: 'rgba(255, 255, 255, 0.55)',
     backgroundColor: 'transparent',
     marginHorizontal: 10,
     marginTop: 4,
@@ -920,6 +935,9 @@ const styles = StyleSheet.create({
   },
   searchIcon: {
     marginRight: 8,
+    textShadowColor: 'rgba(0, 0, 0, 0.45)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 2,
   },
   searchInput: {
     flex: 1,
@@ -927,6 +945,9 @@ const styles = StyleSheet.create({
     fontSize: 14,
     height: '100%',
     padding: 0,
+    textShadowColor: 'rgba(0, 0, 0, 0.45)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 2,
   },
   clearBtn: {
     paddingHorizontal: 4,
@@ -959,7 +980,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     backgroundColor: 'transparent',
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.5)',
+    borderColor: 'rgba(255, 255, 255, 0.55)',
     marginRight: 8,
   },
   categoryChipActive: {
@@ -970,26 +991,13 @@ const styles = StyleSheet.create({
     color: COLORS.white,
     fontSize: 13,
     fontWeight: '600',
+    textShadowColor: 'rgba(0, 0, 0, 0.45)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 2,
   },
   categoryChipTextActive: {
     color: COLORS.black,
-  },
-  footerLoaderContainer: {
-    width: '100%',
-    backgroundColor: '#000000',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  footerLoaderBox: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 24,
-  },
-  footerLoaderText: {
-    color: '#8E8E93',
-    fontSize: 14,
-    fontWeight: '500',
-    marginTop: 14,
-    letterSpacing: 0.2,
+    textShadowRadius: 0,
+    textShadowColor: 'transparent',
   },
 });

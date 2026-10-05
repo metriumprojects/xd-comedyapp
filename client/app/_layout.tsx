@@ -13,6 +13,7 @@ enableScreens(true);
 
 import { Ionicons } from '@expo/vector-icons';
 import * as Font from 'expo-font';
+import * as Notifications from 'expo-notifications';
 import { StatusBar } from 'expo-status-bar';
 import { Stack } from "expo-router";
 import { useEffect, useState } from "react";
@@ -106,6 +107,18 @@ export default function RootLayout() {
         if (canonicalId && canonicalId !== userId) {
           setUserId(canonicalId);
         }
+        if (canonicalId) {
+          try {
+            const { requestNotificationPermissions, getPushNotificationToken, savePushToken } = require('../services/notificationService');
+            const perm = await requestNotificationPermissions();
+            if (perm?.success) {
+              const tokenRes = await getPushNotificationToken();
+              if (tokenRes?.success && tokenRes?.token) {
+                await savePushToken(canonicalId, tokenRes.token);
+              }
+            }
+          } catch {}
+        }
       } catch (e) {
         console.warn('[RootLayout] Failed to hydrate store userId:', e);
       }
@@ -128,8 +141,11 @@ export default function RootLayout() {
     loadFonts();
   }, []);
 
-  // Initialize backend on app start (wake up if sleeping)
+  // Initialize backend on app start (wake up if sleeping) and clear stuck notification badges
   useEffect(() => {
+    // Clear stuck OS notification badge count when app opens
+    Notifications.setBadgeCountAsync(0).catch(() => {});
+
     try {
       initializeBackend().catch((err: any) => {
         console.warn('Backend initialization failed:', err);
@@ -206,8 +222,12 @@ export default function RootLayout() {
     // Foreground-only: avoid background churn + battery drain
     start();
     const sub = AppState.addEventListener('change', (state) => {
-      if (state === 'active') start();
-      else stop();
+      if (state === 'active') {
+        Notifications.setBadgeCountAsync(0).catch(() => {});
+        start();
+      } else {
+        stop();
+      }
     });
 
     return () => {

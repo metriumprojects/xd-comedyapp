@@ -1,13 +1,19 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Animated, StyleSheet, Text, View } from 'react-native';
+import { Animated, AppState, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useSegments } from 'expo-router';
+import { useUIStore } from '@/store/useUIStore';
 import { useNetworkStatus } from '@/hooks/useOffline';
 import { feedEventEmitter } from '@/lib/feedEventEmitter';
 import * as Haptics from 'expo-haptics';
 
 export default function InstagramOfflineToast() {
   const insets = useSafeAreaInsets();
+  const segments = useSegments();
+  const { isTabBarVisible } = useUIStore();
+  const hasBottomNav = segments?.[0] === '(tabs)' && isTabBarVisible;
+  const bottomOffset = Math.max(insets.bottom, 16) + (hasBottomNav ? 60 : 0);
   const { isOnline } = useNetworkStatus();
   const [visible, setVisible] = useState(false);
   const [toastMessage, setToastMessage] = useState('No Internet Connection');
@@ -64,14 +70,32 @@ export default function InstagramOfflineToast() {
     });
   };
 
-  // Listen to network status changes
+  // Listen to network status changes with debounce and AppState guard
   useEffect(() => {
+    // Ignore status changes while in background or during lock/unlock transition
+    if (AppState.currentState !== 'active') {
+      prevOnlineRef.current = isOnline;
+      return;
+    }
+
+    let debounceTimer: NodeJS.Timeout | null = null;
+
     if (prevOnlineRef.current === true && isOnline === false) {
-      showToast('No Internet Connection', 'offline', 3200);
+      // Debounce: verify disconnection persists for at least 2.5s before showing toast
+      debounceTimer = setTimeout(() => {
+        if (AppState.currentState === 'active') {
+          showToast('No Internet Connection', 'offline', 3200);
+        }
+      }, 2500);
     } else if (prevOnlineRef.current === false && isOnline === true) {
       showToast('Back Online', 'online', 2000);
     }
+
     prevOnlineRef.current = isOnline;
+
+    return () => {
+      if (debounceTimer) clearTimeout(debounceTimer);
+    };
   }, [isOnline]);
 
   // Listen to manual triggers (e.g. pull to refresh while offline)
@@ -94,7 +118,7 @@ export default function InstagramOfflineToast() {
       style={[
         styles.toastContainer,
         {
-          bottom: Math.max(insets.bottom, 12) + 60, // Positioned right above the bottom tab bar
+          bottom: bottomOffset,
           transform: [{ translateY }],
           opacity,
         },

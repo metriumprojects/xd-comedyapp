@@ -379,7 +379,7 @@ async function uploadMedia(fileBufferOrPath, folder, context, mediaType = 'auto'
     resource_type: finalMediaType, // For backwards compatibility
     width,
     height,
-    aspectRatio: width && height ? width / height : 1,
+    aspectRatio: width && height ? width / height : undefined,
     thumbnailUrl
   };
 }

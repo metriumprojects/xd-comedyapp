@@ -43,6 +43,8 @@ export type GalleryAsset = {
   uri: string;
   mediaType: 'photo' | 'video';
   duration?: number;
+  width?: number;
+  height?: number;
 };
 
 export const isVideoUri = (uri: string, galleryAssets?: GalleryAsset[]) => {
@@ -227,7 +229,9 @@ export const useCreatePost = (params: any = {}) => {
         id: String(a.id),
         uri: String(a.uri),
         mediaType: (a.mediaType === 'video' ? 'video' : 'photo') as "photo" | "video",
-        duration: typeof a.duration === 'number' && a.duration > 2520 ? (a.duration / 1000) : a.duration
+        duration: typeof a.duration === 'number' && a.duration > 2520 ? (a.duration / 1000) : a.duration,
+        width: typeof a.width === 'number' ? a.width : undefined,
+        height: typeof a.height === 'number' ? a.height : undefined,
       }));
       setGalleryAssets(prev => after ? [...prev, ...mapped] : mapped);
       setGalleryEndCursor(page.endCursor);
@@ -485,6 +489,10 @@ export const useCreatePost = (params: any = {}) => {
       if (!authUserId) throw new Error('User not authenticated');
 
       const isVideo = selectedImages.some(uri => isVideoUri(uri, galleryAssets));
+      const firstAsset = galleryAssets.find(a => a.uri === selectedImages[0]);
+      const detectedRatio = firstAsset?.width && firstAsset?.height && firstAsset.height > 0
+        ? (firstAsset.width / firstAsset.height)
+        : undefined;
 
       const uploadAction = async (onProgress?: (percent: number) => void) => {
         const currentAuthId = await getAuthenticatedUserId();
@@ -509,7 +517,7 @@ export const useCreatePost = (params: any = {}) => {
             selectedGroupId ? [selectedGroupId] : [],
             postType === 'STORY' ? 'story' : 'post',
             undefined,
-            undefined,
+            detectedRatio,
             subscriptionTierId,
             galleryAssets,
             onProgress
@@ -530,7 +538,7 @@ export const useCreatePost = (params: any = {}) => {
             selectedGroupId ? [selectedGroupId] : [],
             postType === 'STORY' ? 'story' : 'post',
             customThumbnailUri || undefined,
-            undefined,
+            detectedRatio,
             subscriptionTierId,
             galleryAssets,
             onProgress

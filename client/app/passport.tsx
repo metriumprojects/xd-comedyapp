@@ -29,8 +29,7 @@ import { reverseGeocode } from '../services/locationService';
 import * as Location from 'expo-location';
 import CountryFlag from '@/src/_components/CountryFlag';
 import { mapService } from '../services';
-import { getCachedData, setCachedData, useNetworkStatus, useOfflineBanner } from '../hooks/useOffline';
-import { OfflineBanner } from '@/src/_components/OfflineBanner';
+import { getCachedData, setCachedData, useNetworkStatus } from '../hooks/useOffline';
 
 const { width } = Dimensions.get('window');
 const STAMP_SIZE = Math.min(220, width - 72);
@@ -72,7 +71,6 @@ export default function PassportScreen() {
   const userId = (params.user as string) || currentUserId;
   const isOwner = !!(currentUserId && userId && currentUserId === userId);
   const { isOnline } = useNetworkStatus();
-  const { showBanner } = useOfflineBanner();
 
   const [stamps, setStamps] = useState<Stamp[]>([]);
   const [deleteStamp, setDeleteStamp] = useState<Stamp | null>(null);
@@ -586,9 +584,6 @@ export default function PassportScreen() {
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
-      {showBanner && stamps.length > 0 && (
-        <OfflineBanner text="You’re offline — showing cached passport" />
-      )}
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity style={styles.headerBtn} onPress={handleBack}>

@@ -20,6 +20,7 @@ import { BACKEND_URL } from "../../lib/api";
 import COLORS from '@/src/theme/colors';
 import { isVideoUrl } from '../../lib/utils/media';
 import { getVideoThumbnailUrl } from '../../lib/imageHelpers';
+import { getMediaRatio } from '../media/mediaRatioCache';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -345,11 +346,17 @@ const PostCard: React.FC<PostCardProps> = ({
       }
     }
 
-    return rawMedia.map((m: any, idx: number) => ({
-      ...m,
-      // Pass the grid thumbnail to the first item so it loads instantly from cache
-      thumbnailUrl: m.thumbnailUrl || (idx === 0 ? (post?.thumbnailUrl || post?.imageUrl || post?.gridThumb) : undefined)
-    }));
+    return rawMedia.map((m: any, idx: number) => {
+      const isVid = m.type === 'video' || (typeof m.url === 'string' && isVideoUrl(m.url));
+      const computedThumb = m.thumbnailUrl || (idx === 0 ? (post?.thumbnailUrl || post?.imageUrl || post?.gridThumb) : undefined) || (isVid && typeof m.url === 'string' ? getVideoThumbnailUrl(m.url) : undefined);
+      const cachedRatio = getMediaRatio(m.url, computedThumb, post?.mediaUrl, post?.thumbnailUrl);
+      const explicitRatio = (m.aspectRatio && m.aspectRatio !== 1 ? m.aspectRatio : null) || (post?.aspectRatio && post.aspectRatio !== 1 ? post.aspectRatio : null);
+      return {
+        ...m,
+        aspectRatio: cachedRatio || explicitRatio || m.aspectRatio || post?.aspectRatio,
+        thumbnailUrl: computedThumb,
+      };
+    });
   }, [post]);
 
   const isOwner = useMemo(() => {

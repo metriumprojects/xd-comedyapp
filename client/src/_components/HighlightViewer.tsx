@@ -198,7 +198,7 @@ const HighlightViewer: React.FC<HighlightViewerProps> = ({ visible, highlightId,
       transparent={false} 
       onRequestClose={handleClose}
     >
-      <SafeAreaView style={styles.container}>
+      <View style={styles.container}>
         {loading ? (
           <View style={styles.loadingContainer}>
             <ActivityIndicator size="large" color={COLORS.textLight} />
@@ -219,7 +219,7 @@ const HighlightViewer: React.FC<HighlightViewerProps> = ({ visible, highlightId,
             highlightId={highlightId || undefined}
           />
         )}
-      </SafeAreaView>
+      </View>
     </Modal>
   );
 };
@@ -241,7 +241,7 @@ const styles = StyleSheet.create({
   },
   closeBtnOverlay: {
     position: 'absolute',
-    top: 20,
+    top: Platform.OS === 'ios' ? 52 : 20,
     right: 20,
     zIndex: 10,
   },

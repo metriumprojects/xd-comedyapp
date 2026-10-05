@@ -67,6 +67,13 @@ export function setupNotificationListeners() {
         }
 
         console.log('☝️ Notification response:', JSON.stringify(response, null, 2));
+
+        // Clear app icon badge when notification is opened
+        try {
+          if (Notifications && Notifications.setBadgeCountAsync) {
+            Notifications.setBadgeCountAsync(0).catch(() => {});
+          }
+        } catch {}
         
         const data = response?.notification?.request?.content?.data;
         console.log('📦 Notification data:', JSON.stringify(data, null, 2));
@@ -211,6 +218,9 @@ export async function clearAllNotifications() {
     const Notifications = require('expo-notifications');
     if (Notifications && Notifications.dismissAllNotificationsAsync) {
       await Notifications.dismissAllNotificationsAsync();
+    }
+    if (Notifications && Notifications.setBadgeCountAsync) {
+      await Notifications.setBadgeCountAsync(0);
     }
   } catch (e) {
     console.warn('[NotificationHandler] Failed to clear notifications:', e);

@@ -360,6 +360,12 @@ export async function signOutUser(): Promise<{ success: boolean; error?: string 
     await AsyncStorage.removeItem('userId');
     await AsyncStorage.removeItem('userEmail');
 
+    // Clear notification badge count on logout
+    try {
+      const Notifications = require('expo-notifications');
+      Notifications.setBadgeCountAsync(0).catch(() => {});
+    } catch {}
+
     console.log('[signOutUser] ✅ Logout successful');
     return { success: true };
   } catch (error: any) {
@@ -551,6 +557,18 @@ export async function getUserStories(userId: string, requesterUserId?: string) {
     const res = await apiService.get(`/users/${userId}/stories`, params);
     return { success: res?.success !== false, stories: res?.data || [] };
   } catch (error: any) {
+    return { success: false, stories: [] };
+  }
+}
+
+// Helper to get full user stories archive (both active and expired stories)
+export async function getUserStoryArchive(userId: string) {
+  try {
+    const res = await apiService.get(`/users/${userId}/stories/archive`);
+    const stories = (res as any)?.data || (res as any)?.stories || [];
+    return { success: (res as any)?.success !== false, stories };
+  } catch (error: any) {
+    console.error('[getUserStoryArchive] Error:', error?.message);
     return { success: false, stories: [] };
   }
 }
@@ -1202,7 +1220,10 @@ export async function createPost(
       if (itemType === 'video' && upload.thumbnailUrl && !autoThumbnailUrl) {
         autoThumbnailUrl = upload.thumbnailUrl;
       }
-      if (!detectedAspectRatio && upload.aspectRatio) {
+      if (!detectedAspectRatio && assetMatch?.width && assetMatch?.height && assetMatch.height > 0) {
+        detectedAspectRatio = assetMatch.width / assetMatch.height;
+      }
+      if (!detectedAspectRatio && upload.aspectRatio && upload.aspectRatio !== 1) {
         detectedAspectRatio = upload.aspectRatio;
       }
       mediaIndex++;
@@ -1558,6 +1579,7 @@ export default {
   getUserHighlights,
   getHighlightStories,
   getUserStories,
+  getUserStoryArchive,
   getUserSectionsSorted,
   getPassportTickets,
   sendFollowRequest,

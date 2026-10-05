@@ -4,6 +4,9 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Dimensions, Modal, Platform, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { FlashList } from '@shopify/flash-list';
 import { feedEventEmitter } from '../../lib/feedEventEmitter';
+import { probeBatchPostRatios } from '../media/mediaRatioCache';
+import { prefetchVideo } from '../media/videoCache';
+import { getOptimizedMediaUrl, isVideoUrl } from '@/lib/utils/media';
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -15,12 +18,19 @@ interface Post {
   _id?: string;
   imageUrl?: string;
   imageUrls?: string[];
+  media?: any[];
+  mediaUrl?: string;
+  mediaUrls?: string[];
+  thumbnailUrl?: string;
+  gridThumb?: string;
+  aspectRatio?: number;
   caption?: string;
   userId: any;
   likes?: string[];
   savedBy?: string[];
   commentsCount?: number;
   comments?: any[];
+  [key: string]: any;
 }
 
 interface Profile {
@@ -89,29 +99,67 @@ export default function PostViewerModal({
     return () => subscription.remove();
   }, [onClose]);
 
-  const [activePostId, setActivePostId] = useState<string | null>(() => {
+  const firstPostId = useMemo(() => {
     if (Array.isArray(displayPosts) && displayPosts.length > 0) {
       const p = displayPosts[0];
       return String(p?.id || p?._id || '');
     }
     return null;
-  });
+  }, [displayPosts]);
 
-  // When modal OPENS (visible transitions from false to true), sync activePostId to the top post
-  const prevVisibleRef = useRef(false);
+  const [activePostId, setActivePostId] = useState<string | null>(firstPostId);
+
+  // Sync activePostId immediately when visible transitions to true or firstPostId changes
   useEffect(() => {
-    if (visible && !prevVisibleRef.current) {
-      if (Array.isArray(displayPosts) && displayPosts.length > 0) {
-        const p = displayPosts[0];
-        setActivePostId(String(p?.id || p?._id || ''));
-        flashListRef.current?.scrollToOffset({ offset: 0, animated: false });
-      }
+    if (visible && firstPostId) {
+      setActivePostId(firstPostId);
+      flashListRef.current?.scrollToOffset({ offset: 0, animated: false });
     }
-    prevVisibleRef.current = visible;
+  }, [visible, firstPostId]);
+
+  // Synchronous resolution prevents any 1-frame delayed playback on modal open
+  const effectiveActivePostId = (activePostId && displayPosts.some(p => String(p?.id || p?._id || '') === activePostId))
+    ? activePostId
+    : firstPostId;
+
+  // Proactively probe all post aspect ratios so scrolling has zero layout shifts / jhatka
+  useEffect(() => {
+    if (visible && displayPosts.length > 0) {
+      probeBatchPostRatios(displayPosts);
+    }
   }, [visible, displayPosts]);
 
+  // Auto-prefetch upcoming videos in the background for 0ms start on scroll
+  useEffect(() => {
+    if (!visible || !displayPosts.length) return;
+    const activeIdx = effectiveActivePostId
+      ? displayPosts.findIndex((p: any) => String(p?.id || p?._id || '') === effectiveActivePostId)
+      : 0;
+    const startIdx = Math.max(0, activeIdx);
+    const endIdx = Math.min(displayPosts.length, startIdx + 3);
+
+    for (let i = startIdx; i < endIdx; i++) {
+      const p = displayPosts[i];
+      const mediaList = Array.isArray(p?.media) && p.media.length > 0 ? p.media : [];
+      let vidUrl = '';
+      if (mediaList.length > 0) {
+        const m = mediaList[0];
+        if (m.type === 'video' || isVideoUrl(m.url)) vidUrl = m.url;
+      } else if (p?.mediaUrl && isVideoUrl(p.mediaUrl)) {
+        vidUrl = p.mediaUrl;
+      } else if (Array.isArray(p?.mediaUrls) && p.mediaUrls.length > 0 && isVideoUrl(p.mediaUrls[0])) {
+        vidUrl = p.mediaUrls[0];
+      }
+
+      if (vidUrl && vidUrl.startsWith('http')) {
+        const optUrl = getOptimizedMediaUrl(vidUrl);
+        prefetchVideo(optUrl).catch(() => {});
+      }
+    }
+  }, [visible, effectiveActivePostId, displayPosts]);
+
   const onViewableItemsChanged = useRef(({ viewableItems }: any) => {
-    if (viewableItems && viewableItems.length > 0) {
+    if (Array.isArray(viewableItems) && viewableItems.length > 0) {
       const visibleItem = viewableItems[0]?.item;
       if (visibleItem) {
         const id = String(visibleItem.id || visibleItem._id || '');
@@ -123,7 +171,8 @@ export default function PostViewerModal({
   }).current;
 
   const viewabilityConfig = useRef({
-    itemVisiblePercentThreshold: 60,
+    itemVisiblePercentThreshold: 50,
+    waitForInteraction: false,
   }).current;
 
   return (
@@ -155,7 +204,7 @@ export default function PostViewerModal({
           ref={flashListRef}
           data={displayPosts}
           keyExtractor={(item, index) => String(item?.id || item?._id || index)}
-          estimatedItemSize={500}
+          estimatedItemSize={620}
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
           decelerationRate="normal"
@@ -166,7 +215,7 @@ export default function PostViewerModal({
           removeClippedSubviews={false}
           renderItem={({ item }) => {
             const itemId = String(item?.id || item?._id || '');
-            const isItemActive = displayPosts.length <= 1 || (activePostId ? itemId === activePostId : false);
+            const isItemActive = displayPosts.length <= 1 || (effectiveActivePostId ? itemId === effectiveActivePostId : false);
             return (
               <PostCard
                 post={item}

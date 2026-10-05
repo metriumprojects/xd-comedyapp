@@ -93,7 +93,7 @@ export function useNetworkStatus() {
   return {
     isConnected,
     isInternetReachable,
-    isOnline: isConnected && isInternetReachable,
+    isOnline: isConnected !== false && isInternetReachable !== false,
     connectionType,
   };
 }

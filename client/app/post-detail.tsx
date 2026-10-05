@@ -7,8 +7,7 @@ import PostViewerModal from '@/src/_components/PostViewerModal';
 import CommentSection from '@/src/_components/CommentSection';
 import { sharePost } from '../lib/postShare';
 import { hapticLight } from '@/lib/haptics';
-import { getCachedData, setCachedData, useOfflineBanner, useNetworkStatus } from '../hooks/useOffline';
-import { OfflineBanner } from '@/src/_components/OfflineBanner';
+import { getCachedData, setCachedData, useNetworkStatus } from '../hooks/useOffline';
 import { safeRouterBack } from '@/lib/safeRouterBack';
 import { resolveCanonicalUserId } from '../lib/currentUser';
 import COLORS from '@/src/theme/colors';
@@ -33,7 +32,6 @@ export default function PostDetailScreen() {
   const [commentModalPostId, setCommentModalPostId] = useState("");
   const [commentModalAvatar, setCommentModalAvatar] = useState("");
   const { isOnline } = useNetworkStatus();
-  const { showBanner } = useOfflineBanner();
 
   const CACHE_KEY = `post_detail_v1_${String(id || '')}`;
 
@@ -163,9 +161,6 @@ export default function PostDetailScreen() {
 
   return (
     <View style={[styles.container, { paddingTop: safeTop, paddingBottom: safeBottom }]}>
-      {showBanner && (
-        <OfflineBanner text="You’re offline — showing saved post" />
-      )}
       {React.createElement(PostViewerModal as any, {
         visible: true,
         onClose: () => safeRouterBack(),

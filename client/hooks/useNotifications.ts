@@ -33,6 +33,10 @@ export const useNotifications = (userId: string, pollInterval = 60000) => {
       // Count unread
       const unread = data.filter((n: Notification) => !n.read).length;
       setUnreadCount(unread);
+      try {
+        const Notifications = require('expo-notifications');
+        Notifications.setBadgeCountAsync(unread).catch(() => {});
+      } catch {}
       
       console.log('[useNotifications] Fetched', data.length, 'notifications, unread:', unread);
     } catch (err) {
@@ -50,7 +54,14 @@ export const useNotifications = (userId: string, pollInterval = 60000) => {
       setNotifications(prev =>
         prev.map(n => n._id === notificationId ? { ...n, read: true } : n)
       );
-      setUnreadCount(prev => Math.max(0, prev - 1));
+      setUnreadCount(prev => {
+        const next = Math.max(0, prev - 1);
+        try {
+          const Notifications = require('expo-notifications');
+          Notifications.setBadgeCountAsync(next).catch(() => {});
+        } catch {}
+        return next;
+      });
     }
   };
 
@@ -59,6 +70,10 @@ export const useNotifications = (userId: string, pollInterval = 60000) => {
     if (success) {
       setNotifications(prev => prev.map(n => ({ ...n, read: true })));
       setUnreadCount(0);
+      try {
+        const Notifications = require('expo-notifications');
+        Notifications.setBadgeCountAsync(0).catch(() => {});
+      } catch {}
     }
   };
 
@@ -67,6 +82,10 @@ export const useNotifications = (userId: string, pollInterval = 60000) => {
     if (success) {
       setNotifications([]);
       setUnreadCount(0);
+      try {
+        const Notifications = require('expo-notifications');
+        Notifications.setBadgeCountAsync(0).catch(() => {});
+      } catch {}
     }
   };
 

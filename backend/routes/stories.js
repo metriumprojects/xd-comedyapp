@@ -8,6 +8,49 @@ const validate = require('../src/middleware/validateMiddleware');
 const { createStorySchema } = require('../src/validations/storyValidation');
 
 /**
+ * GET /api/stories/archive
+ * Get authenticated user's story archive (Active + Expired)
+ */
+router.get('/archive', verifyToken, async (req, res) => {
+  try {
+    const authenticatedUserId = req.userId;
+    const Story = mongoose.model('Story');
+    const { resolveUserIdentifiers } = require('../src/utils/userUtils');
+
+    const requesterResolved = await resolveUserIdentifiers(authenticatedUserId);
+    const userVariants = requesterResolved.candidates.map(String);
+    const now = new Date();
+
+    const stories = await Story
+      .find({
+        userId: { $in: userVariants },
+        isDeleted: { $ne: true }
+      })
+      .sort({ createdAt: -1 })
+      .lean();
+
+    const normalizedStories = stories.map(s => {
+      const isStillActive = s.expiresAt ? new Date(s.expiresAt) > now : false;
+      return {
+        ...s,
+        id: String(s._id),
+        imageUrl: s.image || null,
+        videoUrl: s.video || null,
+        mediaUrl: s.image || s.video || null,
+        mediaType: s.video ? 'video' : 'image',
+        thumbnailUrl: s.thumbnail || null,
+        isActive: isStillActive,
+        isArchived: !isStillActive,
+      };
+    });
+
+    res.json({ success: true, data: normalizedStories, stories: normalizedStories });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message, data: [], stories: [] });
+  }
+});
+
+/**
  * GET /api/stories/active
  * Get all active stories (Public)
  */

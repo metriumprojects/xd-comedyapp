@@ -172,6 +172,57 @@ router.post('/send-push', verifyToken, async (req, res, next) => {
   }
 });
 
+// Self-test push notification (Allows user to test their own device notifications)
+router.post('/test-self', verifyToken, async (req, res, next) => {
+  try {
+    const userId = req.userId;
+    const resolved = await resolveUserIdentifiers(userId);
+    const User = mongoose.model('User');
+    const user = await User.findOne({ 
+      $or: [
+        { _id: { $in: resolved.candidates.filter(c => mongoose.Types.ObjectId.isValid(c)) } },
+        { firebaseUid: { $in: resolved.candidates } },
+        { uid: { $in: resolved.candidates } }
+      ]
+    });
+
+    if (!user || !user.pushToken) {
+      return res.status(400).json({
+        success: false,
+        error: 'No push token found on your profile. Please ensure notification permissions are allowed on your device.'
+      });
+    }
+
+    // Save test notification in DB for in-app history
+    const notification = new Notification({
+      recipientId: resolved.canonicalId,
+      senderId: resolved.canonicalId,
+      senderName: 'Comedy App System',
+      type: 'test',
+      message: '🔔 Test Notification: Push notifications are working perfectly!',
+      read: false,
+      createdAt: new Date()
+    });
+    await notification.save();
+
+    // Send push notification to user's device
+    const { sendExpoPushToUser } = require('../src/services/notificationService');
+    const pushRes = await sendExpoPushToUser(resolved.canonicalId, {
+      title: '🔔 Test Notification',
+      body: 'Push notifications are working perfectly on your iPhone!',
+      data: { type: 'test' }
+    });
+
+    res.json({
+      success: true,
+      message: 'Test notification sent! Check your top notification bar.',
+      pushResult: pushRes
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
 // Trigger notification for events (Requires Auth)
 router.post('/trigger', verifyToken, async (req, res, next) => {
   try {

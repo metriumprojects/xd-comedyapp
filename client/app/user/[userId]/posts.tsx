@@ -7,7 +7,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import PostCard from '../../../src/_components/PostCard';
 import { apiService } from '../../../src/_services/apiService';
 import { feedEventEmitter } from '@/lib/feedEventEmitter';
-import { getCachedData, setCachedData, useNetworkStatus, useOfflineBanner } from '../../../hooks/useOffline';
+import { getCachedData, setCachedData, useNetworkStatus } from '../../../hooks/useOffline';
 import { safeRouterBack } from '@/lib/safeRouterBack';
 import COLORS from '@/src/theme/colors';
 
@@ -46,7 +46,6 @@ export default function UserPostsScreen() {
   const [skip, setSkip] = useState(0);
   const [activePostId, setActivePostId] = useState<string | null>(null);
   const { isOnline } = useNetworkStatus();
-  const { showBanner } = useOfflineBanner();
 
   const isPostVideo = (p: any): boolean => {
     if (!p) return false;
@@ -350,11 +349,6 @@ export default function UserPostsScreen() {
 
   return (
     <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
-      {showBanner && posts.length > 0 && (
-        <View style={styles.offlineBanner}>
-          <Text style={styles.offlineBannerText}>You’re offline — showing cached posts</Text>
-        </View>
-      )}
       <View style={styles.header}>
         <TouchableOpacity style={styles.backBtn} onPress={() => safeRouterBack()}>
           <Ionicons name="arrow-back" size={22} color={COLORS.textPrimary} />
@@ -433,15 +427,4 @@ const styles = StyleSheet.create({
   title: { flex: 1, fontSize: 16, fontWeight: '700', color: COLORS.textPrimary },
   footer: { paddingVertical: 16, alignItems: 'center' },
   missingText: { marginTop: 12, color: COLORS.textSecondary, fontSize: 14 },
-  offlineBanner: {
-    marginHorizontal: 12,
-    marginTop: 8,
-    marginBottom: 4,
-    backgroundColor: COLORS.textPrimary,
-    borderRadius: 12,
-    paddingVertical: 9,
-    paddingHorizontal: 12,
-    opacity: 0.92,
-  },
-  offlineBannerText: { color: COLORS.textLight, fontWeight: '700', textAlign: 'center' },
 });

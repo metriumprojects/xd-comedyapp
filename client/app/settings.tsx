@@ -10,6 +10,7 @@ import { resolveCanonicalUserId } from '@/lib/currentUser';
 import { auth } from '@/config/firebase';
 import AsyncStorage from '@/lib/storage';
 import { withdrawalService, type WithdrawalRecord } from '@/src/_services/withdrawalService';
+import { apiService } from '@/src/_services/apiService';
 import COLORS from '@/src/theme/colors';
 
 export default function SettingsScreen() {
@@ -19,6 +20,28 @@ export default function SettingsScreen() {
   const [payoutLoading, setPayoutLoading] = useState(true);
   const [payoutPage, setPayoutPage] = useState(1);
   const [payoutTotalPages, setPayoutTotalPages] = useState(1);
+  const [testingNotification, setTestingNotification] = useState(false);
+
+  const handleTestNotification = async () => {
+    hapticLight();
+    setTestingNotification(true);
+    try {
+      const res = await apiService.post('/notifications/test-self', {});
+      if (res?.success) {
+        Alert.alert(
+          'Notification Sent! 🔔',
+          'Press Home or lock your phone right now. You will receive the notification banner within 2-3 seconds!',
+          [{ text: 'OK' }]
+        );
+      } else {
+        Alert.alert('Notice', res?.error || 'Could not send test notification.');
+      }
+    } catch (err: any) {
+      Alert.alert('Error', err?.message || 'Failed to send test notification');
+    } finally {
+      setTestingNotification(false);
+    }
+  };
 
   const loadPayoutHistory = useCallback(async (page = 1) => {
     setPayoutLoading(true);
@@ -78,6 +101,24 @@ export default function SettingsScreen() {
         >
           <Feather name="message-circle" size={18} color={COLORS.primary} />
           <Text style={styles.feedbackText}>Send Feedback / Report Issue</Text>
+        </TouchableOpacity>
+
+        {/* Test Push Notification */}
+        <TouchableOpacity
+          style={[styles.settingsItem, { borderColor: COLORS.border }]}
+          disabled={testingNotification}
+          onPress={handleTestNotification}
+        >
+          <Feather name="bell" size={20} color={COLORS.primary} style={{ marginRight: 12 }} />
+          <View style={{ flex: 1 }}>
+            <Text style={styles.settingsTitle}>Test Push Notification</Text>
+            <Text style={styles.settingsSubtitle}>Send a real push notification to this iPhone</Text>
+          </View>
+          {testingNotification ? (
+            <ActivityIndicator size="small" color={COLORS.primary} />
+          ) : (
+            <Feather name="send" size={18} color={COLORS.primary} />
+          )}
         </TouchableOpacity>
 
         {/* Blocked Users Section */}

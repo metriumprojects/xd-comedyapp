@@ -67,6 +67,7 @@ export default function SaveToCollectionModal({
         collections,
         loadingCollections,
         isUpdating,
+        updatingColId,
         saving,
         loadCollections,
         togglePostInCollection,
@@ -269,6 +270,7 @@ export default function SaveToCollectionModal({
                         <CollectionListScreen
                             collections={collections} loading={loadingCollections} postId={postId}
                             postImageUrl={postImageUrl} isGloballySaved={isGloballySaved}
+                            updatingColId={updatingColId}
                             onGlobalToggle={handleGlobalToggle} onToggleCollection={(id) => togglePostInCollection(id, showToast)}
                             onGoToNew={() => { setScreen('new'); setTimeout(() => nameInputRef.current?.focus(), 350); }}
                             onClose={() => handleModalClose()} insets={insets} Header={Header}

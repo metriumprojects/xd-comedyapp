@@ -44,8 +44,7 @@ import { sharePost } from '../../lib/postShare';
 import { useHeaderHeight } from './_layout';
 import { resolveCanonicalUserId, getAuthenticatedUserId } from '../../lib/currentUser';
 import { hapticLight } from '../../lib/haptics';
-import { getCachedData, setCachedData, useOfflineBanner, useNetworkStatus } from '../../hooks/useOffline';
-import { OfflineBanner } from '@/src/_components/OfflineBanner';
+import { getCachedData, setCachedData, useNetworkStatus } from '../../hooks/useOffline';
 import { normalizeMediaUrl, isVideoUrl } from '../../lib/utils/media';
 import { getVideoThumbnailUrl } from '../../lib/imageHelpers';
 
@@ -242,7 +241,6 @@ export default function SavedScreen() {
   const [commentModalPostId, setCommentModalPostId] = useState("");
   const [commentModalAvatar, setCommentModalAvatar] = useState("");
   const { isOnline } = useNetworkStatus();
-  const { showBanner } = useOfflineBanner();
 
   const SAVED_CACHE_KEY = useCallback((userId: string) => `saved_v1_${String(userId || 'anon')}`, []);
 
@@ -299,6 +297,7 @@ export default function SavedScreen() {
         apiService.get(`/users/${requesterId}/saved`, {
           viewerId: requesterId,
           requesterUserId: requesterId,
+          limit: 100,
         }),
       ]);
 
@@ -320,6 +319,13 @@ export default function SavedScreen() {
 
       const mergedSections = Array.from(sectionsById.values());
       const mergedSavedRaw = Array.from(savedById.values());
+
+      // Sort by Saved Time descending (most recently saved post at the top, Instagram-style)
+      mergedSavedRaw.sort((a: any, b: any) => {
+        const timeA = new Date(a.savedAt || a.createdAt || 0).getTime();
+        const timeB = new Date(b.savedAt || b.createdAt || 0).getTime();
+        return timeB - timeA;
+      });
 
       setCollections(mergedSections);
 
@@ -1332,9 +1338,6 @@ export default function SavedScreen() {
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
-      {showBanner && (
-        <OfflineBanner text="You’re offline — showing saved collections" />
-      )}
       {/* Top bar */}
       <View style={styles.topBar}>
         <Text style={styles.topTitle} numberOfLines={1}>{pageTitle}</Text>

@@ -102,9 +102,8 @@ export const ReelItem = React.memo<ReelItemProps>(({
 
   const isModalOpen = useReelsStore((state) => state.isModalOpen);
   const isActive = useReelsStore((state) => state.activeIndex === index) && isScreenFocused && !isModalOpen;
-  // High-performance preload: active reel + immediate adjacent reel (±1)
-  // Dedicates full device bandwidth and decoder pipeline to the next upcoming video without saturating hardware decoders
-  const shouldLoad = useReelsStore((state) => Math.abs(index - state.activeIndex) <= 1);
+  // Forward-biased preloading: active reel + 1 previous (for smooth back-swipe) + next 2 upcoming reels
+  const shouldLoad = useReelsStore((state) => index >= state.activeIndex - 1 && index <= state.activeIndex + 2);
 
   useEffect(() => {
     if (resolvedUserId || cachedCanonicalUserId) return;
@@ -1478,7 +1477,7 @@ export const ReelItem = React.memo<ReelItemProps>(({
             {!isOwner && (
               <TouchableOpacity style={styles.actionBtn} onPress={handleFollow}>
                 <MaterialCommunityIcons
-                  name="account-multiple-plus"
+                  name={isFollowing ? "account-check" : "account-plus"}
                   size={30}
                   color={isFollowing ? "#4cd964" : COLORS.textLight}
                 />
@@ -1948,7 +1947,10 @@ export const ReelItem = React.memo<ReelItemProps>(({
       {showSavedToast && (
         <TouchableOpacity
           activeOpacity={0.9}
-          style={styles.savedToast}
+          style={[
+            styles.savedToast,
+            { bottom: isFullscreenMode ? Math.max(insets.bottom, 16) : 16 },
+          ]}
           onPress={() => {
             setShowSavedToast(false);
             setShowCollectionModal(true);

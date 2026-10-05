@@ -29,6 +29,8 @@ interface MediaItem {
 }
 
 import { getOptimizedMediaUrl } from '../../../lib/utils/media';
+import { isLocallyCached, getLocalCachePath, prefetchVideo } from '../../media/videoCache';
+import { getMediaRatio, setMediaRatio, probeMediaRatio } from '../../media/mediaRatioCache';
 
 const getMediaUrl = (url: string) => {
   return getOptimizedMediaUrl(url);
@@ -47,6 +49,7 @@ interface VideoItemProps {
   thumbnailUrl?: string;
   initialAspectRatio?: number;
   videoRef?: any;
+  onRatioDetected?: (ratio: number) => void;
 }
 
 const VideoItem: React.FC<VideoItemProps> = ({
@@ -59,20 +62,41 @@ const VideoItem: React.FC<VideoItemProps> = ({
   onPlayPress,
   thumbnailUrl,
   initialAspectRatio,
+  onRatioDetected,
 }) => {
   const videoViewRef = useRef<any>(null);
   const [isLoaded, setIsLoaded] = useState(false);
   const [isPlaying, setIsPlaying] = useState(false);
-  
-  // If stored ratio is 1.0, it was likely an unmeasured fallback in DB.
-  // We don't lock to 1.0 so thumbnail or video metadata can provide the real aspect ratio.
-  const isSuspiciousDefault = initialAspectRatio === 1;
-  const [naturalRatio, setNaturalRatio] = useState<number | null>(
-    initialAspectRatio && initialAspectRatio > 0 && !isSuspiciousDefault ? initialAspectRatio : null
-  );
 
   const mediaUri = getMediaUrl(url);
   const thumbUri = thumbnailUrl ? getMediaUrl(thumbnailUrl) : undefined;
+
+  // Use local disk cache for instant 0ms offline/disk playback
+  const playableUri = useMemo(() => {
+    if (!mediaUri) return '';
+    if (isLocallyCached(mediaUri)) {
+      return getLocalCachePath(mediaUri);
+    }
+    return mediaUri;
+  }, [mediaUri]);
+
+  // Background prefetch video to local cache if not yet cached
+  useEffect(() => {
+    if (mediaUri && mediaUri.startsWith('http') && !isLocallyCached(mediaUri)) {
+      prefetchVideo(mediaUri).catch(() => {});
+    }
+  }, [mediaUri]);
+
+  // Synchronously lookup cached or parsed aspect ratio
+  const isSuspiciousDefault = initialAspectRatio === 1;
+  const [naturalRatio, setNaturalRatio] = useState<number | null>(() => {
+    const cached = getMediaRatio(url, mediaUri, thumbnailUrl, thumbUri);
+    if (cached && cached > 0) return cached;
+    if (initialAspectRatio && initialAspectRatio > 0 && !isSuspiciousDefault) {
+      return initialAspectRatio;
+    }
+    return null;
+  });
 
   const [isFullscreen, setIsFullscreen] = useState(false);
 
@@ -96,26 +120,31 @@ const VideoItem: React.FC<VideoItemProps> = ({
   const handleRatio = useCallback((w: number, h: number) => {
     if (!w || !h || h === 0) return;
     const ratio = w / h;
+    setMediaRatio(url, ratio);
+    if (mediaUri) setMediaRatio(mediaUri, ratio);
+    if (thumbnailUrl) setMediaRatio(thumbnailUrl, ratio);
+    if (thumbUri) setMediaRatio(thumbUri, ratio);
     setNaturalRatio(ratio);
-  }, []);
+    onRatioDetected?.(ratio);
+  }, [url, mediaUri, thumbnailUrl, thumbUri, onRatioDetected]);
 
-  // Instantly probe thumbnail dimensions so the container sizes correctly in 0-16ms
+  // Instantly probe thumbnail dimensions so the container sizes correctly
   useEffect(() => {
     if (thumbUri && (!naturalRatio || isSuspiciousDefault)) {
-      Image.getSize(
-        thumbUri,
-        (w, h) => {
-          if (w && h) handleRatio(w, h);
-        },
-        () => {}
-      );
+      probeMediaRatio(thumbUri, mediaUri).then((r) => {
+        if (r && r > 0) {
+          setNaturalRatio(r);
+          onRatioDetected?.(r);
+        }
+      }).catch(() => {});
     }
-  }, [thumbUri, naturalRatio, isSuspiciousDefault, handleRatio]);
+  }, [thumbUri, mediaUri, naturalRatio, isSuspiciousDefault, onRatioDetected]);
 
   // High-performance native player from expo-video
-  const player = useVideoPlayer(mediaUri, (p) => {
+  const player = useVideoPlayer(playableUri, (p) => {
     p.loop = true;
     p.muted = isMuted;
+    p.staysActiveInBackground = false;
     if (shouldPlay) {
       p.play();
     }
@@ -157,11 +186,23 @@ const VideoItem: React.FC<VideoItemProps> = ({
     };
   }, [player]);
 
-  // Track readiness to hide thumbnail
+  // Track readiness to hide thumbnail and probe native dimensions if needed
   useEffect(() => {
     if (!player) return;
     if (player.status === 'readyToPlay') {
       setIsLoaded(true);
+      if (shouldPlay && !player.playing) {
+        player.play();
+      }
+      if (typeof player.generateThumbnailsAsync === 'function' && (!naturalRatio || isSuspiciousDefault)) {
+        player.generateThumbnailsAsync([0])
+          .then((thumbs: any[]) => {
+            if (thumbs?.[0]?.width && thumbs?.[0]?.height) {
+              handleRatio(thumbs[0].width, thumbs[0].height);
+            }
+          })
+          .catch(() => {});
+      }
     }
 
     const sub = player.addListener('statusChange', (statusChange: any) => {
@@ -170,13 +211,27 @@ const VideoItem: React.FC<VideoItemProps> = ({
         : statusChange;
       if (status === 'readyToPlay' || status === 'error') {
         setIsLoaded(true);
+        if (status === 'readyToPlay') {
+          if (shouldPlay && !player.playing) {
+            player.play();
+          }
+          if (typeof player.generateThumbnailsAsync === 'function' && (!naturalRatio || isSuspiciousDefault)) {
+            player.generateThumbnailsAsync([0])
+              .then((thumbs: any[]) => {
+                if (thumbs?.[0]?.width && thumbs?.[0]?.height) {
+                  handleRatio(thumbs[0].width, thumbs[0].height);
+                }
+              })
+              .catch(() => {});
+          }
+        }
       }
     });
 
     return () => {
       sub.remove();
     };
-  }, [player]);
+  }, [player, shouldPlay, naturalRatio, isSuspiciousDefault, handleRatio]);
 
   const handlePlayButtonPress = useCallback(() => {
     if (player) {
@@ -265,15 +320,10 @@ const VideoItem: React.FC<VideoItemProps> = ({
       )}
 
       {!isFullscreen && (
-        <View style={styles.videoOverlay} pointerEvents="box-none">
+        <View style={{ position: 'absolute', bottom: 12, right: 12, flexDirection: 'row', alignItems: 'center', gap: 8, zIndex: 20 }} pointerEvents="box-none">
           <TouchableOpacity activeOpacity={0.7} style={styles.muteButtonMini} onPress={toggleMute}>
             <Ionicons name={isMuted ? "volume-mute" : "volume-high"} size={16} color="#fff" />
           </TouchableOpacity>
-        </View>
-      )}
-
-      {!isFullscreen && (
-        <View style={styles.videoBottomOverlay} pointerEvents="box-none">
           <TouchableOpacity activeOpacity={0.7} style={styles.muteButtonMini} onPress={handleFullscreen}>
             <Ionicons name="expand" size={16} color="#fff" />
           </TouchableOpacity>
@@ -304,28 +354,36 @@ const ImageItem: React.FC<ImageItemProps> = ({
   isFullScreen,
   onRatioDetected,
 }) => {
-  const [naturalRatio, setNaturalRatio] = useState<number | null>(null);
   const mediaUri = getMediaUrl(url);
   const thumbUri = thumbnailUrl ? getMediaUrl(thumbnailUrl) : undefined;
+
+  const [naturalRatio, setNaturalRatio] = useState<number | null>(() => {
+    const cached = getMediaRatio(url, mediaUri, thumbnailUrl, thumbUri);
+    if (cached && cached > 0) return cached;
+    return null;
+  });
 
   const handleRatio = useCallback((w: number, h: number) => {
     if (!w || !h || h === 0) return;
     const ratio = w / h;
+    setMediaRatio(url, ratio);
+    if (mediaUri) setMediaRatio(mediaUri, ratio);
+    if (thumbnailUrl) setMediaRatio(thumbnailUrl, ratio);
+    if (thumbUri) setMediaRatio(thumbUri, ratio);
     setNaturalRatio(ratio);
     onRatioDetected?.(ratio);
-  }, [onRatioDetected]);
+  }, [url, mediaUri, thumbnailUrl, thumbUri, onRatioDetected]);
 
   useEffect(() => {
     if (thumbUri && !naturalRatio) {
-      Image.getSize(
-        thumbUri,
-        (w, h) => {
-          if (w && h) handleRatio(w, h);
-        },
-        () => {}
-      );
+      probeMediaRatio(thumbUri, mediaUri).then((r) => {
+        if (r && r > 0) {
+          setNaturalRatio(r);
+          onRatioDetected?.(r);
+        }
+      }).catch(() => {});
     }
-  }, [thumbUri, naturalRatio, handleRatio]);
+  }, [thumbUri, mediaUri, naturalRatio, onRatioDetected]);
 
   const fixedMode = containerHeight != null;
   const wrapperRatio = naturalRatio || 1;
@@ -433,7 +491,7 @@ const PostMedia: React.FC<PostMediaProps> = ({
   const firstItem = media?.[0];
 
   // ── MULTI-ITEM CAROUSEL PROPS & HOOKS (Must be declared unconditionally to satisfy Rules of Hooks) ────
-  const storedRatio = firstItem?.aspectRatio;
+  const storedRatio = (firstItem?.aspectRatio && firstItem.aspectRatio !== 1 ? firstItem.aspectRatio : null) || getMediaRatio(firstItem?.url, firstItem?.thumbnailUrl);
   const carouselHeight = isFullScreen
     ? Dimensions.get('window').height
     : mediaHeight || (storedRatio && storedRatio > 0 ? SCREEN_WIDTH / storedRatio : SCREEN_WIDTH);
@@ -598,17 +656,20 @@ const PostMedia: React.FC<PostMediaProps> = ({
         })}
       />
       {media.length > 1 && (
-        <View style={{
-          position: 'absolute',
-          bottom: 12,
-          right: 58,
-          backgroundColor: 'rgba(0,0,0,0.6)',
-          paddingHorizontal: 10,
-          paddingVertical: 4,
-          borderRadius: 12,
-          zIndex: 10,
-        }}>
-          <Text style={{ color: '#fff', fontSize: 12, fontWeight: '600' }}>
+        <View 
+          pointerEvents="none"
+          style={{
+            position: 'absolute',
+            top: isFullScreen ? 58 : 12,
+            right: isFullScreen ? 70 : 12,
+            backgroundColor: 'rgba(0, 0, 0, 0.7)',
+            paddingHorizontal: 9,
+            paddingVertical: 4,
+            borderRadius: 12,
+            zIndex: 25,
+          }}
+        >
+          <Text style={{ color: '#fff', fontSize: 12, fontWeight: '600', letterSpacing: 0.5 }}>
             {localActiveIndex + 1}/{media.length}
           </Text>
         </View>

@@ -17,6 +17,7 @@ interface CollectionListScreenProps {
   postId: string;
   postImageUrl?: string;
   isGloballySaved: boolean;
+  updatingColId?: string | null;
   onGlobalToggle: () => void;
   onToggleCollection: (id: string) => void;
   onGoToNew: () => void;
@@ -31,6 +32,7 @@ export const CollectionListScreen: React.FC<CollectionListScreenProps> = ({
   postId,
   postImageUrl,
   isGloballySaved,
+  updatingColId,
   onGlobalToggle,
   onToggleCollection,
   onGoToNew,
@@ -96,30 +98,38 @@ export const CollectionListScreen: React.FC<CollectionListScreenProps> = ({
         ) : (
           <ScrollView keyboardShouldPersistTaps="handled" style={{ flex: 1 }}>
             <View style={styles.collectionsList}>
-              {collections.map(col => (
-                <TouchableOpacity
-                  key={col._id}
-                  style={styles.collRow}
-                  onPress={() => onToggleCollection(col._id)}
-                  activeOpacity={0.7}
-                >
-                  <View style={styles.collThumb}>
-                    {col.coverImage ? (
-                      <ExpoImage source={{ uri: col.coverImage }} style={styles.collThumbImg} contentFit="cover" />
-                    ) : (
-                      <View style={[styles.collThumbImg, styles.collThumbPlaceholder]}>
-                        <Feather name="folder" size={24} color={COLORS.textMuted} />
+              {collections.map(col => {
+                const isThisColUpdating = updatingColId === col._id;
+                return (
+                  <TouchableOpacity
+                    key={col._id}
+                    style={styles.collRow}
+                    onPress={() => onToggleCollection(col._id)}
+                    disabled={!!updatingColId}
+                    activeOpacity={0.7}
+                  >
+                    <View style={styles.collThumb}>
+                      {col.coverImage ? (
+                        <ExpoImage source={{ uri: col.coverImage }} style={styles.collThumbImg} contentFit="cover" />
+                      ) : (
+                        <View style={[styles.collThumbImg, styles.collThumbPlaceholder]}>
+                          <Feather name="folder" size={24} color={COLORS.textMuted} />
+                        </View>
+                      )}
+                    </View>
+                    <Text style={styles.collName}>{col.name}</Text>
+                    {isThisColUpdating ? (
+                      <View style={{ width: 24, height: 24, alignItems: 'center', justifyContent: 'center' }}>
+                        <ActivityIndicator size="small" color={COLORS.primary} />
                       </View>
+                    ) : isSavedInCol(col) ? (
+                      <Ionicons name="checkmark-circle" size={24} color={COLORS.primary} />
+                    ) : (
+                      <Ionicons name="add-circle-outline" size={24} color={COLORS.textMuted} />
                     )}
-                  </View>
-                  <Text style={styles.collName}>{col.name}</Text>
-                  {isSavedInCol(col) ? (
-                    <Ionicons name="checkmark-circle" size={24} color={COLORS.primary} />
-                  ) : (
-                    <Ionicons name="add-circle-outline" size={24} color={COLORS.textMuted} />
-                  )}
-                </TouchableOpacity>
-              ))}
+                  </TouchableOpacity>
+                );
+              })}
             </View>
           </ScrollView>
         )}

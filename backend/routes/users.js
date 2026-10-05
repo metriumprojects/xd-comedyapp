@@ -1206,6 +1206,54 @@ router.get('/:userId/stories', async (req, res) => {
   }
 });
 
+// GET /api/users/:userId/stories/archive - Get full story archive for user (Active + Expired)
+// Requires Auth: A user can only access their own archive.
+router.get('/:userId/stories/archive', verifyToken, async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const authenticatedUserId = req.userId;
+
+    const Story = mongoose.model('Story');
+    const targetResolved = await resolveUserIdentifiers(userId);
+    const requesterResolved = await resolveUserIdentifiers(authenticatedUserId);
+
+    // Security check: Only the owner can view their private story archive
+    if (targetResolved.canonicalId !== requesterResolved.canonicalId) {
+      return res.status(403).json({ success: false, error: 'Access denied: You can only view your own story archive' });
+    }
+
+    const userVariants = targetResolved.candidates.map(String);
+    const now = new Date();
+
+    const stories = await Story
+      .find({
+        userId: { $in: userVariants },
+        isDeleted: { $ne: true }
+      })
+      .sort({ createdAt: -1 })
+      .lean();
+
+    const normalizedStories = stories.map(s => {
+      const isStillActive = s.expiresAt ? new Date(s.expiresAt) > now : false;
+      return {
+        ...s,
+        id: String(s._id),
+        imageUrl: s.image || null,
+        videoUrl: s.video || null,
+        mediaUrl: s.image || s.video || null,
+        mediaType: s.video ? 'video' : 'image',
+        thumbnailUrl: s.thumbnail || null,
+        isActive: isStillActive,
+        isArchived: !isStillActive,
+      };
+    });
+
+    res.json({ success: true, data: normalizedStories, stories: normalizedStories });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message, data: [], stories: [] });
+  }
+});
+
 // POST /api/users/:userId/follow - Follow user
 router.post('/:userId/follow', async (req, res) => {
   try {
@@ -1599,6 +1647,26 @@ router.post('/:userId/saved', verifyToken, async (req, res) => {
     post.savesCount = post.savedBy.length;
     await post.save();
 
+    // Keep SavedPost collection in sync with exact savedAt timestamp
+    try {
+      let SavedPost;
+      try { SavedPost = mongoose.model('SavedPost'); } catch {
+        const savedPostSchema = new mongoose.Schema({
+          userId: { type: String, required: true },
+          postId: { type: String, required: true },
+          savedAt: { type: Date, default: Date.now }
+        });
+        SavedPost = mongoose.model('SavedPost', savedPostSchema);
+      }
+      await SavedPost.findOneAndUpdate(
+        { userId: { $in: userIdCandidates }, postId: cleanPostId },
+        { $set: { userId: canonicalUserId, postId: cleanPostId, savedAt: new Date() } },
+        { upsert: true, new: true }
+      );
+    } catch (saveErr) {
+      console.warn('[POST /:userId/saved] SavedPost sync warning:', saveErr.message);
+    }
+
     console.log(`✅ Post ${postId} saved by user ${userId}`);
     res.json({ success: true, data: post });
   } catch (err) {
@@ -1640,6 +1708,22 @@ router.delete('/:userId/saved/:postId', verifyToken, async (req, res) => {
     post.savedBy = (Array.isArray(post.savedBy) ? post.savedBy : []).filter(id => !userIdCandidates.has(String(id)));
     post.savesCount = post.savedBy.length;
     await post.save();
+
+    // Remove from SavedPost collection
+    try {
+      let SavedPost;
+      try { SavedPost = mongoose.model('SavedPost'); } catch {
+        SavedPost = mongoose.models.SavedPost;
+      }
+      if (SavedPost) {
+        await SavedPost.deleteMany({
+          userId: { $in: Array.from(userIdCandidates) },
+          postId: cleanPostId
+        });
+      }
+    } catch (delErr) {
+      console.warn('[DELETE /:userId/saved/:postId] SavedPost delete warning:', delErr.message);
+    }
 
     console.log(`✅ Post ${postId} unsaved by user ${userId}`);
     res.json({ success: true, data: post });
@@ -1725,35 +1809,85 @@ router.get('/:userId/saved', verifyToken, async (req, res) => {
     const validColPostIds = collPostIds.filter(id => mongoose.Types.ObjectId.isValid(id)).map(id => new mongoose.Types.ObjectId(id));
     const stringColPostIds = collPostIds.map(id => String(id));
 
+    // Get all SavedPost records for this user to know exact savedAt timestamps
+    let SavedPost;
+    try { SavedPost = mongoose.model('SavedPost'); } catch {
+      SavedPost = mongoose.models.SavedPost;
+    }
+    const savedRecords = SavedPost
+      ? await SavedPost.find({ userId: { $in: uniqueVariants } }).sort({ savedAt: -1 }).lean()
+      : [];
+
+    const savedAtMap = new Map();
+    const savedPostIds = [];
+    savedRecords.forEach(s => {
+      const sid = String(s.postId || '');
+      if (sid) {
+        savedPostIds.push(sid);
+        savedAtMap.set(sid, new Date(s.savedAt || s.createdAt || Date.now()).getTime());
+      }
+    });
+
+    // For any section posts without explicit savedAt, set to section timestamp or recent
+    sections.forEach(s => {
+      const sTime = new Date(s.updatedAt || s.createdAt || Date.now()).getTime();
+      const pids = Array.isArray(s.postIds) ? s.postIds : [];
+      pids.forEach(p => {
+        const pid = typeof p === 'object' ? String(p._id || p.id || p.postId || '') : String(p || '');
+        if (pid && !savedAtMap.has(pid)) {
+          savedAtMap.set(pid, sTime);
+        }
+      });
+    });
+
+    const allRelevantIds = [...new Set([...validColPostIds, ...stringColPostIds, ...collPostIds, ...savedPostIds])];
+    const validObjectIds = allRelevantIds
+      .filter(id => mongoose.Types.ObjectId.isValid(id))
+      .map(id => new mongoose.Types.ObjectId(id));
+
     const postQuery = {
       $or: [
         { savedBy: { $in: uniqueVariants } },
-        { _id: { $in: [...validColPostIds, ...stringColPostIds, ...collPostIds] } }
+        { _id: { $in: validObjectIds } },
+        { id: { $in: allRelevantIds } }
       ]
     };
 
-    // Find posts where this user is in savedBy array OR part of their collections
-    const savedPosts = await Post.find(postQuery)
-      .sort({ createdAt: -1 })
-      .limit(parseInt(limit))
-      .skip(parseInt(skip))
-      .exec();
+    const savedPosts = await Post.find(postQuery).exec();
 
-    const totalSavedCount = await Post.countDocuments(postQuery);
+    // Sort by Saved Time descending (most recently saved post at the top, Instagram-style)
+    savedPosts.sort((a, b) => {
+      const idA = String(a._id || a.id || '');
+      const idB = String(b._id || b.id || '');
+      const timeA = savedAtMap.get(idA) || (a.updatedAt ? new Date(a.updatedAt).getTime() : new Date(a.createdAt || 0).getTime());
+      const timeB = savedAtMap.get(idB) || (b.updatedAt ? new Date(b.updatedAt).getTime() : new Date(b.createdAt || 0).getTime());
+      return timeB - timeA;
+    });
+
+    const totalSavedCount = savedPosts.length;
+    const parsedLimit = parseInt(limit) || 100;
+    const parsedSkip = parseInt(skip) || 0;
+    const paginatedPosts = savedPosts.slice(parsedSkip, parsedSkip + parsedLimit);
 
     // Enrich posts with user data
     const viewerId = req.query.viewerId || req.query.requesterUserId || null;
-    const enrichedPosts = await enrichPostsWithUserData(savedPosts, viewerId);
+    const enrichedPosts = await enrichPostsWithUserData(paginatedPosts, viewerId);
 
-    console.log(`✅ Retrieved ${enrichedPosts.length} saved posts for user ${userId}`);
+    // Attach savedAt timestamp to each enriched post
+    enrichedPosts.forEach(p => {
+      const pid = String(p._id || p.id || '');
+      p.savedAt = savedAtMap.get(pid) ? new Date(savedAtMap.get(pid)).toISOString() : (p.updatedAt || p.createdAt);
+    });
+
+    console.log(`✅ Retrieved ${enrichedPosts.length} saved posts for user ${userId} sorted by saved time`);
     res.json({
       success: true,
       data: enrichedPosts,
       pagination: {
         total: totalSavedCount,
-        limit: parseInt(limit),
-        skip: parseInt(skip),
-        hasMore: parseInt(skip) + parseInt(limit) < totalSavedCount
+        limit: parsedLimit,
+        skip: parsedSkip,
+        hasMore: parsedSkip + parsedLimit < totalSavedCount
       }
     });
   } catch (err) {

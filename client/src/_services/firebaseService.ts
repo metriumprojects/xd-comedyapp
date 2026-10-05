@@ -65,6 +65,15 @@ export async function getUserStories(userId: string, viewerId?: string) {
   }
 }
 
+export async function getUserStoryArchive(userId: string) {
+  try {
+    return await apiService.get(`/users/${userId}/stories/archive`);
+  } catch (err: any) {
+    console.error('[getUserStoryArchive] Error:', err.message);
+    return { success: false, error: err.message, data: [] };
+  }
+}
+
 export async function getUserHighlights(userId: string, viewerId?: string) {
   // Backend API call for user highlights
   try {

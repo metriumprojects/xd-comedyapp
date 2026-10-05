@@ -175,6 +175,24 @@ router.get('/:userId/saved', verifyToken, async (req, res) => {
       limit, 
       viewerId: userId 
     });
+
+    // Sort by savedAt descending (most recently saved post at the top)
+    const savedAtMap = new Map();
+    savedPosts.forEach((s) => {
+      savedAtMap.set(String(s.postId), new Date(s.savedAt || 0).getTime());
+    });
+    enrichedPosts.sort((a, b) => {
+      const idA = String(a._id || a.id || '');
+      const idB = String(b._id || b.id || '');
+      const timeA = savedAtMap.get(idA) || new Date(a.createdAt || 0).getTime();
+      const timeB = savedAtMap.get(idB) || new Date(b.createdAt || 0).getTime();
+      return timeB - timeA;
+    });
+
+    enrichedPosts.forEach((p) => {
+      const pid = String(p._id || p.id || '');
+      p.savedAt = savedAtMap.get(pid) ? new Date(savedAtMap.get(pid)).toISOString() : (p.updatedAt || p.createdAt);
+    });
     
     res.json({ success: true, data: enrichedPosts });
   } catch (err) {

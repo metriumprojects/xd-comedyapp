@@ -47,7 +47,7 @@ async function sendPushNotification(pushToken, title, body, data = {}) {
           notification: { title, body },
           data: stringData,
           android: { priority: 'high', notification: { sound: 'default', channelId: 'default' } },
-          apns: { payload: { aps: { sound: 'default', badge: 1 } } }
+          apns: { payload: { aps: { sound: 'default', ...(data?.badge != null ? { badge: Number(data.badge) } : {}) } } }
         };
         const res = await admin.messaging().send(fcmMessage);
         logger.info('✅ Native FCM Push notification sent: %s', res);
@@ -71,7 +71,7 @@ async function sendPushNotification(pushToken, title, body, data = {}) {
     channelId: 'default',
     ttl: 0,
     _displayInForeground: true,
-    badge: 1,
+    ...(data?.badge != null ? { badge: Number(data.badge) } : {}),
   };
 
   try {
@@ -125,7 +125,7 @@ async function sendBulkPushNotifications(notifications) {
       channelId: 'default',
       ttl: 0,
       _displayInForeground: true,
-      badge: 1,
+      ...(notif.badge != null ? { badge: Number(notif.badge) } : {}),
     });
   }
 

@@ -40,6 +40,7 @@ export {
   unlikeComment,
   getActiveStories,
   getUserStories,
+  getUserStoryArchive,
   createStory,
   addLikedStatusToPosts,
   getRegions,

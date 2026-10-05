@@ -49,7 +49,7 @@ import * as ImageManipulator from 'expo-image-manipulator';
 import { ResizeMode, Video } from 'expo-av';
 import { resolveCanonicalUserId } from '../../lib/currentUser';
 import { hapticLight, hapticMedium } from '../../lib/haptics';
-import { getCachedData, setCachedData, useNetworkStatus, useOfflineBanner } from '../../hooks/useOffline';
+import { getCachedData, setCachedData, useNetworkStatus } from '../../hooks/useOffline';
 
 // Shared Utilities & Components
 import { normalizeMediaUrl, normalizeAvatarUrl, isVideoUrl } from '../../lib/utils/media';
@@ -69,6 +69,7 @@ import { useProfileData } from '@/src/features/profile/hooks/useProfileData';
 import { SubscriptionModal } from '@/src/_components/profile/SubscriptionModal';
 import { subscriptionService } from '@/src/_services/subscriptionService';
 import { ProfileSkeleton } from '@/src/_components/profile/ProfileSkeleton';
+import { probeBatchPostRatios } from '@/src/media/mediaRatioCache';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 const isSmallDevice = SCREEN_HEIGHT < 700;
@@ -727,6 +728,13 @@ export default function Profile({ userIdProp }: any) {
     }
   }, [PROFILE_MAP_ENABLED, segmentTab]);
 
+  // Pre-probe aspect ratios in background while viewing grid so modal opening has 0ms layout shift
+  useEffect(() => {
+    if (Array.isArray(visiblePosts) && visiblePosts.length > 0) {
+      probeBatchPostRatios(visiblePosts);
+    }
+  }, [visiblePosts]);
+
   // Hook for actions
   const queryClient = useQueryClient();
   const {
@@ -1290,17 +1298,6 @@ export default function Profile({ userIdProp }: any) {
 }
 
 const styles = StyleSheet.create({
-  offlineBanner: {
-    marginHorizontal: 16,
-    marginTop: 10,
-    marginBottom: 2,
-    backgroundColor: COLORS.textPrimary,
-    borderRadius: 12,
-    paddingVertical: 10,
-    paddingHorizontal: 12,
-    opacity: 0.92,
-  },
-  offlineBannerText: { color: COLORS.textLight, fontWeight: '700', textAlign: 'center' },
   headerBackBtn: { padding: 4 },
   headerTitle: { fontSize: 18, fontWeight: 'bold', color: COLORS.textPrimary, maxWidth: 200, textAlign: 'left' },
   headerMenuBtn: { padding: 4 },
