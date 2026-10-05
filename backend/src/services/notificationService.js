@@ -57,8 +57,6 @@ async function sendExpoPushToUser(recipientId, message) {
         sound: 'default',
         priority: 'high',
         channelId: 'default',
-        ttl: 0,
-        _displayInForeground: true,
         badge: dynamicBadge,
         ...message,
       };
@@ -112,6 +110,10 @@ async function sendExpoPushToUser(recipientId, message) {
           apns: {
             payload: {
               aps: {
+                alert: {
+                  title: message.title,
+                  body: message.body,
+                },
                 sound: 'default',
                 badge: dynamicBadge,
               },

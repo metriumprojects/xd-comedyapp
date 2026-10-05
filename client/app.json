@@ -42,7 +42,7 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.hussain2125.comedyapp",
-      "buildNumber": "81",
+      "buildNumber": "82",
       "googleServicesFile": "./GoogleService-Info.plist",
       "config": {
         "googleMapsApiKey": "AIzaSyCQ1Fe55xOwt9fFfAiGIDVoEt01i2hL-zs"

@@ -26,11 +26,11 @@ export default function SettingsScreen() {
     hapticLight();
     setTestingNotification(true);
     try {
-      const res = await apiService.post('/notifications/test-self', {});
+      const res = await apiService.post('/notifications/test-self', { delaySeconds: 2 });
       if (res?.success) {
         Alert.alert(
           'Notification Sent! 🔔',
-          'Press Home or lock your phone right now. You will receive the notification banner within 2-3 seconds!',
+          'Test push notification sent! The banner will drop down from the top in 2 seconds.',
           [{ text: 'OK' }]
         );
       } else {
