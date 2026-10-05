@@ -31,7 +31,7 @@
       "channel": "production",
       "env": {
         "SENTRY_DISABLE_AUTO_UPLOAD": "true",
-        "EXPO_PUBLIC_API_BASE_URL": "https://comedyapp.onrender.com/api"
+        "EXPO_PUBLIC_API_BASE_URL": "https://xd-comedyapp.onrender.com/api"
       },
       "ios": {
         "image": "latest"
