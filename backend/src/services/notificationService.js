@@ -64,22 +64,27 @@ async function sendExpoPushToUser(recipientId, message) {
       console.log(`[push] Sending via Expo to ${rid} (${pushToken.substring(0, 10)}...): ${message.title}`);
 
       const chunks = expo.chunkPushNotifications([msg]);
+      let pushError = null;
       for (const chunk of chunks) {
         try {
           // eslint-disable-next-line no-await-in-loop
           const tickets = await expo.sendPushNotificationsAsync(chunk);
           console.log('[push] Expo tickets received:', tickets);
           for (const ticket of tickets) {
-            if (ticket.status === 'error' && ticket.details?.error === 'DeviceNotRegistered') {
-              console.warn(`[push] Unsetting invalid token for ${rid}`);
-              await User.updateOne({ _id: user._id }, { $unset: { pushToken: "" } });
+            if (ticket.status === 'error') {
+              pushError = ticket.details?.error || ticket.message || 'Expo ticket error';
+              if (ticket.details?.error === 'DeviceNotRegistered') {
+                console.warn(`[push] Unsetting invalid token for ${rid}`);
+                await User.updateOne({ _id: user._id }, { $unset: { pushToken: "" } });
+              }
             }
           }
         } catch (e) {
           console.warn('[push] Expo send error:', e?.message || e);
+          pushError = e?.message || String(e);
         }
       }
-      return { success: true };
+      return pushError ? { success: false, error: pushError } : { success: true };
     } else {
       // Try sending via FCM (Firebase Cloud Messaging)
       console.log(`[push] Sending via FCM to ${rid} (${pushToken.substring(0, 10)}...): ${message.title}`);

@@ -213,22 +213,12 @@ router.post('/test-self', verifyToken, async (req, res, next) => {
       data: { type: 'test' }
     };
 
-    const delayMs = Math.min(10000, Math.max(0, Number(req.body?.delaySeconds || 0) * 1000));
-    if (delayMs > 0) {
-      setTimeout(async () => {
-        try {
-          await sendExpoPushToUser(resolved.canonicalId, pushPayload);
-        } catch (e) {
-          console.error('[test-self] delayed push error:', e);
-        }
-      }, delayMs);
-    } else {
-      await sendExpoPushToUser(resolved.canonicalId, pushPayload);
-    }
+    const pushRes = await sendExpoPushToUser(resolved.canonicalId, pushPayload);
 
     res.json({
-      success: true,
-      message: 'Test notification sent! Check your top notification bar.'
+      success: !!pushRes?.success,
+      error: pushRes?.success ? undefined : (pushRes?.error || 'Push delivery failed'),
+      pushResult: pushRes
     });
   } catch (err) {
     next(err);
