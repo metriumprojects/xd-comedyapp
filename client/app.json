@@ -2,7 +2,7 @@
   "expo": {
     "name": "Comedy App",
     "slug": "comedy-app",
-    "version": "1.1.23",
+    "version": "1.1.24",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "comedy-app",
@@ -14,7 +14,7 @@
       "policy": "appVersion"
     },
     "android": {
-      "versionCode": 132,
+      "versionCode": 133,
       "adaptiveIcon": {
         "backgroundColor": "#000000",
         "foregroundImage": "./assets/images/android-icon-foreground.png",
