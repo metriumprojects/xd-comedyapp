@@ -24,13 +24,11 @@ async function sendExpoPushToUser(recipientId, message) {
     });
     const pushToken = user?.pushToken;
     
-    if (process.env.NODE_ENV !== 'production' || __DEV__) {
-      console.log(`[push] Resolving token for ${rid}:`, {
-        foundUser: !!user,
-        hasToken: !!pushToken,
-        tokenPrefix: pushToken ? pushToken.substring(0, 15) : 'none'
-      });
-    }
+    console.log(`[push] Resolving token for ${rid}:`, {
+      foundUser: !!user,
+      hasToken: !!pushToken,
+      tokenPrefix: pushToken ? pushToken.substring(0, 15) : 'none'
+    });
 
     if (!pushToken || typeof pushToken !== 'string') {
       console.warn(`[push] No pushToken for user ${rid}`);
